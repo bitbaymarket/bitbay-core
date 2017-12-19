@@ -19,17 +19,18 @@
 #define STORAGE_LEVELDB_INCLUDE_CACHE_H_
 
 #include <stdint.h>
+#include "leveldb/export.h"
 #include "leveldb/slice.h"
 
 namespace leveldb {
 
-class Cache;
+class LEVELDB_EXPORT Cache;
 
 // Create a new cache with a fixed size capacity.  This implementation
 // of Cache uses a least-recently-used eviction policy.
-extern Cache* NewLRUCache(size_t capacity);
+LEVELDB_EXPORT Cache* NewLRUCache(size_t capacity);
 
-class Cache {
+class LEVELDB_EXPORT Cache {
  public:
   Cache() { }
 
@@ -81,6 +82,17 @@ class Cache {
   // its cache keys.
   virtual uint64_t NewId() = 0;
 
+  // Remove all cache entries that are not actively in use.  Memory-constrained
+  // applications may wish to call this method to reduce memory usage.
+  // Default implementation of Prune() does nothing.  Subclasses are strongly
+  // encouraged to override the default implementation.  A future release of
+  // leveldb may change Prune() to a pure abstract method.
+  virtual void Prune() {}
+
+  // Return an estimate of the combined charges of all elements stored in the
+  // cache.
+  virtual size_t TotalCharge() const = 0;
+
  private:
   void LRU_Remove(Handle* e);
   void LRU_Append(Handle* e);
@@ -96,4 +108,4 @@ class Cache {
 
 }  // namespace leveldb
 
-#endif  // STORAGE_LEVELDB_UTIL_CACHE_H_
+#endif  // STORAGE_LEVELDB_INCLUDE_CACHE_H_

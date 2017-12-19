@@ -6,6 +6,7 @@
 #define STORAGE_LEVELDB_INCLUDE_OPTIONS_H_
 
 #include <stddef.h>
+#include "leveldb/export.h"
 
 namespace leveldb {
 
@@ -28,7 +29,7 @@ enum CompressionType {
 };
 
 // Options to control the behavior of a database (passed to DB::Open)
-struct Options {
+struct LEVELDB_EXPORT Options {
   // -------------------
   // Parameters that affect behavior
 
@@ -112,6 +113,18 @@ struct Options {
   // Default: 16
   int block_restart_interval;
 
+  // Leveldb will write up to this amount of bytes to a file before
+  // switching to a new one.
+  // Most clients should leave this parameter alone.  However if your
+  // filesystem is more efficient with larger files, you could
+  // consider increasing the value.  The downside will be longer
+  // compactions and hence longer latency/performance hiccups.
+  // Another reason to increase this parameter might be when you are
+  // initially populating a large database.
+  //
+  // Default: 2MB
+  size_t max_file_size;
+
   // Compress blocks using the specified compression algorithm.  This
   // parameter can be changed dynamically.
   //
@@ -128,6 +141,12 @@ struct Options {
   // efficiently detect that and will switch to uncompressed mode.
   CompressionType compression;
 
+  // EXPERIMENTAL: If true, append to existing MANIFEST and log files
+  // when a database is opened.  This can significantly speed up open.
+  //
+  // Default: currently false, but may become true later.
+  bool reuse_logs;
+
   // If non-NULL, use the specified filter policy to reduce disk reads.
   // Many applications will benefit from passing the result of
   // NewBloomFilterPolicy() here.
@@ -140,7 +159,7 @@ struct Options {
 };
 
 // Options that control read operations
-struct ReadOptions {
+struct LEVELDB_EXPORT ReadOptions {
   // If true, all data read from underlying storage will be
   // verified against corresponding checksums.
   // Default: false
@@ -153,7 +172,7 @@ struct ReadOptions {
 
   // If "snapshot" is non-NULL, read as of the supplied snapshot
   // (which must belong to the DB that is being read and which must
-  // not have been released).  If "snapshot" is NULL, use an impliicit
+  // not have been released).  If "snapshot" is NULL, use an implicit
   // snapshot of the state at the beginning of this read operation.
   // Default: NULL
   const Snapshot* snapshot;
@@ -166,7 +185,7 @@ struct ReadOptions {
 };
 
 // Options that control write operations
-struct WriteOptions {
+struct LEVELDB_EXPORT WriteOptions {
   // If true, the write will be flushed from the operating system
   // buffer cache (by calling WritableFile::Sync()) before the write
   // is considered complete.  If this flag is true, writes will be

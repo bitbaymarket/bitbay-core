@@ -25,6 +25,13 @@ static std::string RandomString(Random* rnd, int len) {
   return r;
 }
 
+static std::string RandomKey(Random* rnd) {
+  int len = (rnd->OneIn(3)
+             ? 1                // Short sometimes to encourage collisions
+             : (rnd->OneIn(100) ? rnd->Skewed(10) : rnd->Uniform(10)));
+  return test::RandomKey(rnd, len);
+}
+
 namespace {
 class AtomicCounter {
  private:
@@ -53,6 +60,36 @@ void DelayMilliseconds(int millis) {
   Env::Default()->SleepForMicroseconds(millis * 1000);
 }
 }
+
+// Test Env to override default Env behavior for testing.
+class TestEnv : public EnvWrapper {
+ public:
+  explicit TestEnv(Env* base) : EnvWrapper(base), ignore_dot_files_(false) {}
+
+  void SetIgnoreDotFiles(bool ignored) { ignore_dot_files_ = ignored; }
+
+  Status GetChildren(const std::string& dir,
+                     std::vector<std::string>* result) override {
+    Status s = target()->GetChildren(dir, result);
+    if (!s.ok() || !ignore_dot_files_) {
+      return s;
+    }
+
+    std::vector<std::string>::iterator it = result->begin();
+    while (it != result->end()) {
+      if ((*it == ".") || (*it == "..")) {
+        it = result->erase(it);
+      } else {
+        ++it;
+      }
+    }
+
+    return s;
+  }
+
+ private:
+  bool ignore_dot_files_;
+};
 
 // Special Env used to delay background operations
 class SpecialEnv : public EnvWrapper {
@@ -193,6 +230,7 @@ class DBTest {
   // Sequence of option configurations to try
   enum OptionConfig {
     kDefault,
+    kReuse,
     kFilter,
     kUncompressed,
     kEnd
@@ -237,7 +275,11 @@ class DBTest {
   // Return the current option configuration.
   Options CurrentOptions() {
     Options options;
+    options.reuse_logs = false;
     switch (option_config_) {
+      case kReuse:
+        options.reuse_logs = true;
+        break;
       case kFilter:
         options.filter_policy = filter_policy_;
         break;
@@ -558,6 +600,17 @@ TEST(DBTest, GetFromVersions) {
   } while (ChangeOptions());
 }
 
+TEST(DBTest, GetMemUsage) {
+  do {
+    ASSERT_OK(Put("foo", "v1"));
+    std::string val;
+    ASSERT_TRUE(db_->GetProperty("leveldb.approximate-memory-usage", &val));
+    int mem_usage = atoi(val.c_str());
+    ASSERT_GT(mem_usage, 0);
+    ASSERT_LT(mem_usage, 5*1024*1024);
+  } while (ChangeOptions());
+}
+
 TEST(DBTest, GetSnapshot) {
   do {
     // Try with both a short key and a long key
@@ -626,7 +679,7 @@ TEST(DBTest, GetEncountersEmptyLevel) {
     //   * sstable B in level 2
     // Then do enough Get() calls to arrange for an automatic compaction
     // of sstable A.  A bug would cause the compaction to be marked as
-    // occuring at level 1 (instead of the correct level 0).
+    // occurring at level 1 (instead of the correct level 0).
 
     // Step 1: First place sstables in levels 0 and 2
     int compaction_count = 0;
@@ -1080,6 +1133,14 @@ TEST(DBTest, ApproximateSizes) {
     // 0 because GetApproximateSizes() does not account for memtable space
     ASSERT_TRUE(Between(Size("", Key(50)), 0, 0));
 
+    if (options.reuse_logs) {
+      // Recovery will reuse memtable, and GetApproximateSizes() does not
+      // account for memtable usage;
+      Reopen(&options);
+      ASSERT_TRUE(Between(Size("", Key(50)), 0, 0));
+      continue;
+    }
+
     // Check sizes across recovery by reopening a few times
     for (int run = 0; run < 3; run++) {
       Reopen(&options);
@@ -1122,6 +1183,11 @@ TEST(DBTest, ApproximateSizes_MixOfSmallAndLarge) {
     ASSERT_OK(Put(Key(5), RandomString(&rnd, 10000)));
     ASSERT_OK(Put(Key(6), RandomString(&rnd, 300000)));
     ASSERT_OK(Put(Key(7), RandomString(&rnd, 10000)));
+
+    if (options.reuse_logs) {
+      // Need to force a memtable compaction since recovery does not do so.
+      ASSERT_OK(dbfull()->TEST_CompactMemTable());
+    }
 
     // Check sizes across recovery by reopening a few times
     for (int run = 0; run < 3; run++) {
@@ -1365,6 +1431,15 @@ TEST(DBTest, L0_CompactionBug_Issue44_b) {
   ASSERT_EQ("(->)(c->cv)", Contents());
 }
 
+TEST(DBTest, Fflush_Issue474) {
+  static const int kNum = 100000;
+  Random rnd(test::RandomSeed());
+  for (int i = 0; i < kNum; i++) {
+    fflush(NULL);
+    ASSERT_OK(Put(RandomKey(&rnd), RandomString(&rnd, 100)));
+  }
+}
+
 TEST(DBTest, ComparatorCheck) {
   class NewComparator : public Comparator {
    public:
@@ -1514,6 +1589,58 @@ TEST(DBTest, DBOpen_Options) {
 
   delete db;
   db = NULL;
+}
+
+TEST(DBTest, DestroyEmptyDir) {
+  std::string dbname = test::TmpDir() + "/db_empty_dir";
+  TestEnv env(Env::Default());
+  env.DeleteDir(dbname);
+  ASSERT_TRUE(!env.FileExists(dbname));
+
+  Options opts;
+  opts.env = &env;
+
+  ASSERT_OK(env.CreateDir(dbname));
+  ASSERT_TRUE(env.FileExists(dbname));
+  std::vector<std::string> children;
+  ASSERT_OK(env.GetChildren(dbname, &children));
+  // The POSIX env does not filter out '.' and '..' special files.
+  ASSERT_EQ(2, children.size());
+  ASSERT_OK(DestroyDB(dbname, opts));
+  ASSERT_TRUE(!env.FileExists(dbname));
+
+  // Should also be destroyed if Env is filtering out dot files.
+  env.SetIgnoreDotFiles(true);
+  ASSERT_OK(env.CreateDir(dbname));
+  ASSERT_TRUE(env.FileExists(dbname));
+  ASSERT_OK(env.GetChildren(dbname, &children));
+  ASSERT_EQ(0, children.size());
+  ASSERT_OK(DestroyDB(dbname, opts));
+  ASSERT_TRUE(!env.FileExists(dbname));
+}
+
+TEST(DBTest, DestroyOpenDB) {
+  std::string dbname = test::TmpDir() + "/open_db_dir";
+  env_->DeleteDir(dbname);
+  ASSERT_TRUE(!env_->FileExists(dbname));
+
+  Options opts;
+  opts.create_if_missing = true;
+  DB* db = NULL;
+  ASSERT_OK(DB::Open(opts, dbname, &db));
+  ASSERT_TRUE(db != NULL);
+
+  // Must fail to destroy an open db.
+  ASSERT_TRUE(env_->FileExists(dbname));
+  ASSERT_TRUE(!DestroyDB(dbname, Options()).ok());
+  ASSERT_TRUE(env_->FileExists(dbname));
+
+  delete db;
+  db = NULL;
+
+  // Should succeed destroying a closed db.
+  ASSERT_OK(DestroyDB(dbname, Options()));
+  ASSERT_TRUE(!env_->FileExists(dbname));
 }
 
 TEST(DBTest, Locking) {
@@ -1930,13 +2057,6 @@ class ModelDB: public DB {
   KVMap map_;
 };
 
-static std::string RandomKey(Random* rnd) {
-  int len = (rnd->OneIn(3)
-             ? 1                // Short sometimes to encourage collisions
-             : (rnd->OneIn(100) ? rnd->Skewed(10) : rnd->Uniform(10)));
-  return test::RandomKey(rnd, len);
-}
-
 static bool CompareIterators(int step,
                              DB* model,
                              DB* db,
@@ -2084,7 +2204,8 @@ void BM_LogAndApply(int iters, int num_base_files) {
   InternalKeyComparator cmp(BytewiseComparator());
   Options options;
   VersionSet vset(dbname, &options, NULL, &cmp);
-  ASSERT_OK(vset.Recover());
+  bool save_manifest;
+  ASSERT_OK(vset.Recover(&save_manifest));
   VersionEdit vbase;
   uint64_t fnum = 1;
   for (int i = 0; i < num_base_files; i++) {

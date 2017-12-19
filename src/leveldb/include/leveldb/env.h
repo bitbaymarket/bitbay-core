@@ -13,10 +13,11 @@
 #ifndef STORAGE_LEVELDB_INCLUDE_ENV_H_
 #define STORAGE_LEVELDB_INCLUDE_ENV_H_
 
-#include <string>
-#include <vector>
 #include <stdarg.h>
 #include <stdint.h>
+#include <string>
+#include <vector>
+#include "leveldb/export.h"
 #include "leveldb/status.h"
 
 namespace leveldb {
@@ -28,7 +29,7 @@ class SequentialFile;
 class Slice;
 class WritableFile;
 
-class Env {
+class LEVELDB_EXPORT Env {
  public:
   Env() { }
   virtual ~Env();
@@ -43,7 +44,8 @@ class Env {
   // Create a brand new sequentially-readable file with the specified name.
   // On success, stores a pointer to the new file in *result and returns OK.
   // On failure stores NULL in *result and returns non-OK.  If the file does
-  // not exist, returns a non-OK status.
+  // not exist, returns a non-OK status.  Implementations should return a
+  // NotFound status when the file does not exist.
   //
   // The returned file will only be accessed by one thread at a time.
   virtual Status NewSequentialFile(const std::string& fname,
@@ -53,7 +55,8 @@ class Env {
   // specified name.  On success, stores a pointer to the new file in
   // *result and returns OK.  On failure stores NULL in *result and
   // returns non-OK.  If the file does not exist, returns a non-OK
-  // status.
+  // status.  Implementations should return a NotFound status when the file does
+  // not exist.
   //
   // The returned file may be concurrently accessed by multiple threads.
   virtual Status NewRandomAccessFile(const std::string& fname,
@@ -68,6 +71,21 @@ class Env {
   // The returned file will only be accessed by one thread at a time.
   virtual Status NewWritableFile(const std::string& fname,
                                  WritableFile** result) = 0;
+
+  // Create an object that either appends to an existing file, or
+  // writes to a new file (if the file does not exist to begin with).
+  // On success, stores a pointer to the new file in *result and
+  // returns OK.  On failure stores NULL in *result and returns
+  // non-OK.
+  //
+  // The returned file will only be accessed by one thread at a time.
+  //
+  // May return an IsNotSupportedError error if this Env does
+  // not allow appending to an existing file.  Users of Env (including
+  // the leveldb implementation) must be prepared to deal with
+  // an Env that does not support appending.
+  virtual Status NewAppendableFile(const std::string& fname,
+                                   WritableFile** result);
 
   // Returns true iff the named file exists.
   virtual bool FileExists(const std::string& fname) = 0;
@@ -142,7 +160,7 @@ class Env {
   // useful for computing deltas of time.
   virtual uint64_t NowMicros() = 0;
 
-  // Sleep/delay the thread for the perscribed number of micro-seconds.
+  // Sleep/delay the thread for the prescribed number of micro-seconds.
   virtual void SleepForMicroseconds(int micros) = 0;
 
  private:
@@ -152,7 +170,7 @@ class Env {
 };
 
 // A file abstraction for reading sequentially through a file
-class SequentialFile {
+class LEVELDB_EXPORT SequentialFile {
  public:
   SequentialFile() { }
   virtual ~SequentialFile();
@@ -183,7 +201,7 @@ class SequentialFile {
 };
 
 // A file abstraction for randomly reading the contents of a file.
-class RandomAccessFile {
+class LEVELDB_EXPORT RandomAccessFile {
  public:
   RandomAccessFile() { }
   virtual ~RandomAccessFile();
@@ -209,7 +227,7 @@ class RandomAccessFile {
 // A file abstraction for sequential writing.  The implementation
 // must provide buffering since callers may append small fragments
 // at a time to the file.
-class WritableFile {
+class LEVELDB_EXPORT WritableFile {
  public:
   WritableFile() { }
   virtual ~WritableFile();
@@ -226,7 +244,7 @@ class WritableFile {
 };
 
 // An interface for writing log messages.
-class Logger {
+class LEVELDB_EXPORT Logger {
  public:
   Logger() { }
   virtual ~Logger();
@@ -242,7 +260,7 @@ class Logger {
 
 
 // Identifies a locked file.
-class FileLock {
+class LEVELDB_EXPORT FileLock {
  public:
   FileLock() { }
   virtual ~FileLock();
@@ -260,17 +278,17 @@ extern void Log(Logger* info_log, const char* format, ...)
     ;
 
 // A utility routine: write "data" to the named file.
-extern Status WriteStringToFile(Env* env, const Slice& data,
-                                const std::string& fname);
+LEVELDB_EXPORT Status WriteStringToFile(Env* env, const Slice& data,
+                                        const std::string& fname);
 
 // A utility routine: read contents of named file into *data
-extern Status ReadFileToString(Env* env, const std::string& fname,
-                               std::string* data);
+LEVELDB_EXPORT Status ReadFileToString(Env* env, const std::string& fname,
+                                       std::string* data);
 
 // An implementation of Env that forwards all calls to another Env.
 // May be useful to clients who wish to override just part of the
 // functionality of another Env.
-class EnvWrapper : public Env {
+class LEVELDB_EXPORT EnvWrapper : public Env {
  public:
   // Initialize an EnvWrapper that delegates all calls to *t
   explicit EnvWrapper(Env* t) : target_(t) { }
@@ -288,6 +306,9 @@ class EnvWrapper : public Env {
   }
   Status NewWritableFile(const std::string& f, WritableFile** r) {
     return target_->NewWritableFile(f, r);
+  }
+  Status NewAppendableFile(const std::string& f, WritableFile** r) {
+    return target_->NewAppendableFile(f, r);
   }
   bool FileExists(const std::string& f) { return target_->FileExists(f); }
   Status GetChildren(const std::string& dir, std::vector<std::string>* r) {

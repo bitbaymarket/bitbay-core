@@ -14,11 +14,12 @@
 #define STORAGE_LEVELDB_INCLUDE_STATUS_H_
 
 #include <string>
+#include "leveldb/export.h"
 #include "leveldb/slice.h"
 
 namespace leveldb {
 
-class Status {
+class LEVELDB_EXPORT Status {
  public:
   // Create a success status.
   Status() : state_(NULL) { }
@@ -59,6 +60,12 @@ class Status {
 
   // Returns true iff the status indicates an IOError.
   bool IsIOError() const { return code() == kIOError; }
+
+  // Returns true iff the status indicates a NotSupportedError.
+  bool IsNotSupportedError() const { return code() == kNotSupported; }
+
+  // Returns true iff the status indicates an InvalidArgument.
+  bool IsInvalidArgument() const { return code() == kInvalidArgument; }
 
   // Return a string representation of this status suitable for printing.
   // Returns the string "OK" for success.

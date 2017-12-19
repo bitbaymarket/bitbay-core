@@ -8,7 +8,7 @@
 #define STORAGE_LEVELDB_PORT_PORT_POSIX_H_
 
 #undef PLATFORM_IS_LITTLE_ENDIAN
-#if defined(OS_MACOSX)
+#if defined(__APPLE__)
   #include <machine/endian.h>
   #if defined(__DARWIN_LITTLE_ENDIAN) && defined(__DARWIN_BYTE_ORDER)
     #define PLATFORM_IS_LITTLE_ENDIAN \
@@ -21,14 +21,11 @@
   #else
     #define PLATFORM_IS_LITTLE_ENDIAN false
   #endif
-#elif defined(OS_FREEBSD)
+#elif defined(OS_FREEBSD) || defined(OS_OPENBSD) ||\
+      defined(OS_NETBSD) || defined(OS_DRAGONFLYBSD)
   #include <sys/types.h>
   #include <sys/endian.h>
   #define PLATFORM_IS_LITTLE_ENDIAN (_BYTE_ORDER == _LITTLE_ENDIAN)
-#elif defined(OS_OPENBSD) || defined(OS_NETBSD) ||\
-      defined(OS_DRAGONFLYBSD)
-  #include <sys/types.h>
-  #include <sys/endian.h>
 #elif defined(OS_HPUX)
   #define PLATFORM_IS_LITTLE_ENDIAN false
 #elif defined(OS_ANDROID)
@@ -42,9 +39,12 @@
 #endif
 
 #include <pthread.h>
-#ifdef SNAPPY
+#if defined(HAVE_CRC32C)
+#include <crc32c/crc32c.h>
+#endif  // defined(HAVE_CRC32C)
+#ifdef HAVE_SNAPPY
 #include <snappy.h>
-#endif
+#endif  // defined(HAVE_SNAPPY)
 #include <stdint.h>
 #include <string>
 #include "port/atomic_pointer.h"
@@ -53,23 +53,10 @@
 #define PLATFORM_IS_LITTLE_ENDIAN (__BYTE_ORDER == __LITTLE_ENDIAN)
 #endif
 
-#if defined(OS_MACOSX) || defined(OS_SOLARIS) || defined(OS_FREEBSD) ||\
-    defined(OS_NETBSD) || defined(OS_OPENBSD) || defined(OS_DRAGONFLYBSD) ||\
-    defined(OS_ANDROID) || defined(OS_HPUX)
-// Use fread/fwrite/fflush on platforms without _unlocked variants
-#define fread_unlocked fread
-#define fwrite_unlocked fwrite
-#define fflush_unlocked fflush
-#endif
-
-#if defined(OS_FREEBSD) ||\
+#if defined(__APPLE__) || defined(OS_FREEBSD) ||\
     defined(OS_OPENBSD) || defined(OS_DRAGONFLYBSD)
 // Use fsync() on platforms without fdatasync()
 #define fdatasync fsync
-#endif
-
-#if defined(OS_MACOSX)
-#define fdatasync(fd) fcntl(fd, F_FULLFSYNC, 0)
 #endif
 
 #if defined(OS_ANDROID) && __ANDROID_API__ < 9
@@ -122,40 +109,48 @@ extern void InitOnce(OnceType* once, void (*initializer)());
 
 inline bool Snappy_Compress(const char* input, size_t length,
                             ::std::string* output) {
-#ifdef SNAPPY
+#ifdef HAVE_SNAPPY
   output->resize(snappy::MaxCompressedLength(length));
   size_t outlen;
   snappy::RawCompress(input, length, &(*output)[0], &outlen);
   output->resize(outlen);
   return true;
-#endif
+#endif  // defined(HAVE_SNAPPY)
 
   return false;
 }
 
 inline bool Snappy_GetUncompressedLength(const char* input, size_t length,
                                          size_t* result) {
-#ifdef SNAPPY
+#ifdef HAVE_SNAPPY
   return snappy::GetUncompressedLength(input, length, result);
 #else
   return false;
-#endif
+#endif  // defined(HAVE_SNAPPY)
 }
 
 inline bool Snappy_Uncompress(const char* input, size_t length,
                               char* output) {
-#ifdef SNAPPY
+#ifdef HAVE_SNAPPY
   return snappy::RawUncompress(input, length, output);
 #else
   return false;
-#endif
+#endif  // defined(HAVE_SNAPPY)
 }
 
 inline bool GetHeapProfile(void (*func)(void*, const char*, int), void* arg) {
   return false;
 }
 
-} // namespace port
-} // namespace leveldb
+inline uint32_t AcceleratedCRC32C(uint32_t crc, const char* buf, size_t size) {
+#if defined(HAVE_CRC32C)
+  return ::crc32c::Extend(crc, reinterpret_cast<const uint8_t*>(buf), size);
+#else
+  return 0;
+#endif  // defined(HAVE_CRC32C)
+}
+
+}  // namespace port
+}  // namespace leveldb
 
 #endif  // STORAGE_LEVELDB_PORT_PORT_POSIX_H_

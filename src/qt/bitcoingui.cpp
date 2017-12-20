@@ -58,6 +58,8 @@
 #include <QUrl>
 #include <QMimeData>
 #include <QStyle>
+#include <QToolButton>
+#include <QButtonGroup>
 
 #include <iostream>
 
@@ -129,6 +131,17 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     centralStackedWidget->addWidget(receiveCoinsPage);
     centralStackedWidget->addWidget(sendCoinsPage);
 
+    QWidget * leftPanel = new QWidget();
+    leftPanel->setFixedWidth(160);
+    leftPanel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::MinimumExpanding);
+    leftPanel->setStyleSheet("QWidget { background-color: rgb(255,255,255); }");
+
+    QHBoxLayout * centralHLayout = new QHBoxLayout;
+    centralHLayout->setSpacing(0);
+    centralHLayout->setMargin(0);
+    centralHLayout->addWidget(leftPanel);
+    centralHLayout->addWidget(centralStackedWidget);
+
     QHBoxLayout * headerLayout = new QHBoxLayout;
     headerLayout->setSpacing(0);
     headerLayout->setMargin(0);
@@ -148,13 +161,76 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     QWidget *centralWidget = new QWidget();
     QVBoxLayout *centralLayout = new QVBoxLayout(centralWidget);
     centralLayout->addLayout(headerLayout);
-    centralLayout->addWidget(centralStackedWidget);
+    centralLayout->addLayout(centralHLayout);
     centralLayout->setMargin(0);
+    centralLayout->setSpacing(0);
 
     setCentralWidget(centralWidget);
 
     // Create status bar
     statusBar();
+
+    QVBoxLayout * leftPanelLayout = new QVBoxLayout(leftPanel);
+    leftPanelLayout->setMargin(0);
+    leftPanelLayout->setSpacing(0);
+
+    QButtonGroup * tabsGroup = new QButtonGroup(leftPanel);
+
+    QToolButton * tabDashboard = new QToolButton();
+    tabDashboard->setFixedSize(160,50);
+    tabDashboard->setText(tr("DASHBOARD"));
+    tabDashboard->setCheckable(true);
+    tabDashboard->setAutoRaise(true);
+    tabsGroup->addButton(tabDashboard);
+    leftPanelLayout->addWidget(tabDashboard);
+
+    QToolButton * tabReceive = new QToolButton();
+    tabReceive->setFixedSize(160,50);
+    tabReceive->setText(tr("RECEIVE"));
+    tabReceive->setCheckable(true);
+    tabReceive->setAutoRaise(true);
+    tabsGroup->addButton(tabReceive);
+    leftPanelLayout->addWidget(tabReceive);
+
+    QToolButton * tabSend = new QToolButton();
+    tabSend->setFixedSize(160,50);
+    tabSend->setText(tr("SEND"));
+    tabSend->setCheckable(true);
+    tabSend->setAutoRaise(true);
+    tabsGroup->addButton(tabSend);
+    leftPanelLayout->addWidget(tabSend);
+
+    QToolButton * tabTransactions = new QToolButton();
+    tabTransactions->setFixedSize(160,50);
+    tabTransactions->setText(tr("TRANSACTIONS"));
+    tabTransactions->setCheckable(true);
+    tabTransactions->setAutoRaise(true);
+    tabsGroup->addButton(tabTransactions);
+    leftPanelLayout->addWidget(tabTransactions);
+
+    QToolButton * tabAddresses = new QToolButton();
+    tabAddresses->setFixedSize(160,50);
+    tabAddresses->setText(tr("ADDRESS BOOK"));
+    tabAddresses->setCheckable(true);
+    tabAddresses->setAutoRaise(true);
+    tabsGroup->addButton(tabAddresses);
+    leftPanelLayout->addWidget(tabAddresses);
+
+    connect(tabDashboard, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
+    connect(tabDashboard, SIGNAL(clicked()), this, SLOT(gotoOverviewPage()));
+    connect(tabReceive, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
+    connect(tabReceive, SIGNAL(clicked()), this, SLOT(gotoReceiveCoinsPage()));
+    connect(tabSend, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
+    connect(tabSend, SIGNAL(clicked()), this, SLOT(gotoSendCoinsPage()));
+    connect(tabTransactions, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
+    connect(tabTransactions, SIGNAL(clicked()), this, SLOT(gotoHistoryPage()));
+    connect(tabAddresses, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
+    connect(tabAddresses, SIGNAL(clicked()), this, SLOT(gotoAddressBookPage()));
+
+    QWidget * space2 = new QWidget;
+    space2->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::MinimumExpanding);
+
+    leftPanelLayout->addWidget(space2);
 
     // Status bar notification icons
     QWidget *frameBlocks = new QWidget();
@@ -178,7 +254,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     frameBlocksLayout->addStretch();
     frameBlocksLayout->addWidget(labelBlocksIcon);
     frameBlocksLayout->addStretch();
-    toolbar->addWidget(frameBlocks);
+    leftPanelLayout->addWidget(frameBlocks);
 
     if (GetBoolArg("-staking", true))
     {

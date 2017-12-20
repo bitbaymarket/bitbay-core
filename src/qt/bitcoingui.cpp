@@ -41,6 +41,7 @@
 #include <QMenu>
 #include <QIcon>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QToolBar>
 #include <QStatusBar>
 #include <QLabel>
@@ -128,12 +129,27 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     centralStackedWidget->addWidget(receiveCoinsPage);
     centralStackedWidget->addWidget(sendCoinsPage);
 
+    QHBoxLayout * headerLayout = new QHBoxLayout;
+    headerLayout->setSpacing(0);
+    headerLayout->setMargin(0);
+
+    QWidget* header = new QWidget();
+    header->setFixedSize(160, 70);
+    header->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    header->setStyleSheet("QWidget { background-color: rgb(75,78,162); background-repeat: no-repeat; background-image: url(:/images/header); background-position: top center; }");
+    headerLayout->addWidget(header);
+
+    QWidget* space1 = new QWidget();
+    space1->setFixedHeight(70);
+    space1->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
+    space1->setStyleSheet("QWidget { background-color: rgb(75,78,162); }");
+    headerLayout->addWidget(space1);
+
     QWidget *centralWidget = new QWidget();
     QVBoxLayout *centralLayout = new QVBoxLayout(centralWidget);
-//#ifndef Q_OS_MAC
-//    centralLayout->addWidget(appMenuBar);
-//#endif
+    centralLayout->addLayout(headerLayout);
     centralLayout->addWidget(centralStackedWidget);
+    centralLayout->setMargin(0);
 
     setCentralWidget(centralWidget);
 
@@ -362,39 +378,33 @@ static QWidget* makeToolBarSpacer()
 void BitcoinGUI::createToolBars()
 {
     toolbar = new QToolBar(tr("Tabs toolbar"));
-    toolbar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    toolbar->setContextMenuPolicy(Qt::PreventContextMenu);
+//    toolbar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+//    toolbar->setContextMenuPolicy(Qt::PreventContextMenu);
 
-    toolbar->setStyleSheet("QWidget { background: rgb(255,255,255); }");
+//    toolbar->setStyleSheet("QWidget { background: rgb(255,255,255); }");
 
-    QWidget* header = new QWidget();
-    header->setFixedSize(160, 70);
-    header->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    header->setStyleSheet("QWidget { background-color: rgb(59,56,145); background-repeat: no-repeat; background-image: url(:/images/header); background-position: top center; }");
-    toolbar->addWidget(header);
+//    toolbar->addAction(overviewAction);
+//    toolbar->addAction(receiveCoinsAction);
+//    toolbar->addAction(sendCoinsAction);
+//    toolbar->addAction(historyAction);
+//    toolbar->addAction(addressBookAction);
 
-    toolbar->addAction(overviewAction);
-    toolbar->addAction(receiveCoinsAction);
-    toolbar->addAction(sendCoinsAction);
-    toolbar->addAction(historyAction);
-    toolbar->addAction(addressBookAction);
+//    toolbar->addWidget(makeToolBarSpacer());
 
-    toolbar->addWidget(makeToolBarSpacer());
+//    toolbar->setOrientation(Qt::Vertical);
+//    toolbar->setMovable(false);
 
-    toolbar->setOrientation(Qt::Vertical);
-    toolbar->setMovable(false);
+//    addToolBar(Qt::LeftToolBarArea, toolbar);
 
-    addToolBar(Qt::LeftToolBarArea, toolbar);
+//    int w = 0;
 
-    int w = 0;
+//    foreach(QAction *action, toolbar->actions()) {
+//        w = std::max(w, toolbar->widgetForAction(action)->width());
+//    }
 
-    foreach(QAction *action, toolbar->actions()) {
-        w = std::max(w, toolbar->widgetForAction(action)->width());
-    }
-
-    foreach(QAction *action, toolbar->actions()) {
-        toolbar->widgetForAction(action)->setFixedWidth(w);
-    }
+//    foreach(QAction *action, toolbar->actions()) {
+//        toolbar->widgetForAction(action)->setFixedWidth(w);
+//    }
 }
 
 void BitcoinGUI::setClientModel(ClientModel *clientModel)

@@ -460,7 +460,7 @@ void HelpMessageBox::showOrPrint()
 #endif
 }
 
-void SetBlackThemeQSS(QApplication& app)
+void SetBitBayThemeQSS(QApplication& app)
 {
     app.setStyleSheet(
     R"(

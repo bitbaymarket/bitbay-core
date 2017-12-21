@@ -176,11 +176,27 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
 
     QButtonGroup * tabsGroup = new QButtonGroup(leftPanel);
 
+    QString tabStyle = R"(
+        QWidget {
+            background-color: rgb(255,255,255);
+        }
+        QToolButton {
+            border: 0px solid rgb(220,220,220);
+        }
+        QToolButton:checked {
+            background-color: rgb(237,238,246);
+            border-top: 1px solid rgb(220,220,220); 
+            border-bottom: 1px solid rgb(220,220,220); 
+        }
+    )";
+    leftPanel->setStyleSheet(tabStyle);
+    
     QToolButton * tabDashboard = new QToolButton();
     tabDashboard->setFixedSize(160,50);
     tabDashboard->setText(tr("DASHBOARD"));
     tabDashboard->setCheckable(true);
     tabDashboard->setAutoRaise(true);
+    tabDashboard->setChecked(true);
     tabsGroup->addButton(tabDashboard);
     leftPanelLayout->addWidget(tabDashboard);
 
@@ -294,6 +310,8 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     statusBar()->addWidget(progressBarLabel);
     statusBar()->addWidget(progressBar);
 
+    //progressBarLabel->parentWidget()->setStyleSheet("QWidget{border: 0px solid grey; }");
+    
     syncIconMovie = new QMovie(":/movies/update_spinner", "mng", this);
 
     // Clicking on a transaction on the overview page simply sends you to transaction history page

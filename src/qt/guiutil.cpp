@@ -20,6 +20,7 @@
 #include <QFileDialog>
 #include <QDesktopServices>
 #include <QThread>
+#include <QStyleFactory>
 
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
@@ -462,6 +463,8 @@ void HelpMessageBox::showOrPrint()
 
 void SetBitBayThemeQSS(QApplication& app)
 {
+    app.setStyle(QStyleFactory::create("fusion"));
+    
     app.setStyleSheet(
     R"(
         QWidget { background: rgb(221,222,237); }
@@ -473,7 +476,7 @@ void SetBitBayThemeQSS(QApplication& app)
             border-style: solid; 
             min-height: 25px;
         }
-        QSpinBox {
+        QDoubleSpinBox {
             padding-right: 15px;
             background: rgb(255,255,255); 
             color: rgb(0,0,0); 
@@ -484,7 +487,7 @@ void SetBitBayThemeQSS(QApplication& app)
         }
         QComboBox {
             padding-right: 15px;
-            background: rgb(255,255,255); 
+            background: rgb(204,203,227); 
             color: rgb(0,0,0); 
             border-color: rgb(135,135,135); 
             border-width: 1.2px;
@@ -507,6 +510,9 @@ void SetBitBayThemeQSS(QApplication& app)
         QPushButton:hover {
             background: rgb(226,226,226); 
         }
+        QPushButton:disabled {
+            color: rgb(206,206,206); 
+        }
         QPushButton:pressed {
             margin-top: 4px; 
             margin-left: 4px;
@@ -515,6 +521,7 @@ void SetBitBayThemeQSS(QApplication& app)
         }
 
     )");
+    
 //    app.setStyleSheet("QWidget        { background: rgb(41,44,48); }"
 //                      "QFrame         { border: none; }"
 //                      "QComboBox      { color: rgb(255,255,255); }"

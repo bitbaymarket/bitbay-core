@@ -110,6 +110,25 @@ OverviewPage::OverviewPage(QWidget *parent) :
     ui->listTransactions->setMinimumHeight(NUM_ITEMS * (DECORATION_SIZE + 2));
     ui->listTransactions->setAttribute(Qt::WA_MacShowFocusRect, false);
 
+    QFont hfont("Roboto Bold", 15, QFont::Bold);
+    ui->labelWallet->setFont(hfont);
+    ui->labelRecent->setFont(hfont);
+    
+    QString white = "QWidget { background-color: rgb(255,255,255); padding-left: 10px; padding-right:10px; }";
+    
+    ui->w_recent->setStyleSheet(white);
+    
+    ui->labelUnconfirmedText    ->setStyleSheet(white);
+    ui->labelTotal              ->setStyleSheet(white);
+    ui->labelStakeText          ->setStyleSheet(white);
+    ui->labelImmature           ->setStyleSheet(white);
+    ui->labelUnconfirmed        ->setStyleSheet(white);
+    ui->labelTotalText          ->setStyleSheet(white);
+    ui->labelBalance            ->setStyleSheet(white);
+    ui->labelStake              ->setStyleSheet(white);
+    ui->labelImmatureText       ->setStyleSheet(white);
+    ui->labelSpendable          ->setStyleSheet(white);
+
     connect(ui->listTransactions, SIGNAL(clicked(QModelIndex)), this, SLOT(handleTransactionClicked(QModelIndex)));
 
     // init "out of sync" warning labels

@@ -182,14 +182,16 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
         }
         QToolButton {
             border: 0px solid rgb(220,220,220);
+            border-bottom: 1px solid rgb(220,220,220); 
+            padding: 3px;
         }
         QToolButton:checked {
             background-color: rgb(237,238,246);
-            border-top: 1px solid rgb(220,220,220); 
-            border-bottom: 1px solid rgb(220,220,220); 
         }
     )";
     leftPanel->setStyleSheet(tabStyle);
+    
+    QFont font("Roboto", 11, QFont::Bold);
     
     QToolButton * tabDashboard = new QToolButton();
     tabDashboard->setFixedSize(160,50);
@@ -197,6 +199,10 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabDashboard->setCheckable(true);
     tabDashboard->setAutoRaise(true);
     tabDashboard->setChecked(true);
+    tabDashboard->setFont(font);
+    tabDashboard->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    tabDashboard->setIcon(QIcon(":/icons/overview"));
+    tabDashboard->setIconSize(QSize(16,16));
     tabsGroup->addButton(tabDashboard);
     leftPanelLayout->addWidget(tabDashboard);
 
@@ -205,6 +211,10 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabReceive->setText(tr("RECEIVE"));
     tabReceive->setCheckable(true);
     tabReceive->setAutoRaise(true);
+    tabReceive->setFont(font);
+    tabReceive->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    tabReceive->setIcon(QIcon(":/icons/receiving_addresses"));
+    tabReceive->setIconSize(QSize(16,16));
     tabsGroup->addButton(tabReceive);
     leftPanelLayout->addWidget(tabReceive);
 
@@ -213,6 +223,10 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabSend->setText(tr("SEND"));
     tabSend->setCheckable(true);
     tabSend->setAutoRaise(true);
+    tabSend->setFont(font);
+    tabSend->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    tabSend->setIcon(QIcon(":/icons/send"));
+    tabSend->setIconSize(QSize(16,16));    
     tabsGroup->addButton(tabSend);
     leftPanelLayout->addWidget(tabSend);
 
@@ -221,6 +235,10 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabTransactions->setText(tr("TRANSACTIONS"));
     tabTransactions->setCheckable(true);
     tabTransactions->setAutoRaise(true);
+    tabTransactions->setFont(font);
+    tabTransactions->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    tabTransactions->setIcon(QIcon(":/icons/history"));
+    tabTransactions->setIconSize(QSize(16,16));    
     tabsGroup->addButton(tabTransactions);
     leftPanelLayout->addWidget(tabTransactions);
 
@@ -229,6 +247,10 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabAddresses->setText(tr("ADDRESS BOOK"));
     tabAddresses->setCheckable(true);
     tabAddresses->setAutoRaise(true);
+    tabAddresses->setFont(font);
+    tabAddresses->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    tabAddresses->setIcon(QIcon(":/icons/address-book"));
+    tabAddresses->setIconSize(QSize(16,16));    
     tabsGroup->addButton(tabAddresses);
     leftPanelLayout->addWidget(tabAddresses);
 
@@ -745,7 +767,7 @@ void BitcoinGUI::setNumBlocks(int count)
     progressBarLabel->setToolTip(tooltip);
     progressBar->setToolTip(tooltip);
 
-    statusBar()->setVisible(fShowStatusBar);
+    //statusBar()->setVisible(fShowStatusBar);
 }
 
 void BitcoinGUI::message(const QString &title, const QString &message, bool modal, unsigned int style)

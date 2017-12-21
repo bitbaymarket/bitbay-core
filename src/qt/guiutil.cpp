@@ -21,6 +21,7 @@
 #include <QDesktopServices>
 #include <QThread>
 #include <QStyleFactory>
+#include <QFontDatabase>
 
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
@@ -463,6 +464,30 @@ void HelpMessageBox::showOrPrint()
 
 void SetBitBayThemeQSS(QApplication& app)
 {
+    app.setAttribute(Qt::AA_UseHighDpiPixmaps);
+    
+    QFontDatabase::addApplicationFont(":/fonts/Roboto-Black.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/Roboto-BlackItalic.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/Roboto-Bold.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/Roboto-BoldItalic.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/Roboto-Italic.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/Roboto-Light.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/Roboto-LightItalic.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/Roboto-Medium.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/Roboto-MediumItalic.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/Roboto-Regular.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/Roboto-Thin.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/Roboto-ThinItalic.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/RobotoCondensed-Bold.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/RobotoCondensed-BoldItalic.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/RobotoCondensed-Italic.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/RobotoCondensed-Light.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/RobotoCondensed-LightItalic.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/RobotoCondensed-Regular.ttf");
+    
+    QFont font("Roboto Regular");
+    QApplication::setFont(font);
+    
     app.setStyle(QStyleFactory::create("fusion"));
     
     app.setStyleSheet(

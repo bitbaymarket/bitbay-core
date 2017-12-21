@@ -465,8 +465,54 @@ void SetBitBayThemeQSS(QApplication& app)
     app.setStyleSheet(
     R"(
         QWidget { background: rgb(221,222,237); }
-
-
+        QLineEdit {
+            background: rgb(255,255,255); 
+            color: rgb(0,0,0); 
+            border-color: rgb(135,135,135); 
+            border-width: 1.2px;
+            border-style: solid; 
+            min-height: 25px;
+        }
+        QSpinBox {
+            padding-right: 15px;
+            background: rgb(255,255,255); 
+            color: rgb(0,0,0); 
+            border-color: rgb(135,135,135); 
+            border-width: 1.2px;
+            border-style: solid; 
+            min-height: 25px;
+        }
+        QComboBox {
+            padding-right: 15px;
+            background: rgb(255,255,255); 
+            color: rgb(0,0,0); 
+            border-color: rgb(135,135,135); 
+            border-width: 1.2px;
+            border-style: solid; 
+            min-height: 25px;
+        }
+        QPushButton {
+            background: rgb(236,236,236); 
+            color: rgb(59,65,145); 
+            border-color: rgb(255,255,255); 
+            border-width: 1px;
+            border-style: solid; 
+            min-height: 25px;
+            min-width: 120px;
+            margin-top: 2px; 
+            margin-left: 2px;
+            margin-right: 2px; 
+            margin-bottom: 2px;
+        }
+        QPushButton:hover {
+            background: rgb(226,226,226); 
+        }
+        QPushButton:pressed {
+            margin-top: 4px; 
+            margin-left: 4px;
+            margin-right: 0px; 
+            margin-bottom: 0px;
+        }
 
     )");
 //    app.setStyleSheet("QWidget        { background: rgb(41,44,48); }"

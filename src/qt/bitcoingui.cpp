@@ -182,7 +182,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
         }
         QToolButton {
             border: 0px solid rgb(220,220,220);
-            border-bottom: 1px solid rgb(220,220,220); 
+            border-bottom: 1px solid rgb(220,220,220);
             padding: 3px;
         }
         QToolButton:checked {
@@ -190,9 +190,9 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
         }
     )";
     leftPanel->setStyleSheet(tabStyle);
-    
-    QFont font("Roboto", 11, QFont::Bold);
-    
+
+    QFont font("Roboto Condensed", 11, QFont::Bold);
+
     QToolButton * tabDashboard = new QToolButton();
     tabDashboard->setFixedSize(160,50);
     tabDashboard->setText(tr("DASHBOARD"));
@@ -226,7 +226,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabSend->setFont(font);
     tabSend->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     tabSend->setIcon(QIcon(":/icons/send"));
-    tabSend->setIconSize(QSize(16,16));    
+    tabSend->setIconSize(QSize(16,16));
     tabsGroup->addButton(tabSend);
     leftPanelLayout->addWidget(tabSend);
 
@@ -238,7 +238,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabTransactions->setFont(font);
     tabTransactions->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     tabTransactions->setIcon(QIcon(":/icons/history"));
-    tabTransactions->setIconSize(QSize(16,16));    
+    tabTransactions->setIconSize(QSize(16,16));
     tabsGroup->addButton(tabTransactions);
     leftPanelLayout->addWidget(tabTransactions);
 
@@ -250,7 +250,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabAddresses->setFont(font);
     tabAddresses->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     tabAddresses->setIcon(QIcon(":/icons/address-book"));
-    tabAddresses->setIconSize(QSize(16,16));    
+    tabAddresses->setIconSize(QSize(16,16));
     tabsGroup->addButton(tabAddresses);
     leftPanelLayout->addWidget(tabAddresses);
 
@@ -310,22 +310,22 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     progressBar->setVisible(false);
 
     progressBar->setStyleSheet(R"(
-    
+
         QProgressBar {
             max-height: 18px;
             background-color: rgb(82,82,160);
-            border: 0px solid grey; 
+            border: 0px solid grey;
             border-radius: 0px;
             padding: 0px;
             margin: 4px;
             text-align: center;
-        } 
-        QProgressBar::chunk { 
-            background: QLinearGradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 #FF8000, stop: 1 orange); 
-            border-radius: 0px; 
-            margin: 0px; 
         }
-                               
+        QProgressBar::chunk {
+            background: QLinearGradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 #FF8000, stop: 1 orange);
+            border-radius: 0px;
+            margin: 0px;
+        }
+
     )");
 
     statusBar()->setStyleSheet("QWidget { background-color: rgb(75,78,162); color: rgb(193,193,193); }");
@@ -333,7 +333,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     statusBar()->addWidget(progressBar);
 
     //progressBarLabel->parentWidget()->setStyleSheet("QWidget{border: 0px solid grey; }");
-    
+
     syncIconMovie = new QMovie(":/movies/update_spinner", "mng", this);
 
     // Clicking on a transaction on the overview page simply sends you to transaction history page

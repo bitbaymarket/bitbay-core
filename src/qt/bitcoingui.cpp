@@ -318,6 +318,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
             border-radius: 0px;
             padding: 0px;
             margin: 4px;
+            color: rgb(109,140,0);
             text-align: center;
         }
         QProgressBar::chunk {

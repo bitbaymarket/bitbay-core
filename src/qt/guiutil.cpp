@@ -551,6 +551,15 @@ void SetBitBayThemeQSS(QApplication& app)
             margin-bottom: 0px;
         }
 
+        QHeaderView::section {
+            background-color: rgb(71,58,148);
+            color: white;
+            padding-left: 4px;
+            border: 0px solid #6c6c6c;
+            border-right: 1px solid #6c6c6c;
+            min-height: 25px;
+        }
+                
     )");
 
 }

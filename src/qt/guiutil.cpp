@@ -550,7 +550,6 @@ void SetBitBayThemeQSS(QApplication& app)
             margin-right: 0px;
             margin-bottom: 0px;
         }
-
         QHeaderView::section {
             background-color: rgb(71,58,148);
             color: white;
@@ -559,7 +558,18 @@ void SetBitBayThemeQSS(QApplication& app)
             border-right: 1px solid #6c6c6c;
             min-height: 25px;
         }
-                
+        QTableView {
+            background-color: rgb(255,255,255);
+        }
+        QTableView::item:selected {
+            color: rgb(0,0,0);
+            background-color: rgb(237,238,246);
+        }        
+        QTableView::item:selected:active {
+            color: rgb(0,0,0);
+            border: 0px solid #6c6c6c;
+            background-color: rgb(227,228,236);
+        }        
     )");
 
 }

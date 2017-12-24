@@ -569,7 +569,26 @@ void SetBitBayThemeQSS(QApplication& app)
             color: rgb(0,0,0);
             border: 0px solid #6c6c6c;
             background-color: rgb(227,228,236);
-        }        
+        }
+        QTabBar::tab:selected {
+            color: rgb(71,58,148);
+        }
+        QDoubleSpinBox::up-button {
+            border: 0px solid #6c6c6c;
+        }                
+        QDoubleSpinBox::down-button {
+            border: 0px solid #6c6c6c;
+        }                
+        QDoubleSpinBox::up-arrow {
+            image: url(:/icons/spinbox_up_arrow);
+            width: 8px;
+            height: 5px;
+        }
+        QDoubleSpinBox::down-arrow {
+            image: url(:/icons/spinbox_down_arrow);
+            width: 8px;
+            height: 5px;
+        }
     )");
 
 }

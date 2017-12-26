@@ -15,7 +15,8 @@ build_script:
   - cd ..
   - cd ..
   - set PATH=%PATH%;%BOOST_PATH%\b2_mingw\bin
-  - b2 toolset=gcc --build-type=complete stage --with-system --with-filesystem --with-program_options --with-thread --with-chrono
+  - b2 toolset=gcc --build-type=complete link=static threading=multi variant=release --layout=tagged stage --with-system --with-filesystem --with-program_options --with-thread --with-chrono
+  - ls stage\lib
   - cd %BITBAYPATH%
   - curl -fsSL -o db-6.2.32.NC.tar.gz http://download.oracle.com/berkeley-db/db-6.2.32.NC.tar.gz
   - 7z x db-6.2.32.NC.tar.gz -so | 7z x -si -ttar > nul
@@ -45,11 +46,6 @@ build_script:
   - qmake CICD=appveyor BOOST_INCLUDE_PATH=%BOOST_PATH% BDB_INCLUDE_PATH=%cd%\db\build_unix OPENSSL_INCLUDE_PATH=%cd%\openssl\include BOOST_LIB_PATH=%BOOST_PATH%\stage\lib BDB_LIB_PATH=%cd%\db\build_unix MINIUPNPC_LIB_PATH=%cd%\miniupnpc OPENSSL_LIB_PATH=%cd%\openssl bitbay-qt.pro
   - make
   - cd release
-  - cp %BOOST_PATH%\stage\lib\libboost_chrono-mgw53-mt-1_63.dll .
-  - cp %BOOST_PATH%\stage\lib\libboost_filesystem-mgw53-mt-1_63.dll .
-  - cp %BOOST_PATH%\stage\lib\libboost_program_options-mgw53-mt-1_63.dll .
-  - cp %BOOST_PATH%\stage\lib\libboost_system-mgw53-mt-1_63.dll .
-  - cp %BOOST_PATH%\stage\lib\libboost_thread-mgw53-mt-1_63.dll .
   - rm -f qrc_bitcoin.cpp
   - windeployqt bitbay-wallet-qt.exe --no-translations --no-system-d3d-compiler --no-webkit2 --no-angle
   - dir

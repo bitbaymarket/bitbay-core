@@ -453,4 +453,5 @@ DISTFILES += \
 	src/makefile.mingw \
 	src/makefile.osx \
 	src/makefile.unix \
-	.travis.yml
+	.travis.yml \
+	.appveyor.yml

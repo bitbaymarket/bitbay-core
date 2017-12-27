@@ -110,9 +110,10 @@ SOURCES += src/txdb-leveldb.cpp
 	genleveldb.commands = cd $$PWD/src/leveldb && CC=$$QMAKE_CC CXX=$$QMAKE_CXX $(MAKE) OPT=\"$$QMAKE_CXXFLAGS $$LEVELDB_CXXFLAGS $$QMAKE_CXXFLAGS_RELEASE\" out-static/libleveldb.a out-static/libmemenv.a
 } else {
 	# make an educated guess about what the ranlib command is called
-	#isEmpty(QMAKE_RANLIB) {
+	isEmpty(QMAKE_RANLIB) {
 	#	QMAKE_RANLIB = $$replace(QMAKE_STRIP, strip, ranlib)
-	#}
+		QMAKE_RANLIB = echo
+	}
 	LIBS += -lshlwapi
 	genleveldb.commands = cd $$PWD/src/leveldb && CC=$$QMAKE_CC CXX=$$QMAKE_CXX TARGET_OS=OS_WINDOWS_CROSSCOMPILE $(MAKE) OPT=\"$$QMAKE_CXXFLAGS $$QMAKE_CXXFLAGS_RELEASE\" out-static/libleveldb.a out-static/libmemenv.a && $$QMAKE_RANLIB $$PWD/src/leveldb/out-static/libleveldb.a && $$QMAKE_RANLIB $$PWD/src/leveldb/out-static/libmemenv.a
 }

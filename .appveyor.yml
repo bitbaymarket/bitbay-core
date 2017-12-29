@@ -15,7 +15,17 @@ build_script:
   - cd ..
   - cd ..
   - set PATH=%PATH%;%BOOST_PATH%\b2_mingw\bin
-  - b2 toolset=gcc --build-type=complete link=static threading=multi variant=release --layout=tagged stage --with-system --with-filesystem --with-program_options --with-thread --with-chrono
+  - b2 toolset=gcc
+    --build-type=complete
+    link=static
+    threading=multi
+    variant=release
+    --layout=tagged stage
+    --with-system
+    --with-filesystem
+    --with-program_options
+    --with-thread
+    --with-chrono
   - ls stage\lib
   - cd %BITBAYPATH%
   - curl -fsSL -o static_db_4_8_win.zip https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/1/static_db_4_8_win.zip
@@ -28,8 +38,16 @@ build_script:
   - 7z x static_miniupnpc_win.zip > nul
   - move static_miniupnpc_win miniupnpc
   - set PATH=C:\MinGW\bin;C:\MinGW\msys\1.0\bin;%QTDIR%\bin
-  - qmake CICD=appveyor \
-        BOOST_INCLUDE_PATH=%BOOST_PATH% BDB_INCLUDE_PATH=%cd%\db\include BDB_LIB_PATH=%cd%\db OPENSSL_INCLUDE_PATH=%cd%\openssl\include BOOST_LIB_PATH=%BOOST_PATH%\stage\lib MINIUPNPC_LIB_PATH=%cd%\miniupnpc OPENSSL_LIB_PATH=%cd%\openssl bitbay-qt.pro
+  - qmake
+    CICD=appveyor
+    BOOST_INCLUDE_PATH=%BOOST_PATH%
+    BOOST_LIB_PATH=%BOOST_PATH%\stage\lib
+    BDB_INCLUDE_PATH=%cd%\db\include 
+    BDB_LIB_PATH=%cd%\db
+    OPENSSL_INCLUDE_PATH=%cd%\openssl\include
+    OPENSSL_LIB_PATH=%cd%\openssl
+    MINIUPNPC_LIB_PATH=%cd%\miniupnpc
+    bitbay-qt.pro
   - make -j2
   - cd release
   - rm -f qrc_bitcoin.cpp

@@ -313,7 +313,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
 
         QProgressBar {
             max-height: 18px;
-            background-color: rgb(82,82,160);
+            background-color: rgb(102,104,176);
             border: 0px solid grey;
             border-radius: 0px;
             padding: 0px;

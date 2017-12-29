@@ -59,7 +59,7 @@ QString dateTimeStr(qint64 nTime)
 
 QFont bitcoinAddressFont()
 {
-    QFont font("Monospace");
+    QFont font("Roboto Mono");
 #if QT_VERSION >= 0x040800
     font.setStyleHint(QFont::Monospace);
 #else
@@ -485,8 +485,12 @@ void SetBitBayThemeQSS(QApplication& app)
     QFontDatabase::addApplicationFont(":/fonts/res/fonts/RobotoCondensed-Light.ttf");
     QFontDatabase::addApplicationFont(":/fonts/res/fonts/RobotoCondensed-LightItalic.ttf");
     QFontDatabase::addApplicationFont(":/fonts/res/fonts/RobotoCondensed-Regular.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/res/fonts/RobotoMono-BoldItalic.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/res/fonts/RobotoMono-Bold.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/res/fonts/RobotoMono-Italic.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/res/fonts/RobotoMono-Regular.ttf");
 
-    QFont font("Roboto Condensed");
+    QFont font("Roboto");
     QApplication::setFont(font);
 //    qDebug() << font.toString();
 //    QFontDatabase database;
@@ -564,7 +568,7 @@ void SetBitBayThemeQSS(QApplication& app)
         QTableView::item:selected {
             color: rgb(0,0,0);
             background-color: rgb(237,238,246);
-        }        
+        }
         QTableView::item:selected:active {
             color: rgb(0,0,0);
             border: 0px solid #6c6c6c;
@@ -575,10 +579,10 @@ void SetBitBayThemeQSS(QApplication& app)
         }
         QDoubleSpinBox::up-button {
             border: 0px solid #6c6c6c;
-        }                
+        }
         QDoubleSpinBox::down-button {
             border: 0px solid #6c6c6c;
-        }                
+        }
         QDoubleSpinBox::up-arrow {
             image: url(:/icons/spinbox_up_arrow);
             width: 8px;

@@ -37,6 +37,11 @@ build_script:
     OPENSSL_LIB_PATH=%cd%\openssl
     MINIUPNPC_LIB_PATH=%cd%\miniupnpc
     bitbay-qt.pro
+  - cd src
+  - cd leveldb
+  - make out-static/libleveldb.a out-static/libmemenv.a
+  - cd ..
+  - cd ..
   - make -j2
   - cd release
   - rm -f qrc_bitcoin.cpp

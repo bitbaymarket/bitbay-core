@@ -23,7 +23,10 @@ build_script:
   - curl -fsSL -o static_miniupnpc_win.zip https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/1/static_miniupnpc_win.zip
   - 7z x static_miniupnpc_win.zip > nul
   - move static_miniupnpc_win miniupnpc
-  - set PATH=C:\MinGW\bin;C:\MinGW\msys\1.0\bin;%QTDIR%\bin
+  - curl -fsSL -o mingw32.7z https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/i686-5.3.0-release-posix-dwarf-rt_v4-rev0.7z
+  - 7z x mingw32.7z > nul
+  - ls
+  - set PATH=%cd%\MinGW32\bin;C:\MinGW\msys\1.0\bin;%QTDIR%\bin
   - qmake
     CICD=appveyor
     BOOST_INCLUDE_PATH=%BOOST_PATH%

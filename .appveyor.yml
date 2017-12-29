@@ -18,28 +18,19 @@ build_script:
   - b2 toolset=gcc --build-type=complete link=static threading=multi variant=release --layout=tagged stage --with-system --with-filesystem --with-program_options --with-thread --with-chrono
   - ls stage\lib
   - cd %BITBAYPATH%
-  - curl -fsSL -o db-6.2.32.NC.tar.gz http://download.oracle.com/berkeley-db/db-6.2.32.NC.tar.gz
-  - 7z x db-6.2.32.NC.tar.gz -so | 7z x -si -ttar > nul
-  - move db-6.2.32.NC db
-  - cd db\build_unix
-  - sh ../dist/configure --enable-mingw --enable-cxx
-  - perl -i -pe 's/_tcsclen/_tcslen/m' ../src/os_windows/os_stat.c
-  - make
-  - cd ..
-  - cd ..
-  - curl -fsSL -o openssl-1.0.2n.tar.gz https://www.openssl.org/source/openssl-1.0.2n.tar.gz
-  - 7z x openssl-1.0.2n.tar.gz -so | 7z x -si -ttar > nul
-  - move openssl-1.0.2n openssl
-  - cd openssl
-  - sh ./config
-  - make
-  - cd ..
+  - curl -fsSL -o static_db_4_8_win.zip https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/1/static_db_4_8_win.zip
+  - 7z x static_db_4_8_win.zip > nul
+  - move static_db_4_8_win db
+  - curl -fsSL -o static_openssl_win.zip https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/1/static_openssl_win.zip
+  - 7z x static_openssl_win.zip > nul
+  - move static_openssl_win openssl
   - curl -fsSL -o static_miniupnpc_win.zip https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/1/static_miniupnpc_win.zip
   - 7z x static_miniupnpc_win.zip > nul
   - move static_miniupnpc_win miniupnpc
   - set PATH=C:\MinGW\bin;C:\MinGW\msys\1.0\bin;%QTDIR%\bin
-  - qmake CICD=appveyor BOOST_INCLUDE_PATH=%BOOST_PATH% BDB_INCLUDE_PATH=%cd%\db\build_unix OPENSSL_INCLUDE_PATH=%cd%\openssl\include BOOST_LIB_PATH=%BOOST_PATH%\stage\lib BDB_LIB_PATH=%cd%\db\build_unix MINIUPNPC_LIB_PATH=%cd%\miniupnpc OPENSSL_LIB_PATH=%cd%\openssl bitbay-qt.pro
-  - make
+  - qmake CICD=appveyor \
+        BOOST_INCLUDE_PATH=%BOOST_PATH% BDB_INCLUDE_PATH=%cd%\db\include BDB_LIB_PATH=%cd%\db OPENSSL_INCLUDE_PATH=%cd%\openssl\include BOOST_LIB_PATH=%BOOST_PATH%\stage\lib MINIUPNPC_LIB_PATH=%cd%\miniupnpc OPENSSL_LIB_PATH=%cd%\openssl bitbay-qt.pro
+  - make -j2
   - cd release
   - rm -f qrc_bitcoin.cpp
   - windeployqt bitbay-wallet-qt.exe --no-translations --no-system-d3d-compiler --no-webkit2 --no-angle
@@ -47,6 +38,9 @@ build_script:
   - cd ..
   - set PATH=%PATH_ORIG%
   - 7z a bitbay-qt_win32.zip release
+
+test: off
+
 #artifacts:
 #  - path: bitbay-qt_win32.zip
 #    name: bitbay-qt_win32.zip

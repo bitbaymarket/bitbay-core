@@ -34,14 +34,9 @@ build_script:
   - sh ./config
   - make
   - cd ..
-  - curl -fsSL -o miniupnpc-2.0.tar.gz http://miniupnp.free.fr/files/download.php?file=miniupnpc-2.0.tar.gz
-  - 7z x miniupnpc-2.0.tar.gz -so | 7z x -si -ttar > nul
-  - move miniupnpc-2.0 miniupnpc
-  - cd miniupnpc
-  - perl -i -pe 's/CC \?= gcc/CC = gcc/m' Makefile.mingw
-  - copy C:\MinGW\msys\1.0\bin\echo.exe upx.exe
-  - mingw32make.bat
-  - cd ..
+  - curl -fsSL -o static_miniupnpc_win.zip https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/1/static_miniupnpc_win.zip
+  - 7z x static_miniupnpc_win.zip > nul
+  - move static_miniupnpc_win miniupnpc
   - set PATH=C:\MinGW\bin;C:\MinGW\msys\1.0\bin;%QTDIR%\bin
   - qmake CICD=appveyor BOOST_INCLUDE_PATH=%BOOST_PATH% BDB_INCLUDE_PATH=%cd%\db\build_unix OPENSSL_INCLUDE_PATH=%cd%\openssl\include BOOST_LIB_PATH=%BOOST_PATH%\stage\lib BDB_LIB_PATH=%cd%\db\build_unix MINIUPNPC_LIB_PATH=%cd%\miniupnpc OPENSSL_LIB_PATH=%cd%\openssl bitbay-qt.pro
   - make

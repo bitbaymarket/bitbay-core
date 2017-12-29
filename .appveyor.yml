@@ -39,9 +39,12 @@ build_script:
     bitbay-qt.pro
   - cd src
   - cd leveldb
+  - set PATH=C:\MinGW\bin;C:\MinGW\msys\1.0\bin;%QTDIR%\bin
+  - set TARGET_OS=OS_WINDOWS_CROSSCOMPILE
   - make out-static/libleveldb.a out-static/libmemenv.a
   - cd ..
   - cd ..
+  - set PATH=%cd%\MinGW32\bin;C:\MinGW\msys\1.0\bin;%QTDIR%\bin
   - make -j2
   - cd release
   - rm -f qrc_bitcoin.cpp

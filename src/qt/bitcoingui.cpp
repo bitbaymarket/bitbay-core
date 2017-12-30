@@ -71,7 +71,6 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     QMainWindow(parent),
     clientModel(0),
     walletModel(0),
-    toolbar(0),
     encryptWalletAction(0),
     changePassphraseAction(0),
     unlockWalletAction(0),
@@ -100,9 +99,6 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
 
     // Create application menu bar
     createMenuBar();
-
-    // Create the toolbars
-    createToolBars();
 
     // Create the tray icon (or setup the dock icon)
     createTrayIcon();
@@ -193,7 +189,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
 
     QFont font("Roboto Condensed", 11, QFont::Bold);
 
-    QToolButton * tabDashboard = new QToolButton();
+    tabDashboard = new QToolButton();
     tabDashboard->setFixedSize(160,50);
     tabDashboard->setText(tr("DASHBOARD"));
     tabDashboard->setCheckable(true);
@@ -206,7 +202,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabsGroup->addButton(tabDashboard);
     leftPanelLayout->addWidget(tabDashboard);
 
-    QToolButton * tabReceive = new QToolButton();
+    tabReceive = new QToolButton();
     tabReceive->setFixedSize(160,50);
     tabReceive->setText(tr("RECEIVE"));
     tabReceive->setCheckable(true);
@@ -218,7 +214,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabsGroup->addButton(tabReceive);
     leftPanelLayout->addWidget(tabReceive);
 
-    QToolButton * tabSend = new QToolButton();
+    tabSend = new QToolButton();
     tabSend->setFixedSize(160,50);
     tabSend->setText(tr("SEND"));
     tabSend->setCheckable(true);
@@ -230,7 +226,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabsGroup->addButton(tabSend);
     leftPanelLayout->addWidget(tabSend);
 
-    QToolButton * tabTransactions = new QToolButton();
+    tabTransactions = new QToolButton();
     tabTransactions->setFixedSize(160,50);
     tabTransactions->setText(tr("TRANSACTIONS"));
     tabTransactions->setCheckable(true);
@@ -242,7 +238,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabsGroup->addButton(tabTransactions);
     leftPanelLayout->addWidget(tabTransactions);
 
-    QToolButton * tabAddresses = new QToolButton();
+    tabAddresses = new QToolButton();
     tabAddresses->setFixedSize(160,50);
     tabAddresses->setText(tr("ADDRESS BOOK"));
     tabAddresses->setCheckable(true);
@@ -493,46 +489,6 @@ void BitcoinGUI::createMenuBar()
     help->addAction(aboutQtAction);
 }
 
-static QWidget* makeToolBarSpacer()
-{
-    QWidget* spacer = new QWidget();
-    spacer->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
-    spacer->setStyleSheet("QWidget { background: rgb(255,255,255); }");
-    return spacer;
-}
-
-void BitcoinGUI::createToolBars()
-{
-    toolbar = new QToolBar(tr("Tabs toolbar"));
-//    toolbar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-//    toolbar->setContextMenuPolicy(Qt::PreventContextMenu);
-
-//    toolbar->setStyleSheet("QWidget { background: rgb(255,255,255); }");
-
-//    toolbar->addAction(overviewAction);
-//    toolbar->addAction(receiveCoinsAction);
-//    toolbar->addAction(sendCoinsAction);
-//    toolbar->addAction(historyAction);
-//    toolbar->addAction(addressBookAction);
-
-//    toolbar->addWidget(makeToolBarSpacer());
-
-//    toolbar->setOrientation(Qt::Vertical);
-//    toolbar->setMovable(false);
-
-//    addToolBar(Qt::LeftToolBarArea, toolbar);
-
-//    int w = 0;
-
-//    foreach(QAction *action, toolbar->actions()) {
-//        w = std::max(w, toolbar->widgetForAction(action)->width());
-//    }
-
-//    foreach(QAction *action, toolbar->actions()) {
-//        toolbar->widgetForAction(action)->setFixedWidth(w);
-//    }
-}
-
 void BitcoinGUI::setClientModel(ClientModel *clientModel)
 {
     this->clientModel = clientModel;
@@ -607,6 +563,7 @@ void BitcoinGUI::createTrayIcon()
 #ifndef Q_OS_MAC
     trayIcon = new QSystemTrayIcon(this);
     trayIconMenu = new QMenu(this);
+    trayIconMenu->setStyleSheet("QWidget { background: none; }");
     trayIcon->setContextMenu(trayIconMenu);
     trayIcon->setToolTip(tr("BitBay client"));
     trayIcon->setIcon(QIcon(":/icons/toolbar"));
@@ -909,6 +866,7 @@ void BitcoinGUI::gotoHistoryPage()
 {
     historyAction->setChecked(true);
     centralStackedWidget->setCurrentWidget(transactionsPage);
+    if (!tabTransactions->isChecked()) tabTransactions->setChecked(true);
 
     exportAction->setEnabled(true);
     disconnect(exportAction, SIGNAL(triggered()), 0, 0);

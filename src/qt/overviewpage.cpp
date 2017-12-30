@@ -36,9 +36,10 @@ public:
 //        int xspace = DECORATION_SIZE + 8;
         int xspace = 0;
         int ypad = 6;
-        int halfheight = (mainRect.height() - 2*ypad)/2;
+        //int halfheight = (mainRect.height() - 2*ypad)/2;
+        int halfheight = (mainRect.height() - 2*ypad);
         QRect amountRect(mainRect.left() + xspace, mainRect.top()+ypad, mainRect.width() - xspace, halfheight);
-        QRect addressRect(mainRect.left() + xspace, mainRect.top()+ypad+halfheight, mainRect.width() - xspace, halfheight);
+        //QRect addressRect(mainRect.left() + xspace, mainRect.top()+ypad+halfheight, mainRect.width() - xspace, halfheight);
         //icon.paint(painter, decorationRect);
 
         QDateTime date = index.data(TransactionTableModel::DateRole).toDateTime();
@@ -53,7 +54,7 @@ public:
         }
 
         painter->setPen(foreground);
-        painter->drawText(addressRect, Qt::AlignLeft|Qt::AlignVCenter, address);
+        //painter->drawText(addressRect, Qt::AlignLeft|Qt::AlignVCenter, address);
 
         if(amount < 0)
         {
@@ -83,7 +84,8 @@ public:
 
     inline QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
     {
-        return QSize(DECORATION_SIZE, DECORATION_SIZE);
+        //return QSize(DECORATION_SIZE, DECORATION_SIZE);
+        return QSize(DECORATION_SIZE, DECORATION_SIZE/2);
     }
 
     int unit;
@@ -188,11 +190,11 @@ void OverviewPage::setBalance(qint64 balance, qint64 stake, qint64 unconfirmedBa
     currentStake = stake;
     currentUnconfirmedBalance = unconfirmedBalance;
     currentImmatureBalance = immatureBalance;
-    ui->labelBalance->setText(BitcoinUnits::formatWithUnit(unit, balance));
-    ui->labelStake->setText(BitcoinUnits::formatWithUnit(unit, stake));
-    ui->labelUnconfirmed->setText(BitcoinUnits::formatWithUnit(unit, unconfirmedBalance));
-    ui->labelImmature->setText(BitcoinUnits::formatWithUnit(unit, immatureBalance));
-    ui->labelTotal->setText(BitcoinUnits::formatWithUnit(unit, balance + stake + unconfirmedBalance + immatureBalance));
+    ui->labelBalance->setText(BitcoinUnits::formatWithUnitForLabel(unit, balance));
+    ui->labelStake->setText(BitcoinUnits::formatWithUnitForLabel(unit, stake));
+    ui->labelUnconfirmed->setText(BitcoinUnits::formatWithUnitForLabel(unit, unconfirmedBalance));
+    ui->labelImmature->setText(BitcoinUnits::formatWithUnitForLabel(unit, immatureBalance));
+    ui->labelTotal->setText(BitcoinUnits::formatWithUnitForLabel(unit, balance + stake + unconfirmedBalance + immatureBalance));
 
     // only show immature (newly mined) balance if it's non-zero, so as not to complicate things
     // for the non-mining users

@@ -566,7 +566,11 @@ void BitcoinGUI::createTrayIcon()
     trayIconMenu->setStyleSheet("QWidget { background: none; }");
     trayIcon->setContextMenu(trayIconMenu);
     trayIcon->setToolTip(tr("BitBay client"));
+#ifdef Q_WS_WIN
     trayIcon->setIcon(QIcon(":/icons/toolbar"));
+#else
+    trayIcon->setIcon(QIcon(":/icons/trayicon32"));
+#endif
     connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
             this, SLOT(trayIconActivated(QSystemTrayIcon::ActivationReason)));
     trayIcon->show();

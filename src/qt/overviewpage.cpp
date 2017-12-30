@@ -74,9 +74,14 @@ public:
         {
             amountText = QString("[") + amountText + QString("]");
         }
+        QFont f = painter->font();
+        QFont fb = f;
+        fb.setBold(true);
+        painter->setFont(fb);
         painter->drawText(amountRect, Qt::AlignRight|Qt::AlignVCenter, amountText);
 
-        painter->setPen(option.palette.color(QPalette::Text));
+        painter->setFont(f);
+        painter->setPen(QPen("#666666"));
         painter->drawText(amountRect, Qt::AlignLeft|Qt::AlignVCenter, GUIUtil::dateTimeStr(date));
 
         painter->restore();
@@ -161,15 +166,6 @@ OverviewPage::OverviewPage(QWidget *parent) :
 
     // start with displaying the "out of sync" warnings
     showOutOfSyncWarning(true);
-
-//    {
-//        const char* whiteLabelQSS = "QLabel { color: rgb(255,255,255); }";
-//        ui->labelBalance->setStyleSheet(whiteLabelQSS);
-//        ui->labelStake->setStyleSheet(whiteLabelQSS);
-//        ui->labelUnconfirmed->setStyleSheet(whiteLabelQSS);
-//        ui->labelImmature->setStyleSheet(whiteLabelQSS);
-//        ui->labelTotal->setStyleSheet(whiteLabelQSS);
-//    }
 }
 
 void OverviewPage::handleTransactionClicked(const QModelIndex &index)

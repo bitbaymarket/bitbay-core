@@ -529,23 +529,54 @@ void SetBitBayThemeQSS(QApplication& app)
             border-style: solid;
             min-height: 25px;
         }
+        QToolButton {
+            border: 1px solid rgb(255,255,255);
+            border-right: 1px solid rgb(135,135,135);
+            border-bottom: 1px solid rgb(135,135,135);
+            min-height: 25px;
+            min-width: 25px;
+        }
+        QToolButton:pressed {
+            border: 1px solid rgb(135,135,135);
+            border-right: 1px solid rgb(255,255,255);
+            border-bottom: 1px solid rgb(255,255,255);
+        }
         QPushButton {
-            background: rgb(236,236,236);
+            background: rgb(255,215,31);
             color: rgb(59,65,145);
-            border-color: rgb(255,255,255);
-            border-width: 1px;
-            border-style: solid;
+            border: 1px solid rgb(255,255,255);
+            border-right: 2px solid rgb(255,255,255);
+            border-right-color: qlineargradient(
+                x1: 0, y1: 0,
+                x2: 1, y2: 0,
+                stop: 0      #ffffff,
+                stop: 0.5    #ffffff,
+                stop: 0.5001 #b6bdca,
+                stop: 1      #b6bdca
+            );
+            border-bottom: 2px solid rgb(255,255,255);
+            border-bottom-color: qlineargradient(
+                x1: 0, y1: 0,
+                x2: 0, y2: 1,
+                stop: 0      #ffffff,
+                stop: 0.5    #ffffff,
+                stop: 0.5001 #b6bdca,
+                stop: 1      #b6bdca
+            );
             min-height: 25px;
             min-width: 120px;
             margin-top: 2px;
             margin-left: 2px;
             margin-right: 2px;
             margin-bottom: 2px;
+            padding-left: 15px;
+            padding-right: 15px;
         }
         QPushButton:hover {
-            background: rgb(226,226,226);
+            background: orange;
         }
         QPushButton:disabled {
+            background: rgb(226,226,226);
             color: rgb(206,206,206);
         }
         QPushButton:pressed {

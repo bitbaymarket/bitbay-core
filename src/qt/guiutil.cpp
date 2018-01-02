@@ -12,6 +12,9 @@
 #include <QDateTime>
 #include <QDoubleValidator>
 #include <QFont>
+#include <QLabel>
+#include <QTableView>
+#include <QHeaderView>
 #include <QLineEdit>
 #include <QUrl>
 #include <QTextDocument> // For Qt::escape
@@ -490,7 +493,7 @@ void SetBitBayThemeQSS(QApplication& app)
     QFontDatabase::addApplicationFont(":/fonts/res/fonts/RobotoMono-Italic.ttf");
     QFontDatabase::addApplicationFont(":/fonts/res/fonts/RobotoMono-Regular.ttf");
 
-    QFont font("Roboto");
+    QFont font("Roboto", 11);
     QApplication::setFont(font);
 //    qDebug() << font.toString();
 //    QFontDatabase database;
@@ -626,6 +629,16 @@ void SetBitBayThemeQSS(QApplication& app)
         }
     )");
 
+}
+
+void SetBitBayFonts(QWidget * w) {
+    QFont font("Roboto", 11);
+    for(auto l : w->findChildren<QLabel *>()) { l->setFont(font); }
+    for(auto tv : w->findChildren<QTableView *>()) {
+        tv->horizontalHeader()->setFont(font);
+        tv->verticalHeader()->setFont(font);
+        tv->setFont(font);
+    }
 }
 
 } // namespace GUIUtil

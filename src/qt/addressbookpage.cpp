@@ -27,22 +27,7 @@ AddressBookPage::AddressBookPage(Mode mode, Tabs tab, QWidget *parent) :
     tab(tab)
 {
     ui->setupUi(this);
-    for(auto l : findChildren<QLabel *>()) { // need for mac
-        l->setFont(QApplication::font());
-    }
-    for(auto l : findChildren<QTableView *>()) { // need for mac
-        l->setFont(QApplication::font());
-    }
-//    QString by_style =     R"(
-//        QPushButton {
-//            background: rgb(255,215,31);
-//        }
-//        QPushButton:hover {
-//            background: rgb(226,226,226);
-//        }
-//    )";
-//    ui->newAddressButton->setStyleSheet(by_style);
-
+    GUIUtil::SetBitBayFonts(this);
     ui->tableView->verticalScrollBar()->show();
 
 #ifndef USE_QRCODE

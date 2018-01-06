@@ -7,12 +7,10 @@ compiler:
 - clang
 env:
   matrix:
-  - QT=510 BREW=@5.10
-before_install:
-- '[ "$TRAVIS_OS_NAME" != osx   ] || brew update'
+  - QT=59 BREW=@5.9
 install:
-- '[ "$TRAVIS_OS_NAME" != osx ] || brew install boost || echo brew upgrade boost'
-- '[ "$TRAVIS_OS_NAME" != osx ] || brew install openssl || echo brew upgrade openssl'
+- '[ "$TRAVIS_OS_NAME" != osx ] || brew install boost || echo -'
+- '[ "$TRAVIS_OS_NAME" != osx ] || brew install openssl || echo -'
 - '[ "$TRAVIS_OS_NAME" != osx ] || brew install miniupnpc'
 - '[ "$TRAVIS_OS_NAME" != osx ] || brew install qt$BREW'
 - '[ "$TRAVIS_OS_NAME" != osx ] || brew link --force qt$BREW'
@@ -39,7 +37,7 @@ script:
 - make -j2 -f makefile.osx
 - cd ..
 - cp src/bitbayd BitBay-Wallet-Qt.app/Contents/MacOS/
-- macdeployqt BitBay-Wallet-Qt.app
+- macdeployqt BitBay-Wallet-Qt.app -verbose=2 -executable=BitBay-Wallet-Qt.app/Contents/MacOS/bitbayd
 - otool -L BitBay-Wallet-Qt.app/Contents/MacOS/BitBay-Wallet-Qt
 - otool -L BitBay-Wallet-Qt.app/Contents/MacOS/bitbayd
 - install_name_tool -change /usr/local/Cellar/openssl/1.0.2l/lib/libcrypto.1.0.0.dylib @executable_path/../Frameworks/libcrypto.1.0.0.dylib BitBay-Wallet-Qt.app/Contents/Frameworks/libssl.1.0.0.dylib
@@ -52,5 +50,4 @@ deploy:
   file: $TRAVIS_BUILD_DIR/bitbay-wallet-qt_mac.zip
   skip_cleanup: true
   on:
-    repo: yshurik/BitBay
     tags: true

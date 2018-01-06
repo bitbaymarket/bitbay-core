@@ -61,7 +61,7 @@ build_script:
   - set BDB_INCLUDE_PATH=../db/include
   - set BDB_LIB_PATH=../db/
   - set MINIUPNPC_LIB_PATH=../miniupnpc
-  - make -f makefile.mingw
+  - make -f makefile.mingw -j2
   - cd ..
   - move src\bitbayd.exe .
   - set PATH=%PATH_ORIG%

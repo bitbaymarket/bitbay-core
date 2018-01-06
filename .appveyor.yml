@@ -62,6 +62,8 @@ build_script:
   - set BDB_LIB_PATH=../db/
   - set MINIUPNPC_LIB_PATH=../miniupnpc
   - make -f makefile.mingw
+  - cd ..
+  - move src\bitbayd.exe .
   - set PATH=%PATH_ORIG%
   - 7z a bitbayd_win.zip bitbayd.exe
 

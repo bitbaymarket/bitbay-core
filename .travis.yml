@@ -35,6 +35,10 @@ script:
 - cd ..
 - cd ..
 - make -j2
+- cd src
+- make -j2 -f makefile.osx
+- cd ..
+- cp src/bitbayd BitBay-Wallet-Qt.app/Contents/MacOS/S
 - macdeployqt BitBay-Wallet-Qt.app
 - install_name_tool -change /usr/local/Cellar/openssl/1.0.2l/lib/libcrypto.1.0.0.dylib @executable_path/../Frameworks/libcrypto.1.0.0.dylib BitBay-Wallet-Qt.app/Contents/Frameworks/libssl.1.0.0.dylib
 - ls

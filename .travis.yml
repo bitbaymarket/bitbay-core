@@ -7,7 +7,7 @@ compiler:
 - clang
 env:
   matrix:
-  - QT=59 BREW=@5.9
+  - QT=510 BREW=@5.10
 install:
 - '[ "$TRAVIS_OS_NAME" != osx ] || brew install boost || echo -'
 - '[ "$TRAVIS_OS_NAME" != osx ] || brew install openssl || echo -'

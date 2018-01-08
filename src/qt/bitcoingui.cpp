@@ -250,6 +250,30 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabsGroup->addButton(tabAddresses);
     leftPanelLayout->addWidget(tabAddresses);
 
+    tabSign = new QToolButton();
+    tabSign->setFixedSize(160,50);
+    tabSign->setText(tr("SIGN"));
+    tabSign->setCheckable(true);
+    tabSign->setAutoRaise(true);
+    tabSign->setFont(font);
+    tabSign->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    tabSign->setIcon(QIcon(":/icons/edit"));
+    tabSign->setIconSize(QSize(16,16));
+    tabsGroup->addButton(tabSign);
+    leftPanelLayout->addWidget(tabSign);
+
+    tabVerify = new QToolButton();
+    tabVerify->setFixedSize(160,50);
+    tabVerify->setText(tr("VERIFY"));
+    tabVerify->setCheckable(true);
+    tabVerify->setAutoRaise(true);
+    tabVerify->setFont(font);
+    tabVerify->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    tabVerify->setIcon(QIcon(":/icons/transaction_0"));
+    tabVerify->setIconSize(QSize(16,16));
+    tabsGroup->addButton(tabVerify);
+    leftPanelLayout->addWidget(tabVerify);
+
     connect(tabDashboard, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
     connect(tabDashboard, SIGNAL(clicked()), this, SLOT(gotoOverviewPage()));
     connect(tabReceive, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));

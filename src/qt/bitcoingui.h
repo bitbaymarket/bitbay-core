@@ -99,6 +99,8 @@ private:
     QToolButton * tabSend = nullptr;
     QToolButton * tabTransactions = nullptr;
     QToolButton * tabAddresses = nullptr;
+    QToolButton * tabSign = nullptr;
+    QToolButton * tabVerify = nullptr;
 
     QSystemTrayIcon *trayIcon;
     Notificator *notificator;

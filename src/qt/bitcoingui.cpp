@@ -12,7 +12,8 @@
 #include "transactiontablemodel.h"
 #include "addressbookpage.h"
 #include "sendcoinsdialog.h"
-#include "signverifymessagedialog.h"
+#include "signmessagepage.h"
+#include "verifymessagepage.h"
 #include "optionsdialog.h"
 #include "aboutdialog.h"
 #include "clientmodel.h"
@@ -118,7 +119,9 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
 
     sendCoinsPage = new SendCoinsDialog(this);
 
-    signVerifyMessageDialog = new SignVerifyMessageDialog(this);
+    signMessagePage = new SignMessagePage(this);
+
+    verifyMessagePage = new VerifyMessagePage(this);
 
     centralStackedWidget = new QStackedWidget(this);
     centralStackedWidget->addWidget(overviewPage);
@@ -126,6 +129,8 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     centralStackedWidget->addWidget(addressBookPage);
     centralStackedWidget->addWidget(receiveCoinsPage);
     centralStackedWidget->addWidget(sendCoinsPage);
+    centralStackedWidget->addWidget(signMessagePage);
+    centralStackedWidget->addWidget(verifyMessagePage);
 
     QWidget * leftPanel = new QWidget();
     leftPanel->setFixedWidth(160);
@@ -284,6 +289,10 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     connect(tabTransactions, SIGNAL(clicked()), this, SLOT(gotoHistoryPage()));
     connect(tabAddresses, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
     connect(tabAddresses, SIGNAL(clicked()), this, SLOT(gotoAddressBookPage()));
+    connect(tabSign, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
+    connect(tabSign, SIGNAL(clicked()), this, SLOT(gotoSignMessagePage()));
+    connect(tabVerify, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
+    connect(tabVerify, SIGNAL(clicked()), this, SLOT(gotoVerifyMessagePage()));
 
     QWidget * space2 = new QWidget;
     space2->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::MinimumExpanding);
@@ -567,7 +576,8 @@ void BitcoinGUI::setWalletModel(WalletModel *walletModel)
         addressBookPage->setModel(walletModel->getAddressTableModel());
         receiveCoinsPage->setModel(walletModel->getAddressTableModel());
         sendCoinsPage->setModel(walletModel);
-        signVerifyMessageDialog->setModel(walletModel);
+        signMessagePage->setModel(walletModel);
+        verifyMessagePage->setModel(walletModel);
 
         setEncryptionStatus(walletModel->getEncryptionStatus());
         connect(walletModel, SIGNAL(encryptionStatusChanged(int)), this, SLOT(setEncryptionStatus(int)));
@@ -930,22 +940,38 @@ void BitcoinGUI::gotoSendCoinsPage()
     disconnect(exportAction, SIGNAL(triggered()), 0, 0);
 }
 
+void BitcoinGUI::gotoSignMessagePage()
+{
+    centralStackedWidget->setCurrentWidget(signMessagePage);
+
+    exportAction->setEnabled(false);
+    disconnect(exportAction, SIGNAL(triggered()), 0, 0);
+}
+
+void BitcoinGUI::gotoVerifyMessagePage()
+{
+    centralStackedWidget->setCurrentWidget(verifyMessagePage);
+
+    exportAction->setEnabled(false);
+    disconnect(exportAction, SIGNAL(triggered()), 0, 0);
+}
+
 void BitcoinGUI::gotoSignMessageTab(QString addr)
 {
-    // call show() in showTab_SM()
-    signVerifyMessageDialog->showTab_SM(true);
+    tabSign->setChecked(true);
+    centralStackedWidget->setCurrentWidget(signMessagePage);
 
     if(!addr.isEmpty())
-        signVerifyMessageDialog->setAddress_SM(addr);
+        signMessagePage->setAddress_SM(addr);
 }
 
 void BitcoinGUI::gotoVerifyMessageTab(QString addr)
 {
-    // call show() in showTab_VM()
-    signVerifyMessageDialog->showTab_VM(true);
+    tabVerify->setChecked(true);
+    centralStackedWidget->setCurrentWidget(verifyMessagePage);
 
     if(!addr.isEmpty())
-        signVerifyMessageDialog->setAddress_VM(addr);
+        verifyMessagePage->setAddress_VM(addr);
 }
 
 void BitcoinGUI::dragEnterEvent(QDragEnterEvent *event)

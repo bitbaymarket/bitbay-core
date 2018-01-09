@@ -596,6 +596,9 @@ void SetBitBayThemeQSS(QApplication& app)
             border-right: 1px solid #6c6c6c;
             min-height: 25px;
         }
+        QPlainTextEdit {
+            background-color: rgb(255,255,255);
+        }
         QTableView {
             background-color: rgb(255,255,255);
         }

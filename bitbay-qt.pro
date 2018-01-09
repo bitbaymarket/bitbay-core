@@ -457,3 +457,9 @@ DISTFILES += \
 	src/makefile.unix \
 	.travis.yml \
 	.appveyor.yml
+
+
+exists(bitbay-qt-local.pri) {
+    include(bitbay-qt-local.pri)
+}
+

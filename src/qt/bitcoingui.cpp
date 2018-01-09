@@ -257,7 +257,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabSign->setAutoRaise(true);
     tabSign->setFont(font);
     tabSign->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    tabSign->setIcon(QIcon(":/icons/edit"));
+    tabSign->setIcon(QIcon(":/icons/sign"));
     tabSign->setIconSize(QSize(16,16));
     tabsGroup->addButton(tabSign);
     leftPanelLayout->addWidget(tabSign);
@@ -269,7 +269,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabVerify->setAutoRaise(true);
     tabVerify->setFont(font);
     tabVerify->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    tabVerify->setIcon(QIcon(":/icons/transaction_0"));
+    tabVerify->setIcon(QIcon(":/icons/verify"));
     tabVerify->setIconSize(QSize(16,16));
     tabsGroup->addButton(tabVerify);
     leftPanelLayout->addWidget(tabVerify);

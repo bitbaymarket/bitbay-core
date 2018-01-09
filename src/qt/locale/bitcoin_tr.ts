@@ -2800,8 +2800,8 @@ Ayrıca sorunlardan haberdar edilmek için alertnotify parametresini doldurmanı
     </message>
     <message>
         <location line="+63"/>
-        <source>Listen for JSON-RPC connections on &lt;port&gt; (default: 15715 or testnet: 25715)</source>
-        <translation>&lt;port&gt; üzerinde JSON-RPC bağlantılarını dinle (varsayılan: 15715 veya testnet: 25715)</translation>
+        <source>Listen for JSON-RPC connections on &lt;port&gt; (default: 19915 or testnet: 21915)</source>
+        <translation>&lt;port&gt; üzerinde JSON-RPC bağlantılarını dinle (varsayılan: 19915 veya testnet: 21915)</translation>
     </message>
     <message>
         <location line="-16"/>

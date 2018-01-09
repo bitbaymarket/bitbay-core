@@ -2804,7 +2804,7 @@ for example: alertnotify=echo %%s | mail -s &quot;BitBay Alert&quot; admin@foo.c
     </message>
     <message>
         <location line="+62"/>
-        <source>Listen for JSON-RPC connections on &lt;port&gt; (default: 15715 or testnet: 25715)</source>
+        <source>Listen for JSON-RPC connections on &lt;port&gt; (default: 19915 or testnet: 21915)</source>
         <translation></translation>
     </message>
     <message>

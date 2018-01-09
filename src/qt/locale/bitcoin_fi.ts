@@ -2797,8 +2797,8 @@ On myös suositeltavaa asettaa alertnotify jolloin olet tiedotettu ongelmista; e
     </message>
     <message>
         <location line="+63"/>
-        <source>Listen for JSON-RPC connections on &lt;port&gt; (default: 15715 or testnet: 25715)</source>
-        <translation>Kuuntele JSON-RPC-yhteyksiä portissa &lt;port&gt; (oletus: 15715 tai testiverkko: 25715)</translation>
+        <source>Listen for JSON-RPC connections on &lt;port&gt; (default: 19915 or testnet: 21915)</source>
+        <translation>Kuuntele JSON-RPC-yhteyksiä portissa &lt;port&gt; (oletus: 19915 tai testiverkko: 21915)</translation>
     </message>
     <message>
         <location line="-16"/>

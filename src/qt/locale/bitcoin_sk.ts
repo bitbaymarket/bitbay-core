@@ -2799,8 +2799,8 @@ napríklad: alertnotify=echo %%s | mail -s &quot;BitBay upozornenie&quot; admin@
     </message>
     <message>
         <location line="+63"/>
-        <source>Listen for JSON-RPC connections on &lt;port&gt; (default: 15715 or testnet: 25715)</source>
-        <translation>Počúvajte pre JSON-RPC spojenie na &lt;port&gt; (predvolené: 15715 alebo testovacia sieť: 25715)</translation>
+        <source>Listen for JSON-RPC connections on &lt;port&gt; (default: 19915 or testnet: 21915)</source>
+        <translation>Počúvajte pre JSON-RPC spojenie na &lt;port&gt; (predvolené: 19915 alebo testovacia sieť: 21915)</translation>
     </message>
     <message>
         <location line="-16"/>

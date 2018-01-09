@@ -2734,8 +2734,8 @@ for example: alertnotify=echo %%s | mail -s &quot;BitBay Alert&quot; admin@foo.c
     </message>
     <message>
         <location line="+5"/>
-        <source>Listen for connections on &lt;port&gt; (default: 15714 or testnet: 25714)</source>
-        <translation>&lt;port&gt; で 接続をリスン (デフォルト: 15714かtestnet は 25714)</translation>
+        <source>Listen for connections on &lt;port&gt; (default: 19914 or testnet: 21914)</source>
+        <translation>&lt;port&gt; で 接続をリスン (デフォルト: 19914かtestnet は 21914)</translation>
     </message>
     <message>
         <location line="+1"/>

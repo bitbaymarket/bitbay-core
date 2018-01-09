@@ -2719,7 +2719,7 @@ for example: alertnotify=echo %%s | mail -s &quot;BitBay Alert&quot; admin@foo.c
     </message>
     <message>
         <location line="+5"/>
-        <source>Listen for connections on &lt;port&gt; (default: 15714 or testnet: 25714)</source>
+        <source>Listen for connections on &lt;port&gt; (default: 19914 or testnet: 21914)</source>
         <translation type="unfinished"/>
     </message>
     <message>

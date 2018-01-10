@@ -13,8 +13,11 @@
 #include <QDoubleValidator>
 #include <QFont>
 #include <QLabel>
+#include <QListView>
+#include <QTreeView>
 #include <QTableView>
 #include <QHeaderView>
+#include <QAbstractButton>
 #include <QLineEdit>
 #include <QUrl>
 #include <QTextDocument> // For Qt::escape
@@ -493,7 +496,11 @@ void SetBitBayThemeQSS(QApplication& app)
     QFontDatabase::addApplicationFont(":/fonts/res/fonts/RobotoMono-Italic.ttf");
     QFontDatabase::addApplicationFont(":/fonts/res/fonts/RobotoMono-Regular.ttf");
 
+#ifdef Q_OS_MAC
+    QFont font("Roboto", 15);
+#else
     QFont font("Roboto", 11);
+#endif
     QApplication::setFont(font);
 //    qDebug() << font.toString();
 //    QFontDatabase database;
@@ -635,12 +642,26 @@ void SetBitBayThemeQSS(QApplication& app)
 }
 
 void SetBitBayFonts(QWidget * w) {
+#ifdef Q_OS_MAC
+    QFont font("Roboto", 15);
+#else
     QFont font("Roboto", 11);
+#endif
     for(auto l : w->findChildren<QLabel *>()) { l->setFont(font); }
     for(auto tv : w->findChildren<QTableView *>()) {
         tv->horizontalHeader()->setFont(font);
         tv->verticalHeader()->setFont(font);
         tv->setFont(font);
+    }
+    for(auto tv : w->findChildren<QTreeView *>()) {
+        tv->header()->setFont(font);
+        tv->setFont(font);
+    }
+    for(auto lv : w->findChildren<QListView *>()) {
+        lv->setFont(font);
+    }
+    for(auto b : w->findChildren<QAbstractButton *>()) {
+        b->setFont(font);
     }
 }
 

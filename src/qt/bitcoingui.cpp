@@ -192,7 +192,11 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     )";
     leftPanel->setStyleSheet(tabStyle);
 
+#ifdef Q_OS_MAC
+    QFont font("Roboto Condensed", 15, QFont::Bold);
+#else
     QFont font("Roboto Condensed", 11, QFont::Bold);
+#endif
 
     tabDashboard = new QToolButton();
     tabDashboard->setFixedSize(160,50);

@@ -21,10 +21,19 @@ before_script:
 - cd "$TRAVIS_BUILD_DIR"
 - qmake "CICD=travis_mac" bitbay-qt.pro
 script:
-- cd "$TRAVIS_BUILD_DIR"
-- curl -fsSL -o db-4.8.30.NC.tar.gz http://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz
-- tar -zxf db-4.8.30.NC.tar.gz
-- mv db-4.8.30.NC db
-- cd db
-- patch dbinc/atomic.h < ../doc/mac_db-4.8_atomic.patch
-- cd build_unix
+- >
+  if [[ $TRAVIS_OS_NAME == "linux" ]]; then
+    sudo add-apt-repository --yes ppa:beineri/opt-qt551-trusty;
+    sudo apt-get update -qq;
+    sudo apt-get -y install qt59-meta-minimal;
+    source /opt/qt59/bin/qt59-env.sh;
+    export;
+  else
+    cd "$TRAVIS_BUILD_DIR";
+    curl -fsSL -o db-4.8.30.NC.tar.gz https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/db-4.8.30.NC.tar.gz;
+    tar -zxf db-4.8.30.NC.tar.gz;
+    mv db-4.8.30.NC db;
+    cd db;
+    patch dbinc/atomic.h < ../doc/mac_db-4.8_atomic.patch;
+    cd build_unix;
+  fi;

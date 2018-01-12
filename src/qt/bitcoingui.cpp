@@ -347,16 +347,16 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
 
         QProgressBar {
             max-height: 18px;
-            background-color: rgb(102,104,176);
+            background-color: #e4e5f1;
             border: 0px solid grey;
             border-radius: 0px;
             padding: 0px;
             margin: 4px;
-            color: rgb(109,140,0);
+            color: #666666;
             text-align: center;
         }
         QProgressBar::chunk {
-            background: QLinearGradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 #FF8000, stop: 1 orange);
+            background: #FFD402;
             border-radius: 0px;
             margin: 0px;
         }

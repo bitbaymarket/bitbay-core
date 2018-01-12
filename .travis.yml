@@ -34,8 +34,30 @@ script:
     cd db;
     patch dbinc/atomic.h < ../doc/mac_db-4.8_atomic.patch;
     cd build_unix;
+    CFLAGS="-mmacosx-version-min=10.9" CXXFLAGS="-mmacosx-version-min=10.9" sh ../dist/configure --enable-cxx --prefix=`pwd`/inst;
+    make -j2;
+    make install;
+    cd ..;
+    cd ..;
   fi;
 
 - qmake -v
 - cd "$TRAVIS_BUILD_DIR"
 - qmake "CICD=travis_mac" bitbay-qt.pro
+- make -j2
+- cd src
+- >
+  if [[ $TRAVIS_OS_NAME == "linux" ]]; then
+    make -j2 -f makefile.unix;
+  else
+    make -j2 -f makefile.osx;
+    cd ..
+    cp src/bitbayd BitBay-Wallet-Qt.app/Contents/MacOS/
+    macdeployqt BitBay-Wallet-Qt.app -verbose=2 -executable=BitBay-Wallet-Qt.app/Contents/MacOS/bitbayd
+    otool -L BitBay-Wallet-Qt.app/Contents/MacOS/BitBay-Wallet-Qt
+    otool -L BitBay-Wallet-Qt.app/Contents/MacOS/bitbayd
+    install_name_tool -change /usr/local/Cellar/openssl/1.0.2l/lib/libcrypto.1.0.0.dylib \
+      @executable_path/../Frameworks/libcrypto.1.0.0.dylib BitBay-Wallet-Qt.app/Contents/Frameworks/libssl.1.0.0.dylib;
+    ls;
+    zip -r bitbay-wallet-qt_mac.zip BitBay-Wallet-Qt.app;
+  fi;

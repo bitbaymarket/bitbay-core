@@ -29,16 +29,6 @@ script:
     sudo add-apt-repository -y ppa:bitcoin/bitcoin;
     sudo apt-get update;
     if [[ $ARCH == "x86" ]]; then
-      sudo apt-get install -y libdb4.8-dev;
-      sudo apt-get install -y libdb4.8++-dev;
-      sudo apt-get install -y libboost-filesystem-dev;
-      sudo apt-get install -y libboost-program-options-dev;
-      sudo apt-get install -y libboost-thread-dev;
-      sudo apt-get install -y libssl-dev;
-      sudo apt-get install -y libminiupnpc-dev;
-      sudo apt-get install -y qt59-meta-minimal;
-      sudo apt-get install -y qt59tools;
-    else
       sudo apt-get install --no-install-recommends -y gcc-multilib g++-multilib;
       sudo apt-get install -y libdb4.8-dev:i386;
       sudo apt-get install -y libdb4.8++-dev:i386;
@@ -49,6 +39,17 @@ script:
       sudo apt-get install -y libminiupnpc-dev:i386;
       sudo apt-get install -y qt59-meta-minimal:i386;
       sudo apt-get install -y qt59tools:i386;
+      gcc --print-multiarch;
+    else
+      sudo apt-get install -y libdb4.8-dev;
+      sudo apt-get install -y libdb4.8++-dev;
+      sudo apt-get install -y libboost-filesystem-dev;
+      sudo apt-get install -y libboost-program-options-dev;
+      sudo apt-get install -y libboost-thread-dev;
+      sudo apt-get install -y libssl-dev;
+      sudo apt-get install -y libminiupnpc-dev;
+      sudo apt-get install -y qt59-meta-minimal;
+      sudo apt-get install -y qt59tools;
     fi;
     source /opt/qt59/bin/qt59-env.sh;
     export;

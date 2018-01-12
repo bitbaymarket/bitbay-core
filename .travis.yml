@@ -70,12 +70,18 @@ script:
 
 - qmake -v
 - cd "$TRAVIS_BUILD_DIR"
-- qmake "CICD=travis_mac" bitbay-qt.pro
+- >
+  if [[ $ARCH == "x86" ]]; then
+    qmake "CICD=travis_mac" QMAKE_CFLAGS+=-m32 QMAKE_CXXFLAGS+=-m32 QMAKE_LFLAGS+=-m32 bitbay-qt.pro;
+  else
+    qmake "CICD=travis_mac" bitbay-qt.pro;
+  fi;
+
 - make -j2
 - cd src
 - >
   if [[ $TRAVIS_OS_NAME == "linux" ]]; then
-    make -j2 -f makefile.unix;
+    echo make -j2 -f makefile.unix;
   else
     make -j2 -f makefile.osx;
     cd ..

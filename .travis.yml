@@ -18,14 +18,12 @@ install:
 - qmake -v
 before_script:
 - '[[ "$TRAVIS_OS_NAME" != osx   || "$CXX" != clang++ ]] || export QMAKESPEC=macx-clang'
-- cd "$TRAVIS_BUILD_DIR"
-- qmake "CICD=travis_mac" bitbay-qt.pro
 script:
 - >
   if [[ $TRAVIS_OS_NAME == "linux" ]]; then
     sudo add-apt-repository --yes ppa:beineri/opt-qt551-trusty;
-    sudo apt-get update -qq;
-    sudo apt-get -y install qt59-meta-minimal;
+    sudo apt-get update;
+    sudo apt-get -y install qt59base;
     source /opt/qt59/bin/qt59-env.sh;
     export;
   else
@@ -37,3 +35,7 @@ script:
     patch dbinc/atomic.h < ../doc/mac_db-4.8_atomic.patch;
     cd build_unix;
   fi;
+
+- qmake -v
+- cd "$TRAVIS_BUILD_DIR"
+- qmake "CICD=travis_mac" bitbay-qt.pro

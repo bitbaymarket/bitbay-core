@@ -67,8 +67,8 @@
     </qresource>
     <qresource prefix="/images">
         <file alias="about">res/images/about.png</file>
-        <file alias="splash">res/images/splash6.png</file>
-        <file alias="splash_simple">res/images/splash7.png</file>
+        <file alias="splash">res/images/Wallet-Splash.png</file>
+        <file alias="splash_simple">res/images/Wallet-Splash-linux.png</file>
         <file alias="header">res/images/header.png</file>
     </qresource>
     <qresource prefix="/movies">

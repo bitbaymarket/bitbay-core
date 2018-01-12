@@ -595,6 +595,10 @@ void SetBitBayThemeQSS(QApplication& app)
             margin-right: 0px;
             margin-bottom: 0px;
         }
+        QLineEdit {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
         QHeaderView::section {
             background-color: rgb(71,58,148);
             color: white;
@@ -620,6 +624,10 @@ void SetBitBayThemeQSS(QApplication& app)
         }
         QTabBar::tab:selected {
             color: rgb(71,58,148);
+        }
+        QDoubleSpinBox {
+            padding-left: 10px;
+            padding-right: 10px;
         }
         QDoubleSpinBox::up-button {
             border: 0px solid #6c6c6c;

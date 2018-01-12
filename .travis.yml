@@ -21,9 +21,9 @@ before_script:
 script:
 - >
   if [[ $TRAVIS_OS_NAME == "linux" ]]; then
-    sudo add-apt-repository --yes ppa:beineri/opt-qt551-trusty;
+    sudo add-apt-repository --yes ppa:beineri/opt-qt593-trusty;
     sudo apt-get update;
-    sudo apt-get -y install qt59base;
+    sudo apt-get -y install qt59-meta-minimal;
     source /opt/qt59/bin/qt59-env.sh;
     export;
   else

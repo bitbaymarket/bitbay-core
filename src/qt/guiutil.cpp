@@ -18,6 +18,7 @@
 #include <QTableView>
 #include <QHeaderView>
 #include <QAbstractButton>
+#include <QComboBox>
 #include <QLineEdit>
 #include <QUrl>
 #include <QTextDocument> // For Qt::escape
@@ -533,11 +534,20 @@ void SetBitBayThemeQSS(QApplication& app)
         QComboBox {
             padding-right: 15px;
             background: rgb(204,203,227);
-            color: rgb(0,0,0);
+            color: rgb(90,80,165);
             border-color: rgb(135,135,135);
             border-width: 1.2px;
             border-style: solid;
             min-height: 25px;
+            padding-left: 10px;
+        }
+        QComboBox::drop-down {
+            border: 0px solid #6c6c6c;
+        }
+        QComboBox::down-arrow {
+            image: url(:/icons/spinbox_down_arrow);
+            width: 8px;
+            height: 5px;
         }
         QToolButton {
             border: 1px solid rgb(255,255,255);
@@ -606,12 +616,19 @@ void SetBitBayThemeQSS(QApplication& app)
             border: 0px solid #6c6c6c;
             border-right: 1px solid #6c6c6c;
             min-height: 25px;
+            text-align: center;
         }
         QPlainTextEdit {
             background-color: rgb(255,255,255);
+            border-color: rgb(135,135,135);
+            border-width: 1.2px;
+            border-style: solid;
         }
         QTableView {
             background-color: rgb(255,255,255);
+            border-color: rgb(135,135,135);
+            border-width: 1.2px;
+            border-style: solid;
         }
         QTableView::item:selected {
             color: rgb(0,0,0);

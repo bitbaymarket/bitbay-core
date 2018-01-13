@@ -79,6 +79,13 @@ script:
   fi;
 
 - make -j2
+- ls -l
+- >
+  if [[ $TRAVIS_OS_NAME == "linux" ]]; then
+    ldd bitbay-wallet-qt;
+    file bitbay-wallet-qt;
+  fi;
+
 - cd src
 - >
   if [[ $TRAVIS_OS_NAME == "linux" ]]; then

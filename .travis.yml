@@ -36,7 +36,7 @@ script:
       sudo apt-get install -y libboost-program-options-dev:i386;
       sudo apt-get install -y libboost-thread-dev:i386;
       sudo apt-get install -y libssl-dev:i386;
-      sudo apt-get install -y libgl-dev:i386;
+      sudo apt-get install -y libgl1-mesa-dev:i386;
       sudo apt-get install -y libminiupnpc-dev:i386;
       sudo apt-get install -y qt59-meta-minimal:i386;
       sudo apt-get install -y qt59tools:i386;

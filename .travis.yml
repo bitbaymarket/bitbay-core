@@ -93,9 +93,17 @@ script:
     cp bitbay-wallet-qt appdir/usr/bin/;
 
     if [[ $ARCH == "x86" ]]; then
-      curl -fsSL -o appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-i686.AppImage;
+      curl -fsSL -o appimagetool https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/appimagetool-i686.AppImage;
       chmod 755 appimagetool;
       ./appimagetool --help;
+      export PATH=`pwd`:$PATH;
+      curl -fsSL -o linuxdeployqt-continuous.tar.gz https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/linuxdeployqt-continuous.tar.gz;
+      tar -zxf linuxdeployqt-continuous.tar.gz;
+      cd linuxdeployqt-continuous;
+      QMAKE_CFLAGS+=-m32 QMAKE_CXXFLAGS+=-m32 QMAKE_LFLAGS+=-m32;
+      make -j2;
+      ls;
+      cd ..;
       #mv bitbay-wallet-qt-i386.AppImage bitbay-wallet-qt;
       #tar -zcf $DEPLOY_FILE bitbay-wallet-qt;
     else

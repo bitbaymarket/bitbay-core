@@ -87,9 +87,9 @@ script:
     ldd bitbay-wallet-qt;
     file bitbay-wallet-qt;
     if [[ $ARCH == "x86" ]]; then
-      touch $DEPLOY_FILE;
+      zip -r $DEPLOY_FILE bitbay-wallet-qt;
     else
-      touch $DEPLOY_FILE;
+      zip -r $DEPLOY_FILE bitbay-wallet-qt;
     fi;
   fi;
 

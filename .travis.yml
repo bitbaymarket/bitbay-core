@@ -40,7 +40,8 @@ script:
       sudo apt-get install -y libssl-dev:i386;
       sudo apt-get install -y libgl1-mesa-dev:i386;
       sudo apt-get install -y libminiupnpc-dev:i386;
-      sudo apt-get install -y qt59-meta-minimal:i386;
+      sudo apt-get install -y libfuse-dev:i386;
+      sudo apt-get install -y qt59base:i386;
       sudo apt-get install -y qt59tools:i386;
       gcc --print-multiarch;
     else

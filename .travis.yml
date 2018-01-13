@@ -5,11 +5,11 @@ matrix:
     - os: linux
       dist: trusty
       sudo: required
-      env: DEPLOY_FILE=bitbay-wallet-qt_linux64.zip
+      env: DEPLOY_FILE=bitbay-wallet-qt_linux64.tgz
     - os: linux
       dist: trusty
       sudo: required
-      env: DEPLOY_FILE=bitbay-wallet-qt_linux32.zip ARCH="x86"
+      env: DEPLOY_FILE=bitbay-wallet-qt_linux32.tgz ARCH="x86"
     - os: osx
       osx_image: xcode7.2
       compiler: clang
@@ -96,9 +96,11 @@ script:
     ls -l;
 
     if [[ $ARCH == "x86" ]]; then
-      zip -r $DEPLOY_FILE bitbay-wallet-qt;
+      mv bitbay-wallet-qt-i386.AppImage bitbay-wallet-qt;
+      tar -zcf $DEPLOY_FILE bitbay-wallet-qt;
     else
-      zip -r $DEPLOY_FILE bitbay-wallet-qt;
+      mv bitbay-wallet-qt-x86_64.AppImage bitbay-wallet-qt;
+      tar -zcf $DEPLOY_FILE bitbay-wallet-qt;
     fi;
   fi;
 

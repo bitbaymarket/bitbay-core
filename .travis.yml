@@ -92,7 +92,7 @@ script:
     cp bitbay-wallet-qt appdir/usr/bin/;
     curl -fsSL -o linuxdeployqt https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/linuxdeployqt-continuous-x86_64.AppImage;
     chmod 755 linuxdeployqt;
-    ./linuxdeployqt appdir/usr/share/bitbay-wallet-qt.desktop;
+    ./linuxdeployqt appdir/usr/share/bitbay-wallet-qt.desktop -appimage;
     ls -l;
 
     if [[ $ARCH == "x86" ]]; then

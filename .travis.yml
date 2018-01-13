@@ -86,6 +86,15 @@ script:
   if [[ $TRAVIS_OS_NAME == "linux" ]]; then
     ldd bitbay-wallet-qt;
     file bitbay-wallet-qt;
+    cp -r contrib/appimage appdir;
+    cp src/qt/res/icons/BitBay-Wallet-Icon-128.png appdir/usr/share/icons/hicolor/128x128/bitbay-wallet-qt.png;
+    cp src/qt/res/icons/BitBay-Wallet-Icon-256.png appdir/usr/share/icons/hicolor/256x256/bitbay-wallet-qt.png;
+    cp bitbay-wallet-qt appdir/usr/bin/;
+    curl -fsSL -o linuxdeployqt https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/linuxdeployqt-continuous-x86_64.AppImage;
+    chmod 755 linuxdeployqt;
+    ./linuxdeployqt appdir/usr/share/bitbay-wallet-qt.desktop;
+    ls -l;
+
     if [[ $ARCH == "x86" ]]; then
       zip -r $DEPLOY_FILE bitbay-wallet-qt;
     else

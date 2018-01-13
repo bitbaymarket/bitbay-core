@@ -5,13 +5,15 @@ matrix:
     - os: linux
       dist: trusty
       sudo: required
+      env: DEPLOY_FILE=bitbay-wallet-qt_linux64.zip
     - os: linux
       dist: trusty
       sudo: required
-      env: ARCH="x86"
+      env: DEPLOY_FILE=bitbay-wallet-qt_linux32.zip ARCH="x86"
     - os: osx
       osx_image: xcode7.2
       compiler: clang
+      env: DEPLOY_FILE=bitbay-wallet-qt_mac.zip
 
 install:
 - '[ "$TRAVIS_OS_NAME" != osx ] || brew install boost || echo -'
@@ -84,6 +86,11 @@ script:
   if [[ $TRAVIS_OS_NAME == "linux" ]]; then
     ldd bitbay-wallet-qt;
     file bitbay-wallet-qt;
+    if [[ $ARCH == "x86" ]]; then
+      touch $DEPLOY_FILE;
+    else
+      touch $DEPLOY_FILE;
+    fi;
   fi;
 
 - cd src
@@ -100,5 +107,14 @@ script:
     install_name_tool -change /usr/local/Cellar/openssl/1.0.2l/lib/libcrypto.1.0.0.dylib \
       @executable_path/../Frameworks/libcrypto.1.0.0.dylib BitBay-Wallet-Qt.app/Contents/Frameworks/libssl.1.0.0.dylib;
     ls;
-    zip -r bitbay-wallet-qt_mac.zip BitBay-Wallet-Qt.app;
+    zip -r $DEPLOY_FILE BitBay-Wallet-Qt.app;
   fi;
+
+deploy:
+  provider: releases
+  api_key:
+    secure: pLwB88n+hu56NAojvbdCcbzf80LiWKNAD4jlpQdXLisM/9pFQlyjZGo1mwyY7Sy4DuouCWkoWB895flsnBH2sVQzeJhXE9Jb3cTx8VGMlOTTeMqDcJJSswTpqf8MBXwQKAVOjhQIRBDZ27q/5+KRT3TaK9MrNmW2ul+PaGI1PWGvq5Qer9wNgqGIf9sDHIPhdG46YNa9eXzdq/e8xpD6kUxUWFoSx8w6w8mBAGXcKCpxZQqEZs1V9HUDo+a+x69fJFiA8qN9OsfbIeN7NG22/2Ahw9SUw/nYa5JLokbLLFG5wIpKh4u8/7zFTOuWiHz+A64kLaanlMjIM1otz1aS3/iOsd6LZ7bhtTCLYGMsjvGnkhlXwO45hdUHz5YeTY4/oM6yC8mB5VYvPiSsTtgu/C9brydo2a6KXc6yfYkHjEX0AD5E4QwnZAVAyjsIP+0jR+0Ljs3Nh/VfU16kBclIj6lnv2sjYxetMgPkk29HlelUEa/WL/IUhWzlL1/M2a2vwI/aCg3c7niLmmYLIo1dd8pt0GVxfqQVVGGGHXOH9LyCR4x3A6wZKaLDEKc8VArWJl+jRtqltrrxQuY9W8Vw7pbphgeORpoOVZ3lbWZrhr5aiMicYEPHYJ7Yd7bItLxX8wiyMdkK13cgLU9z6s24SVqK5cxgsbnANM1LEIfwPjA=
+  file: $TRAVIS_BUILD_DIR/$DEPLOY_FILE
+  skip_cleanup: true
+  on:
+    tags: true

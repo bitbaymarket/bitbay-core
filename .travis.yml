@@ -100,7 +100,7 @@ script:
       curl -fsSL -o linuxdeployqt-continuous.tar.gz https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/linuxdeployqt-continuous.tar.gz;
       tar -zxf linuxdeployqt-continuous.tar.gz;
       cd linuxdeployqt-continuous;
-      QMAKE_CFLAGS+=-m32 QMAKE_CXXFLAGS+=-m32 QMAKE_LFLAGS+=-m32;
+      qmake QMAKE_CFLAGS+=-m32 QMAKE_CXXFLAGS+=-m32 QMAKE_LFLAGS+=-m32;
       make -j2;
       ls;
       cd ..;

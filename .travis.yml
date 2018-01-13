@@ -104,8 +104,9 @@ script:
       make -j2;
       ls;
       cd ..;
-      #mv bitbay-wallet-qt-i386.AppImage bitbay-wallet-qt;
-      #tar -zcf $DEPLOY_FILE bitbay-wallet-qt;
+      ./linuxdeployqt-continuous/bin/linuxdeployqt appdir/usr/share/bitbay-wallet-qt.desktop -appimage;
+      mv bitbay-wallet-qt-i386.AppImage bitbay-wallet-qt;
+      tar -zcf $DEPLOY_FILE bitbay-wallet-qt;
     else
       curl -fsSL -o linuxdeployqt https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/linuxdeployqt-continuous-x86_64.AppImage;
       chmod 755 linuxdeployqt;

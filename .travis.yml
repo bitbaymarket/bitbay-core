@@ -43,6 +43,7 @@ script:
       sudo apt-get install -y libfuse-dev:i386;
       sudo apt-get install -y qt59base:i386;
       sudo apt-get install -y qt59tools:i386;
+      sudo apt-get install -y patchelf;
       gcc --print-multiarch;
     else
       sudo apt-get install -y libdb4.8-dev;

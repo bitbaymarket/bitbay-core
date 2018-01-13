@@ -43,7 +43,6 @@ script:
       sudo apt-get install -y libfuse-dev:i386;
       sudo apt-get install -y qt59base:i386;
       sudo apt-get install -y qt59tools:i386;
-      sudo apt-get install -y patchelf;
       gcc --print-multiarch;
     else
       sudo apt-get install -y libdb4.8-dev;
@@ -104,6 +103,14 @@ script:
       qmake QMAKE_CFLAGS+=-m32 QMAKE_CXXFLAGS+=-m32 QMAKE_LFLAGS+=-m32;
       make -j2;
       ls;
+      cd ..;
+      curl -fsSL -o patchelf.tar.gz https://github.com/NixOS/patchelf/archive/0.9.tar.gz;
+      tar -zxf patchelf.tar.gz;
+      cd patchelf-0.9;
+      ./bootstrap.sh;
+      ./configure;
+      make -j2;
+      sudo make install;
       cd ..;
       ./linuxdeployqt-continuous/bin/linuxdeployqt appdir/usr/share/bitbay-wallet-qt.desktop -appimage;
       mv bitbay-wallet-qt-i386.AppImage bitbay-wallet-qt;

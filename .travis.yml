@@ -90,15 +90,18 @@ script:
     cp src/qt/res/icons/BitBay-Wallet-Icon-128.png appdir/usr/share/icons/hicolor/128x128/bitbay-wallet-qt.png;
     cp src/qt/res/icons/BitBay-Wallet-Icon-256.png appdir/usr/share/icons/hicolor/256x256/bitbay-wallet-qt.png;
     cp bitbay-wallet-qt appdir/usr/bin/;
-    curl -fsSL -o linuxdeployqt https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/linuxdeployqt-continuous-x86_64.AppImage;
-    chmod 755 linuxdeployqt;
-    ./linuxdeployqt appdir/usr/share/bitbay-wallet-qt.desktop -appimage;
-    ls -l;
 
     if [[ $ARCH == "x86" ]]; then
-      mv bitbay-wallet-qt-i386.AppImage bitbay-wallet-qt;
-      tar -zcf $DEPLOY_FILE bitbay-wallet-qt;
+      curl -fsSL -o appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-i686.AppImage;
+      chmod 755 appimagetool;
+      ./appimagetool --help;
+      #mv bitbay-wallet-qt-i386.AppImage bitbay-wallet-qt;
+      #tar -zcf $DEPLOY_FILE bitbay-wallet-qt;
     else
+      curl -fsSL -o linuxdeployqt https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/linuxdeployqt-continuous-x86_64.AppImage;
+      chmod 755 linuxdeployqt;
+      ./linuxdeployqt appdir/usr/share/bitbay-wallet-qt.desktop -appimage;
+      ls -l;
       mv bitbay-wallet-qt-x86_64.AppImage bitbay-wallet-qt;
       tar -zcf $DEPLOY_FILE bitbay-wallet-qt;
     fi;

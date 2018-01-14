@@ -1972,9 +1972,9 @@ Cela implique que des frais à hauteur d&apos;au moins %2 seront nécessaires.</
     </message>
 </context>
 <context>
-    <name>SignVerifyMessageDialog</name>
+    <name>SignMessagePage</name>
     <message>
-        <location filename="../forms/signverifymessagedialog.ui" line="+14"/>
+        <location filename="../forms/signmessagepage.ui" line="+14"/>
         <source>Signatures - Sign / Verify a Message</source>
         <translation>Signatures - Signer / Vérifier un message</translation>
     </message>

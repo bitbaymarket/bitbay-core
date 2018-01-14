@@ -1972,9 +1972,9 @@ Dit betekend dat een fee van %2 is vereist.</translation>
     </message>
 </context>
 <context>
-    <name>SignVerifyMessageDialog</name>
+    <name>SignMessagePage</name>
     <message>
-        <location filename="../forms/signverifymessagedialog.ui" line="+14"/>
+        <location filename="../forms/signmessagepage.ui" line="+14"/>
         <source>Signatures - Sign / Verify a Message</source>
         <translation>Handtekeningen - Onderteken een bericht / Verifiëer een handtekening</translation>
     </message>

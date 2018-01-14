@@ -1956,9 +1956,9 @@ This label turns red, if the priority is smaller than &quot;medium&quot;.
     </message>
 </context>
 <context>
-    <name>SignVerifyMessageDialog</name>
+    <name>SignMessagePage</name>
     <message>
-        <location filename="../forms/signverifymessagedialog.ui" line="+14"/>
+        <location filename="../forms/signmessagepage.ui" line="+14"/>
         <source>Signatures - Sign / Verify a Message</source>
         <translation>서명 - 싸인 / 메시지 확인</translation>
     </message>

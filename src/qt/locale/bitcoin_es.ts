@@ -1972,9 +1972,9 @@ Esto significa que se requiere una cuota de al menos %2.</translation>
     </message>
 </context>
 <context>
-    <name>SignVerifyMessageDialog</name>
+    <name>SignMessagePage</name>
     <message>
-        <location filename="../forms/signverifymessagedialog.ui" line="+14"/>
+        <location filename="../forms/signmessagepage.ui" line="+14"/>
         <source>Signatures - Sign / Verify a Message</source>
         <translation>Firmas - Firmar / verificar un mensaje</translation>
     </message>

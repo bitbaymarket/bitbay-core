@@ -1972,9 +1972,9 @@ Les montants inférieurs à  0.546 fois les frais minimum de relais apparaissent
     </message>
 </context>
 <context>
-    <name>SignVerifyMessageDialog</name>
+    <name>SignMessagePage</name>
     <message>
-        <location filename="../forms/signverifymessagedialog.ui" line="+14"/>
+        <location filename="../forms/signmessagepage.ui" line="+14"/>
         <source>Signatures - Sign / Verify a Message</source>
         <translation>Signatures - Signer / Vérifier un message</translation>
     </message>

@@ -5,59 +5,63 @@ matrix:
     - os: linux
       dist: trusty
       sudo: required
-      env: DEPLOY_FILE=bitbay-wallet-qt_linux64.tgz
+      env: DEPLOY_FILE=bitbay-wallet-qt_linux64.tgz ARCH="x64"
     - os: linux
       dist: trusty
       sudo: required
       env: DEPLOY_FILE=bitbay-wallet-qt_linux32.tgz ARCH="x86"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env: DEPLOY_FILE=bitbay-wallet-qt_win.zip ARCH="mxe"
     - os: osx
       osx_image: xcode7.2
       compiler: clang
-      env: DEPLOY_FILE=bitbay-wallet-qt_mac.zip
+      env: DEPLOY_FILE=bitbay-wallet-qt_mac.zip ARCH="mac"
 
 install:
-- '[ "$TRAVIS_OS_NAME" != osx ] || brew install boost || echo -'
-- '[ "$TRAVIS_OS_NAME" != osx ] || brew install openssl || echo -'
-- '[ "$TRAVIS_OS_NAME" != osx ] || brew install miniupnpc'
-- '[ "$TRAVIS_OS_NAME" != osx ] || brew install qt$BREW'
-- '[ "$TRAVIS_OS_NAME" != osx ] || brew link --force qt$BREW'
-- qmake -v
-before_script:
-- '[[ "$TRAVIS_OS_NAME" != osx   || "$CXX" != clang++ ]] || export QMAKESPEC=macx-clang'
-script:
 - >
-  if [[ $TRAVIS_OS_NAME == "linux" ]]; then
+  if [[ $ARCH == "x86" ]]; then
     sudo add-apt-repository -y ppa:beineri/opt-qt593-trusty;
     sudo add-apt-repository -y ppa:bitcoin/bitcoin;
     sudo apt-get update;
-    if [[ $ARCH == "x86" ]]; then
-      sudo apt-get install --no-install-recommends -y gcc-multilib g++-multilib;
-      sudo apt-get install -y libdb4.8-dev:i386;
-      sudo apt-get install -y libdb4.8++-dev:i386;
-      sudo apt-get install -y libboost-filesystem-dev:i386;
-      sudo apt-get install -y libboost-program-options-dev:i386;
-      sudo apt-get install -y libboost-thread-dev:i386;
-      sudo apt-get install -y libssl-dev:i386;
-      sudo apt-get install -y libgl1-mesa-dev:i386;
-      sudo apt-get install -y libminiupnpc-dev:i386;
-      sudo apt-get install -y libfuse-dev:i386;
-      sudo apt-get install -y qt59base:i386;
-      sudo apt-get install -y qt59tools:i386;
-      gcc --print-multiarch;
-    else
-      sudo apt-get install -y libdb4.8-dev;
-      sudo apt-get install -y libdb4.8++-dev;
-      sudo apt-get install -y libboost-filesystem-dev;
-      sudo apt-get install -y libboost-program-options-dev;
-      sudo apt-get install -y libboost-thread-dev;
-      sudo apt-get install -y libssl-dev;
-      sudo apt-get install -y libminiupnpc-dev;
-      sudo apt-get install -y qt59-meta-minimal;
-      sudo apt-get install -y qt59tools;
-    fi;
+    sudo apt-get install --no-install-recommends -y gcc-multilib g++-multilib;
+    sudo apt-get install -y libdb4.8-dev:i386;
+    sudo apt-get install -y libdb4.8++-dev:i386;
+    sudo apt-get install -y libboost-filesystem-dev:i386;
+    sudo apt-get install -y libboost-program-options-dev:i386;
+    sudo apt-get install -y libboost-thread-dev:i386;
+    sudo apt-get install -y libssl-dev:i386;
+    sudo apt-get install -y libgl1-mesa-dev:i386;
+    sudo apt-get install -y libminiupnpc-dev:i386;
+    sudo apt-get install -y libfuse-dev:i386;
+    sudo apt-get install -y qt59base:i386;
+    sudo apt-get install -y qt59tools:i386;
     source /opt/qt59/bin/qt59-env.sh;
     export;
-  else
+  fi;
+  if [[ $ARCH == "x64" ]]; then
+    sudo add-apt-repository -y ppa:beineri/opt-qt593-trusty;
+    sudo add-apt-repository -y ppa:bitcoin/bitcoin;
+    sudo apt-get update;
+    sudo apt-get install -y libdb4.8-dev;
+    sudo apt-get install -y libdb4.8++-dev;
+    sudo apt-get install -y libboost-filesystem-dev;
+    sudo apt-get install -y libboost-program-options-dev;
+    sudo apt-get install -y libboost-thread-dev;
+    sudo apt-get install -y libssl-dev;
+    sudo apt-get install -y libminiupnpc-dev;
+    sudo apt-get install -y qt59-meta-minimal;
+    sudo apt-get install -y qt59tools;
+    source /opt/qt59/bin/qt59-env.sh;
+    export;
+  fi;
+  if [[ $ARCH == "mac" ]]; then
+    brew install boost || echo -';
+    brew install openssl || echo -';
+    brew install miniupnpc';
+    brew install qt';
+    brew link --force qt';
     cd "$TRAVIS_BUILD_DIR";
     curl -fsSL -o db-4.8.30.NC.tar.gz https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/db-4.8.30.NC.tar.gz;
     tar -zxf db-4.8.30.NC.tar.gz;
@@ -72,19 +76,34 @@ script:
     cd ..;
   fi;
 
-- qmake -v
+before_script:
+- >
+  if [[ $ARCH == "mac" ]]; then
+    export QMAKESPEC=macx-clang';
+  fi;
+
+script:
 - cd "$TRAVIS_BUILD_DIR"
 - >
   if [[ $ARCH == "x86" ]]; then
-    qmake "CICD=travis_mac" QMAKE_CFLAGS+=-m32 QMAKE_CXXFLAGS+=-m32 QMAKE_LFLAGS+=-m32 bitbay-qt.pro;
-  else
+    qmake -v;
+    qmake "CICD=travis_x86" QMAKE_CFLAGS+=-m32 QMAKE_CXXFLAGS+=-m32 QMAKE_LFLAGS+=-m32 bitbay-qt.pro;
+    make -j2;
+  fi;
+  if [[ $ARCH == "x64" ]]; then
+    qmake -v;
+    qmake "CICD=travis_x64" bitbay-qt.pro;
+    make -j2;
+  fi;
+  if [[ $ARCH == "mac" ]]; then
+    qmake -v;
     qmake "CICD=travis_mac" bitbay-qt.pro;
+    make -j2;
   fi;
 
-- make -j2
 - ls -l
 - >
-  if [[ $TRAVIS_OS_NAME == "linux" ]]; then
+  if [[ $ARCH == "x86" ]]; then
     ldd bitbay-wallet-qt;
     file bitbay-wallet-qt;
     cp -r contrib/appimage appdir;
@@ -92,44 +111,56 @@ script:
     cp src/qt/res/icons/BitBay-Wallet-Icon-256.png appdir/usr/share/icons/hicolor/256x256/bitbay-wallet-qt.png;
     cp bitbay-wallet-qt appdir/usr/bin/;
 
-    if [[ $ARCH == "x86" ]]; then
-      curl -fsSL -o appimagetool https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/appimagetool-i686.AppImage;
-      chmod 755 appimagetool;
-      ./appimagetool --help;
-      export PATH=`pwd`:$PATH;
-      curl -fsSL -o linuxdeployqt-continuous.tar.gz https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/linuxdeployqt-continuous.tar.gz;
-      tar -zxf linuxdeployqt-continuous.tar.gz;
-      cd linuxdeployqt-continuous;
-      qmake QMAKE_CFLAGS+=-m32 QMAKE_CXXFLAGS+=-m32 QMAKE_LFLAGS+=-m32;
-      make -j2;
-      ls;
-      cd ..;
-      curl -fsSL -o patchelf.tar.gz https://github.com/NixOS/patchelf/archive/0.9.tar.gz;
-      tar -zxf patchelf.tar.gz;
-      cd patchelf-0.9;
-      ./bootstrap.sh;
-      ./configure;
-      make -j2;
-      sudo make install;
-      cd ..;
-      ./linuxdeployqt-continuous/bin/linuxdeployqt appdir/usr/share/bitbay-wallet-qt.desktop -appimage;
-      mv bitbay-wallet-qt-i386.AppImage bitbay-wallet-qt;
-      tar -zcf $DEPLOY_FILE bitbay-wallet-qt;
-    else
-      curl -fsSL -o linuxdeployqt https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/linuxdeployqt-continuous-x86_64.AppImage;
-      chmod 755 linuxdeployqt;
-      ./linuxdeployqt appdir/usr/share/bitbay-wallet-qt.desktop -appimage;
-      ls -l;
-      mv bitbay-wallet-qt-x86_64.AppImage bitbay-wallet-qt;
-      tar -zcf $DEPLOY_FILE bitbay-wallet-qt;
-    fi;
+    curl -fsSL -o appimagetool https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/appimagetool-i686.AppImage;
+    chmod 755 appimagetool;
+    ./appimagetool --help;
+    export PATH=`pwd`:$PATH;
+    curl -fsSL -o linuxdeployqt-continuous.tar.gz https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/linuxdeployqt-continuous.tar.gz;
+    tar -zxf linuxdeployqt-continuous.tar.gz;
+    cd linuxdeployqt-continuous;
+    qmake QMAKE_CFLAGS+=-m32 QMAKE_CXXFLAGS+=-m32 QMAKE_LFLAGS+=-m32;
+    make -j2;
+    ls;
+    cd ..;
+    curl -fsSL -o patchelf.tar.gz https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/patchelf-0.9.tar.gz;
+    tar -zxf patchelf.tar.gz;
+    cd patchelf-0.9;
+    ./bootstrap.sh;
+    ./configure;
+    make -j2;
+    sudo make install;
+    cd ..;
+    ./linuxdeployqt-continuous/bin/linuxdeployqt appdir/usr/share/bitbay-wallet-qt.desktop -appimage;
+    mv bitbay-wallet-qt-i386.AppImage bitbay-wallet-qt;
+    tar -zcf $DEPLOY_FILE bitbay-wallet-qt;
+  fi;
+  if [[ $ARCH == "x64" ]]; then
+    ldd bitbay-wallet-qt;
+    file bitbay-wallet-qt;
+    cp -r contrib/appimage appdir;
+    cp src/qt/res/icons/BitBay-Wallet-Icon-128.png appdir/usr/share/icons/hicolor/128x128/bitbay-wallet-qt.png;
+    cp src/qt/res/icons/BitBay-Wallet-Icon-256.png appdir/usr/share/icons/hicolor/256x256/bitbay-wallet-qt.png;
+    cp bitbay-wallet-qt appdir/usr/bin/;
+
+    curl -fsSL -o linuxdeployqt https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/linuxdeployqt-continuous-x86_64.AppImage;
+    chmod 755 linuxdeployqt;
+    ./linuxdeployqt appdir/usr/share/bitbay-wallet-qt.desktop -appimage;
+    ls -l;
+    mv bitbay-wallet-qt-x86_64.AppImage bitbay-wallet-qt;
+    tar -zcf $DEPLOY_FILE bitbay-wallet-qt;
   fi;
 
-- cd src
 - >
-  if [[ $TRAVIS_OS_NAME == "linux" ]]; then
+  if [[ $ARCH == "x86" ]]; then
+    cd src
     echo make -j2 -f makefile.unix;
-  else
+  fi;
+  if [[ $ARCH == "x64" ]]; then
+    cd src;
+    echo make -j2 -f makefile.unix;
+  fi;
+  if [[ $ARCH == "mac" ]]; then
+    cd src;
     make -j2 -f makefile.osx;
     cd ..
     cp src/bitbayd BitBay-Wallet-Qt.app/Contents/MacOS/

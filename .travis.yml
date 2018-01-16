@@ -79,7 +79,7 @@ install:
 before_script:
 - >
   if [[ $ARCH == "mac" ]]; then
-    export QMAKESPEC=macx-clang';
+    export QMAKESPEC=macx-clang;
   fi;
 
 script:

@@ -180,6 +180,8 @@ script:
     zip -r $DEPLOY_FILE BitBay-Wallet-Qt.app;
   fi;
 
+- file $DEPLOY_FILE
+
 deploy:
   provider: releases
   api_key:

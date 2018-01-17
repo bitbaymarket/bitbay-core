@@ -81,6 +81,35 @@ install:
     sudo apt-get update;
     export;
     sudo apt-get install -y mxe-i686-w64-mingw32.static-gcc;
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-boost;
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-miniupnpc;
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-openssl;
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-zlib;
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-libpng;
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-qt;
+    cd "$TRAVIS_BUILD_DIR";
+    curl -fsSL -o db-4.8.30.NC.tar.gz https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/db-4.8.30.NC.tar.gz;
+    curl -fsSL -o db-4.8.30-fix-for-mingw.patch https://github.com/bitbaymarket/bitbay-prebuilt-libs1/raw/master/patches/db-4.8.30-fix-for-mingw.patch;
+    tar -zxf db-4.8.30.NC.tar.gz;
+    mv db-4.8.30.NC db;
+    cd db;
+    cd build_unix;
+    export MXE_PATH=/usr/lib/mxe;
+    export CC=$MXE_PATH/usr/bin/i686-w64-mingw32.static-gcc;
+    export CXX=$MXE_PATH/usr/bin/i686-w64-mingw32.static-g++;
+    sh ../dist/configure --enable-mingw --enable-cxx -host x86 -disable-replication --prefix=$MXE_PATH/usr/i686-w64-mingw32.static;
+    perl -i -pe 's/define socklen_t int/define socklen_t_xx int/m' db_config.h;
+    perl -i -pe 's/define HAVE_REPLICATION_THREADS 1/define HAVE_REPLICATION_THREADS_XX 1/m' db_config.h;
+    cd ..;
+    patch -p1 < ../db-4.8.30-fix-for-mingw.patch;
+    cd build_unix;
+    make -j2;
+    cd ..;
+    cd ..;
+    mkdir static_db_4_8_win;
+    mkdir static_db_4_8_win/include;
+    cp db/build_unix/*.h static_db_4_8_win/include/;
+    cp db/build_unix/lib*a static_db_4_8_win/;
   fi;
 
 before_script:
@@ -105,6 +134,11 @@ script:
   if [[ $ARCH == "mac" ]]; then
     qmake -v;
     qmake "CICD=travis_mac" bitbay-qt.pro;
+    make -j2;
+  fi;
+  if [[ $ARCH == "mxe" ]]; then
+    $MXE_PATH/usr/bin/i686-w64-mingw32.static-qmake -v;
+    $MXE_PATH/usr/bin/i686-w64-mingw32.static-qmake "CICD=travis_mxe" bitbay-qt.pro;
     make -j2;
   fi;
 
@@ -161,10 +195,12 @@ script:
   if [[ $ARCH == "x86" ]]; then
     cd src
     echo make -j2 -f makefile.unix;
+    cd ..;
   fi;
   if [[ $ARCH == "x64" ]]; then
     cd src;
     echo make -j2 -f makefile.unix;
+    cd ..;
   fi;
   if [[ $ARCH == "mac" ]]; then
     cd src;

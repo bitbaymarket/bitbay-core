@@ -13,7 +13,7 @@ matrix:
     - os: linux
       dist: trusty
       sudo: required
-      env: DEPLOY_FILE=bitbay-wallet-qt_win.zip ARCH="mxe"
+      env: DEPLOY_FILE=bitbayd_win.zip ARCH="mxe"
     - os: osx
       osx_image: xcode7.2
       compiler: clang
@@ -55,7 +55,7 @@ install:
     sudo apt-get install -y qt59tools                           &&
     source /opt/qt59/bin/qt59-env.sh                            &&
     export                                                      ;
-  fi;
+  fi &&
   if [[ $ARCH == "mac" ]]; then
     brew install boost || echo -                                ;
     brew install openssl || echo -                              ;
@@ -76,20 +76,18 @@ install:
     make install                                                &&
     cd ..                                                       &&
     cd ..                                                       ;
-  fi;
+  fi &&
   if [[ $ARCH == "mxe" ]]; then
     sudo sh -c 'echo "deb http://pkg.mxe.cc/repos/apt/debian wheezy main" > /etc/apt/sources.list.d/mxeapt.list' &&
     sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys D43A795B73B16ABE9643FE1AFD8FFF16DB45C6AB &&
-    sudo apt-get update                                         &&
-    export                                                      &&
-    sudo apt-get install -y mxe-i686-w64-mingw32.static-gcc     &&
-    sudo apt-get install -y mxe-i686-w64-mingw32.static-boost   &&
-    sudo apt-get install -y mxe-i686-w64-mingw32.static-miniupnpc &&
-    sudo apt-get install -y mxe-i686-w64-mingw32.static-openssl &&
-    sudo apt-get install -y mxe-i686-w64-mingw32.static-zlib    &&
-    sudo apt-get install -y mxe-i686-w64-mingw32.static-libpng  &&
-    sudo apt-get install -y mxe-i686-w64-mingw32.static-qt      &&
-    cd "$TRAVIS_BUILD_DIR"                                      &&
+    sudo apt-get update                                             &&
+    export                                                          &&
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-gcc         &&
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-boost       &&
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-miniupnpc   &&
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-openssl     &&
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-zlib        &&
+    cd "$TRAVIS_BUILD_DIR"                                          &&
     curl -fsSL -o db-4.8.30.NC.tar.gz \
         https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/db-4.8.30.NC.tar.gz &&
     curl -fsSL -o db-4.8.30-fix-for-mingw.patch \
@@ -119,13 +117,13 @@ install:
     mkdir static_db_4_8_win/include                             &&
     cp db/build_unix/*.h static_db_4_8_win/include/             &&
     cp db/build_unix/lib*a static_db_4_8_win/                   ;
-  fi;
+  fi
 
 before_script:
 - >
   if [[ $ARCH == "mac" ]]; then
     export QMAKESPEC=macx-clang;
-  fi;
+  fi
 
 script:
 - cd "$TRAVIS_BUILD_DIR"
@@ -146,9 +144,9 @@ script:
     make -j2;
   fi;
   if [[ $ARCH == "mxe" ]]; then
-    $MXE_PATH/usr/bin/i686-w64-mingw32.static-qmake -v;
-    $MXE_PATH/usr/bin/i686-w64-mingw32.static-qmake "CICD=travis_mxe" bitbay-qt.pro;
-    make -j2;
+    echo $MXE_PATH/usr/bin/i686-w64-mingw32.static-qmake -v;
+    echo $MXE_PATH/usr/bin/i686-w64-mingw32.static-qmake "CICD=travis_mxe" bitbay-qt.pro;
+    echo make -j2;
   fi;
 
 - ls -l
@@ -223,6 +221,13 @@ script:
       @executable_path/../Frameworks/libcrypto.1.0.0.dylib BitBay-Wallet-Qt.app/Contents/Frameworks/libssl.1.0.0.dylib;
     ls;
     zip -r $DEPLOY_FILE BitBay-Wallet-Qt.app;
+  fi;
+  if [[ $ARCH == "mxe" ]]; then
+    cd src                              &&
+    make -j2 -f makefile.linux-mingw    &&
+    tar -zcf $DEPLOY_FILE bitbayd.exe   &&
+    cd ..                               &&
+    mv src/$DEPLOY_FILE .               ;
   fi;
 
 - file $DEPLOY_FILE

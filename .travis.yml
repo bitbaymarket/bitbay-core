@@ -22,94 +22,103 @@ matrix:
 install:
 - >
   if [[ $ARCH == "x86" ]]; then
-    sudo add-apt-repository -y ppa:beineri/opt-qt593-trusty;
-    sudo add-apt-repository -y ppa:bitcoin/bitcoin;
-    sudo apt-get update;
-    sudo apt-get install --no-install-recommends -y gcc-multilib g++-multilib;
-    sudo apt-get install -y libdb4.8-dev:i386;
-    sudo apt-get install -y libdb4.8++-dev:i386;
-    sudo apt-get install -y libboost-filesystem-dev:i386;
-    sudo apt-get install -y libboost-program-options-dev:i386;
-    sudo apt-get install -y libboost-thread-dev:i386;
-    sudo apt-get install -y libssl-dev:i386;
-    sudo apt-get install -y libgl1-mesa-dev:i386;
-    sudo apt-get install -y libminiupnpc-dev:i386;
-    sudo apt-get install -y libfuse-dev:i386;
-    sudo apt-get install -y qt59base:i386;
-    sudo apt-get install -y qt59tools:i386;
-    source /opt/qt59/bin/qt59-env.sh;
-    export;
-  fi;
+    sudo add-apt-repository -y ppa:beineri/opt-qt593-trusty     &&
+    sudo add-apt-repository -y ppa:bitcoin/bitcoin              &&
+    sudo apt-get update                                         &&
+    sudo apt-get install --no-install-recommends -y gcc-multilib g++-multilib &&
+    sudo apt-get install -y libdb4.8-dev:i386                   &&
+    sudo apt-get install -y libdb4.8++-dev:i386                 &&
+    sudo apt-get install -y libboost-filesystem-dev:i386        &&
+    sudo apt-get install -y libboost-program-options-dev:i386   &&
+    sudo apt-get install -y libboost-thread-dev:i386            &&
+    sudo apt-get install -y libssl-dev:i386                     &&
+    sudo apt-get install -y libgl1-mesa-dev:i386                &&
+    sudo apt-get install -y libminiupnpc-dev:i386               &&
+    sudo apt-get install -y libfuse-dev:i386                    &&
+    sudo apt-get install -y qt59base:i386                       &&
+    sudo apt-get install -y qt59tools:i386                      &&
+    source /opt/qt59/bin/qt59-env.sh                            &&
+    export                                                      ;
+  fi &&
   if [[ $ARCH == "x64" ]]; then
-    sudo add-apt-repository -y ppa:beineri/opt-qt593-trusty;
-    sudo add-apt-repository -y ppa:bitcoin/bitcoin;
-    sudo apt-get update;
-    sudo apt-get install -y libdb4.8-dev;
-    sudo apt-get install -y libdb4.8++-dev;
-    sudo apt-get install -y libboost-filesystem-dev;
-    sudo apt-get install -y libboost-program-options-dev;
-    sudo apt-get install -y libboost-thread-dev;
-    sudo apt-get install -y libssl-dev;
-    sudo apt-get install -y libminiupnpc-dev;
-    sudo apt-get install -y qt59-meta-minimal;
-    sudo apt-get install -y qt59tools;
-    source /opt/qt59/bin/qt59-env.sh;
-    export;
+    sudo add-apt-repository -y ppa:beineri/opt-qt593-trusty     &&
+    sudo add-apt-repository -y ppa:bitcoin/bitcoin              &&
+    sudo apt-get update                                         &&
+    sudo apt-get install -y libdb4.8-dev                        &&
+    sudo apt-get install -y libdb4.8++-dev                      &&
+    sudo apt-get install -y libboost-filesystem-dev             &&
+    sudo apt-get install -y libboost-program-options-dev        &&
+    sudo apt-get install -y libboost-thread-dev                 &&
+    sudo apt-get install -y libssl-dev                          &&
+    sudo apt-get install -y libminiupnpc-dev                    &&
+    sudo apt-get install -y qt59-meta-minimal                   &&
+    sudo apt-get install -y qt59tools                           &&
+    source /opt/qt59/bin/qt59-env.sh                            &&
+    export                                                      ;
   fi;
   if [[ $ARCH == "mac" ]]; then
-    brew install boost || echo -;
-    brew install openssl || echo -;
-    brew install miniupnpc;
-    brew install qt;
-    brew link --force qt;
-    cd "$TRAVIS_BUILD_DIR";
-    curl -fsSL -o db-4.8.30.NC.tar.gz https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/db-4.8.30.NC.tar.gz;
-    tar -zxf db-4.8.30.NC.tar.gz;
-    mv db-4.8.30.NC db;
-    cd db;
-    patch dbinc/atomic.h < ../doc/mac_db-4.8_atomic.patch;
-    cd build_unix;
-    CFLAGS="-mmacosx-version-min=10.9" CXXFLAGS="-mmacosx-version-min=10.9" sh ../dist/configure --enable-cxx --prefix=`pwd`/inst;
-    make -j2;
-    make install;
-    cd ..;
-    cd ..;
+    brew install boost || echo -                                ;
+    brew install openssl || echo -                              ;
+    brew install miniupnpc                                      &&
+    brew install qt                                             &&
+    brew link --force qt                                        &&
+    cd "$TRAVIS_BUILD_DIR"                                      &&
+    curl -fsSL -o db-4.8.30.NC.tar.gz https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/db-4.8.30.NC.tar.gz &&
+    tar -zxf db-4.8.30.NC.tar.gz                                &&
+    mv db-4.8.30.NC db                                          &&
+    cd db                                                       &&
+    patch dbinc/atomic.h < ../doc/mac_db-4.8_atomic.patch       &&
+    cd build_unix                                               &&
+    CFLAGS="-mmacosx-version-min=10.9" \
+        CXXFLAGS="-mmacosx-version-min=10.9" \
+        sh ../dist/configure --enable-cxx --prefix=`pwd`/inst   &&
+    make -j2                                                    &&
+    make install                                                &&
+    cd ..                                                       &&
+    cd ..                                                       ;
   fi;
   if [[ $ARCH == "mxe" ]]; then
-    sudo sh -c 'echo "deb http://pkg.mxe.cc/repos/apt/debian wheezy main" > /etc/apt/sources.list.d/mxeapt.list';
-    sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys D43A795B73B16ABE9643FE1AFD8FFF16DB45C6AB;
-    sudo apt-get update;
-    export;
-    sudo apt-get install -y mxe-i686-w64-mingw32.static-gcc;
-    sudo apt-get install -y mxe-i686-w64-mingw32.static-boost;
-    sudo apt-get install -y mxe-i686-w64-mingw32.static-miniupnpc;
-    sudo apt-get install -y mxe-i686-w64-mingw32.static-openssl;
-    sudo apt-get install -y mxe-i686-w64-mingw32.static-zlib;
-    sudo apt-get install -y mxe-i686-w64-mingw32.static-libpng;
-    sudo apt-get install -y mxe-i686-w64-mingw32.static-qt;
-    cd "$TRAVIS_BUILD_DIR";
-    curl -fsSL -o db-4.8.30.NC.tar.gz https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/db-4.8.30.NC.tar.gz;
-    curl -fsSL -o db-4.8.30-fix-for-mingw.patch https://github.com/bitbaymarket/bitbay-prebuilt-libs1/raw/master/patches/db-4.8.30-fix-for-mingw.patch;
-    tar -zxf db-4.8.30.NC.tar.gz;
-    mv db-4.8.30.NC db;
-    cd db;
-    cd build_unix;
-    export MXE_PATH=/usr/lib/mxe;
-    export CC=$MXE_PATH/usr/bin/i686-w64-mingw32.static-gcc;
-    export CXX=$MXE_PATH/usr/bin/i686-w64-mingw32.static-g++;
-    sh ../dist/configure --enable-mingw --enable-cxx -host x86 -disable-replication --prefix=$MXE_PATH/usr/i686-w64-mingw32.static;
-    perl -i -pe 's/define socklen_t int/define socklen_t_xx int/m' db_config.h;
-    perl -i -pe 's/define HAVE_REPLICATION_THREADS 1/define HAVE_REPLICATION_THREADS_XX 1/m' db_config.h;
-    cd ..;
-    patch -p1 < ../db-4.8.30-fix-for-mingw.patch;
-    cd build_unix;
-    make -j2;
-    cd ..;
-    cd ..;
-    mkdir static_db_4_8_win;
-    mkdir static_db_4_8_win/include;
-    cp db/build_unix/*.h static_db_4_8_win/include/;
-    cp db/build_unix/lib*a static_db_4_8_win/;
+    sudo sh -c 'echo "deb http://pkg.mxe.cc/repos/apt/debian wheezy main" > /etc/apt/sources.list.d/mxeapt.list' &&
+    sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys D43A795B73B16ABE9643FE1AFD8FFF16DB45C6AB &&
+    sudo apt-get update                                         &&
+    export                                                      &&
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-gcc     &&
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-boost   &&
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-miniupnpc &&
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-openssl &&
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-zlib    &&
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-libpng  &&
+    sudo apt-get install -y mxe-i686-w64-mingw32.static-qt      &&
+    cd "$TRAVIS_BUILD_DIR"                                      &&
+    curl -fsSL -o db-4.8.30.NC.tar.gz \
+        https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/db-4.8.30.NC.tar.gz &&
+    curl -fsSL -o db-4.8.30-fix-for-mingw.patch \
+        https://github.com/bitbaymarket/bitbay-prebuilt-libs1/raw/master/patches/db-4.8.30-fix-for-mingw.patch &&
+    tar -zxf db-4.8.30.NC.tar.gz                                &&
+    mv db-4.8.30.NC db                                          &&
+    cd db                                                       &&
+    cd build_unix                                               &&
+    export MXE_PATH=/usr/lib/mxe                                &&
+    export CC=$MXE_PATH/usr/bin/i686-w64-mingw32.static-gcc     &&
+    export CXX=$MXE_PATH/usr/bin/i686-w64-mingw32.static-g++    &&
+    sh ../dist/configure \
+        --enable-mingw \
+        --enable-cxx \
+        --host x86 \
+        --disable-replication \
+        --prefix=$MXE_PATH/usr/i686-w64-mingw32.static          &&
+    perl -i -pe 's/define socklen_t int/define socklen_t_xx int/m' db_config.h &&
+    perl -i -pe 's/define HAVE_REPLICATION_THREADS 1/define HAVE_REPLICATION_THREADS_XX 1/m' db_config.h &&
+    cd ..                                                       &&
+    patch -p1 < ../db-4.8.30-fix-for-mingw.patch                &&
+    cd build_unix                                               &&
+    make -j2                                                    &&
+    cd ..                                                       &&
+    cd ..                                                       &&
+    mkdir static_db_4_8_win                                     &&
+    mkdir static_db_4_8_win/include                             &&
+    cp db/build_unix/*.h static_db_4_8_win/include/             &&
+    cp db/build_unix/lib*a static_db_4_8_win/                   ;
   fi;
 
 before_script:

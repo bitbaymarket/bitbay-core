@@ -120,6 +120,7 @@ install:
   fi
 
 before_script:
+- > export BASE1=https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1
 - >
   if [[ $ARCH == "mac" ]]; then
     export QMAKESPEC=macx-clang;
@@ -129,99 +130,132 @@ script:
 - cd "$TRAVIS_BUILD_DIR"
 - >
   if [[ $ARCH == "x86" ]]; then
-    qmake -v;
-    qmake "CICD=travis_x86" QMAKE_CFLAGS+=-m32 QMAKE_CXXFLAGS+=-m32 QMAKE_LFLAGS+=-m32 bitbay-qt.pro;
+    qmake -v &&
+    qmake \
+        CICD=travis_x86 \
+        QMAKE_CFLAGS+=-m32 \
+        QMAKE_CXXFLAGS+=-m32 \
+        QMAKE_LFLAGS+=-m32 \
+        bitbay-qt.pro &&
     make -j2;
-  fi;
+  fi &&
   if [[ $ARCH == "x64" ]]; then
-    qmake -v;
-    qmake "CICD=travis_x64" bitbay-qt.pro;
+    qmake -v &&
+    qmake \
+        CICD=travis_x64 \
+        bitbay-qt.pro &&
     make -j2;
-  fi;
+  fi &&
   if [[ $ARCH == "mac" ]]; then
-    qmake -v;
-    qmake "CICD=travis_mac" bitbay-qt.pro;
+    qmake -v &&
+    qmake \
+        CICD=travis_mac \
+        bitbay-qt.pro &&
     make -j2;
-  fi;
-  if [[ $ARCH == "mxe" ]]; then
-    echo $MXE_PATH/usr/bin/i686-w64-mingw32.static-qmake -v;
-    echo $MXE_PATH/usr/bin/i686-w64-mingw32.static-qmake "CICD=travis_mxe" bitbay-qt.pro;
+  fi &&
+  if [[ $ARCH == "mxe_skip_now" ]]; then
+    echo $MXE_PATH/usr/bin/i686-w64-mingw32.static-qmake -v &&
+    echo $MXE_PATH/usr/bin/i686-w64-mingw32.static-qmake \
+        CICD=travis_mxe \
+        bitbay-qt.pro &&
     echo make -j2;
-  fi;
+  fi
 
 - ls -l
 - >
   if [[ $ARCH == "x86" ]]; then
-    ldd bitbay-wallet-qt;
-    file bitbay-wallet-qt;
-    cp -r contrib/appimage appdir;
-    cp src/qt/res/icons/BitBay-Wallet-Icon-128.png appdir/usr/share/icons/hicolor/128x128/bitbay-wallet-qt.png;
-    cp src/qt/res/icons/BitBay-Wallet-Icon-256.png appdir/usr/share/icons/hicolor/256x256/bitbay-wallet-qt.png;
-    cp bitbay-wallet-qt appdir/usr/bin/;
-
-    curl -fsSL -o appimagetool https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/appimagetool-i686.AppImage;
-    chmod 755 appimagetool;
-    ./appimagetool --help;
-    export PATH=`pwd`:$PATH;
-    curl -fsSL -o linuxdeployqt-continuous.tar.gz https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/linuxdeployqt-continuous.tar.gz;
-    tar -zxf linuxdeployqt-continuous.tar.gz;
-    cd linuxdeployqt-continuous;
-    qmake QMAKE_CFLAGS+=-m32 QMAKE_CXXFLAGS+=-m32 QMAKE_LFLAGS+=-m32;
-    make -j2;
-    ls;
-    cd ..;
-    curl -fsSL -o patchelf.tar.gz https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/patchelf-0.9.tar.gz;
-    tar -zxf patchelf.tar.gz;
-    cd patchelf-0.9;
-    ./bootstrap.sh;
-    ./configure;
-    make -j2;
-    sudo make install;
-    cd ..;
-    ./linuxdeployqt-continuous/bin/linuxdeployqt appdir/usr/share/bitbay-wallet-qt.desktop -appimage;
-    mv bitbay-wallet-qt-i386.AppImage bitbay-wallet-qt;
-    tar -zcf $DEPLOY_FILE bitbay-wallet-qt;
-  fi;
+    ldd bitbay-wallet-qt                        &&
+    file bitbay-wallet-qt                       &&
+    cp -r contrib/appimage appdir               &&
+    cp src/qt/res/icons/BitBay-Wallet-Icon-128.png \
+        appdir/usr/share/icons/hicolor/128x128/bitbay-wallet-qt.png &&
+    cp src/qt/res/icons/BitBay-Wallet-Icon-256.png \
+        appdir/usr/share/icons/hicolor/256x256/bitbay-wallet-qt.png &&
+    cp bitbay-wallet-qt appdir/usr/bin/         &&
+    curl -fsSL -o appimagetool \
+        $BASE1/appimagetool-i686.AppImage       &&
+    chmod 755 appimagetool                      &&
+    ./appimagetool --help                       &&
+    export PATH=`pwd`:$PATH                     &&
+    curl -fsSL -o linuxdeployqt-continuous.tar.gz \
+        $BASE1/linuxdeployqt-continuous.tar.gz  &&
+    tar -zxf linuxdeployqt-continuous.tar.gz    &&
+    cd linuxdeployqt-continuous                 &&
+    qmake \
+        QMAKE_CFLAGS+=-m32 \
+        QMAKE_CXXFLAGS+=-m32 \
+        QMAKE_LFLAGS+=-m32                      &&
+    make -j2                                    &&
+    ls                                          &&
+    cd ..                                       &&
+    curl -fsSL -o patchelf.tar.gz \
+        $BASE1/patchelf-0.9.tar.gz &&
+    tar -zxf patchelf.tar.gz                    &&
+    cd patchelf-0.9                             &&
+    ./bootstrap.sh                              &&
+    ./configure                                 &&
+    make -j2                                    &&
+    sudo make install                           &&
+    cd ..                                       &&
+    ./linuxdeployqt-continuous/bin/linuxdeployqt \
+        appdir/usr/share/bitbay-wallet-qt.desktop \
+        -appimage                               &&
+    mv bitbay-wallet-qt-i386.AppImage \
+        bitbay-wallet-qt                        &&
+    tar -zcf $DEPLOY_FILE bitbay-wallet-qt      ;
+  fi &&
   if [[ $ARCH == "x64" ]]; then
-    ldd bitbay-wallet-qt;
-    file bitbay-wallet-qt;
-    cp -r contrib/appimage appdir;
-    cp src/qt/res/icons/BitBay-Wallet-Icon-128.png appdir/usr/share/icons/hicolor/128x128/bitbay-wallet-qt.png;
-    cp src/qt/res/icons/BitBay-Wallet-Icon-256.png appdir/usr/share/icons/hicolor/256x256/bitbay-wallet-qt.png;
-    cp bitbay-wallet-qt appdir/usr/bin/;
-
-    curl -fsSL -o linuxdeployqt https://github.com/bitbaymarket/bitbay-prebuilt-libs1/releases/download/base1/linuxdeployqt-continuous-x86_64.AppImage;
-    chmod 755 linuxdeployqt;
-    ./linuxdeployqt appdir/usr/share/bitbay-wallet-qt.desktop -appimage;
-    ls -l;
-    mv bitbay-wallet-qt-x86_64.AppImage bitbay-wallet-qt;
-    tar -zcf $DEPLOY_FILE bitbay-wallet-qt;
-  fi;
+    ldd bitbay-wallet-qt                        &&
+    file bitbay-wallet-qt                       &&
+    cp -r contrib/appimage appdir               &&
+    cp src/qt/res/icons/BitBay-Wallet-Icon-128.png \
+        appdir/usr/share/icons/hicolor/128x128/bitbay-wallet-qt.png &&
+    cp src/qt/res/icons/BitBay-Wallet-Icon-256.png \
+        appdir/usr/share/icons/hicolor/256x256/bitbay-wallet-qt.png &&
+    cp bitbay-wallet-qt appdir/usr/bin/         &&
+    ls                                          &&
+    curl -fsSL -o linuxdeployqt \
+        $BASE1/linuxdeployqt-continuous-x86_64.AppImage &&
+    chmod 755 linuxdeployqt                     &&
+    ./linuxdeployqt \
+        appdir/usr/share/bitbay-wallet-qt.desktop \
+        -appimage                               &&
+    ls -l                                       &&
+    mv bitbay-wallet-qt-x86_64.AppImage \
+        bitbay-wallet-qt                        &&
+    tar -zcf $DEPLOY_FILE bitbay-wallet-qt      ;
+  fi
 
 - >
   if [[ $ARCH == "x86" ]]; then
-    cd src
-    echo make -j2 -f makefile.unix;
-    cd ..;
-  fi;
+    cd src                          &&
+    echo make -j2 -f makefile.unix  &&
+    cd ..                           ;
+  fi &&
   if [[ $ARCH == "x64" ]]; then
-    cd src;
-    echo make -j2 -f makefile.unix;
-    cd ..;
+    cd src                          &&
+    echo make -j2 -f makefile.unix  &&
+    cd ..                           ;
   fi;
   if [[ $ARCH == "mac" ]]; then
-    cd src;
-    make -j2 -f makefile.osx;
-    cd ..
-    cp src/bitbayd BitBay-Wallet-Qt.app/Contents/MacOS/
-    macdeployqt BitBay-Wallet-Qt.app -verbose=2 -executable=BitBay-Wallet-Qt.app/Contents/MacOS/bitbayd
-    otool -L BitBay-Wallet-Qt.app/Contents/MacOS/BitBay-Wallet-Qt
-    otool -L BitBay-Wallet-Qt.app/Contents/MacOS/bitbayd
-    install_name_tool -change /usr/local/Cellar/openssl/1.0.2l/lib/libcrypto.1.0.0.dylib \
-      @executable_path/../Frameworks/libcrypto.1.0.0.dylib BitBay-Wallet-Qt.app/Contents/Frameworks/libssl.1.0.0.dylib;
-    ls;
+    cd src                          &&
+    make -j2 -f makefile.osx        &&
+    cd ..                           &&
+    cp src/bitbayd \
+        BitBay-Wallet-Qt.app/Contents/MacOS/    &&
+    macdeployqt \
+        BitBay-Wallet-Qt.app \
+        -verbose=2 \
+        -executable=BitBay-Wallet-Qt.app/Contents/MacOS/bitbayd     &&
+    otool -L BitBay-Wallet-Qt.app/Contents/MacOS/BitBay-Wallet-Qt   &&
+    otool -L BitBay-Wallet-Qt.app/Contents/MacOS/bitbayd            &&
+    install_name_tool \
+        -change /usr/local/Cellar/openssl/1.0.2l/lib/libcrypto.1.0.0.dylib \
+        @executable_path/../Frameworks/libcrypto.1.0.0.dylib \
+        BitBay-Wallet-Qt.app/Contents/Frameworks/libssl.1.0.0.dylib &&
+    ls                                                              &&
     zip -r $DEPLOY_FILE BitBay-Wallet-Qt.app;
-  fi;
+  fi &&
   if [[ $ARCH == "mxe" ]]; then
     cd src                              &&
     make -j2 -f makefile.linux-mingw    &&

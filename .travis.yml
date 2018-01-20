@@ -290,3 +290,12 @@ deploy:
     on:
       tags: true
       repo: yshurik/BitBay
+
+  - provider: releases
+    api_key:
+      secure: hrs2GuAfxrKtREvbs+IJIovABbR4dyMqh47Z/73lup+d8NwMQLzIHW7q1YGJ6T6YznUgL7IZyY4JvRXdIGk+OazToWWbu0uyzM4tx5iRabsGGvnlev8O4UcAMBNgZDavIxYApH4zJq2hyew8BC7fSKHLDSpVBOfThEea4tOEUs+3389bCBi99K1LW97Pwt+jWYmqfkNlPZOgLJh3yIIOL7t1Yz1HizGI1b44JpkvYX0zSuDl5FBqQTOtkWX4BWy8wdJPqYeH4GHRgla+sPIRVIjW7/ktgP4WNJSn+5YOwz0yKMhbAwZZIvHM5Ncb0pDjpPitIF6jiriuvWH7Far1G7GqiNfk2WZAZ6pzs7Gy4H4ikPqJDwHsVR5S52fneFtm8F4fP5b/DfyVFhqRf/BPJt+68587KV6W65Gy/+ZogLchu295cEfBOB6ytKPzNVMje6p+LswmY+kmYk1iWIcPyansbPGLJFUeura0dr6ykp717LBC1MHgvW0Ok5qYbCu51gIhfQd+Xz+OemeJwYQ+OZa5cOZE+FtV2XKmLjgy1J1iafqiOLeV+eLPkAUrLqxykwTBsTZrr1xQIEtHGMsR3/w7bLjWkB4O+iVC27mlOpslMDOlhQaF6IyrUQoYhQr6RrYTvbTOWIQBSdMCvKOj8kXkLjCbXM0lYQTy3WXiml0=
+    file: $TRAVIS_BUILD_DIR/$DEPLOY_FILE
+    skip_cleanup: true
+    on:
+      tags: true
+      repo: dzimbeck/BitBay

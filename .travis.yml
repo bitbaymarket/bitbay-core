@@ -1,5 +1,4 @@
 language: cpp
-
 matrix:
   include:
     - os: linux
@@ -134,7 +133,7 @@ before_script:
 
 script:
 - cd "$TRAVIS_BUILD_DIR"
-- >
+- |
   if [[ $ARCH == "x86" ]]; then
     qmake -v &&
     qmake \

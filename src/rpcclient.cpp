@@ -157,6 +157,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "submitblock", 1 },
     { "gettxout", 1 },
     { "gettxout", 2 },
+    { "setpegstartheight", 0 },
 };
 
 class CRPCConvertTable

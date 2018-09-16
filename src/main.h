@@ -91,6 +91,7 @@ extern bool fReindex;
 struct COrphanBlock;
 extern std::map<uint256, COrphanBlock*> mapOrphanBlocks;
 extern bool fHaveGUI;
+extern int nPegStartHeight;
 
 // Settings
 extern bool fUseFastIndex;
@@ -147,6 +148,7 @@ uint256 WantedByOrphan(const COrphanBlock* pblockOrphan);
 const CBlockIndex* GetLastBlockIndex(const CBlockIndex* pindex, bool fProofOfStake);
 void ThreadStakeMiner(CWallet *pwallet);
 
+bool SetPegStartHeight(int nHeight, int& nBlocksChanged);
 
 /** (try to) add transaction to memory pool **/
 bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
@@ -692,6 +694,11 @@ public:
         return !IsProofOfStake();
     }
 
+    bool IsPeg() const
+    {
+        return false;
+    }
+
     std::pair<COutPoint, unsigned int> GetProofOfStake() const
     {
         return IsProofOfStake()? std::make_pair(vtx[1].vin[0].prevout, vtx[1].nTime) : std::make_pair(COutPoint(), (unsigned int)0);
@@ -873,6 +880,7 @@ public:
 
     int64_t nMint;
     int64_t nMoneySupply;
+    int nPegSupplyIndex;
 
     unsigned int nFlags;  // ppcoin: block index flags
     enum  
@@ -880,6 +888,7 @@ public:
         BLOCK_PROOF_OF_STAKE = (1 << 0), // is proof-of-stake block
         BLOCK_STAKE_ENTROPY  = (1 << 1), // entropy bit for stake modifier
         BLOCK_STAKE_MODIFIER = (1 << 2), // regenerated stake modifier
+        BLOCK_PEG            = (1 << 3), // block with peg
     };
 
     uint64_t nStakeModifier; // hash modifier for proof-of-stake
@@ -909,6 +918,7 @@ public:
         nChainTrust = 0;
         nMint = 0;
         nMoneySupply = 0;
+        nPegSupplyIndex = 0;
         nFlags = 0;
         nStakeModifier = 0;
         bnStakeModifierV2 = 0;
@@ -934,6 +944,7 @@ public:
         nChainTrust = 0;
         nMint = 0;
         nMoneySupply = 0;
+        nPegSupplyIndex = 0;
         nFlags = 0;
         nStakeModifier = 0;
         bnStakeModifierV2 = 0;
@@ -948,6 +959,10 @@ public:
         {
             prevoutStake.SetNull();
             nStakeTime = 0;
+        }
+        if (block.IsPeg())
+        {
+            SetPeg();
         }
 
         nVersion       = block.nVersion;
@@ -1039,6 +1054,16 @@ public:
         nFlags |= BLOCK_PROOF_OF_STAKE;
     }
 
+    bool IsPeg() const
+    {
+        return (nFlags & BLOCK_PEG);
+    }
+
+    void SetPeg()
+    {
+        nFlags |= BLOCK_PEG;
+    }
+
     unsigned int GetStakeEntropyBit() const
     {
         return ((nFlags & BLOCK_STAKE_ENTROPY) >> 1);
@@ -1066,9 +1091,9 @@ public:
 
     std::string ToString() const
     {
-        return strprintf("CBlockIndex(nprev=%p, pnext=%p, nFile=%u, nBlockPos=%-6d nHeight=%d, nMint=%s, nMoneySupply=%s, nFlags=(%s)(%d)(%s), nStakeModifier=%016x, hashProof=%s, prevoutStake=(%s), nStakeTime=%d merkle=%s, hashBlock=%s)",
+        return strprintf("CBlockIndex(nprev=%p, pnext=%p, nFile=%u, nBlockPos=%-6d nHeight=%d, nMint=%s, nMoneySupply=%s, nPegSupplyIndex=%d, nFlags=(%s)(%d)(%s), nStakeModifier=%016x, hashProof=%s, prevoutStake=(%s), nStakeTime=%d merkle=%s, hashBlock=%s)",
             pprev, pnext, nFile, nBlockPos, nHeight,
-            FormatMoney(nMint), FormatMoney(nMoneySupply),
+            FormatMoney(nMint), FormatMoney(nMoneySupply), nPegSupplyIndex,
             GeneratedStakeModifier() ? "MOD" : "-", GetStakeEntropyBit(), IsProofOfStake()? "PoS" : "PoW",
             nStakeModifier,
             hashProof.ToString(),
@@ -1126,6 +1151,13 @@ public:
         {
             const_cast<CDiskBlockIndex*>(this)->prevoutStake.SetNull();
             const_cast<CDiskBlockIndex*>(this)->nStakeTime = 0;
+        }
+        if (IsPeg())
+        {
+            READWRITE(nPegSupplyIndex);
+        }
+        else {
+            const_cast<CDiskBlockIndex*>(this)->nPegSupplyIndex = 0;
         }
         READWRITE(hashProof);
 

@@ -43,6 +43,7 @@
 #include <QIcon>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QGridLayout>
 #include <QToolBar>
 #include <QStatusBar>
 #include <QLabel>
@@ -158,7 +159,23 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     space1->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
     space1->setStyleSheet("QWidget { background-color: rgb(75,78,162); }");
     headerLayout->addWidget(space1);
+    
+    QGridLayout * topHeaderLayout = new QGridLayout;
+    topHeaderLayout->setSpacing(0);
+    topHeaderLayout->setMargin(7);
+    space1->setLayout(topHeaderLayout);
 
+    lastBlockLabel = new QLabel;
+    lastBlockLabel->setText(tr("Last block:"));
+    lastBlockLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    topHeaderLayout->addWidget(lastBlockLabel, 0,0);
+    
+    QWidget* space12 = new QWidget();
+    space12->setFixedHeight(70);
+    space12->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
+    space12->setStyleSheet("QWidget { background-color: rgb(75,78,162); }");
+    topHeaderLayout->addWidget(space12, 1,1);
+    
     QWidget *centralWidget = new QWidget();
     QVBoxLayout *centralLayout = new QVBoxLayout(centralWidget);
     centralLayout->addLayout(headerLayout);
@@ -556,6 +573,10 @@ void BitcoinGUI::setClientModel(ClientModel *clientModel)
 
         setNumBlocks(clientModel->getNumBlocks());
         connect(clientModel, SIGNAL(numBlocksChanged(int)), this, SLOT(setNumBlocks(int)));
+        QTimer * numBlocksLabelTimer = new QTimer(this);
+        connect(numBlocksLabelTimer, SIGNAL(timeout()), this, SLOT(updateNumBlocksLabel()));
+        numBlocksLabelTimer->setInterval(1000);
+        numBlocksLabelTimer->start();
 
         // Receive and report messages from network/worker thread
         connect(clientModel, SIGNAL(message(QString,QString,bool,unsigned int)), this, SLOT(message(QString,QString,bool,unsigned int)));
@@ -714,33 +735,11 @@ void BitcoinGUI::setNumBlocks(int count)
     else
     {
         // Represent time from last generated block in human readable text
-        QString timeBehindText;
-        const int HOUR_IN_SECONDS = 60*60;
-        const int DAY_IN_SECONDS = 24*60*60;
-        const int WEEK_IN_SECONDS = 7*24*60*60;
-        const int YEAR_IN_SECONDS = 31556952; // Average length of year in Gregorian calendar
-        if(secs < 2*DAY_IN_SECONDS)
-        {
-            timeBehindText = tr("%n hour(s)","",secs/HOUR_IN_SECONDS);
-        }
-        else if(secs < 2*WEEK_IN_SECONDS)
-        {
-            timeBehindText = tr("%n day(s)","",secs/DAY_IN_SECONDS);
-        }
-        else if(secs < YEAR_IN_SECONDS)
-        {
-            timeBehindText = tr("%n week(s)","",secs/WEEK_IN_SECONDS);
-        }
-        else
-        {
-            int years = secs / YEAR_IN_SECONDS;
-            int remainder = secs % YEAR_IN_SECONDS;
-            timeBehindText = tr("%1 and %2").arg(tr("%n year(s)", "", years)).arg(tr("%n week(s)","", remainder/WEEK_IN_SECONDS));
-        }
+        QString time_behind_text = timeBehindText(secs);
 
         progressBarLabel->setText(tr(clientModel->isImporting() ? "Importing blocks..." : "Synchronizing with network..."));
         progressBarLabel->setVisible(true);
-        progressBar->setFormat(tr("%1 behind").arg(timeBehindText));
+        progressBar->setFormat(tr("%1 behind").arg(time_behind_text));
         progressBar->setMaximum(totalSecs);
         progressBar->setValue(totalSecs - secs);
         progressBar->setVisible(true);
@@ -755,7 +754,7 @@ void BitcoinGUI::setNumBlocks(int count)
         overviewPage->showOutOfSyncWarning(true);
 
         tooltip += QString("<br>");
-        tooltip += tr("Last received block was generated %1 ago.").arg(timeBehindText);
+        tooltip += tr("Last received block was generated %1 ago.").arg(time_behind_text);
         tooltip += QString("<br>");
         tooltip += tr("Transactions after this will not yet be visible.");
     }
@@ -766,6 +765,55 @@ void BitcoinGUI::setNumBlocks(int count)
     labelBlocksIcon->setToolTip(tooltip);
     progressBarLabel->setToolTip(tooltip);
     progressBar->setToolTip(tooltip);
+    lastBlockLabel->setText(tr("Last block: %1, %2 ago").arg(count).arg(timeBehindText(secs)));
+}
+
+void BitcoinGUI::updateNumBlocksLabel() 
+{
+    int count = clientModel->getNumBlocks();
+    QDateTime lastBlockDate = clientModel->getLastBlockDate();
+    QDateTime currentDate = QDateTime::currentDateTime();
+    int secs = lastBlockDate.secsTo(currentDate);
+    
+    lastBlockLabel->setText(tr("Last block: %1, %2 ago").arg(count).arg(timeBehindText(secs)));
+}
+
+QString BitcoinGUI::timeBehindText(int secs) 
+{
+    QString time_behind_text;
+    const int MINUTE_IN_SECONDS = 60;
+    const int HOUR_IN_SECONDS = 60*60;
+    const int DAY_IN_SECONDS = 24*60*60;
+    const int WEEK_IN_SECONDS = 7*24*60*60;
+    const int YEAR_IN_SECONDS = 31556952; // Average length of year in Gregorian calendar
+   
+    if(secs < 2*MINUTE_IN_SECONDS) 
+    {
+        time_behind_text = tr("%n second(s)","",secs);
+    }
+    else if(secs < 2*HOUR_IN_SECONDS) 
+    {
+        time_behind_text = tr("%n minute(s)","",secs/MINUTE_IN_SECONDS);
+    }
+    else if(secs < 2*DAY_IN_SECONDS)
+    {
+        time_behind_text = tr("%n hour(s)","",secs/HOUR_IN_SECONDS);
+    }
+    else if(secs < 2*WEEK_IN_SECONDS)
+    {
+        time_behind_text = tr("%n day(s)","",secs/DAY_IN_SECONDS);
+    }
+    else if(secs < YEAR_IN_SECONDS)
+    {
+        time_behind_text = tr("%n week(s)","",secs/WEEK_IN_SECONDS);
+    }
+    else
+    {
+        int years = secs / YEAR_IN_SECONDS;
+        int remainder = secs % YEAR_IN_SECONDS;
+        time_behind_text = tr("%1 and %2").arg(tr("%n year(s)", "", years)).arg(tr("%n week(s)","", remainder/WEEK_IN_SECONDS));
+    }
+    return time_behind_text;
 }
 
 void BitcoinGUI::message(const QString &title, const QString &message, bool modal, unsigned int style)

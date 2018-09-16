@@ -60,6 +60,8 @@ bool fImporting = false;
 bool fReindex = false;
 bool fHaveGUI = false;
 
+int nPegStartHeight = 0;
+
 struct COrphanBlock {
     uint256 hashBlock;
     uint256 hashPrev;
@@ -1121,12 +1123,21 @@ bool IsConfirmedInNPrevBlocks(const CTxIndex& txindex, const CBlockIndex* pindex
     return false;
 }
 
-
-
-
-
-
-
+// Set the height of peg start
+bool SetPegStartHeight(int nHeight, int& nBlocksChanged)
+{
+    LOCK(cs_main);
+    CTxDB txdb;
+    if (!txdb.TxnBegin())
+        return false;
+    if (!txdb.WritePegStartHeight(nHeight))
+        return false;
+    if (!txdb.UpdateBlocksForPeg(nHeight, nBlocksChanged))
+        return false;
+    if (!txdb.TxnCommit())
+        return false;
+    return true;
+}
 
 
 bool CTransaction::DisconnectInputs(CTxDB& txdb)
@@ -1921,6 +1932,20 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const u
         setStakeSeen.insert(make_pair(pindexNew->prevoutStake, pindexNew->nStakeTime));
     pindexNew->phashBlock = &((*mi).first);
 
+    // Set peg properties of block
+    if (nPegStartHeight >0 && pindexNew->nHeight >= nPegStartHeight) {
+        unsigned int nFlags = pindexNew->nFlags;
+        nFlags = nFlags | CBlockIndex::BLOCK_PEG;
+        pindexNew->nPegSupplyIndex = -1;
+        pindexNew->nFlags = nFlags;
+    } else {
+        unsigned int nFlags = pindexNew->nFlags;
+        unsigned int peg_off = CBlockIndex::BLOCK_PEG;
+        nFlags = nFlags & ~peg_off;
+        pindexNew->nPegSupplyIndex = 0;
+        pindexNew->nFlags = nFlags;
+    }
+    
     // Write to disk block index
     CTxDB txdb;
     if (!txdb.TxnBegin())

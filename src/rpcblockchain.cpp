@@ -138,6 +138,7 @@ Object blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool fPri
     result.push_back(Pair("entropybit", (int)blockindex->GetStakeEntropyBit()));
     result.push_back(Pair("modifier", strprintf("%016x", blockindex->nStakeModifier)));
     result.push_back(Pair("modifierv2", blockindex->bnStakeModifierV2.GetHex()));
+    result.push_back(Pair("pegsupplyindex", blockindex->nPegSupplyIndex));
     Array txinfo;
     BOOST_FOREACH (const CTransaction& tx, block.vtx)
     {

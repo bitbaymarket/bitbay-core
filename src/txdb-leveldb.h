@@ -197,6 +197,9 @@ public:
     bool WriteHashBestChain(uint256 hashBestChain);
     bool ReadBestInvalidTrust(CBigNum& bnBestInvalidTrust);
     bool WriteBestInvalidTrust(CBigNum bnBestInvalidTrust);
+    bool ReadPegStartHeight(int& nHeight);
+    bool WritePegStartHeight(int nHeight);
+    bool UpdateBlocksForPeg(int nHeight, int& nBlocksChanged);
     bool LoadBlockIndex();
 private:
     bool LoadBlockIndexGuts();

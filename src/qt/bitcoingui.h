@@ -69,6 +69,7 @@ private:
     SignMessagePage *signMessagePage;
     VerifyMessagePage *verifyMessagePage;
 
+    QLabel *lastBlockLabel;
     QLabel *labelEncryptionIcon;
     QLabel *labelStakingIcon;
     QLabel *labelConnectionsIcon;
@@ -128,6 +129,10 @@ public slots:
     void setNumConnections(int count);
     /** Set number of blocks shown in the UI */
     void setNumBlocks(int count);
+    /** Returns text for time behind */
+    QString timeBehindText(int secs);
+    /** Update number of blocks shown in the UI */
+    void updateNumBlocksLabel();
     /** Set the encryption status as shown in the UI.
        @param[in] status            current encryption status
        @see WalletModel::EncryptionStatus

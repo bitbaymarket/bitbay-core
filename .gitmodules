@@ -1,0 +1,3 @@
+[submodule "peg"]
+	path = peg
+	url = git@github.com:yshurik/bitbay-peg.git

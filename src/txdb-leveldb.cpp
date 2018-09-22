@@ -357,7 +357,10 @@ bool CTxDB::LoadBlockIndex()
         pindexNew->nHeight        = diskindex.nHeight;
         pindexNew->nMint          = diskindex.nMint;
         pindexNew->nMoneySupply   = diskindex.nMoneySupply;
-        pindexNew->nPegSupplyIndex= diskindex.nPegSupplyIndex;
+        pindexNew->nPegSupplyIndex  = diskindex.nPegSupplyIndex;
+        pindexNew->nPegVotesInflate = diskindex.nPegVotesInflate;
+        pindexNew->nPegVotesDeflate = diskindex.nPegVotesDeflate;
+        pindexNew->nPegVotesNochange= diskindex.nPegVotesNochange;
         pindexNew->nFlags         = diskindex.nFlags;
         pindexNew->nStakeModifier = diskindex.nStakeModifier;
         pindexNew->bnStakeModifierV2 = diskindex.bnStakeModifierV2;
@@ -595,11 +598,17 @@ bool CTxDB::UpdateBlocksForPeg(int nPegHeight, int& nBlocksChanged)
         
         if (nPegHeight >0 && diskindex.nHeight >= nPegHeight) {
             nFlags = nFlags | CBlockIndex::BLOCK_PEG;
-            pindexNew->nPegSupplyIndex = -1;
+            pindexNew->nPegSupplyIndex = -1; // to be calculated
+            pindexNew->nPegVotesInflate = -1; // to be calculated
+            pindexNew->nPegVotesDeflate = -1; // to be calculated
+            pindexNew->nPegVotesNochange = -1; // to be calculated
         } else {
             unsigned int peg_off = CBlockIndex::BLOCK_PEG;
             nFlags = nFlags & ~peg_off;
             pindexNew->nPegSupplyIndex = 0;
+            pindexNew->nPegVotesInflate = 0;
+            pindexNew->nPegVotesDeflate = 0;
+            pindexNew->nPegVotesNochange = 0;
         }
         
         pindexNew->nFlags = nFlags;

@@ -1933,18 +1933,22 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const u
     pindexNew->phashBlock = &((*mi).first);
 
     // Set peg properties of block
+    unsigned int nFlags = pindexNew->nFlags;
     if (nPegStartHeight >0 && pindexNew->nHeight >= nPegStartHeight) {
-        unsigned int nFlags = pindexNew->nFlags;
         nFlags = nFlags | CBlockIndex::BLOCK_PEG;
-        pindexNew->nPegSupplyIndex = -1;
-        pindexNew->nFlags = nFlags;
+        pindexNew->nPegSupplyIndex = -1; // to be calculated
+        pindexNew->nPegVotesInflate = -1; // to be calculated
+        pindexNew->nPegVotesDeflate = -1; // to be calculated
+        pindexNew->nPegVotesNochange = -1; // to be calculated
     } else {
-        unsigned int nFlags = pindexNew->nFlags;
         unsigned int peg_off = CBlockIndex::BLOCK_PEG;
         nFlags = nFlags & ~peg_off;
         pindexNew->nPegSupplyIndex = 0;
-        pindexNew->nFlags = nFlags;
+        pindexNew->nPegVotesInflate = 0;
+        pindexNew->nPegVotesDeflate = 0;
+        pindexNew->nPegVotesNochange = 0;
     }
+    pindexNew->nFlags = nFlags;
     
     // Write to disk block index
     CTxDB txdb;

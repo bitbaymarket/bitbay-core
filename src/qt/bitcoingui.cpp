@@ -169,12 +169,17 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     lastBlockLabel->setText(tr("Last block:"));
     lastBlockLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
     topHeaderLayout->addWidget(lastBlockLabel, 0,0);
+
+    lastBlockPegSupplyLabel = new QLabel;
+    lastBlockPegSupplyLabel->setText(tr("Peg supply index:"));
+    lastBlockPegSupplyLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    topHeaderLayout->addWidget(lastBlockPegSupplyLabel, 1,0);
     
     QWidget* space12 = new QWidget();
     space12->setFixedHeight(70);
     space12->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
     space12->setStyleSheet("QWidget { background-color: rgb(75,78,162); }");
-    topHeaderLayout->addWidget(space12, 1,1);
+    topHeaderLayout->addWidget(space12, 2,1);
     
     QWidget *centralWidget = new QWidget();
     QVBoxLayout *centralLayout = new QVBoxLayout(centralWidget);
@@ -766,6 +771,17 @@ void BitcoinGUI::setNumBlocks(int count)
     progressBarLabel->setToolTip(tooltip);
     progressBar->setToolTip(tooltip);
     lastBlockLabel->setText(tr("Last block: %1, %2 ago").arg(count).arg(timeBehindText(secs)));
+    int peg_start = clientModel->getPegStartBlockNum();
+    int votes_inflate, votes_deflate, votes_nochange;
+    boost::tie(votes_inflate, votes_deflate, votes_nochange) = clientModel->getPegVotes();
+    lastBlockPegSupplyLabel->setText(tr("Peg supply index: %1, peg started: %2, peg votes:[%3,%4,%5]")
+                                     .arg(clientModel->getPegSupplyIndex())
+                                     .arg(peg_start >0 
+                                          ? QString::number(peg_start)
+                                          : tr("none"))
+                                     .arg(votes_inflate)
+                                     .arg(votes_deflate)
+                                     .arg(votes_nochange));
 }
 
 void BitcoinGUI::updateNumBlocksLabel() 

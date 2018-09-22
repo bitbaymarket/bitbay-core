@@ -881,6 +881,9 @@ public:
     int64_t nMint;
     int64_t nMoneySupply;
     int nPegSupplyIndex;
+    int nPegVotesInflate;
+    int nPegVotesDeflate;
+    int nPegVotesNochange;
 
     unsigned int nFlags;  // ppcoin: block index flags
     enum  
@@ -919,6 +922,9 @@ public:
         nMint = 0;
         nMoneySupply = 0;
         nPegSupplyIndex = 0;
+        nPegVotesInflate = 0;
+        nPegVotesDeflate = 0;
+        nPegVotesNochange = 0;
         nFlags = 0;
         nStakeModifier = 0;
         bnStakeModifierV2 = 0;
@@ -945,6 +951,9 @@ public:
         nMint = 0;
         nMoneySupply = 0;
         nPegSupplyIndex = 0;
+        nPegVotesInflate = 0;
+        nPegVotesDeflate = 0;
+        nPegVotesNochange = 0;
         nFlags = 0;
         nStakeModifier = 0;
         bnStakeModifierV2 = 0;
@@ -1091,9 +1100,9 @@ public:
 
     std::string ToString() const
     {
-        return strprintf("CBlockIndex(nprev=%p, pnext=%p, nFile=%u, nBlockPos=%-6d nHeight=%d, nMint=%s, nMoneySupply=%s, nPegSupplyIndex=%d, nFlags=(%s)(%d)(%s), nStakeModifier=%016x, hashProof=%s, prevoutStake=(%s), nStakeTime=%d merkle=%s, hashBlock=%s)",
+        return strprintf("CBlockIndex(nprev=%p, pnext=%p, nFile=%u, nBlockPos=%-6d nHeight=%d, nMint=%s, nMoneySupply=%s, nPegSupplyIndex=%d, PegVotes={%d,%d,%d}, nFlags=(%s)(%d)(%s), nStakeModifier=%016x, hashProof=%s, prevoutStake=(%s), nStakeTime=%d merkle=%s, hashBlock=%s)",
             pprev, pnext, nFile, nBlockPos, nHeight,
-            FormatMoney(nMint), FormatMoney(nMoneySupply), nPegSupplyIndex,
+            FormatMoney(nMint), FormatMoney(nMoneySupply), nPegSupplyIndex, nPegVotesInflate, nPegVotesDeflate, nPegVotesNochange,
             GeneratedStakeModifier() ? "MOD" : "-", GetStakeEntropyBit(), IsProofOfStake()? "PoS" : "PoW",
             nStakeModifier,
             hashProof.ToString(),
@@ -1155,9 +1164,15 @@ public:
         if (IsPeg())
         {
             READWRITE(nPegSupplyIndex);
+            READWRITE(nPegVotesInflate);
+            READWRITE(nPegVotesDeflate);
+            READWRITE(nPegVotesNochange);
         }
         else {
             const_cast<CDiskBlockIndex*>(this)->nPegSupplyIndex = 0;
+            const_cast<CDiskBlockIndex*>(this)->nPegVotesInflate = 0;
+            const_cast<CDiskBlockIndex*>(this)->nPegVotesDeflate = 0;
+            const_cast<CDiskBlockIndex*>(this)->nPegVotesNochange = 0;
         }
         READWRITE(hashProof);
 

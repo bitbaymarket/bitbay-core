@@ -44,6 +44,28 @@ int ClientModel::getNumBlocks() const
     return nBestHeight;
 }
 
+int ClientModel::getPegSupplyIndex() const
+{
+    LOCK(cs_main);
+    CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
+    return pblockindex->nPegSupplyIndex;
+}
+
+int ClientModel::getPegStartBlockNum() const 
+{
+    LOCK(cs_main);
+    return nPegStartHeight;
+}
+
+boost::tuple<int,int,int> ClientModel::getPegVotes() const
+{
+    LOCK(cs_main);
+    CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
+    return boost::make_tuple(pblockindex->nPegVotesInflate, 
+                             pblockindex->nPegVotesDeflate, 
+                             pblockindex->nPegVotesNochange);
+}
+
 int ClientModel::getNumBlocksAtStartup()
 {
     if (numBlocksAtStartup == -1) numBlocksAtStartup = getNumBlocks();

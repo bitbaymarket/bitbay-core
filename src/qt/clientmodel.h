@@ -2,6 +2,7 @@
 #define CLIENTMODEL_H
 
 #include <QObject>
+#include <boost/tuple/tuple.hpp>
 
 class OptionsModel;
 class AddressTableModel;
@@ -27,6 +28,9 @@ public:
     int getNumConnections() const;
     int getNumBlocks() const;
     int getNumBlocksAtStartup();
+    int getPegSupplyIndex() const;
+    int getPegStartBlockNum() const;
+    boost::tuple<int,int,int> getPegVotes() const;
 
     quint64 getTotalBytesRecv() const;
     quint64 getTotalBytesSent() const;

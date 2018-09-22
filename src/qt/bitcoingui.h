@@ -70,6 +70,7 @@ private:
     VerifyMessagePage *verifyMessagePage;
 
     QLabel *lastBlockLabel;
+    QLabel *lastBlockPegSupplyLabel;
     QLabel *labelEncryptionIcon;
     QLabel *labelStakingIcon;
     QLabel *labelConnectionsIcon;

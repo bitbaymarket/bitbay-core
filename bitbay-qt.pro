@@ -17,7 +17,7 @@ INCLUDEPATH += src src/json src/qt $$PWD
 QT += network
 DEFINES += ENABLE_WALLET
 DEFINES += ENABLE_PEG_TEST
-DEFINES += BOOST_THREAD_USE_LIB 
+DEFINES += BOOST_THREAD_USE_LIB
 DEFINES += BOOST_SPIRIT_THREADSAFE
 DEFINES += BOOST_NO_CXX11_SCOPED_ENUMS
 CONFIG += no_include_pwd
@@ -107,6 +107,7 @@ contains(BITCOIN_NEED_QT_PLUGINS, 1) {
 
 INCLUDEPATH += src/leveldb/include src/leveldb/helpers
 LIBS += $$PWD/src/leveldb/out-static/libleveldb.a $$PWD/src/leveldb/out-static/libmemenv.a
+HEADERS += src/txdb-leveldb.h
 SOURCES += src/txdb-leveldb.cpp
 !win32 {
     # we use QMAKE_CXXFLAGS_RELEASE even without RELEASE=1 because we use RELEASE to indicate linking preferences not -O preferences
@@ -127,6 +128,13 @@ PRE_TARGETDEPS += $$PWD/src/leveldb/out-static/libleveldb.a
 QMAKE_EXTRA_TARGETS += genleveldb
 # Gross ugly hack that depends on qmake internals, unfortunately there is no other way to do it.
 QMAKE_CLEAN += $$PWD/src/leveldb/out-static/libleveldb.a; cd $$PWD/src/leveldb ; $(MAKE) clean
+
+# peg system
+HEADERS += src/peg.h
+SOURCES += src/peg.cpp
+HEADERS += src/pegdb-leveldb.h
+SOURCES += src/pegdb-leveldb.cpp
+LIBS += -lz
 
 # regenerate src/build.h
 !windows|contains(USE_BUILD_INFO, 1) {
@@ -438,7 +446,7 @@ LIBS += $$join(OPENSSL_LIB_PATH,,-L,) -lssl -lcrypto -ldb$$BDB_LIB_SUFFIX -ldb_c
 windows:LIBS += -lws2_32 -lshlwapi -lmswsock -lole32 -loleaut32 -luuid -lgdi32
 LIBS += -lboost_system$$BOOST_LIB_SUFFIX -lboost_filesystem$$BOOST_LIB_SUFFIX -lboost_program_options$$BOOST_LIB_SUFFIX -lboost_thread$$BOOST_THREAD_LIB_SUFFIX
 windows:LIBS += -lboost_chrono$$BOOST_LIB_SUFFIX
-message($$LIBS)
+#message($$LIBS)
 
 contains(RELEASE, 1) {
     !windows:!macx {

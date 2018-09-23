@@ -1,10 +1,8 @@
-// Copyright (c) 2009-2012 The Bitcoin Developers.
-// Authored by Google, Inc.
+// Copyright (c) 2018 yshurik
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
-#ifndef BITCOIN_LEVELDB_H
-#define BITCOIN_LEVELDB_H
+#ifndef BITCOIN_PEG_LEVELDB_H
+#define BITCOIN_PEG_LEVELDB_H
 
 #include "main.h"
 
@@ -15,23 +13,11 @@
 #include <leveldb/db.h>
 #include <leveldb/write_batch.h>
 
-// Class that provides access to a LevelDB. Note that this class is frequently
-// instantiated on the stack and then destroyed again, so instantiation has to
-// be very cheap. Unfortunately that means, a CTxDB instance is actually just a
-// wrapper around some global state.
-//
-// A LevelDB is a key/value store that is optimized for fast usage on hard
-// disks. It prefers long read/writes to seeks and is based on a series of
-// sorted key/value mapping files that are stacked on top of each other, with
-// newer files overriding older files. A background thread compacts them
-// together when too many files stack up.
-//
-// Learn more: http://code.google.com/p/leveldb/
-class CTxDB
+class CPegDB
 {
 public:
-    CTxDB(const char* pszMode="r+");
-    ~CTxDB() {
+    CPegDB(const char* pszMode="r+");
+    ~CPegDB() {
         // Note that this is not the same as Close() because it deletes only
         // data scoped to this TxDB object.
         delete activeBatch;
@@ -97,6 +83,7 @@ protected:
         return true;
     }
 
+public:
     template<typename K, typename T>
     bool Write(const K& key, const T& value)
     {
@@ -183,34 +170,7 @@ public:
         return Write(std::string("version"), nVersion);
     }
 
-    static CBlockIndex *InsertBlockIndex(uint256 hash);
-
-    bool ReadTxIndex(uint256 hash, CTxIndex& txindex);
-    bool UpdateTxIndex(uint256 hash, const CTxIndex& txindex);
-    bool AddTxIndex(const CTransaction& tx, const CDiskTxPos& pos, int nHeight);
-    bool EraseTxIndex(const CTransaction& tx);
-    bool ContainsTx(uint256 hash);
-    bool ReadDiskTx(uint256 hash, CTransaction& tx, CTxIndex& txindex);
-    bool ReadDiskTx(uint256 hash, CTransaction& tx);
-    bool ReadDiskTx(COutPoint outpoint, CTransaction& tx, CTxIndex& txindex);
-    bool ReadDiskTx(COutPoint outpoint, CTransaction& tx);
-    bool WriteBlockIndex(const CDiskBlockIndex& blockindex);
-    bool ReadHashBestChain(uint256& hashBestChain);
-    bool WriteHashBestChain(uint256 hashBestChain);
-    bool ReadBestInvalidTrust(CBigNum& bnBestInvalidTrust);
-    bool WriteBestInvalidTrust(CBigNum bnBestInvalidTrust);
-    bool ReadPegStartHeight(int& nHeight);
-    bool WritePegStartHeight(int nHeight);
-    bool ReadBlockIndexIsPegReady(bool& bReady);
-    bool WriteBlockIndexIsPegReady(bool bReady);
-    bool ReadPegVotesAreReady(bool& bReady);
-    bool WritePegVotesAreReady(bool bReady);
-    bool UpdateBlocksForPeg(int nHeight, int& nBlocksChanged);
-    bool LoadBlockIndex(LoadMsg load_msg);
-private:
-    bool LoadBlockIndexGuts();
 };
 
-extern leveldb::DB *txdb; // global pointer for LevelDB object instance
 
-#endif // BITCOIN_DB_H
+#endif // BITCOIN_PEG_LEVELDB_H

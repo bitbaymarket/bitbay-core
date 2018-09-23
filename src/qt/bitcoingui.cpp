@@ -771,6 +771,22 @@ void BitcoinGUI::setNumBlocks(int count)
     progressBarLabel->setToolTip(tooltip);
     progressBar->setToolTip(tooltip);
     lastBlockLabel->setText(tr("Last block: %1, %2 ago").arg(count).arg(timeBehindText(secs)));
+    updatePegInfo1Label();
+}
+
+void BitcoinGUI::updateNumBlocksLabel() 
+{
+    int count = clientModel->getNumBlocks();
+    QDateTime lastBlockDate = clientModel->getLastBlockDate();
+    QDateTime currentDate = QDateTime::currentDateTime();
+    int secs = lastBlockDate.secsTo(currentDate);
+    
+    lastBlockLabel->setText(tr("Last block: %1, %2 ago").arg(count).arg(timeBehindText(secs)));
+    updatePegInfo1Label();
+}
+
+void BitcoinGUI::updatePegInfo1Label() 
+{
     int peg_start = clientModel->getPegStartBlockNum();
     int votes_inflate, votes_deflate, votes_nochange;
     boost::tie(votes_inflate, votes_deflate, votes_nochange) = clientModel->getPegVotes();
@@ -782,16 +798,6 @@ void BitcoinGUI::setNumBlocks(int count)
                                      .arg(votes_inflate)
                                      .arg(votes_deflate)
                                      .arg(votes_nochange));
-}
-
-void BitcoinGUI::updateNumBlocksLabel() 
-{
-    int count = clientModel->getNumBlocks();
-    QDateTime lastBlockDate = clientModel->getLastBlockDate();
-    QDateTime currentDate = QDateTime::currentDateTime();
-    int secs = lastBlockDate.secsTo(currentDate);
-    
-    lastBlockLabel->setText(tr("Last block: %1, %2 ago").arg(count).arg(timeBehindText(secs)));
 }
 
 QString BitcoinGUI::timeBehindText(int secs) 

@@ -22,6 +22,7 @@
 #include <boost/interprocess/sync/file_lock.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <openssl/crypto.h>
+#include <functional>
 
 #ifndef WIN32
 #include <signal.h>
@@ -632,18 +633,23 @@ bool AppInit2(boost::thread_group& threadGroup)
 
     // ********************************************************* Step 7: load blockchain
 
+    LoadMsg load_msg = [](const std::string & txt) {
+        std::string pre = _("Loading block index...");
+        uiInterface.InitMessage(pre+txt);
+    };
+    
     if (GetBoolArg("-loadblockindextest", false))
     {
         CTxDB txdb("r");
-        txdb.LoadBlockIndex();
+        txdb.LoadBlockIndex(load_msg);
         PrintBlockTree();
         return false;
     }
 
     uiInterface.InitMessage(_("Loading block index..."));
-
+    
     nStart = GetTimeMillis();
-    if (!LoadBlockIndex())
+    if (!LoadBlockIndex(load_msg))
         return InitError(_("Error loading block database"));
 
 

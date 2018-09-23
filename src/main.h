@@ -14,6 +14,7 @@
 #include "scrypt.h"
 
 #include <list>
+#include <functional>
 
 class CBlock;
 class CBlockIndex;
@@ -106,6 +107,10 @@ class CReserveKey;
 class CTxDB;
 class CTxIndex;
 class CWalletInterface;
+class CPegDB;
+
+// functors for messagings
+typedef std::function<void(const std::string &)> LoadMsg;
 
 /** Register a wallet to receive updates from core */
 void RegisterWallet(CWalletInterface* pwalletIn);
@@ -129,7 +134,7 @@ bool ProcessBlock(CNode* pfrom, CBlock* pblock);
 bool CheckDiskSpace(uint64_t nAdditionalBytes=0);
 FILE* OpenBlockFile(unsigned int nFile, unsigned int nBlockPos, const char* pszMode="rb");
 FILE* AppendBlockFile(unsigned int& nFileRet);
-bool LoadBlockIndex(bool fAllowNew=true);
+bool LoadBlockIndex(LoadMsg fLoadMsg, bool fAllowNew=true);
 void PrintBlockTree();
 CBlockIndex* FindBlockByHeight(int nHeight);
 bool ProcessMessages(CNode* pfrom);
@@ -886,7 +891,7 @@ public:
     int nPegVotesNochange;
 
     unsigned int nFlags;  // ppcoin: block index flags
-    enum  
+    enum
     {
         BLOCK_PROOF_OF_STAKE = (1 << 0), // is proof-of-stake block
         BLOCK_STAKE_ENTROPY  = (1 << 1), // entropy bit for stake modifier
@@ -969,10 +974,7 @@ public:
             prevoutStake.SetNull();
             nStakeTime = 0;
         }
-        if (block.IsPeg())
-        {
-            SetPeg();
-        }
+        SetPeg(true);
 
         nVersion       = block.nVersion;
         hashMerkleRoot = block.hashMerkleRoot;
@@ -1068,9 +1070,24 @@ public:
         return (nFlags & BLOCK_PEG);
     }
 
-    void SetPeg()
+    void SetPeg(bool bPeg)
     {
-        nFlags |= BLOCK_PEG;
+        unsigned int flags = nFlags;
+        if (bPeg) {
+            flags = flags | BLOCK_PEG;
+            nPegSupplyIndex = -1; // to be calculated
+            nPegVotesInflate = -1; // to be calculated
+            nPegVotesDeflate = -1; // to be calculated
+            nPegVotesNochange = -1; // to be calculated
+        } else {
+            unsigned int f_peg = BLOCK_PEG;
+            flags = flags & ~f_peg;
+            nPegSupplyIndex = 0;
+            nPegVotesInflate = 0;
+            nPegVotesDeflate = 0;
+            nPegVotesNochange = 0;
+        }
+        nFlags = flags;
     }
 
     unsigned int GetStakeEntropyBit() const

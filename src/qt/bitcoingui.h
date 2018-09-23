@@ -134,6 +134,8 @@ public slots:
     QString timeBehindText(int secs);
     /** Update number of blocks shown in the UI */
     void updateNumBlocksLabel();
+    /** Update peg info (1) in the UI */
+    void updatePegInfo1Label();
     /** Set the encryption status as shown in the UI.
        @param[in] status            current encryption status
        @see WalletModel::EncryptionStatus

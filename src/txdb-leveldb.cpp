@@ -8,6 +8,7 @@
 #include <boost/version.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <boost/foreach.hpp>
 
 #include <leveldb/env.h>
 #include <leveldb/cache.h>
@@ -19,6 +20,8 @@
 #include "util.h"
 #include "main.h"
 #include "chainparams.h"
+#include "base58.h"
+#include "peg.h"
 
 #include <QDebug>
 #include <QString>
@@ -285,6 +288,26 @@ bool CTxDB::WritePegStartHeight(int nHeight)
     return Write(string("pegStartHeight"), nHeight);
 }
 
+bool CTxDB::ReadBlockIndexIsPegReady(bool& bReady)
+{
+    return Read(string("blockIndexIsPegReady"), bReady);
+}
+
+bool CTxDB::WriteBlockIndexIsPegReady(bool bReady)
+{
+    return Write(string("blockIndexIsPegReady"), bReady);
+}
+
+bool CTxDB::ReadPegVotesAreReady(bool& bReady)
+{
+    return Read(string("pegVotesAreReady"), bReady);
+}
+
+bool CTxDB::WritePegVotesAreReady(bool bReady)
+{
+    return Write(string("pegVotesAreReady"), bReady);
+}
+
 bool CTxDB::ReadBestInvalidTrust(CBigNum& bnBestInvalidTrust)
 {
     return Read(string("bnBestInvalidTrust"), bnBestInvalidTrust);
@@ -295,7 +318,7 @@ bool CTxDB::WriteBestInvalidTrust(CBigNum bnBestInvalidTrust)
     return Write(string("bnBestInvalidTrust"), bnBestInvalidTrust);
 }
 
-static CBlockIndex *InsertBlockIndex(uint256 hash)
+CBlockIndex *CTxDB::InsertBlockIndex(uint256 hash)
 {
     if (hash == 0)
         return NULL;
@@ -315,7 +338,7 @@ static CBlockIndex *InsertBlockIndex(uint256 hash)
     return pindexNew;
 }
 
-bool CTxDB::LoadBlockIndex()
+bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
 {
     if (mapBlockIndex.size() > 0) {
         // Already loaded once in this session. It can happen during migration
@@ -331,6 +354,7 @@ bool CTxDB::LoadBlockIndex()
     ssStartKey << make_pair(string("blockindex"), uint256(0));
     iterator->Seek(ssStartKey.str());
     // Now read each entry.
+    int indexCount = 0;
     while (iterator->Valid())
     {
         boost::this_thread::interruption_point();
@@ -387,6 +411,10 @@ bool CTxDB::LoadBlockIndex()
             setStakeSeen.insert(make_pair(pindexNew->prevoutStake, pindexNew->nStakeTime));
 
         iterator->Next();
+        indexCount++;
+        if (indexCount % 10000 == 0) {
+            load_msg(std::to_string(indexCount));
+        }
     }
     delete iterator;
 
@@ -557,80 +585,25 @@ bool CTxDB::LoadBlockIndex()
         block.SetBestChain(txdb, pindexFork);
     }
 
-    ReadPegStartHeight(nPegStartHeight);
-    
-    return true;
-}
-
-
-bool CTxDB::UpdateBlocksForPeg(int nPegHeight, int& nBlocksChanged)
-{
-    nBlocksChanged = 0;
-    LogPrintf("UpdateBlocksForPeg() : new nPegHeight %d\n", nPegHeight);
-    leveldb::Iterator *iterator = pdb->NewIterator(leveldb::ReadOptions());
-    // Seek to start key.
-    CDataStream ssStartKey(SER_DISK, CLIENT_VERSION);
-    ssStartKey << make_pair(string("blockindex"), uint256(0));
-    iterator->Seek(ssStartKey.str());
-    // Now read each entry.
-    while (iterator->Valid())
-    {
-        boost::this_thread::interruption_point();
-        // Unpack keys and values.
-        CDataStream ssKey(SER_DISK, CLIENT_VERSION);
-        ssKey.write(iterator->key().data(), iterator->key().size());
-        CDataStream ssValue(SER_DISK, CLIENT_VERSION);
-        ssValue.write(iterator->value().data(), iterator->value().size());
-        string strType;
-        ssKey >> strType;
-        // Did we reach the end of the data to read?
-        if (strType != "blockindex")
-            break;
-        CDiskBlockIndex diskindex;
-        ssValue >> diskindex;
-
-        uint256 blockHash = diskindex.GetBlockHash();
-        // Construct block index object
-        CBlockIndex* pindexNew = InsertBlockIndex(blockHash);
-        
-        bool changed = false;
-        unsigned int nFlags = diskindex.nFlags;
-        
-        if (nPegHeight >0 && diskindex.nHeight >= nPegHeight) {
-            nFlags = nFlags | CBlockIndex::BLOCK_PEG;
-            pindexNew->nPegSupplyIndex = -1; // to be calculated
-            pindexNew->nPegVotesInflate = -1; // to be calculated
-            pindexNew->nPegVotesDeflate = -1; // to be calculated
-            pindexNew->nPegVotesNochange = -1; // to be calculated
-        } else {
-            unsigned int peg_off = CBlockIndex::BLOCK_PEG;
-            nFlags = nFlags & ~peg_off;
-            pindexNew->nPegSupplyIndex = 0;
-            pindexNew->nPegVotesInflate = 0;
-            pindexNew->nPegVotesDeflate = 0;
-            pindexNew->nPegVotesNochange = 0;
-        }
-        
-        pindexNew->nFlags = nFlags;
-        if (nFlags != diskindex.nFlags) {
-            diskindex.nFlags = nFlags;
-            diskindex.nPegSupplyIndex = pindexNew->nPegSupplyIndex;
-            nBlocksChanged++;
-            changed = true;
-        }
-        
-        if (changed) {
-            LogPrintf("UpdateBlocksForPeg() : changed %d\n", diskindex.nHeight);
-            WriteBlockIndex(diskindex);
-        }
-
-        iterator->Next();
+    bool bBlockIndexIsPegReady = false;
+    if (!ReadBlockIndexIsPegReady(bBlockIndexIsPegReady)) {
+        bBlockIndexIsPegReady = false;
     }
-    delete iterator;
 
-    boost::this_thread::interruption_point();
-    
+    if (!bBlockIndexIsPegReady) {
+        if (!SetBlocksIndexesReadyForPeg(0, *this, load_msg))
+            return error("LoadBlockIndex() : SetBlocksIndexesReadyForPeg failed");
+    }
+
+    bool bVotesAreReady = false;
+    if (!ReadPegVotesAreReady(bVotesAreReady)) {
+        bVotesAreReady = false;
+    }
+
+    if (!bVotesAreReady) {
+        if (!CalculateVotesForPeg(0, *this, load_msg))
+            return error("LoadBlockIndex() : SetBlocksIndexesReadyForPeg failed");
+    }
+
     return true;
 }
-
-

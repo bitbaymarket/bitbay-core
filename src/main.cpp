@@ -17,6 +17,10 @@
 #include "txdb.h"
 #include "txmempool.h"
 #include "ui_interface.h"
+#include "peg.h"
+
+#include <zconf.h>
+#include <zlib.h>
 
 using namespace std;
 using namespace boost;
@@ -1127,15 +1131,15 @@ bool IsConfirmedInNPrevBlocks(const CTxIndex& txindex, const CBlockIndex* pindex
 bool SetPegStartHeight(int nHeight, int& nBlocksChanged)
 {
     LOCK(cs_main);
-    CTxDB txdb;
-    if (!txdb.TxnBegin())
-        return false;
-    if (!txdb.WritePegStartHeight(nHeight))
-        return false;
-    if (!txdb.UpdateBlocksForPeg(nHeight, nBlocksChanged))
-        return false;
-    if (!txdb.TxnCommit())
-        return false;
+//    CTxDB txdb;
+//    if (!txdb.TxnBegin())
+//        return false;
+//    if (!txdb.WritePegStartHeight(nHeight))
+//        return false;
+//    if (!txdb.UpdateBlocksForPeg(nHeight, nBlocksChanged))
+//        return false;
+//    if (!txdb.TxnCommit())
+//        return false;
     return true;
 }
 
@@ -1556,6 +1560,9 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
     // ppcoin: track money supply and mint amount info
     pindex->nMint = nValueOut - nValueIn + nFees;
     pindex->nMoneySupply = (pindex->pprev? pindex->pprev->nMoneySupply : 0) + nValueOut - nValueIn;
+    // bitbay: trac peg voting information
+    CalculateBlockPegVotes(*this, pindex);
+
     if (!txdb.WriteBlockIndex(CDiskBlockIndex(pindex)))
         return error("Connect() : WriteBlockIndex for pindex failed");
 
@@ -1933,23 +1940,8 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const u
     pindexNew->phashBlock = &((*mi).first);
 
     // Set peg properties of block
-    unsigned int nFlags = pindexNew->nFlags;
-    if (nPegStartHeight >0 && pindexNew->nHeight >= nPegStartHeight) {
-        nFlags = nFlags | CBlockIndex::BLOCK_PEG;
-        pindexNew->nPegSupplyIndex = -1; // to be calculated
-        pindexNew->nPegVotesInflate = -1; // to be calculated
-        pindexNew->nPegVotesDeflate = -1; // to be calculated
-        pindexNew->nPegVotesNochange = -1; // to be calculated
-    } else {
-        unsigned int peg_off = CBlockIndex::BLOCK_PEG;
-        nFlags = nFlags & ~peg_off;
-        pindexNew->nPegSupplyIndex = 0;
-        pindexNew->nPegVotesInflate = 0;
-        pindexNew->nPegVotesDeflate = 0;
-        pindexNew->nPegVotesNochange = 0;
-    }
-    pindexNew->nFlags = nFlags;
-    
+    pindexNew->SetPeg(true);
+
     // Write to disk block index
     CTxDB txdb;
     if (!txdb.TxnBegin())
@@ -2493,7 +2485,7 @@ FILE* AppendBlockFile(unsigned int& nFileRet)
     }
 }
 
-bool LoadBlockIndex(bool fAllowNew)
+bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
 {
     LOCK(cs_main);
 
@@ -2507,7 +2499,7 @@ bool LoadBlockIndex(bool fAllowNew)
     // Load block index
     //
     CTxDB txdb("cr+");
-    if (!txdb.LoadBlockIndex())
+    if (!txdb.LoadBlockIndex(load_msg))
         return false;
 
     //

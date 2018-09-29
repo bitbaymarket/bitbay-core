@@ -90,7 +90,8 @@ OBJS= \
     obj/scrypt.o \
     obj/scrypt-x86.o \
     obj/scrypt-x86_64.o \
-    obj/chainparams.o
+    obj/chainparams.o \
+    obj/peg.o
 
 ifeq (${USE_WALLET}, 1)
     DEFS += -DENABLE_WALLET
@@ -110,6 +111,7 @@ LIBS += $(CURDIR)/leveldb/out-static/libleveldb.a $(CURDIR)/leveldb/out-static/l
 DEFS += -I"$(CURDIR)/leveldb/include"
 DEFS += -I"$(CURDIR)/leveldb/helpers"
 OBJS += obj/txdb-leveldb.o
+OBJS += obj/pegdb-leveldb.o
 leveldb/out-static/libleveldb.a:
 	@echo "Building LevelDB ..." && cd leveldb && CC=$(CC) CXX=$(CXX) TARGET_OS=OS_WINDOWS_CROSSCOMPILE CXXFLAGS="-I$(INCLUDEPATHS)" LDFLAGS="-L$(LIBPATHS)" $(MAKE) out-static/libleveldb.a out-static/libmemenv.a && $(RANLIB) out-static/libleveldb.a && $(RANLIB) out-static/libmemenv.a && cd ..
 obj/txdb-leveldb.o: leveldb/out-static/libleveldb.a

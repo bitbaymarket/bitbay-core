@@ -199,6 +199,8 @@ public:
     bool WriteHashBestChain(uint256 hashBestChain);
     bool ReadBestInvalidTrust(CBigNum& bnBestInvalidTrust);
     bool WriteBestInvalidTrust(CBigNum bnBestInvalidTrust);
+    bool LoadBlockIndex(LoadMsg load_msg);
+    // flags for peg system peg
     bool ReadPegStartHeight(int& nHeight);
     bool WritePegStartHeight(int nHeight);
     bool ReadBlockIndexIsPegReady(bool& bReady);
@@ -206,7 +208,6 @@ public:
     bool ReadPegVotesAreReady(bool& bReady);
     bool WritePegVotesAreReady(bool bReady);
     bool UpdateBlocksForPeg(int nHeight, int& nBlocksChanged);
-    bool LoadBlockIndex(LoadMsg load_msg);
 private:
     bool LoadBlockIndexGuts();
 };

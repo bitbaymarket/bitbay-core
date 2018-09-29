@@ -584,6 +584,19 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
         CTxDB txdb;
         block.SetBestChain(txdb, pindexFork);
     }
+    
+    int nPegStartHeightStored = 0;
+    ReadPegStartHeight(nPegStartHeightStored);
+    if (nPegStartHeightStored != nPegStartHeight) {
+        if (!TxnBegin())
+            return error("WriteBlockIndexIsPegReady() : TxnBegin failed");
+        if (!WriteBlockIndexIsPegReady(false))
+            return error("WriteBlockIndexIsPegReady() : flag write failed");
+        if (!WritePegVotesAreReady(false))
+            return error("WritePegVotesAreReady() : flag write failed");
+        if (!TxnCommit())
+            return error("WriteBlockIndexIsPegReady() : TxnCommit failed");
+    }
 
     bool bBlockIndexIsPegReady = false;
     if (!ReadBlockIndexIsPegReady(bBlockIndexIsPegReady)) {
@@ -591,7 +604,7 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
     }
 
     if (!bBlockIndexIsPegReady) {
-        if (!SetBlocksIndexesReadyForPeg(0, *this, load_msg))
+        if (!SetBlocksIndexesReadyForPeg(*this, load_msg))
             return error("LoadBlockIndex() : SetBlocksIndexesReadyForPeg failed");
     }
 
@@ -601,8 +614,17 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
     }
 
     if (!bVotesAreReady) {
-        if (!CalculateVotesForPeg(0, *this, load_msg))
+        if (!CalculateVotesForPeg(*this, load_msg))
             return error("LoadBlockIndex() : SetBlocksIndexesReadyForPeg failed");
+    }
+    
+    { // all is ready, store nPegStartHeight
+        if (!TxnBegin())
+            return error("WriteBlockIndexIsPegReady() : TxnBegin failed");
+        if (!WritePegStartHeight(nPegStartHeight))
+            return error("WritePegStartHeight() : flag write failed");
+        if (!TxnCommit())
+            return error("WriteBlockIndexIsPegReady() : TxnCommit failed");
     }
 
     return true;

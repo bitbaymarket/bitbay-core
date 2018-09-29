@@ -27,11 +27,12 @@
 using namespace std;
 using namespace boost;
 
-int nPegStartHeight = 0;
+int nPegStartHeight = 1807400;
+int nPegMaxSupplyIndex = 1199;
 
 extern leveldb::DB *txdb; // global pointer for LevelDB object instance
 
-bool SetBlocksIndexesReadyForPeg(int nStartHeight, CTxDB & ctxdb, LoadMsg load_msg) {
+bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb, LoadMsg load_msg) {
     if (!ctxdb.TxnBegin())
         return error("SetBlocksIndexesReadyForPeg() : TxnBegin failed");
 
@@ -61,11 +62,9 @@ bool SetBlocksIndexesReadyForPeg(int nStartHeight, CTxDB & ctxdb, LoadMsg load_m
         uint256 blockHash = diskindex.GetBlockHash();
         CBlockIndex* pindexNew = ctxdb.InsertBlockIndex(blockHash);
 
-        if (pindexNew->nHeight >= nStartHeight) {
-            pindexNew->SetPeg(true);
-            diskindex.SetPeg(true);
-            ctxdb.WriteBlockIndex(diskindex);
-        }
+        pindexNew->SetPeg(pindexNew->nHeight >= nPegStartHeight);
+        diskindex.SetPeg(pindexNew->nHeight >= nPegStartHeight);
+        ctxdb.WriteBlockIndex(diskindex);
 
         iterator->Next();
 
@@ -76,7 +75,6 @@ bool SetBlocksIndexesReadyForPeg(int nStartHeight, CTxDB & ctxdb, LoadMsg load_m
     }
     delete iterator;
 
-
     if (!ctxdb.WriteBlockIndexIsPegReady(true))
         return error("SetBlocksIndexesReadyForPeg() : flag write failed");
 
@@ -86,13 +84,13 @@ bool SetBlocksIndexesReadyForPeg(int nStartHeight, CTxDB & ctxdb, LoadMsg load_m
     return true;
 }
 
-bool CalculateVotesForPeg(int nStartHeight, CTxDB & ctxdb, LoadMsg load_msg) {
+bool CalculateVotesForPeg(CTxDB & ctxdb, LoadMsg load_msg) {
     if (!ctxdb.TxnBegin())
         return error("CalculateVotesForPeg() : TxnBegin failed");
 
     // now calculate peg votes
     CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
-    while (pblockindex->nHeight > nStartHeight)
+    while (pblockindex->nHeight > nPegStartHeight)
         pblockindex = pblockindex->pprev;
 
     CBlock block;
@@ -135,8 +133,22 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex)
         pindex->nPegVotesInflate =0;
         pindex->nPegVotesDeflate =0;
         pindex->nPegVotesNochange =0;
+        
+        int inflate = pindex->pprev->nPegVotesInflate;
+        int deflate = pindex->pprev->nPegVotesDeflate;
+        int nochange = pindex->pprev->nPegVotesNochange;
+        
+        pindex->nPegSupplyIndex = pindex->pprev->nPegSupplyIndex;
+        if (deflate > inflate && deflate > nochange) pindex->nPegSupplyIndex++;
+        if (inflate > deflate && inflate > nochange) pindex->nPegSupplyIndex--;
+        
+        if (pindex->nPegSupplyIndex >= nPegMaxSupplyIndex) 
+            pindex->nPegSupplyIndex = pindex->pprev->nPegSupplyIndex;
+        else if (pindex->nPegSupplyIndex <0)
+            pindex->nPegSupplyIndex = 0;
     }
     else if (pindex->pprev) {
+        pindex->nPegSupplyIndex = pindex->pprev->nPegSupplyIndex;
         pindex->nPegVotesInflate = pindex->pprev->nPegVotesInflate;
         pindex->nPegVotesDeflate = pindex->pprev->nPegVotesDeflate;
         pindex->nPegVotesNochange = pindex->pprev->nPegVotesNochange;

@@ -13,19 +13,19 @@ class CBlock;
 class CBlockIndex;
 
 extern int nPegStartHeight;
+extern int nPegMaxSupplyIndex;
 
 // functors for messagings
 typedef std::function<void(const std::string &)> LoadMsg;
 
 class CPegFractions {
 public:
+	int64_t f[1200];
 };
 
-bool SetBlocksIndexesReadyForPeg(int nStartHeight,
-								 CTxDB & ctxdb,
+bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb,
 								 LoadMsg load_msg);
-bool CalculateVotesForPeg(int nStartHeight,
-						  CTxDB & ctxdb,
+bool CalculateVotesForPeg(CTxDB & ctxdb,
 						  LoadMsg load_msg);
 bool CalculateBlockPegVotes(const CBlock & cblock,
 							CBlockIndex* pindex);

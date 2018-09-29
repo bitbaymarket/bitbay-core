@@ -23,9 +23,6 @@
 #include "base58.h"
 #include "peg.h"
 
-#include <QDebug>
-#include <QString>
-
 using namespace std;
 using namespace boost;
 

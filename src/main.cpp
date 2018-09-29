@@ -64,8 +64,6 @@ bool fImporting = false;
 bool fReindex = false;
 bool fHaveGUI = false;
 
-int nPegStartHeight = 0;
-
 struct COrphanBlock {
     uint256 hashBlock;
     uint256 hashPrev;

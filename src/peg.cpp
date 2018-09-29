@@ -27,6 +27,8 @@
 using namespace std;
 using namespace boost;
 
+int nPegStartHeight = 0;
+
 extern leveldb::DB *txdb; // global pointer for LevelDB object instance
 
 bool SetBlocksIndexesReadyForPeg(int nStartHeight, CTxDB & ctxdb, LoadMsg load_msg) {

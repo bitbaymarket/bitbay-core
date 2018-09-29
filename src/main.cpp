@@ -1938,7 +1938,7 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const u
     pindexNew->phashBlock = &((*mi).first);
 
     // Set peg properties of block
-    pindexNew->SetPeg(true);
+    pindexNew->SetPeg(pindexNew->nHeight >= nPegStartHeight);
 
     // Write to disk block index
     CTxDB txdb;

@@ -121,7 +121,7 @@ bool CalculateVotesForPeg(CTxDB & ctxdb, LoadMsg load_msg) {
 
 bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex)
 {
-    if (!cblock.IsProofOfStake()) {
+    if (!cblock.IsProofOfStake() || pindex->nHeight < nPegStartHeight) {
         pindex->nPegSupplyIndex =0;
         pindex->nPegVotesInflate =0;
         pindex->nPegVotesDeflate =0;
@@ -278,8 +278,8 @@ bool WriteBlockPegFractions(const CBlock & block, CPegDB& pegdb) {
             //ssPegFractions.write(compressed_bytes.data(), compressed_bytes.size());
 
             int compressionLevel = 9;
-            ulong nbytes = 1200*8;
-            ulong len = nbytes + nbytes / 100 + 13;
+            unsigned long nbytes = 1200*8;
+            unsigned long len = nbytes + nbytes / 100 + 13;
             char zout[len+4];
             const unsigned char * data = (const unsigned char *)(f64d);
 

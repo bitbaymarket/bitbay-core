@@ -17,6 +17,7 @@ HEADERS += \
     $$PWD/editaddressdialog.h \
     $$PWD/bitcoinaddressvalidator.h \
     $$PWD/clientmodel.h \
+    $$PWD/blockchainmodel.h \
     $$PWD/guiutil.h \
     $$PWD/transactionrecord.h \
     $$PWD/guiconstants.h \
@@ -57,6 +58,7 @@ SOURCES += \
     $$PWD/editaddressdialog.cpp \
     $$PWD/bitcoinaddressvalidator.cpp \
     $$PWD/clientmodel.cpp \
+    $$PWD/blockchainmodel.cpp \
     $$PWD/guiutil.cpp \
     $$PWD/transactionrecord.cpp \
     $$PWD/optionsmodel.cpp \

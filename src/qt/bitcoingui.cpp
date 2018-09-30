@@ -15,6 +15,7 @@
 #include "signmessagepage.h"
 #include "verifymessagepage.h"
 #include "infopage.h"
+#include "blockchainmodel.h"
 #include "optionsdialog.h"
 #include "aboutdialog.h"
 #include "clientmodel.h"
@@ -596,6 +597,7 @@ void BitcoinGUI::setClientModel(ClientModel *clientModel)
 
         setNumBlocks(clientModel->getNumBlocks());
         connect(clientModel, SIGNAL(numBlocksChanged(int)), this, SLOT(setNumBlocks(int)));
+        connect(clientModel, SIGNAL(numBlocksChanged(int)), infoPage->blockchainModel(), SLOT(setNumBlocks(int)));
         QTimer * numBlocksLabelTimer = new QTimer(this);
         connect(numBlocksLabelTimer, SIGNAL(timeout()), this, SLOT(updateNumBlocksLabel()));
         numBlocksLabelTimer->setInterval(1000);

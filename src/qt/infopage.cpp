@@ -1,14 +1,8 @@
 #include "infopage.h"
 #include "ui_infopage.h"
 
-//#include "addressbookpage.h"
-//#include "base58.h"
 #include "guiutil.h"
-//#include "init.h"
-//#include "main.h"
-//#include "optionsmodel.h"
-//#include "walletmodel.h"
-//#include "wallet.h"
+#include "blockchainmodel.h"
 
 #include <QClipboard>
 
@@ -21,6 +15,9 @@ InfoPage::InfoPage(QWidget *parent) :
 {
     ui->setupUi(this);
     GUIUtil::SetBitBayFonts(this);
+    
+    model = new BlockchainModel(this);
+    ui->blockchainView->setModel(model);
 }
 
 InfoPage::~InfoPage()
@@ -28,3 +25,7 @@ InfoPage::~InfoPage()
     delete ui;
 }
 
+BlockchainModel * InfoPage::blockchainModel() const
+{
+    return model;
+}

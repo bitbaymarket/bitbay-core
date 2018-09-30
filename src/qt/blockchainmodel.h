@@ -24,7 +24,12 @@ public:
         Height = 0, /**< Height of the block */
         Hash,        /**< Blok hash */
         Votes,
-        Peg
+        Peg,
+        PegWOk,
+        PegAOk
+    };
+    enum Roles {
+        HashRole = Qt::UserRole+1
     };
 
     /** @name Methods overridden from QAbstractItemModel

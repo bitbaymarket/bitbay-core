@@ -1404,6 +1404,10 @@ bool CTransaction::ConnectInputs(CTxDB& txdb, MapPrevTx inputs, map<uint256, CTx
                 if (nTxFee < nRequiredFee)
                     return fBlock? DoS(100, error("ConnectInputs() : %s not paying required fee=%s, paid=%s", GetHash().ToString(), FormatMoney(nRequiredFee), FormatMoney(nTxFee))) : false;
             }
+            
+            if (IsProtocolVP(pindexBlock->nHeight)) {
+                
+            }
 
             nFees += nTxFee;
             if (!MoneyRange(nFees))

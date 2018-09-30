@@ -53,6 +53,8 @@ static const int64_t MAX_MONEY = 2000000000 * COIN;
 inline bool MoneyRange(int64_t nValue) { return (nValue >= 0 && nValue <= MAX_MONEY); }
 /** Threshold for nLockTime: below this value it is interpreted as block number, otherwise as UNIX timestamp. */
 static const unsigned int LOCKTIME_THRESHOLD = 500000000; // Tue Nov  5 00:53:20 1985 UTC
+/** Peg start block */
+extern int nPegStartHeight;
 
 static const int64_t COIN_YEAR_REWARD = 1 * CENT; // 1% per year
 
@@ -60,6 +62,7 @@ inline bool IsProtocolV1RetargetingFixed(int nHeight) { return TestNet() || nHei
 inline bool IsProtocolV2(int nHeight) { return TestNet() || nHeight > 20000; }
 inline bool IsProtocolV3(int64_t nTime) { return TestNet() || nTime > 1484956800; }
 inline bool IsProtocolVS(int64_t nTime) { return TestNet() || nTime > 1512000000; }
+inline bool IsProtocolVP(int nHeight) { return TestNet() || nHeight > nPegStartHeight; }
 
 inline int64_t FutureDriftV1(int64_t nTime) { return nTime + 10 * 60; }
 inline int64_t FutureDriftV2(int64_t nTime) { return nTime + 15; }
@@ -897,6 +900,8 @@ public:
         BLOCK_STAKE_ENTROPY  = (1 << 1), // entropy bit for stake modifier
         BLOCK_STAKE_MODIFIER = (1 << 2), // regenerated stake modifier
         BLOCK_PEG            = (1 << 3), // block with peg
+        BLOCK_PEG_WFAIL      = (1 << 4), // temp:remove_on_release: peg check fail for whitelist
+        BLOCK_PEG_AFAIL      = (1 << 5), // temp:remove_on_release: peg check fail for all
     };
 
     uint64_t nStakeModifier; // hash modifier for proof-of-stake

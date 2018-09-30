@@ -40,6 +40,7 @@ HEADERS += \
     $$PWD/notificator.h \
     $$PWD/paymentserver.h \
     $$PWD/rpcconsole.h \
+    $$PWD/metatypes.h \
 
 SOURCES += \
     $$PWD/bitcoin.cpp \

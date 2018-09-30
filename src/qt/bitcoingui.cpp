@@ -14,6 +14,7 @@
 #include "sendcoinsdialog.h"
 #include "signmessagepage.h"
 #include "verifymessagepage.h"
+#include "infopage.h"
 #include "optionsdialog.h"
 #include "aboutdialog.h"
 #include "clientmodel.h"
@@ -124,6 +125,8 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
 
     verifyMessagePage = new VerifyMessagePage(this);
 
+    infoPage = new InfoPage(this);
+    
     centralStackedWidget = new QStackedWidget(this);
     centralStackedWidget->addWidget(overviewPage);
     centralStackedWidget->addWidget(transactionsPage);
@@ -132,6 +135,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     centralStackedWidget->addWidget(sendCoinsPage);
     centralStackedWidget->addWidget(signMessagePage);
     centralStackedWidget->addWidget(verifyMessagePage);
+    centralStackedWidget->addWidget(infoPage);
 
     QWidget * leftPanel = new QWidget();
     leftPanel->setFixedWidth(160);
@@ -305,6 +309,18 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabsGroup->addButton(tabVerify);
     leftPanelLayout->addWidget(tabVerify);
 
+    tabInfo = new QToolButton();
+    tabInfo->setFixedSize(160,50);
+    tabInfo->setText(tr("INFO"));
+    tabInfo->setCheckable(true);
+    tabInfo->setAutoRaise(true);
+    tabInfo->setFont(font);
+    tabInfo->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    tabInfo->setIcon(QIcon(":/icons/info"));
+    tabInfo->setIconSize(QSize(16,16));
+    tabsGroup->addButton(tabInfo);
+    leftPanelLayout->addWidget(tabInfo);
+    
     connect(tabDashboard, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
     connect(tabDashboard, SIGNAL(clicked()), this, SLOT(gotoOverviewPage()));
     connect(tabReceive, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
@@ -319,6 +335,8 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     connect(tabSign, SIGNAL(clicked()), this, SLOT(gotoSignMessagePage()));
     connect(tabVerify, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
     connect(tabVerify, SIGNAL(clicked()), this, SLOT(gotoVerifyMessagePage()));
+    connect(tabInfo, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
+    connect(tabInfo, SIGNAL(clicked()), this, SLOT(gotoInfoPage()));
 
     QWidget * space2 = new QWidget;
     space2->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::MinimumExpanding);
@@ -1027,6 +1045,14 @@ void BitcoinGUI::gotoSignMessagePage()
 void BitcoinGUI::gotoVerifyMessagePage()
 {
     centralStackedWidget->setCurrentWidget(verifyMessagePage);
+
+    exportAction->setEnabled(false);
+    disconnect(exportAction, SIGNAL(triggered()), 0, 0);
+}
+
+void BitcoinGUI::gotoInfoPage()
+{
+    centralStackedWidget->setCurrentWidget(infoPage);
 
     exportAction->setEnabled(false);
     disconnect(exportAction, SIGNAL(triggered()), 0, 0);

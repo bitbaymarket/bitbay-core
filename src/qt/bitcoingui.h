@@ -15,6 +15,7 @@ class AddressBookPage;
 class SendCoinsDialog;
 class SignMessagePage;
 class VerifyMessagePage;
+class InfoPage;
 class SignVerifyMessageDialog;
 class Notificator;
 class RPCConsole;
@@ -68,6 +69,7 @@ private:
     SendCoinsDialog *sendCoinsPage;
     SignMessagePage *signMessagePage;
     VerifyMessagePage *verifyMessagePage;
+    InfoPage *infoPage;
 
     QLabel *lastBlockLabel;
     QLabel *lastBlockPegSupplyLabel;
@@ -106,6 +108,7 @@ private:
     QToolButton * tabAddresses = nullptr;
     QToolButton * tabSign = nullptr;
     QToolButton * tabVerify = nullptr;
+    QToolButton * tabInfo = nullptr;
 
     QSystemTrayIcon *trayIcon;
     Notificator *notificator;
@@ -176,6 +179,8 @@ private slots:
     void gotoSignMessagePage();
     /** Switch to verify message page */
     void gotoVerifyMessagePage();
+    /** Switch to info page */
+    void gotoInfoPage();
 
     /** Show Sign/Verify Message dialog and switch to sign message tab */
     void gotoSignMessageTab(QString addr = "");

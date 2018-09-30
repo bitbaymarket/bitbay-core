@@ -662,6 +662,18 @@ void SetBitBayThemeQSS(QApplication& app)
             width: 8px;
             height: 5px;
         }
+        QMenu { 
+            background: rgb(255,255,255); 
+            selection-color: rgb(204,203,227);
+            border-color: rgb(135,135,135);
+            border-width: 1.2px;
+            border-style: solid;
+        }
+        QMenu::item:selected {
+            color: rgb(0,0,0);
+            background: rgb(204,203,227);
+        }
+
     )");
 
 }

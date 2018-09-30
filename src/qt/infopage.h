@@ -29,6 +29,7 @@ private slots:
     void showTxPage();
     void openBlock(const QModelIndex &);
     void openTx(QTreeWidgetItem*,int);
+    void openFractions(QTreeWidgetItem*,int);
     
 private:
     Ui::InfoPage *ui;
@@ -42,7 +43,7 @@ class FractionsItemDelegate : public QItemDelegate
 
 public:
     explicit FractionsItemDelegate(QWidget *parent = nullptr);
-    ~FractionsItemDelegate();
+    ~FractionsItemDelegate() override;
     
     
     void drawDisplay(QPainter *painter, 

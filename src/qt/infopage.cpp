@@ -1,5 +1,6 @@
 #include "infopage.h"
 #include "ui_infopage.h"
+#include "ui_fractionsdialog.h"
 
 #include "main.h"
 #include "base58.h"
@@ -7,6 +8,7 @@
 #include "guiutil.h"
 #include "blockchainmodel.h"
 #include "metatypes.h"
+#include "qwt/qwt_plot.h"
 
 #include <QPainter>
 #include <QClipboard>
@@ -32,6 +34,10 @@ InfoPage::InfoPage(QWidget *parent) :
             this, SLOT(openBlock(const QModelIndex &)));
     connect(ui->blockValues, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
             this, SLOT(openTx(QTreeWidgetItem*,int)));
+    connect(ui->txInputs, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
+            this, SLOT(openFractions(QTreeWidgetItem*,int)));
+    connect(ui->txOutputs, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
+            this, SLOT(openFractions(QTreeWidgetItem*,int)));
     
     QFont font = GUIUtil::bitcoinAddressFont();
     qreal pt = font.pointSizeF()*0.8;
@@ -270,6 +276,19 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
         
         ui->txOutputs->addTopLevelItem(new QTreeWidgetItem(row));
     }
+}
+
+void InfoPage::openFractions(QTreeWidgetItem*,int)
+{
+    auto dlg = new QDialog(this);
+    Ui::FractionsDialog ui;
+    ui.setupUi(dlg);
+    QwtPlot * fplot = new QwtPlot;
+    QVBoxLayout *fvbox = new QVBoxLayout;
+    fvbox->setMargin(0);
+    fvbox->addWidget(fplot);
+    ui.chart->setLayout(fvbox);
+    dlg->show();
 }
 
 // delegate to draw fractions

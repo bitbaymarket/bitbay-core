@@ -101,7 +101,8 @@ FORMS += \
     $$PWD/forms/sendcoinsentry.ui \
     $$PWD/forms/askpassphrasedialog.ui \
     $$PWD/forms/rpcconsole.ui \
-    $$PWD/forms/optionsdialog.ui
+    $$PWD/forms/optionsdialog.ui \
+    $$PWD/forms/fractionsdialog.ui
 
 contains(USE_QRCODE, 1) {
     HEADERS += $$PWD/qrcodedialog.h

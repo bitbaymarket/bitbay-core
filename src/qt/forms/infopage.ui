@@ -206,11 +206,6 @@
          </column>
          <column>
           <property name="text">
-           <string>Outputs</string>
-          </property>
-         </column>
-         <column>
-          <property name="text">
            <string>Address</string>
           </property>
          </column>

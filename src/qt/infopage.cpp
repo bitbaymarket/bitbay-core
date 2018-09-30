@@ -8,6 +8,7 @@
 #include "blockchainmodel.h"
 #include "metatypes.h"
 
+#include <QPainter>
 #include <QClipboard>
 
 #include <string>
@@ -33,7 +34,7 @@ InfoPage::InfoPage(QWidget *parent) :
             this, SLOT(openTx(QTreeWidgetItem*,int)));
     
     QFont font = GUIUtil::bitcoinAddressFont();
-    qreal pt = font.pointSizeF()*0.7;
+    qreal pt = font.pointSizeF()*0.8;
     if (pt != .0) {
         font.setPointSizeF(pt);
     } else {
@@ -68,10 +69,19 @@ InfoPage::InfoPage(QWidget *parent) :
     ui->txOutputs->header()->setFont(font);
     ui->blockValues->header()->setFont(font);
     
-    ui->txInputs->header()->resizeSection(0 /*n*/, 80);
-    ui->txOutputs->header()->resizeSection(0 /*n*/, 80);
-    ui->txInputs->header()->resizeSection(2 /*addr*/, 240);
-    ui->txOutputs->header()->resizeSection(2 /*addr*/, 240);
+    ui->txInputs->header()->resizeSection(0 /*n*/, 50);
+    ui->txOutputs->header()->resizeSection(0 /*n*/, 50);
+    ui->txInputs->header()->resizeSection(1 /*tx*/, 140);
+    ui->txInputs->header()->resizeSection(2 /*addr*/, 280);
+    ui->txOutputs->header()->resizeSection(1 /*addr*/, 280);
+    ui->txInputs->header()->resizeSection(3 /*value*/, 160);
+    ui->txOutputs->header()->resizeSection(2 /*value*/, 160);
+
+    auto txInpDelegate = new FractionsItemDelegate(ui->txInputs);
+    ui->txInputs->setItemDelegateForColumn(4 /*frac*/, txInpDelegate);
+    
+    auto txOutDelegate = new FractionsItemDelegate(ui->txOutputs);
+    ui->txOutputs->setItemDelegateForColumn(3 /*frac*/, txOutDelegate);
 }
 
 InfoPage::~InfoPage()
@@ -166,8 +176,8 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
     
     showTxPage();
     ui->txValues->clear();
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Hash",thash})));
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Height",sheight})));
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Hash",thash})));
         
     MapPrevTx mapInputs;
     map<uint256, CTxIndex> mapUnused;
@@ -227,7 +237,6 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
     {
         QStringList row;
         row << QString::number(i);
-        row << QString::number(i);
         
         int nRequired;
         txnouttype type;
@@ -261,4 +270,73 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
         
         ui->txOutputs->addTopLevelItem(new QTreeWidgetItem(row));
     }
+}
+
+// delegate to draw fractions
+
+FractionsItemDelegate::FractionsItemDelegate(QWidget *parent) :
+    QItemDelegate(parent)
+{
+}
+
+FractionsItemDelegate::~FractionsItemDelegate()
+{
+}
+
+static void value_to_fractions(int64_t v, int64_t *fs) {
+    int64_t vf = 0;
+    for(int i=0;i<1200;i++) {
+        int64_t f = v/100;
+        int64_t fm = v % 100;
+        if (fm >= 45) f++;
+        v -= f;
+        vf += f;
+        fs[i] = f;
+    }
+    int64_t r = v-vf;
+    for(int i=0;i<r;i++) {
+        fs[i]++;
+    }
+}
+
+void FractionsItemDelegate::drawDisplay(QPainter *p, 
+                                        const QStyleOptionViewItem &o, 
+                                        const QRect &r, 
+                                        const QString &t) const
+{
+    Q_UNUSED(o);
+    Q_UNUSED(t);
+    
+    int64_t fs[1200];
+    int64_t v = 10000000000;
+    value_to_fractions(v, fs);
+    
+    QPainterPath path;
+    QVector<QPointF> points;
+    
+    qreal rx = r.x();
+    qreal ry = r.y();
+    qreal rw = r.width();
+    qreal rh = r.height();
+    qreal w = 1200;
+    qreal h = fs[0];
+    
+    points.push_back(QPointF(r.x(),r.bottom()));
+    
+    for (int i=0; i<1200; i++) {
+        qreal x = rx + qreal(i)*rw/w;
+        qreal y = ry + rh - qreal(fs[i])*rh/h;
+        points.push_back(QPointF(x,y));
+    }
+
+    QPolygonF poly(points);
+    path.addPolygon(poly);
+    p->setRenderHint( QPainter::Antialiasing );
+    p->setBrush( Qt::blue );
+    p->setPen( Qt::darkBlue );
+    p->drawPath( path );
+    
+    p->setPen( Qt::darkGreen );
+    qreal pegx = rx + 150*rw/w; // test
+    p->drawLine(QPointF(pegx, ry), QPointF(pegx, ry+rh));
 }

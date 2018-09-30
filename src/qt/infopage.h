@@ -2,6 +2,7 @@
 #define INFOPAGE_H
 
 #include <QDialog>
+#include <QItemDelegate>
 #include "bignum.h"
 
 namespace Ui {
@@ -17,7 +18,7 @@ class InfoPage : public QDialog
     Q_OBJECT
 
 public:
-    explicit InfoPage(QWidget *parent = 0);
+    explicit InfoPage(QWidget *parent = nullptr);
     ~InfoPage();
 
     BlockchainModel * blockchainModel() const;
@@ -33,6 +34,21 @@ private:
     Ui::InfoPage *ui;
     BlockchainModel *model;
     uint256 currentBlock;
+};
+
+class FractionsItemDelegate : public QItemDelegate 
+{
+    Q_OBJECT
+
+public:
+    explicit FractionsItemDelegate(QWidget *parent = nullptr);
+    ~FractionsItemDelegate();
+    
+    
+    void drawDisplay(QPainter *painter, 
+                     const QStyleOptionViewItem &option, 
+                     const QRect &rect, 
+                     const QString &text) const override;
 };
 
 #endif // INFOPAGE_H

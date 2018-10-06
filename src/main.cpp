@@ -1226,12 +1226,17 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
                 return error("FetchInputs() : %s mempool Tx prev not found %s", GetHash().ToString(),  prevout.hash.ToString());
             if (!fFound)
                 txindex.vSpent.resize(txPrev.vout.size());
+            
+            //todo:peg:case when new mempool tx rely on outputs of tx in mempool
+            //todo:peg:reveal fractions via mempool, this is case for call from AcceptToMemoryPool
+            //todo:peg:if peg violated here, then error so tx is not accepted
         }
         else
         {
             // Get prev tx from disk
             if (!txPrev.ReadFromDisk(txindex.pos))
                 return error("FetchInputs() : %s ReadFromDisk prev tx %s failed", GetHash().ToString(),  prevout.hash.ToString());
+            // Read previous fractions
         }
     }
 

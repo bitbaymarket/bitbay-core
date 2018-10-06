@@ -101,6 +101,8 @@ InfoPage::InfoPage(QWidget *parent) :
     
     connect(ui->lineJumpToBlock, SIGNAL(returnPressed()),
             this, SLOT(jumpToBlock()));
+    connect(ui->lineFindBlock, SIGNAL(returnPressed()),
+            this, SLOT(openBlockFromInput()));
 }
 
 InfoPage::~InfoPage()
@@ -143,6 +145,23 @@ void InfoPage::jumpToBlock()
     ui->blockchainView->scrollTo(mi);
 }
 
+void InfoPage::openBlockFromInput()
+{
+    bool ok = false;
+    int blockNum = ui->lineFindBlock->text().toInt(&ok);
+    if (ok) {
+        int n = ui->blockchainView->model()->rowCount();
+        int r = n-blockNum;
+        if (r<0 || r>=n) return;
+        auto mi = ui->blockchainView->model()->index(r, 0);
+        openBlock(mi);
+        return;
+    }
+    // consider it as hash
+    uint256 hash(ui->lineFindBlock->text().toStdString());
+    openBlock(hash);
+}
+
 void InfoPage::updateCurrentBlockIndex() 
 {
     currentBlockIndex = ui->blockchainView->currentIndex();
@@ -157,7 +176,12 @@ void InfoPage::openBlock(const QModelIndex & mi)
 {
     if (!mi.isValid())
         return;
-    currentBlock = mi.data(BlockchainModel::HashRole).value<uint256>();
+    openBlock(mi.data(BlockchainModel::HashRole).value<uint256>());
+}
+
+void InfoPage::openBlock(uint256 hash)
+{
+    currentBlock = hash;
     QString bhash = QString::fromStdString(currentBlock.ToString());
     
     LOCK(cs_main);
@@ -189,10 +213,8 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
     if (!item->text(0).startsWith("tx"))
         return;
     bool tx_idx_ok = false;
-    int tx_idx = item->text(0).mid(2).toInt(&tx_idx_ok);
+    uint tx_idx = item->text(0).mid(2).toUInt(&tx_idx_ok);
     if (!tx_idx_ok)
-        return;
-    if (tx_idx <0)
         return;
     
     //QString thash = item->text(1);
@@ -206,10 +228,10 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
 
     CBlock block;
     block.ReadFromDisk(pblockindex, true);
-    if (tx_idx >= int(block.vtx.size()))
+    if (tx_idx >= block.vtx.size())
         return;
     
-    CTransaction & tx = block.vtx[(unsigned int)tx_idx];
+    CTransaction & tx = block.vtx[tx_idx];
     uint256 hash = tx.GetHash();
     QString thash = QString::fromStdString(hash.ToString());
     QString sheight = QString("%1:%2").arg(pblockindex->nHeight).arg(tx_idx);
@@ -230,7 +252,9 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
     tx.FetchInputs(txdb, mapUnused, false, false, mapInputs, mapInputsFractions, fInvalid);
     
     ui->txInputs->clear();
-    for (unsigned int i = 0; i < tx.vin.size(); i++)
+    size_t n_vin = tx.vin.size();
+    if (tx.IsCoinBase()) n_vin = 0;
+    for (unsigned int i = 0; i < n_vin; i++)
     {
         COutPoint prevout = tx.vin[i].prevout;
         QStringList row;
@@ -278,7 +302,9 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
     }
 
     ui->txOutputs->clear();
-    for (unsigned int i = 0; i < tx.vout.size(); i++)
+    size_t n_vout = tx.vout.size();
+    if (tx.IsCoinBase()) n_vout = 0;
+    for (unsigned int i = 0; i < n_vout; i++)
     {
         QStringList row;
         row << QString::number(i);

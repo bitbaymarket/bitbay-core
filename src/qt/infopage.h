@@ -27,10 +27,12 @@ private slots:
     void showChainPage();
     void showBlockPage();
     void showTxPage();
+    void openBlock(uint256);
     void openBlock(const QModelIndex &);
     void openTx(QTreeWidgetItem*,int);
     void openFractions(QTreeWidgetItem*,int);
     void jumpToBlock();
+    void openBlockFromInput();
     void updateCurrentBlockIndex();
     void scrollToCurrentBlockIndex();
     

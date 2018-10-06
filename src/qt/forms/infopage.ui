@@ -113,7 +113,7 @@
        <item row="0" column="0">
         <widget class="QLineEdit" name="lineJumpToBlock">
          <property name="placeholderText">
-          <string>Enter block height and press Enter to scroll to</string>
+          <string>Enter block height and press Return to scroll to</string>
          </property>
         </widget>
        </item>
@@ -165,7 +165,7 @@
        <item row="0" column="0">
         <widget class="QLineEdit" name="lineFindBlock">
          <property name="placeholderText">
-          <string>Paste block height or hash to see details</string>
+          <string>Enter block height or hash and press Return to see details</string>
          </property>
         </widget>
        </item>

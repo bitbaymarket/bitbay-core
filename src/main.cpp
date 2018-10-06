@@ -651,6 +651,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
 
     {
         CTxDB txdb("r");
+        CPegDB pegdb("r");
 
         // do we already have it?
         if (txdb.ContainsTx(hash))
@@ -660,7 +661,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
         MapPrevFractions mapInputsFractions;
         map<uint256, CTxIndex> mapUnused;
         bool fInvalid = false;
-        if (!tx.FetchInputs(txdb, mapUnused, false, false, mapInputs, mapInputsFractions, fInvalid))
+        if (!tx.FetchInputs(txdb, pegdb, mapUnused, false, false, mapInputs, mapInputsFractions, fInvalid))
         {
             if (fInvalid)
                 return error("AcceptToMemoryPool : FetchInputs found invalid tx %s", hash.ToString());
@@ -1179,10 +1180,11 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb)
 }
 
 
-bool CTransaction::FetchInputs(CTxDB& txdb, 
+bool CTransaction::FetchInputs(CTxDB& txdb,
+                               CPegDB& pegdb,
                                const map<uint256, CTxIndex>& mapTestPool,
-                               bool fBlock, bool fMiner, 
-                               MapPrevTx& inputsRet, 
+                               bool fBlock, bool fMiner,
+                               MapPrevTx& inputsRet,
                                MapPrevFractions& finputsRet,
                                bool& fInvalid)
 {
@@ -1226,7 +1228,7 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
                 return error("FetchInputs() : %s mempool Tx prev not found %s", GetHash().ToString(),  prevout.hash.ToString());
             if (!fFound)
                 txindex.vSpent.resize(txPrev.vout.size());
-            
+
             //todo:peg:case when new mempool tx rely on outputs of tx in mempool
             //todo:peg:reveal fractions via mempool, this is case for call from AcceptToMemoryPool
             //todo:peg:if peg violated here, then error so tx is not accepted
@@ -1298,12 +1300,12 @@ int64_t CTransaction::GetValueIn(const MapPrevTx& inputs) const
 
 }
 
-bool CTransaction::ConnectInputs(CTxDB& txdb, 
-                                 MapPrevTx inputs, 
-                                 const MapPrevFractions& finputs, 
-                                 map<uint256, CTxIndex>& mapTestPool, 
+bool CTransaction::ConnectInputs(CTxDB& txdb,
+                                 MapPrevTx inputs,
+                                 const MapPrevFractions& finputs,
+                                 map<uint256, CTxIndex>& mapTestPool,
                                  const CDiskTxPos& posThisTx,
-                                 const CBlockIndex* pindexBlock, 
+                                 const CBlockIndex* pindexBlock,
                                  bool fBlock, bool fMiner, unsigned int flags)
 {
     // Take over previous transactions' spent pointers
@@ -1348,10 +1350,10 @@ bool CTransaction::ConnectInputs(CTxDB& txdb,
                 return DoS(100, error("ConnectInputs() : txin values out of range"));
 
         }
-        // Calculation of fractions is considered less expensive than 
+        // Calculation of fractions is considered less expensive than
         // signatures checks. For now it reports only about peg violations
         CalculateTransactionFractions(*this, pindexBlock, inputs);
-        
+
         // The first loop above does all the inexpensive checks.
         // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
         // Helps prevent CPU exhaustion attacks.
@@ -1423,9 +1425,9 @@ bool CTransaction::ConnectInputs(CTxDB& txdb,
                 if (nTxFee < nRequiredFee)
                     return fBlock? DoS(100, error("ConnectInputs() : %s not paying required fee=%s, paid=%s", GetHash().ToString(), FormatMoney(nRequiredFee), FormatMoney(nTxFee))) : false;
             }
-            
+
             if (IsProtocolVP(pindexBlock->nHeight)) {
-                
+
             }
 
             nFees += nTxFee;
@@ -1461,7 +1463,7 @@ bool CBlock::DisconnectBlock(CTxDB& txdb, CBlockIndex* pindex)
     return true;
 }
 
-bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
+bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool fJustCheck)
 {
     // Check it again in case a previous version let a bad block in, but skip BlockSig checking
     if (!CheckBlock(!fJustCheck, !fJustCheck, false))
@@ -1531,7 +1533,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
         else
         {
             bool fInvalid;
-            if (!tx.FetchInputs(txdb, mapQueuedChanges, true, false, mapInputs, mapInputsFractions, fInvalid))
+            if (!tx.FetchInputs(txdb, pegdb, mapQueuedChanges, true, false, mapInputs, mapInputsFractions, fInvalid))
                 return false;
 
             // Add in sigops done by pay-to-script-hash inputs;
@@ -1615,7 +1617,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
     return true;
 }
 
-bool static Reorganize(CTxDB& txdb, CBlockIndex* pindexNew)
+bool static Reorganize(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindexNew)
 {
     LogPrintf("REORGANIZE\n");
 
@@ -1673,7 +1675,7 @@ bool static Reorganize(CTxDB& txdb, CBlockIndex* pindexNew)
         CBlock block;
         if (!block.ReadFromDisk(pindex))
             return error("Reorganize() : ReadFromDisk for connect failed");
-        if (!block.ConnectBlock(txdb, pindex))
+        if (!block.ConnectBlock(txdb, pegdb, pindex))
         {
             // Invalid block
             return error("Reorganize() : ConnectBlock %s failed", pindex->GetBlockHash().ToString());
@@ -1717,12 +1719,12 @@ bool static Reorganize(CTxDB& txdb, CBlockIndex* pindexNew)
 
 
 // Called from inside SetBestChain: attaches a block to the new best chain being built
-bool CBlock::SetBestChainInner(CTxDB& txdb, CBlockIndex *pindexNew)
+bool CBlock::SetBestChainInner(CTxDB& txdb, CPegDB& pegdb, CBlockIndex *pindexNew)
 {
     uint256 hash = GetHash();
 
     // Adding to current best branch
-    if (!ConnectBlock(txdb, pindexNew) || !txdb.WriteHashBestChain(hash))
+    if (!ConnectBlock(txdb, pegdb, pindexNew) || !txdb.WriteHashBestChain(hash))
     {
         txdb.TxnAbort();
         InvalidChainFound(pindexNew);
@@ -1741,7 +1743,7 @@ bool CBlock::SetBestChainInner(CTxDB& txdb, CBlockIndex *pindexNew)
     return true;
 }
 
-bool CBlock::SetBestChain(CTxDB& txdb, CBlockIndex* pindexNew)
+bool CBlock::SetBestChain(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindexNew)
 {
     uint256 hash = GetHash();
 
@@ -1757,7 +1759,7 @@ bool CBlock::SetBestChain(CTxDB& txdb, CBlockIndex* pindexNew)
     }
     else if (hashPrevBlock == hashBestChain)
     {
-        if (!SetBestChainInner(txdb, pindexNew))
+        if (!SetBestChainInner(txdb, pegdb, pindexNew))
             return error("SetBestChain() : SetBestChainInner failed");
     }
     else
@@ -1780,7 +1782,7 @@ bool CBlock::SetBestChain(CTxDB& txdb, CBlockIndex* pindexNew)
             LogPrintf("Postponing %u reconnects\n", vpindexSecondary.size());
 
         // Switch to new best branch
-        if (!Reorganize(txdb, pindexIntermediate))
+        if (!Reorganize(txdb, pegdb, pindexIntermediate))
         {
             txdb.TxnAbort();
             InvalidChainFound(pindexNew);
@@ -1801,7 +1803,7 @@ bool CBlock::SetBestChain(CTxDB& txdb, CBlockIndex* pindexNew)
                 break;
             }
             // errors now are not fatal, we still did a reorganisation to a new chain in a valid way
-            if (!block.SetBestChainInner(txdb, pindex))
+            if (!block.SetBestChainInner(txdb, pegdb, pindex))
                 break;
         }
     }
@@ -1972,9 +1974,11 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const u
     if (!txdb.TxnCommit())
         return false;
 
+    CPegDB pegdb;
+
     // New best
     if (pindexNew->nChainTrust > nBestChainTrust)
-        if (!SetBestChain(txdb, pindexNew))
+        if (!SetBestChain(txdb, pegdb, pindexNew))
             return false;
 
     if (pindexNew == pindexBest)

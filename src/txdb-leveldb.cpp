@@ -579,9 +579,10 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
         if (!block.ReadFromDisk(pindexFork))
             return error("LoadBlockIndex() : block.ReadFromDisk failed");
         CTxDB txdb;
-        block.SetBestChain(txdb, pindexFork);
+        CPegDB pegdb;
+        block.SetBestChain(txdb, pegdb, pindexFork);
     }
-    
+
     int nPegStartHeightStored = 0;
     ReadPegStartHeight(nPegStartHeightStored);
     if (nPegStartHeightStored != nPegStartHeight) {
@@ -614,7 +615,7 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
         if (!CalculateVotesForPeg(*this, load_msg))
             return error("LoadBlockIndex() : SetBlocksIndexesReadyForPeg failed");
     }
-    
+
     { // all is ready, store nPegStartHeight
         if (!TxnBegin())
             return error("WriteBlockIndexIsPegReady() : TxnBegin failed");

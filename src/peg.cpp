@@ -133,16 +133,16 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex)
         pindex->nPegVotesInflate =0;
         pindex->nPegVotesDeflate =0;
         pindex->nPegVotesNochange =0;
-        
+
         int inflate = pindex->pprev->nPegVotesInflate;
         int deflate = pindex->pprev->nPegVotesDeflate;
         int nochange = pindex->pprev->nPegVotesNochange;
-        
+
         pindex->nPegSupplyIndex = pindex->pprev->nPegSupplyIndex;
         if (deflate > inflate && deflate > nochange) pindex->nPegSupplyIndex++;
         if (inflate > deflate && inflate > nochange) pindex->nPegSupplyIndex--;
-        
-        if (pindex->nPegSupplyIndex >= nPegMaxSupplyIndex) 
+
+        if (pindex->nPegSupplyIndex >= nPegMaxSupplyIndex)
             pindex->nPegSupplyIndex = pindex->pprev->nPegSupplyIndex;
         else if (pindex->nPegSupplyIndex <0)
             pindex->nPegSupplyIndex = 0;
@@ -259,6 +259,24 @@ static void fractions_to_deltas(int64_t *f, int64_t *fd) {
     }
 }
 
+CPegFractions::CPegFractions()
+    :nFlags(PEG_VALUE)
+{
+    f[0] = 0; // fast init first item
+}
+CPegFractions::CPegFractions(int64_t value)
+    :nFlags(PEG_VALUE)
+{
+    f[0] = value; // fast init first item
+}
+CPegFractions::CPegFractions(const CPegFractions & o)
+    :nFlags(o.nFlags)
+{
+    for(int i=0; i< PEG_SIZE; i++) {
+        f[i] = o.f[i];
+    }
+}
+
 void CPegFractions::ToDeltas(int64_t* deltas) const
 {
     int64_t fp = 0;
@@ -269,10 +287,10 @@ void CPegFractions::ToDeltas(int64_t* deltas) const
         }
         deltas[i] = f[i]-fp*(PEG_RATE-1)/PEG_RATE;
         fp = f[i];
-    } 
+    }
 }
 
-void CPegFractions::FromDeltas(const int64_t* deltas) 
+void CPegFractions::FromDeltas(const int64_t* deltas)
 {
     int64_t fp = 0;
     for(int i=0; i<PEG_SIZE; i++) {
@@ -282,7 +300,7 @@ void CPegFractions::FromDeltas(const int64_t* deltas)
         }
         f[i] = deltas[i]+fp*(PEG_RATE-1)/PEG_RATE;
         fp = f[i];
-    } 
+    }
 }
 
 bool CPegFractions::Pack(CDataStream & out) const
@@ -293,7 +311,7 @@ bool CPegFractions::Pack(CDataStream & out) const
     } else {
         int64_t deltas[PEG_SIZE];
         ToDeltas(deltas);
-        
+
         int zlevel = 9;
         unsigned char zout[2*PEG_SIZE*sizeof(int64_t)];
         unsigned long n = PEG_SIZE*sizeof(int64_t);
@@ -315,18 +333,18 @@ bool CPegFractions::Pack(CDataStream & out) const
     return true;
 }
 
-bool CPegFractions::Unpack(CDataStream & inp) 
+bool CPegFractions::Unpack(CDataStream & inp)
 {
     int nSerFlags = 0;
     inp >> nSerFlags;
     if (nSerFlags == SER_VALUE) {
         nFlags = PEG_VALUE;
         inp >> f[0];
-    } 
+    }
     else if (nSerFlags == SER_ZDELTA) {
         unsigned long zlen = 0;
         inp >> zlen;
-        
+
         if (zlen>(2*PEG_SIZE*sizeof(int64_t))) {
             // data are broken, no read
             return false;
@@ -336,7 +354,7 @@ bool CPegFractions::Unpack(CDataStream & inp)
         unsigned long n = PEG_SIZE*sizeof(int64_t);
         auto ser = reinterpret_cast<char *>(zinp);
         inp.read(ser, zlen);
-        
+
         int64_t deltas[PEG_SIZE];
         auto src = reinterpret_cast<const unsigned char *>(ser);
         auto dst = reinterpret_cast<unsigned char *>(deltas);
@@ -346,7 +364,7 @@ bool CPegFractions::Unpack(CDataStream & inp)
             return false;
         }
         FromDeltas(deltas);
-    } 
+    }
     else if (nSerFlags == SER_RAW) {
         auto ser = reinterpret_cast<char *>(f);
         inp.read(ser, PEG_SIZE*sizeof(int64_t));
@@ -414,7 +432,7 @@ bool PegReport(const char* format)
     return false;
 }
 
-bool CalculateTransactionFractions(const CTransaction & tx, 
+bool CalculateTransactionFractions(const CTransaction & tx,
                                    const CBlockIndex* pindexBlock,
                                    const MapPrevTx & inputs)
 {

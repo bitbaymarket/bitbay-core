@@ -28,19 +28,23 @@ public:
     unsigned int nFlags;
     enum
     {
-        PEG_VALUE   = 0,
-        PEG_ALL     = 1,
+        PEG_VALUE   = 1,
+        PEG_ALL     = 2,
         PEG_RATE    = 100,
         PEG_SIZE    = 1200,
         SER_VALUE   = 0,
         SER_ZDELTA  = 1,
         SER_RAW     = 2
     };
-	int64_t f[PEG_SIZE];
-    
+    int64_t f[PEG_SIZE];
+
+    CPegFractions();
+    CPegFractions(int64_t);
+    CPegFractions(const CPegFractions &);
+
     bool Pack(CDataStream &) const;
     bool Unpack(CDataStream &);
-    
+
 private:
     void ToDeltas(int64_t* deltas) const;
     void FromDeltas(const int64_t* deltas);
@@ -49,16 +53,16 @@ private:
 typedef std::map<std::pair<uint256,unsigned int>, CPegFractions> MapPrevFractions;
 
 bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb,
-								 LoadMsg load_msg);
+                                 LoadMsg load_msg);
 bool CalculateVotesForPeg(CTxDB & ctxdb,
-						  LoadMsg load_msg);
+                          LoadMsg load_msg);
 bool CalculateBlockPegVotes(const CBlock & cblock,
-							CBlockIndex* pindex);
+                            CBlockIndex* pindex);
 bool WriteFractionsForPegTest(int nStartHeight,
-							  CTxDB & ctxdb,
-							  LoadMsg load_msg);
+                              CTxDB & ctxdb,
+                              LoadMsg load_msg);
 bool WriteBlockPegFractions(const CBlock & block,
-							CPegDB & pegdb);
+                            CPegDB & pegdb);
 bool CalculateTransactionFractions(const CTransaction & tx,
                                    const CBlockIndex* pindexBlock,
                                    const MapPrevTx & inputs);

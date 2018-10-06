@@ -4,7 +4,7 @@
 
 #include "main.h"
 #include "base58.h"
-#include "txdb-leveldb.h"
+#include "txdb.h"
 #include "guiutil.h"
 #include "blockchainmodel.h"
 #include "metatypes.h"
@@ -24,19 +24,19 @@ InfoPage::InfoPage(QWidget *parent) :
 {
     ui->setupUi(this);
     GUIUtil::SetBitBayFonts(this);
-    
+
     model = new BlockchainModel(this);
     ui->blockchainView->setModel(model);
-    
+
     connect(model, SIGNAL(rowsAboutToBeInserted(const QModelIndex &,int,int)),
             this, SLOT(updateCurrentBlockIndex()));
     connect(model, SIGNAL(rowsInserted(const QModelIndex &,int,int)),
             this, SLOT(scrollToCurrentBlockIndex()));
-    
+
     connect(ui->buttonChain, SIGNAL(clicked()), this, SLOT(showChainPage()));
     connect(ui->buttonBlock, SIGNAL(clicked()), this, SLOT(showBlockPage()));
     connect(ui->buttonTx, SIGNAL(clicked()), this, SLOT(showTxPage()));
-    
+
     connect(ui->blockchainView, SIGNAL(doubleClicked(const QModelIndex &)),
             this, SLOT(openBlock(const QModelIndex &)));
     connect(ui->blockValues, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
@@ -45,7 +45,7 @@ InfoPage::InfoPage(QWidget *parent) :
             this, SLOT(openFractions(QTreeWidgetItem*,int)));
     connect(ui->txOutputs, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
             this, SLOT(openFractions(QTreeWidgetItem*,int)));
-    
+
     QFont font = GUIUtil::bitcoinAddressFont();
     qreal pt = font.pointSizeF()*0.8;
     if (pt != .0) {
@@ -54,7 +54,7 @@ InfoPage::InfoPage(QWidget *parent) :
         int px = font.pixelSize()*8/10;
         font.setPixelSize(px);
     }
-    
+
     QString hstyle = R"(
         QHeaderView::section {
             background-color: rgb(204,203,227);
@@ -72,19 +72,19 @@ InfoPage::InfoPage(QWidget *parent) :
     ui->txOutputs->setStyleSheet(hstyle);
     ui->blockValues->setStyleSheet(hstyle);
     ui->blockchainView->setStyleSheet(hstyle);
-    
+
     ui->txValues->setFont(font);
     ui->txInputs->setFont(font);
     ui->txOutputs->setFont(font);
     ui->blockValues->setFont(font);
     ui->blockchainView->setFont(font);
-    
+
     ui->txValues->header()->setFont(font);
     ui->txInputs->header()->setFont(font);
     ui->txOutputs->header()->setFont(font);
     ui->blockValues->header()->setFont(font);
     ui->blockchainView->header()->setFont(font);
-    
+
     ui->txInputs->header()->resizeSection(0 /*n*/, 50);
     ui->txOutputs->header()->resizeSection(0 /*n*/, 50);
     ui->txInputs->header()->resizeSection(1 /*tx*/, 140);
@@ -95,10 +95,10 @@ InfoPage::InfoPage(QWidget *parent) :
 
     auto txInpDelegate = new FractionsItemDelegate(ui->txInputs);
     ui->txInputs->setItemDelegateForColumn(4 /*frac*/, txInpDelegate);
-    
+
     auto txOutDelegate = new FractionsItemDelegate(ui->txOutputs);
     ui->txOutputs->setItemDelegateForColumn(3 /*frac*/, txOutDelegate);
-    
+
     connect(ui->lineJumpToBlock, SIGNAL(returnPressed()),
             this, SLOT(jumpToBlock()));
     connect(ui->lineFindBlock, SIGNAL(returnPressed()),
@@ -135,7 +135,7 @@ void InfoPage::jumpToBlock()
     bool ok = false;
     int blockNum = ui->lineJumpToBlock->text().toInt(&ok);
     if (!ok) return;
-    
+
     int n = ui->blockchainView->model()->rowCount();
     int r = n-blockNum;
     if (r<0 || r>=n) return;
@@ -162,7 +162,7 @@ void InfoPage::openBlockFromInput()
     openBlock(hash);
 }
 
-void InfoPage::updateCurrentBlockIndex() 
+void InfoPage::updateCurrentBlockIndex()
 {
     currentBlockIndex = ui->blockchainView->currentIndex();
 }
@@ -183,7 +183,7 @@ void InfoPage::openBlock(uint256 hash)
 {
     currentBlock = hash;
     QString bhash = QString::fromStdString(currentBlock.ToString());
-    
+
     LOCK(cs_main);
     if (mapBlockIndex.find(currentBlock) == mapBlockIndex.end())
         return;
@@ -194,10 +194,10 @@ void InfoPage::openBlock(uint256 hash)
     ui->blockValues->clear();
     ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Height",QString::number(pblockindex->nHeight)})));
     ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Hash",bhash})));
-    
+
     CBlock block;
     block.ReadFromDisk(pblockindex, true);
-    
+
     int idx = 0;
     for(const CTransaction & tx : block.vtx) {
         QString stx = "tx"+QString::number(idx);
@@ -216,9 +216,9 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
     uint tx_idx = item->text(0).mid(2).toUInt(&tx_idx_ok);
     if (!tx_idx_ok)
         return;
-    
+
     //QString thash = item->text(1);
-    
+
     LOCK(cs_main);
     if (mapBlockIndex.find(currentBlock) == mapBlockIndex.end())
         return;
@@ -230,27 +230,28 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
     block.ReadFromDisk(pblockindex, true);
     if (tx_idx >= block.vtx.size())
         return;
-    
+
     CTransaction & tx = block.vtx[tx_idx];
     uint256 hash = tx.GetHash();
     QString thash = QString::fromStdString(hash.ToString());
     QString sheight = QString("%1:%2").arg(pblockindex->nHeight).arg(tx_idx);
 
     CTxDB txdb("r");
+    CPegDB pegdb("r");
     if (!txdb.ContainsTx(hash))
         return;
-    
+
     showTxPage();
     ui->txValues->clear();
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Height",sheight})));
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Hash",thash})));
-        
+
     MapPrevTx mapInputs;
     MapPrevFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
     bool fInvalid = false;
-    tx.FetchInputs(txdb, mapUnused, false, false, mapInputs, mapInputsFractions, fInvalid);
-    
+    tx.FetchInputs(txdb, pegdb, mapUnused, false, false, mapInputs, mapInputsFractions, fInvalid);
+
     ui->txInputs->clear();
     size_t n_vin = tx.vin.size();
     if (tx.IsCoinBase()) n_vin = 0;
@@ -259,11 +260,11 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
         COutPoint prevout = tx.vin[i].prevout;
         QStringList row;
         row << QString::number(i);
-        
+
         QString prev_thash = QString::fromStdString(prevout.hash.ToString());
         QString sprev_thash = prev_thash.left(4)+"..."+prev_thash.right(4);
         row << QString("%1:%2").arg(sprev_thash).arg(prevout.n);
-        
+
         if (mapInputs.find(prevout.hash) != mapInputs.end()) {
             CTransaction& txPrev = mapInputs[prevout.hash].second;
             if (prevout.n < txPrev.vout.size()) {
@@ -284,20 +285,20 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
                 else {
                     row << "not decoded"; // address
                 }
-                
+
                 int64_t value = txPrev.vout[prevout.n].nValue;
                 row << QString::number(value);
-            } 
+            }
             else {
                 row << "none"; // address
                 row << "none"; // value
             }
-        } 
+        }
         else {
             row << "none"; // address
             row << "none"; // value
         }
-        
+
         ui->txInputs->addTopLevelItem(new QTreeWidgetItem(row));
     }
 
@@ -308,7 +309,7 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
     {
         QStringList row;
         row << QString::number(i);
-        
+
         int nRequired;
         txnouttype type;
         vector<CTxDestination> addresses;
@@ -335,10 +336,10 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
         else {
             row << "not decoded"; // address
         }
-        
+
         int64_t value = tx.vout[i].nValue;
         row << QString::number(value);
-        
+
         ui->txOutputs->addTopLevelItem(new QTreeWidgetItem(row));
     }
 }
@@ -369,7 +370,7 @@ void InfoPage::openFractions(QTreeWidgetItem*,int)
     fvbox->setMargin(0);
     fvbox->addWidget(fplot);
     ui.chart->setLayout(fvbox);
-    
+
     QFont font = GUIUtil::bitcoinAddressFont();
     qreal pt = font.pointSizeF()*0.8;
     if (pt != .0) {
@@ -378,7 +379,7 @@ void InfoPage::openFractions(QTreeWidgetItem*,int)
         int px = font.pixelSize()*8/10;
         font.setPixelSize(px);
     }
-    
+
     QString hstyle = R"(
         QHeaderView::section {
             background-color: rgb(204,203,227);
@@ -396,11 +397,11 @@ void InfoPage::openFractions(QTreeWidgetItem*,int)
     ui.fractions->header()->setFont(font);
     ui.fractions->header()->resizeSection(0 /*n*/, 50);
     ui.fractions->header()->resizeSection(1 /*value*/, 160);
-    
+
     int64_t fs[1200];
     int64_t v = 10000000000;
     value_to_fractions(v, fs);
-    
+
     qreal xs[1200];
     qreal ys[1200];
     QVector<qreal> bs;
@@ -412,13 +413,13 @@ void InfoPage::openFractions(QTreeWidgetItem*,int)
         ys[i] = qreal(fs[i]);
         bs.push_back(qreal(fs[i]));
     }
-    
+
     auto curve = new QwtPlotBarChart;
     //curve->setSamples(xs, ys, 1200);
     curve->setSamples(bs);
     curve->attach(fplot);
     fplot->replot();
-    
+
     dlg->show();
 }
 
@@ -433,30 +434,30 @@ FractionsItemDelegate::~FractionsItemDelegate()
 {
 }
 
-void FractionsItemDelegate::drawDisplay(QPainter *p, 
-                                        const QStyleOptionViewItem &o, 
-                                        const QRect &r, 
+void FractionsItemDelegate::drawDisplay(QPainter *p,
+                                        const QStyleOptionViewItem &o,
+                                        const QRect &r,
                                         const QString &t) const
 {
     Q_UNUSED(o);
     Q_UNUSED(t);
-    
+
     int64_t fs[1200];
     int64_t v = 10000000000;
     value_to_fractions(v, fs);
-    
+
     QPainterPath path;
     QVector<QPointF> points;
-    
+
     qreal rx = r.x();
     qreal ry = r.y();
     qreal rw = r.width();
     qreal rh = r.height();
     qreal w = 1200;
     qreal h = fs[0];
-    
+
     points.push_back(QPointF(r.x(),r.bottom()));
-    
+
     for (int i=0; i<1200; i++) {
         qreal x = rx + qreal(i)*rw/w;
         qreal y = ry + rh - qreal(fs[i])*rh/h;
@@ -469,7 +470,7 @@ void FractionsItemDelegate::drawDisplay(QPainter *p,
     p->setBrush( Qt::blue );
     p->setPen( Qt::darkBlue );
     p->drawPath( path );
-    
+
     p->setPen( Qt::darkGreen );
     qreal pegx = rx + 150*rw/w; // test
     p->drawLine(QPointF(pegx, ry), QPointF(pegx, ry+rh));

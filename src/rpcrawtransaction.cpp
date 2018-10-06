@@ -396,12 +396,13 @@ Value signrawtransaction(const Array& params, bool fHelp)
         MapPrevTx mapPrevTx;
         MapPrevFractions mapInputsFractions;
         CTxDB txdb("r");
+        CPegDB pegdb("r");
         map<uint256, CTxIndex> unused;
         bool fInvalid;
 
         // FetchInputs aborts on failure, so we go one at a time.
         tempTx.vin.push_back(mergedTx.vin[i]);
-        tempTx.FetchInputs(txdb, unused, false, false, mapPrevTx, mapInputsFractions, fInvalid);
+        tempTx.FetchInputs(txdb, pegdb, unused, false, false, mapPrevTx, mapInputsFractions, fInvalid);
 
         // Copy results into mapPrevOut:
         BOOST_FOREACH(const CTxIn& txin, tempTx.vin)

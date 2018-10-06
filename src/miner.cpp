@@ -73,7 +73,7 @@ public:
 uint64_t nLastBlockTx = 0;
 uint64_t nLastBlockSize = 0;
 int64_t nLastCoinStakeSearchInterval = 0;
- 
+
 // We want to sort transactions by priority and fee, so:
 typedef boost::tuple<unsigned int, double, double, CTransaction*> TxPriority;
 class TxPriorityCompare
@@ -171,6 +171,7 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
     {
         LOCK2(cs_main, mempool.cs);
         CTxDB txdb("r");
+        CPegDB pegdb("r");
 
         // Priority order to process transactions
         list<COrphan> vOrphan; // list memory doesn't move
@@ -305,7 +306,7 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
             MapPrevTx mapInputs;
             MapPrevFractions mapInputsFractions;
             bool fInvalid;
-            if (!tx.FetchInputs(txdb, mapTestPoolTmp, false, true, mapInputs, mapInputsFractions, fInvalid))
+            if (!tx.FetchInputs(txdb, pegdb, mapTestPoolTmp, false, true, mapInputs, mapInputsFractions, fInvalid))
                 continue;
 
             int64_t nTxFees = tx.GetValueIn(mapInputs)-tx.GetValueOut();

@@ -397,9 +397,11 @@ public:
      @param[out] fInvalid	returns true if transaction is invalid
      @return	Returns true if all inputs are in txdb or mapTestPool
      */
-    bool FetchInputs(CTxDB& txdb, const std::map<uint256, CTxIndex>& mapTestPool,
-                     bool fBlock, bool fMiner, 
-                     MapPrevTx& inputsRet, 
+    bool FetchInputs(CTxDB& txdb,
+                     CPegDB& pegdb,
+                     const std::map<uint256, CTxIndex>& mapTestPool,
+                     bool fBlock, bool fMiner,
+                     MapPrevTx& inputsRet,
                      MapPrevFractions& finputsRet,
                      bool& fInvalid);
 
@@ -414,12 +416,12 @@ public:
         @param[in] fMiner	true if called from CreateNewBlock
         @return Returns true if all checks succeed
      */
-    bool ConnectInputs(CTxDB& txdb, 
+    bool ConnectInputs(CTxDB& txdb,
                        MapPrevTx inputs,
-                       const MapPrevFractions& finputs, 
-                       std::map<uint256, CTxIndex>& mapTestPool, 
+                       const MapPrevFractions& finputs,
+                       std::map<uint256, CTxIndex>& mapTestPool,
                        const CDiskTxPos& posThisTx,
-                       const CBlockIndex* pindexBlock, 
+                       const CBlockIndex* pindexBlock,
                        bool fBlock, bool fMiner, unsigned int flags = STANDARD_SCRIPT_VERIFY_FLAGS);
     bool CheckTransaction() const;
     bool GetCoinAge(CTxDB& txdb, const CBlockIndex* pindexPrev, uint64_t& nCoinAge) const;
@@ -858,9 +860,9 @@ public:
 
 
     bool DisconnectBlock(CTxDB& txdb, CBlockIndex* pindex);
-    bool ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck=false);
+    bool ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool fJustCheck=false);
     bool ReadFromDisk(const CBlockIndex* pindex, bool fReadTransactions=true);
-    bool SetBestChain(CTxDB& txdb, CBlockIndex* pindexNew);
+    bool SetBestChain(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindexNew);
     bool AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const uint256& hashProof);
     bool CheckBlock(bool fCheckPOW=true, bool fCheckMerkleRoot=true, bool fCheckSig=true) const;
     bool AcceptBlock();
@@ -868,7 +870,7 @@ public:
     bool CheckBlockSignature() const;
 
 private:
-    bool SetBestChainInner(CTxDB& txdb, CBlockIndex *pindexNew);
+    bool SetBestChainInner(CTxDB& txdb, CPegDB& pegdb, CBlockIndex *pindexNew);
 };
 
 

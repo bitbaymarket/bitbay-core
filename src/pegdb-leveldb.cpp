@@ -203,3 +203,13 @@ bool CPegDB::ScanBatch(const CDataStream &key, string *value, bool *deleted) con
     return scanner.foundEntry;
 }
 
+bool CPegDB::Read(uint256 txhash, int vout, CPegFractions &) {
+    return false;
+}
+bool CPegDB::Write(uint256 txhash, int vout, const CPegFractions & f) {
+    CDataStream fout(SER_DISK, CLIENT_VERSION);
+    f.Pack(fout);
+    Write(make_pair(txhash.ToString(), vout), fout);
+    return false;
+}
+

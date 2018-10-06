@@ -212,7 +212,7 @@ bool WriteFractionsForPegTest(int nStartHeight, CTxDB & ctxdb, LoadMsg load_msg)
             load_msg(std::string(" save fractions: ")+std::to_string(pblockindex->nHeight));
 
             if (!pegdb.TxnCommit())
-                return error("LoadBlockIndex() :peg db update failed");
+                return error("LoadBlockIndex() : peg db update failed");
             if (!pegdb.TxnBegin())
                 return error("LoadBlockIndex() : peg TxnBegin failed");
         }
@@ -257,6 +257,101 @@ static void fractions_to_deltas(int64_t *f, int64_t *fd) {
         fd[i] = f[i]-fp*99/100;
         fp = f[i];
     }
+}
+
+void CPegFractions::ToDeltas(int64_t* deltas) const
+{
+    int64_t fp = 0;
+    for(int i=0; i<PEG_SIZE; i++) {
+        if (i==0) {
+            fp = deltas[0] = f[0];
+            continue;
+        }
+        deltas[i] = f[i]-fp*(PEG_RATE-1)/PEG_RATE;
+        fp = f[i];
+    } 
+}
+
+void CPegFractions::FromDeltas(const int64_t* deltas) 
+{
+    int64_t fp = 0;
+    for(int i=0; i<PEG_SIZE; i++) {
+        if (i==0) {
+            fp = f[0] = deltas[0];
+            continue;
+        }
+        f[i] = deltas[i]+fp*(PEG_RATE-1)/PEG_RATE;
+        fp = f[i];
+    } 
+}
+
+bool CPegFractions::Pack(CDataStream & out) const
+{
+    if (nFlags == PEG_VALUE) {
+        out << int(SER_VALUE);
+        out << f[0];
+    } else {
+        int64_t deltas[PEG_SIZE];
+        ToDeltas(deltas);
+        
+        int zlevel = 9;
+        unsigned char zout[2*PEG_SIZE*sizeof(int64_t)];
+        unsigned long n = PEG_SIZE*sizeof(int64_t);
+        unsigned long zlen = PEG_SIZE*2*sizeof(int64_t);
+        auto src = reinterpret_cast<const unsigned char *>(deltas);
+        int res = ::compress2(zout, &zlen, src, n, zlevel);
+        if (res == Z_OK) {
+            out << int(SER_ZDELTA);
+            auto ser = reinterpret_cast<const char *>(zout);
+            out << zlen;
+            out.write(ser, zlen);
+        }
+        else {
+            out << int(SER_RAW);
+            auto ser = reinterpret_cast<const char *>(f);
+            out.write(ser, PEG_SIZE*sizeof(int64_t));
+        }
+    }
+    return true;
+}
+
+bool CPegFractions::Unpack(CDataStream & inp) 
+{
+    int nSerFlags = 0;
+    inp >> nSerFlags;
+    if (nSerFlags == SER_VALUE) {
+        nFlags = PEG_VALUE;
+        inp >> f[0];
+    } 
+    else if (nSerFlags == SER_ZDELTA) {
+        unsigned long zlen = 0;
+        inp >> zlen;
+        
+        if (zlen>(2*PEG_SIZE*sizeof(int64_t))) {
+            // data are broken, no read
+            return false;
+        }
+
+        unsigned char zinp[2*PEG_SIZE*sizeof(int64_t)];
+        unsigned long n = PEG_SIZE*sizeof(int64_t);
+        auto ser = reinterpret_cast<char *>(zinp);
+        inp.read(ser, zlen);
+        
+        int64_t deltas[PEG_SIZE];
+        auto src = reinterpret_cast<const unsigned char *>(ser);
+        auto dst = reinterpret_cast<unsigned char *>(deltas);
+        int res = ::uncompress(dst, &n, src, zlen);
+        if (res != Z_OK) {
+            // data are broken, can not uncompress
+            return false;
+        }
+        FromDeltas(deltas);
+    } 
+    else if (nSerFlags == SER_RAW) {
+        auto ser = reinterpret_cast<char *>(f);
+        inp.read(ser, PEG_SIZE*sizeof(int64_t));
+    }
+    return true;
 }
 
 bool WriteBlockPegFractions(const CBlock & block, CPegDB& pegdb) {

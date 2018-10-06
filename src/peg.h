@@ -25,7 +25,25 @@ typedef std::function<void(const std::string &)> LoadMsg;
 
 class CPegFractions {
 public:
-	int64_t f[1200];
+    unsigned int nFlags;
+    enum
+    {
+        PEG_VALUE   = 0,
+        PEG_ALL     = 1,
+        PEG_RATE    = 100,
+        PEG_SIZE    = 1200,
+        SER_VALUE   = 0,
+        SER_ZDELTA  = 1,
+        SER_RAW     = 2
+    };
+	int64_t f[PEG_SIZE];
+    
+    bool Pack(CDataStream &) const;
+    bool Unpack(CDataStream &);
+    
+private:
+    void ToDeltas(int64_t* deltas) const;
+    void FromDeltas(const int64_t* deltas);
 };
 
 typedef std::map<std::pair<uint256,unsigned int>, CPegFractions> MapPrevFractions;

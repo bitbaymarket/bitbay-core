@@ -5,6 +5,7 @@
 #define BITCOIN_PEG_LEVELDB_H
 
 #include "main.h"
+#include "peg.h"
 
 #include <map>
 #include <string>
@@ -26,6 +27,9 @@ public:
     // Destroys the underlying shared global state accessed by this TxDB.
     void Close();
 
+    bool Read(uint256 txhash, int txout, CPegFractions &);
+    bool Write(uint256 txhash, int txout, const CPegFractions &);
+    
 private:
     leveldb::DB *pdb;  // Points to the global instance.
 

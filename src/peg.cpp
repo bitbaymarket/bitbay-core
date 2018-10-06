@@ -372,6 +372,27 @@ bool CPegFractions::Unpack(CDataStream & inp)
     return true;
 }
 
+CPegFractions CPegFractions::ToStd() const
+{
+    if (nFlags!=PEG_VALUE)
+        return *this;
+
+    CPegFractions fstd;
+    fstd.nFlags = PEG_STD;
+
+    int64_t v = f[0];
+    for(int i=0;i<PEG_SIZE;i++) {
+        if (i == PEG_SIZE-1) {
+            fstd.f[i] = v;
+            break;
+        }
+        int64_t frac = v/PEG_RATE;
+        fstd.f[i] = frac;
+        v -= frac;
+    }
+    return fstd;
+}
+
 bool WriteBlockPegFractions(const CBlock & block, CPegDB& pegdb) {
     for(const CTransaction & tx : block.vtx) {
         int vout_idx = 0;
@@ -430,6 +451,11 @@ bool PegReport(const char* format)
 {
     LogPrintStr(std::string("ERROR: ") + format + "\n");
     return false;
+}
+
+int PegPrintStr(const std::string &str)
+{
+    LogPrintStr("PEG:"+str);
 }
 
 bool CalculateTransactionFractions(const CTransaction & tx,

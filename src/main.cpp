@@ -1238,7 +1238,6 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
             // Get prev tx from disk
             if (!txPrev.ReadFromDisk(txindex.pos))
                 return error("FetchInputs() : %s ReadFromDisk prev tx %s failed", GetHash().ToString(),  prevout.hash.ToString());
-            // Read previous fractions
         }
     }
 
@@ -1255,6 +1254,13 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
             // adding inputs:
             fInvalid = true;
             return DoS(100, error("FetchInputs() : %s prevout.n out of range %d %u %u prev tx %s\n%s", GetHash().ToString(), prevout.n, txPrev.vout.size(), txindex.vSpent.size(), prevout.hash.ToString(), txPrev.ToString()));
+        }
+        // Read previous fractions
+        CPegFractions& fractions = finputsRet[uint320(prevout.hash, prevout.n)];
+        fractions = CPegFractions(txPrev.vout[prevout.n].nValue);
+        if (!pegdb.Read(prevout.hash, prevout.n, fractions)) {
+            PegError("FetchInputs() : %s pegdb.Read/Unpack prev tx fractions %s failed", GetHash().ToString(),  prevout.hash.ToString());
+            //return DoS?
         }
     }
 

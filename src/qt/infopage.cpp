@@ -92,12 +92,13 @@ InfoPage::InfoPage(QWidget *parent) :
     ui->txOutputs->header()->resizeSection(1 /*addr*/, 280);
     ui->txInputs->header()->resizeSection(3 /*value*/, 160);
     ui->txOutputs->header()->resizeSection(2 /*value*/, 160);
+    ui->txOutputs->header()->resizeSection(3 /*spent*/, 140);
 
     auto txInpDelegate = new FractionsItemDelegate(ui->txInputs);
     ui->txInputs->setItemDelegateForColumn(4 /*frac*/, txInpDelegate);
 
     auto txOutDelegate = new FractionsItemDelegate(ui->txOutputs);
-    ui->txOutputs->setItemDelegateForColumn(3 /*frac*/, txOutDelegate);
+    ui->txOutputs->setItemDelegateForColumn(4 /*frac*/, txOutDelegate);
 
     connect(ui->lineJumpToBlock, SIGNAL(returnPressed()),
             this, SLOT(jumpToBlock()));
@@ -283,7 +284,7 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
                     row << QString::fromStdString(str_addr_all);
                 }
                 else {
-                    row << "not decoded"; // address
+                    row << "N/A"; // address
                 }
 
                 int64_t value = txPrev.vout[prevout.n].nValue;
@@ -299,7 +300,14 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
             row << "none"; // value
         }
 
-        ui->txInputs->addTopLevelItem(new QTreeWidgetItem(row));
+        auto input = new QTreeWidgetItem(row);
+        auto fkey = uint320(prevout.hash, prevout.n);
+        if (mapInputsFractions.find(fkey) != mapInputsFractions.end()) {
+            QVariant vfractions;
+            vfractions.setValue(mapInputsFractions[fkey]);
+            input->setData(4, BlockchainModel::FractionsRole, vfractions);
+        }
+        ui->txInputs->addTopLevelItem(input);
     }
 
     ui->txOutputs->clear();
@@ -334,7 +342,7 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
             row << QString::fromStdString(str_addr_all);
         }
         else {
-            row << "not decoded"; // address
+            row << "N/A"; // address
         }
 
         int64_t value = tx.vout[i].nValue;
@@ -360,7 +368,7 @@ static void value_to_fractions(int64_t v, int64_t *fs) {
     }
 }
 
-void InfoPage::openFractions(QTreeWidgetItem*,int)
+void InfoPage::openFractions(QTreeWidgetItem * item,int)
 {
     auto dlg = new QDialog(this);
     Ui::FractionsDialog ui;
@@ -398,20 +406,28 @@ void InfoPage::openFractions(QTreeWidgetItem*,int)
     ui.fractions->header()->resizeSection(0 /*n*/, 50);
     ui.fractions->header()->resizeSection(1 /*value*/, 160);
 
-    int64_t fs[1200];
-    int64_t v = 10000000000;
-    value_to_fractions(v, fs);
+    auto vfractions = item->data(4, BlockchainModel::FractionsRole);
+    auto fractions = vfractions.value<CPegFractions>();
+    auto fractions_std = fractions.ToStd();
+
+    int64_t f_max = 0;
+    for (int i=0; i<CPegFractions::PEG_SIZE; i++) {
+        auto f = fractions_std.f[i];
+        if (f > f_max) f_max = f;
+    }
+    //if (f_max == 0)
+    //    return; // zero-value fractions
 
     qreal xs[1200];
     qreal ys[1200];
     QVector<qreal> bs;
-    for (int i=0; i<1200; i++) {
+    for (int i=0; i<CPegFractions::PEG_SIZE; i++) {
         QStringList row;
-        row << QString::number(i) << QString::number(fs[i]);
+        row << QString::number(i) << QString::number(fractions_std.f[i]);
         ui.fractions->addTopLevelItem(new QTreeWidgetItem(row));
         xs[i] = i;
-        ys[i] = qreal(fs[i]);
-        bs.push_back(qreal(fs[i]));
+        ys[i] = qreal(fractions_std.f[i]);
+        bs.push_back(qreal(fractions_std.f[i]));
     }
 
     auto curve = new QwtPlotBarChart;
@@ -434,33 +450,39 @@ FractionsItemDelegate::~FractionsItemDelegate()
 {
 }
 
-void FractionsItemDelegate::drawDisplay(QPainter *p,
-                                        const QStyleOptionViewItem &o,
-                                        const QRect &r,
-                                        const QString &t) const
+void FractionsItemDelegate::paint(QPainter* p,
+                                  const QStyleOptionViewItem& o,
+                                  const QModelIndex& index) const
 {
-    Q_UNUSED(o);
-    Q_UNUSED(t);
+    auto vfractions = index.data(BlockchainModel::FractionsRole);
+    auto fractions = vfractions.value<CPegFractions>();
+    auto fractions_std = fractions.ToStd();
 
-    int64_t fs[1200];
-    int64_t v = 10000000000;
-    value_to_fractions(v, fs);
+    int64_t f_max = 0;
+    for (int i=0; i<CPegFractions::PEG_SIZE; i++) {
+        auto f = fractions_std.f[i];
+        if (f > f_max) f_max = f;
+    }
+    if (f_max == 0)
+        return; // zero-value fractions
 
     QPainterPath path;
     QVector<QPointF> points;
 
+    QRect r = o.rect;
     qreal rx = r.x();
     qreal ry = r.y();
     qreal rw = r.width();
     qreal rh = r.height();
-    qreal w = 1200;
-    qreal h = fs[0];
+    qreal w = CPegFractions::PEG_SIZE;
+    qreal h = f_max;
 
     points.push_back(QPointF(r.x(),r.bottom()));
 
-    for (int i=0; i<1200; i++) {
+    for (int i=0; i<CPegFractions::PEG_SIZE; i++) {
+        int64_t f = fractions_std.f[i];
         qreal x = rx + qreal(i)*rw/w;
-        qreal y = ry + rh - qreal(fs[i])*rh/h;
+        qreal y = ry + rh - qreal(f)*rh/h;
         points.push_back(QPointF(x,y));
     }
 

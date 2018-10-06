@@ -22,7 +22,7 @@ public:
     ~InfoPage();
 
     BlockchainModel * blockchainModel() const;
-    
+
 private slots:
     void showChainPage();
     void showBlockPage();
@@ -35,7 +35,7 @@ private slots:
     void openBlockFromInput();
     void updateCurrentBlockIndex();
     void scrollToCurrentBlockIndex();
-    
+
 private:
     Ui::InfoPage *ui;
     BlockchainModel *model;
@@ -43,19 +43,18 @@ private:
     uint256 currentBlock;
 };
 
-class FractionsItemDelegate : public QItemDelegate 
+class FractionsItemDelegate : public QItemDelegate
 {
     Q_OBJECT
 
 public:
     explicit FractionsItemDelegate(QWidget *parent = nullptr);
     ~FractionsItemDelegate() override;
-    
-    
-    void drawDisplay(QPainter *painter, 
-                     const QStyleOptionViewItem &option, 
-                     const QRect &rect, 
-                     const QString &text) const override;
+
+
+    void paint(QPainter *painter,
+               const QStyleOptionViewItem &option,
+               const QModelIndex &index) const override;
 };
 
 #endif // INFOPAGE_H

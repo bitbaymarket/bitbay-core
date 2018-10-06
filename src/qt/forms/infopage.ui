@@ -219,6 +219,11 @@
          </column>
          <column>
           <property name="text">
+           <string>Spent</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
            <string>Fractions</string>
           </property>
          </column>

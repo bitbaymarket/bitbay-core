@@ -8,6 +8,7 @@
 #include <functional>
 
 #include "bignum.h"
+#include "tinyformat.h"
 
 class CTxDB;
 class CPegDB;
@@ -29,7 +30,7 @@ public:
     enum
     {
         PEG_VALUE   = 1,
-        PEG_ALL     = 2,
+        PEG_STD     = 2,
         PEG_RATE    = 100,
         PEG_SIZE    = 1200,
         SER_VALUE   = 0,
@@ -45,12 +46,14 @@ public:
     bool Pack(CDataStream &) const;
     bool Unpack(CDataStream &);
 
+    CPegFractions ToStd() const;
+
 private:
     void ToDeltas(int64_t* deltas) const;
     void FromDeltas(const int64_t* deltas);
 };
 
-typedef std::map<std::pair<uint256,unsigned int>, CPegFractions> MapPrevFractions;
+typedef std::map<uint320, CPegFractions> MapPrevFractions;
 
 bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb,
                                  LoadMsg load_msg);
@@ -70,5 +73,27 @@ bool CalculateTransactionFractions(const CTransaction & tx,
 #define PegFail(...) PegReport(__VA_ARGS__)
 #define PegReportf(...) PegReport(__VA_ARGS__)
 bool PegReport(const char* format);
+
+int PegPrintStr(const std::string &str);
+
+/* When we switch to C++11, this can be switched to variadic templates instead
+ * of this macro-based construction (see tinyformat.h).
+ */
+#define MAKE_PEG_LOG_FUNC(n)                                        \
+    /*   Log peg error and return false */                                        \
+    template<TINYFORMAT_ARGTYPES(n)>                                          \
+    static inline bool PegError(const char* format, TINYFORMAT_VARARGS(n))                     \
+    {                                                                         \
+        PegPrintStr("ERROR: " + tfm::format(format, TINYFORMAT_PASSARGS(n)) + "\n"); \
+        return false;                                                         \
+    }
+
+TINYFORMAT_FOREACH_ARGNUM(MAKE_PEG_LOG_FUNC)
+
+static inline bool PegError(const char* format)
+{
+    PegPrintStr(std::string("ERROR: ") + format + "\n");
+    return false;
+}
 
 #endif

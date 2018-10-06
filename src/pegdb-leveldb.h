@@ -27,9 +27,9 @@ public:
     // Destroys the underlying shared global state accessed by this TxDB.
     void Close();
 
-    bool Read(uint256 txhash, int txout, CPegFractions &);
-    bool Write(uint256 txhash, int txout, const CPegFractions &);
-    
+    bool Read(uint256 txhash, unsigned int txout, CPegFractions &);
+    bool Write(uint256 txhash, unsigned int txout, const CPegFractions &);
+
 private:
     leveldb::DB *pdb;  // Points to the global instance.
 
@@ -83,6 +83,36 @@ protected:
         }
         catch (std::exception &e) {
             return false;
+        }
+        return true;
+    }
+    template<typename K>
+    bool ReadStr(const K& key, std::string& strValue)
+    {
+        CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+        ssKey.reserve(1000);
+        ssKey << key;
+
+        bool readFromDb = true;
+        if (activeBatch) {
+            // First we must search for it in the currently pending set of
+            // changes to the db. If not found in the batch, go on to read disk.
+            bool deleted = false;
+            readFromDb = ScanBatch(ssKey, &strValue, &deleted) == false;
+            if (deleted) {
+                return false;
+            }
+        }
+        if (readFromDb) {
+            leveldb::Status status = pdb->Get(leveldb::ReadOptions(),
+                                              ssKey.str(), &strValue);
+            if (!status.ok()) {
+                if (status.IsNotFound())
+                    return false;
+                // Some unexpected error.
+                LogPrintf("LevelDB read failure: %s\n", status.ToString());
+                return false;
+            }
         }
         return true;
     }

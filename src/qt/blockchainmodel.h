@@ -29,7 +29,8 @@ public:
         PegAOk
     };
     enum Roles {
-        HashRole = Qt::UserRole+1
+        HashRole = Qt::UserRole+1000,
+        FractionsRole
     };
 
     /** @name Methods overridden from QAbstractItemModel
@@ -43,13 +44,13 @@ public:
     QModelIndex parent(const QModelIndex &index) const;
     Qt::ItemFlags flags(const QModelIndex &index) const;
     /*@}*/
-    
+
 public slots:
     void setNumBlocks(int);
-    
+
 private:
     bool getItem(int) const;
-    
+
 private:
     BlockchainModelPriv *priv;
 };

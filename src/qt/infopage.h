@@ -30,10 +30,14 @@ private slots:
     void openBlock(const QModelIndex &);
     void openTx(QTreeWidgetItem*,int);
     void openFractions(QTreeWidgetItem*,int);
+    void jumpToBlock();
+    void updateCurrentBlockIndex();
+    void scrollToCurrentBlockIndex();
     
 private:
     Ui::InfoPage *ui;
     BlockchainModel *model;
+    QPersistentModelIndex currentBlockIndex;
     uint256 currentBlock;
 };
 

@@ -93,6 +93,9 @@
          <property name="alternatingRowColors">
           <bool>true</bool>
          </property>
+         <property name="verticalScrollMode">
+          <enum>QAbstractItemView::ScrollPerPixel</enum>
+         </property>
          <property name="rootIsDecorated">
           <bool>false</bool>
          </property>
@@ -110,7 +113,7 @@
        <item row="0" column="0">
         <widget class="QLineEdit" name="lineJumpToBlock">
          <property name="placeholderText">
-          <string>Paste block height to jump to</string>
+          <string>Enter block height and press Enter to scroll to</string>
          </property>
         </widget>
        </item>

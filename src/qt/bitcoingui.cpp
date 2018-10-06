@@ -312,7 +312,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
 
     tabInfo = new QToolButton();
     tabInfo->setFixedSize(160,50);
-    tabInfo->setText(tr("INFO"));
+    tabInfo->setText(tr("BLOCKCHAIN"));
     tabInfo->setCheckable(true);
     tabInfo->setAutoRaise(true);
     tabInfo->setFont(font);

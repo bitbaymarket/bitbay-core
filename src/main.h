@@ -12,6 +12,7 @@
 #include "net.h"
 #include "script.h"
 #include "scrypt.h"
+#include "peg.h"
 
 #include <list>
 #include <functional>
@@ -397,7 +398,10 @@ public:
      @return	Returns true if all inputs are in txdb or mapTestPool
      */
     bool FetchInputs(CTxDB& txdb, const std::map<uint256, CTxIndex>& mapTestPool,
-                     bool fBlock, bool fMiner, MapPrevTx& inputsRet, bool& fInvalid);
+                     bool fBlock, bool fMiner, 
+                     MapPrevTx& inputsRet, 
+                     MapPrevFractions& finputsRet,
+                     bool& fInvalid);
 
     /** Sanity check previous transactions, then, if all checks succeed,
         mark them as spent by this transaction.

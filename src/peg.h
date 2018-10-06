@@ -7,6 +7,8 @@
 #include <list>
 #include <functional>
 
+#include "bignum.h"
+
 class CTxDB;
 class CPegDB;
 class CBlock;
@@ -23,6 +25,8 @@ public:
 	int64_t f[1200];
 };
 
+typedef std::map<std::pair<uint256,unsigned int>, CPegFractions> MapPrevFractions;
+
 bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb,
 								 LoadMsg load_msg);
 bool CalculateVotesForPeg(CTxDB & ctxdb,
@@ -34,5 +38,9 @@ bool WriteFractionsForPegTest(int nStartHeight,
 							  LoadMsg load_msg);
 bool WriteBlockPegFractions(const CBlock & block,
 							CPegDB & pegdb);
+
+#define PegFail(...) PegReport(__VA_ARGS__)
+#define PegReportf(...) PegReport(__VA_ARGS__)
+bool PegReport(const char* format);
 
 #endif

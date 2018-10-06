@@ -311,3 +311,12 @@ bool WriteBlockPegFractions(const CBlock & block, CPegDB& pegdb) {
     return true;
 }
 
+// temp:peg reporting
+
+bool PegReport(const char* format)
+{
+    LogPrintStr(std::string("ERROR: ") + format + "\n");
+    return false;
+}
+
+

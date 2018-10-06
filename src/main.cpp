@@ -657,9 +657,10 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
             return false;
 
         MapPrevTx mapInputs;
+        MapPrevFractions mapInputsFractions;
         map<uint256, CTxIndex> mapUnused;
         bool fInvalid = false;
-        if (!tx.FetchInputs(txdb, mapUnused, false, false, mapInputs, fInvalid))
+        if (!tx.FetchInputs(txdb, mapUnused, false, false, mapInputs, mapInputsFractions, fInvalid))
         {
             if (fInvalid)
                 return error("AcceptToMemoryPool : FetchInputs found invalid tx %s", hash.ToString());
@@ -1179,7 +1180,10 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb)
 
 
 bool CTransaction::FetchInputs(CTxDB& txdb, const map<uint256, CTxIndex>& mapTestPool,
-                               bool fBlock, bool fMiner, MapPrevTx& inputsRet, bool& fInvalid)
+                               bool fBlock, bool fMiner, 
+                               MapPrevTx& inputsRet, 
+                               MapPrevFractions& finputsRet,
+                               bool& fInvalid)
 {
     // FetchInputs can return false either because we just haven't seen some inputs
     // (in which case the transaction should be stored as an orphan)
@@ -1506,12 +1510,13 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
             nTxPos += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
 
         MapPrevTx mapInputs;
+        MapPrevFractions mapInputsFractions;
         if (tx.IsCoinBase())
             nValueOut += tx.GetValueOut();
         else
         {
             bool fInvalid;
-            if (!tx.FetchInputs(txdb, mapQueuedChanges, true, false, mapInputs, fInvalid))
+            if (!tx.FetchInputs(txdb, mapQueuedChanges, true, false, mapInputs, mapInputsFractions, fInvalid))
                 return false;
 
             // Add in sigops done by pay-to-script-hash inputs;

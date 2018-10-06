@@ -144,7 +144,7 @@ QVariant BlockchainModel::data(const QModelIndex &index, int role) const
     else if (role == Qt::FontRole)
     {
         QFont font = GUIUtil::bitcoinAddressFont();
-        qreal pt = font.pointSizeF()*0.7;
+        qreal pt = font.pointSizeF()*0.8;
         if (pt != .0) {
             font.setPointSizeF(pt);
         } else {

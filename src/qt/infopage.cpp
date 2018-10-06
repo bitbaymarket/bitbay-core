@@ -9,6 +9,8 @@
 #include "blockchainmodel.h"
 #include "metatypes.h"
 #include "qwt/qwt_plot.h"
+#include "qwt/qwt_plot_curve.h"
+#include "qwt/qwt_plot_barchart.h"
 
 #include <QPainter>
 #include <QClipboard>
@@ -25,6 +27,11 @@ InfoPage::InfoPage(QWidget *parent) :
     
     model = new BlockchainModel(this);
     ui->blockchainView->setModel(model);
+    
+    connect(model, SIGNAL(rowsAboutToBeInserted(const QModelIndex &,int,int)),
+            this, SLOT(updateCurrentBlockIndex()));
+    connect(model, SIGNAL(rowsInserted(const QModelIndex &,int,int)),
+            this, SLOT(scrollToCurrentBlockIndex()));
     
     connect(ui->buttonChain, SIGNAL(clicked()), this, SLOT(showChainPage()));
     connect(ui->buttonBlock, SIGNAL(clicked()), this, SLOT(showBlockPage()));
@@ -64,16 +71,19 @@ InfoPage::InfoPage(QWidget *parent) :
     ui->txInputs->setStyleSheet(hstyle);
     ui->txOutputs->setStyleSheet(hstyle);
     ui->blockValues->setStyleSheet(hstyle);
+    ui->blockchainView->setStyleSheet(hstyle);
     
     ui->txValues->setFont(font);
     ui->txInputs->setFont(font);
     ui->txOutputs->setFont(font);
     ui->blockValues->setFont(font);
+    ui->blockchainView->setFont(font);
     
     ui->txValues->header()->setFont(font);
     ui->txInputs->header()->setFont(font);
     ui->txOutputs->header()->setFont(font);
     ui->blockValues->header()->setFont(font);
+    ui->blockchainView->header()->setFont(font);
     
     ui->txInputs->header()->resizeSection(0 /*n*/, 50);
     ui->txOutputs->header()->resizeSection(0 /*n*/, 50);
@@ -88,6 +98,9 @@ InfoPage::InfoPage(QWidget *parent) :
     
     auto txOutDelegate = new FractionsItemDelegate(ui->txOutputs);
     ui->txOutputs->setItemDelegateForColumn(3 /*frac*/, txOutDelegate);
+    
+    connect(ui->lineJumpToBlock, SIGNAL(returnPressed()),
+            this, SLOT(jumpToBlock()));
 }
 
 InfoPage::~InfoPage()
@@ -113,6 +126,31 @@ void InfoPage::showBlockPage()
 void InfoPage::showTxPage()
 {
     ui->tabs->setCurrentWidget(ui->pageTx);
+}
+
+void InfoPage::jumpToBlock()
+{
+    bool ok = false;
+    int blockNum = ui->lineJumpToBlock->text().toInt(&ok);
+    if (!ok) return;
+    
+    int n = ui->blockchainView->model()->rowCount();
+    int r = n-blockNum;
+    if (r<0 || r>=n) return;
+    auto mi = ui->blockchainView->model()->index(r, 0);
+    ui->blockchainView->setCurrentIndex(mi);
+    ui->blockchainView->selectionModel()->select(mi, QItemSelectionModel::Current);
+    ui->blockchainView->scrollTo(mi);
+}
+
+void InfoPage::updateCurrentBlockIndex() 
+{
+    currentBlockIndex = ui->blockchainView->currentIndex();
+}
+
+void InfoPage::scrollToCurrentBlockIndex()
+{
+    ui->blockchainView->scrollTo(currentBlockIndex);
 }
 
 void InfoPage::openBlock(const QModelIndex & mi)
@@ -186,9 +224,10 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Hash",thash})));
         
     MapPrevTx mapInputs;
+    MapPrevFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
     bool fInvalid = false;
-    tx.FetchInputs(txdb, mapUnused, false, false, mapInputs, fInvalid);
+    tx.FetchInputs(txdb, mapUnused, false, false, mapInputs, mapInputsFractions, fInvalid);
     
     ui->txInputs->clear();
     for (unsigned int i = 0; i < tx.vin.size(); i++)
@@ -278,30 +317,6 @@ void InfoPage::openTx(QTreeWidgetItem * item, int column)
     }
 }
 
-void InfoPage::openFractions(QTreeWidgetItem*,int)
-{
-    auto dlg = new QDialog(this);
-    Ui::FractionsDialog ui;
-    ui.setupUi(dlg);
-    QwtPlot * fplot = new QwtPlot;
-    QVBoxLayout *fvbox = new QVBoxLayout;
-    fvbox->setMargin(0);
-    fvbox->addWidget(fplot);
-    ui.chart->setLayout(fvbox);
-    dlg->show();
-}
-
-// delegate to draw fractions
-
-FractionsItemDelegate::FractionsItemDelegate(QWidget *parent) :
-    QItemDelegate(parent)
-{
-}
-
-FractionsItemDelegate::~FractionsItemDelegate()
-{
-}
-
 static void value_to_fractions(int64_t v, int64_t *fs) {
     int64_t vf = 0;
     for(int i=0;i<1200;i++) {
@@ -316,6 +331,80 @@ static void value_to_fractions(int64_t v, int64_t *fs) {
     for(int i=0;i<r;i++) {
         fs[i]++;
     }
+}
+
+void InfoPage::openFractions(QTreeWidgetItem*,int)
+{
+    auto dlg = new QDialog(this);
+    Ui::FractionsDialog ui;
+    ui.setupUi(dlg);
+    QwtPlot * fplot = new QwtPlot;
+    QVBoxLayout *fvbox = new QVBoxLayout;
+    fvbox->setMargin(0);
+    fvbox->addWidget(fplot);
+    ui.chart->setLayout(fvbox);
+    
+    QFont font = GUIUtil::bitcoinAddressFont();
+    qreal pt = font.pointSizeF()*0.8;
+    if (pt != .0) {
+        font.setPointSizeF(pt);
+    } else {
+        int px = font.pixelSize()*8/10;
+        font.setPixelSize(px);
+    }
+    
+    QString hstyle = R"(
+        QHeaderView::section {
+            background-color: rgb(204,203,227);
+            color: rgb(64,64,64);
+            padding-left: 4px;
+            border: 0px solid #6c6c6c;
+            border-right: 1px solid #6c6c6c;
+            border-bottom: 1px solid #6c6c6c;
+            min-height: 16px;
+            text-align: left;
+        }
+    )";
+    ui.fractions->setStyleSheet(hstyle);
+    ui.fractions->setFont(font);
+    ui.fractions->header()->setFont(font);
+    ui.fractions->header()->resizeSection(0 /*n*/, 50);
+    ui.fractions->header()->resizeSection(1 /*value*/, 160);
+    
+    int64_t fs[1200];
+    int64_t v = 10000000000;
+    value_to_fractions(v, fs);
+    
+    qreal xs[1200];
+    qreal ys[1200];
+    QVector<qreal> bs;
+    for (int i=0; i<1200; i++) {
+        QStringList row;
+        row << QString::number(i) << QString::number(fs[i]);
+        ui.fractions->addTopLevelItem(new QTreeWidgetItem(row));
+        xs[i] = i;
+        ys[i] = qreal(fs[i]);
+        bs.push_back(qreal(fs[i]));
+    }
+    
+    auto curve = new QwtPlotBarChart;
+    //curve->setSamples(xs, ys, 1200);
+    curve->setSamples(bs);
+    curve->attach(fplot);
+    fplot->replot();
+    
+    dlg->show();
+}
+
+// delegate to draw fractions
+
+FractionsItemDelegate::FractionsItemDelegate(QWidget *parent) :
+    QItemDelegate(parent)
+{
+}
+
+FractionsItemDelegate::~FractionsItemDelegate()
+{
 }
 
 void FractionsItemDelegate::drawDisplay(QPainter *p, 

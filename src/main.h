@@ -414,9 +414,13 @@ public:
         @param[in] fMiner	true if called from CreateNewBlock
         @return Returns true if all checks succeed
      */
-    bool ConnectInputs(CTxDB& txdb, MapPrevTx inputs,
-                       std::map<uint256, CTxIndex>& mapTestPool, const CDiskTxPos& posThisTx,
-                       const CBlockIndex* pindexBlock, bool fBlock, bool fMiner, unsigned int flags = STANDARD_SCRIPT_VERIFY_FLAGS);
+    bool ConnectInputs(CTxDB& txdb, 
+                       MapPrevTx inputs,
+                       const MapPrevFractions& finputs, 
+                       std::map<uint256, CTxIndex>& mapTestPool, 
+                       const CDiskTxPos& posThisTx,
+                       const CBlockIndex* pindexBlock, 
+                       bool fBlock, bool fMiner, unsigned int flags = STANDARD_SCRIPT_VERIFY_FLAGS);
     bool CheckTransaction() const;
     bool GetCoinAge(CTxDB& txdb, const CBlockIndex* pindexPrev, uint64_t& nCoinAge) const;
 

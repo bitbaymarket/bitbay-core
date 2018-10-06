@@ -319,4 +319,21 @@ bool PegReport(const char* format)
     return false;
 }
 
+bool CalculateTransactionFractions(const CTransaction & tx, 
+                                   const CBlockIndex* pindexBlock,
+                                   const MapPrevTx & inputs)
+{
+    // calculate liquidity and reserve pools
+    int64_t nValueIn = 0;
+    int64_t nFees = 0;
+    for (unsigned int i = 0; i < tx.vin.size(); i++)
+    {
+        COutPoint prevout = tx.vin[i].prevout;
+        assert(inputs.count(prevout.hash) > 0);
+        const CTxIndex& txindex = inputs.at(prevout.hash).first;
+        const CTransaction& txPrev = inputs.at(prevout.hash).second;
+
+
+    }
+}
 

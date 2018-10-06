@@ -13,6 +13,9 @@ class CTxDB;
 class CPegDB;
 class CBlock;
 class CBlockIndex;
+class CTxIndex;
+class CTransaction;
+typedef std::map<uint256, std::pair<CTxIndex, CTransaction> > MapPrevTx;
 
 extern int nPegStartHeight;
 extern int nPegMaxSupplyIndex;
@@ -38,6 +41,9 @@ bool WriteFractionsForPegTest(int nStartHeight,
 							  LoadMsg load_msg);
 bool WriteBlockPegFractions(const CBlock & block,
 							CPegDB & pegdb);
+bool CalculateTransactionFractions(const CTransaction & tx,
+                                   const CBlockIndex* pindexBlock,
+                                   const MapPrevTx & inputs);
 
 #define PegFail(...) PegReport(__VA_ARGS__)
 #define PegReportf(...) PegReport(__VA_ARGS__)

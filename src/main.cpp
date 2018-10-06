@@ -720,7 +720,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
 
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
-        if (!tx.ConnectInputs(txdb, mapInputs, mapUnused, CDiskTxPos(1,1,1), pindexBest, false, false, STANDARD_SCRIPT_VERIFY_FLAGS))
+        if (!tx.ConnectInputs(txdb, mapInputs, mapInputsFractions, mapUnused, CDiskTxPos(1,1,1), pindexBest, false, false, STANDARD_SCRIPT_VERIFY_FLAGS))
         {
             return error("AcceptToMemoryPool : ConnectInputs failed %s", hash.ToString());
         }
@@ -734,7 +734,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
         // There is a similar check in CreateNewBlock() to prevent creating
         // invalid blocks, however allowing such transactions into the mempool
         // can be exploited as a DoS attack.
-        if (!tx.ConnectInputs(txdb, mapInputs, mapUnused, CDiskTxPos(1,1,1), pindexBest, false, false, MANDATORY_SCRIPT_VERIFY_FLAGS))
+        if (!tx.ConnectInputs(txdb, mapInputs, mapInputsFractions, mapUnused, CDiskTxPos(1,1,1), pindexBest, false, false, MANDATORY_SCRIPT_VERIFY_FLAGS))
         {
             return error("AcceptToMemoryPool: : BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", hash.ToString());
         }
@@ -1179,7 +1179,8 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb)
 }
 
 
-bool CTransaction::FetchInputs(CTxDB& txdb, const map<uint256, CTxIndex>& mapTestPool,
+bool CTransaction::FetchInputs(CTxDB& txdb, 
+                               const map<uint256, CTxIndex>& mapTestPool,
                                bool fBlock, bool fMiner, 
                                MapPrevTx& inputsRet, 
                                MapPrevFractions& finputsRet,
@@ -1292,8 +1293,13 @@ int64_t CTransaction::GetValueIn(const MapPrevTx& inputs) const
 
 }
 
-bool CTransaction::ConnectInputs(CTxDB& txdb, MapPrevTx inputs, map<uint256, CTxIndex>& mapTestPool, const CDiskTxPos& posThisTx,
-    const CBlockIndex* pindexBlock, bool fBlock, bool fMiner, unsigned int flags)
+bool CTransaction::ConnectInputs(CTxDB& txdb, 
+                                 MapPrevTx inputs, 
+                                 const MapPrevFractions& finputs, 
+                                 map<uint256, CTxIndex>& mapTestPool, 
+                                 const CDiskTxPos& posThisTx,
+                                 const CBlockIndex* pindexBlock, 
+                                 bool fBlock, bool fMiner, unsigned int flags)
 {
     // Take over previous transactions' spent pointers
     // fBlock is true when this is called from AcceptBlock when a new best-block is added to the blockchain
@@ -1337,6 +1343,10 @@ bool CTransaction::ConnectInputs(CTxDB& txdb, MapPrevTx inputs, map<uint256, CTx
                 return DoS(100, error("ConnectInputs() : txin values out of range"));
 
         }
+        // Calculation of fractions is considered less expensive than 
+        // signatures checks. For now it reports only about peg violations
+        CalculateTransactionFractions(*this, pindexBlock, inputs);
+        
         // The first loop above does all the inexpensive checks.
         // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
         // Helps prevent CPU exhaustion attacks.
@@ -1535,7 +1545,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
             if (tx.IsCoinStake())
                 nStakeReward = nTxValueOut - nTxValueIn;
 
-            if (!tx.ConnectInputs(txdb, mapInputs, mapQueuedChanges, posThisTx, pindex, true, false, flags))
+            if (!tx.ConnectInputs(txdb, mapInputs, mapInputsFractions, mapQueuedChanges, posThisTx, pindex, true, false, flags))
                 return false;
         }
 

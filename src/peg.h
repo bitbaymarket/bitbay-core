@@ -46,7 +46,13 @@ public:
     bool Pack(CDataStream &) const;
     bool Unpack(CDataStream &);
 
-    CPegFractions ToStd() const;
+    CPegFractions Std() const;
+    CPegFractions Reserve(int supply, int64_t* total) const;
+    CPegFractions Liquidity(int supply, int64_t* total) const;
+    CPegFractions RatioPart(int64_t part, int64_t of_total) const;
+
+    CPegFractions& operator+=(const CPegFractions& b);
+    CPegFractions& operator-=(const CPegFractions& b);
 
 private:
     void ToDeltas(int64_t* deltas) const;
@@ -64,11 +70,14 @@ bool CalculateBlockPegVotes(const CBlock & cblock,
 bool WriteFractionsForPegTest(int nStartHeight,
                               CTxDB & ctxdb,
                               LoadMsg load_msg);
-bool WriteBlockPegFractions(const CBlock & block,
-                            CPegDB & pegdb);
+
 bool CalculateTransactionFractions(const CTransaction & tx,
                                    const CBlockIndex* pindexBlock,
-                                   const MapPrevTx & inputs);
+                                   MapPrevTx & inputs,
+                                   MapPrevFractions& finputs,
+                                   std::map<uint256, CTxIndex>& mapTestPool,
+                                   std::map<uint320, CPegFractions>& mapTestFractionsPool,
+                                   bool *ok =nullptr);
 
 #define PegFail(...) PegReport(__VA_ARGS__)
 #define PegReportf(...) PegReport(__VA_ARGS__)

@@ -30,7 +30,8 @@ public:
     };
     enum Roles {
         HashRole = Qt::UserRole+1000,
-        FractionsRole
+        FractionsRole,
+        PegSupplyRole
     };
 
     /** @name Methods overridden from QAbstractItemModel

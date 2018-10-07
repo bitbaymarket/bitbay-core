@@ -588,8 +588,9 @@ Value getblocktemplate(const Array& params, bool fHelp)
         MapPrevTx mapInputs;
         MapPrevFractions mapInputsFractions;
         map<uint256, CTxIndex> mapUnused;
+        map<uint320, CPegFractions> mapFractionsUnused;
         bool fInvalid = false;
-        if (tx.FetchInputs(txdb, pegdb, mapUnused, false, false, mapInputs, mapInputsFractions, fInvalid))
+        if (tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid))
         {
             entry.push_back(Pair("fee", (int64_t)(tx.GetValueIn(mapInputs) - tx.GetValueOut())));
 

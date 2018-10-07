@@ -279,7 +279,7 @@ void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
     CTransaction & tx = block.vtx[tx_idx];
     uint256 hash = tx.GetHash();
     QString thash = QString::fromStdString(hash.ToString());
-    QString sheight = QString("%1:%2").arg(pblockindex->nHeight).arg(tx_idx);
+    QString sheight = QString("%1-%2").arg(pblockindex->nHeight).arg(tx_idx);
 
     CTxDB txdb("r");
     CPegDB pegdb("r");
@@ -305,25 +305,26 @@ void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
     {
         COutPoint prevout = tx.vin[i].prevout;
         QStringList row;
-        row << QString::number(i);
+        row << QString::number(i); // idx, 0
 
         QString prev_thash = QString::fromStdString(prevout.hash.ToString());
         QString sprev_thash = prev_thash.left(4)+"..."+prev_thash.right(4);
-        row << QString("%1:%2").arg(sprev_thash).arg(prevout.n);
+        row << QString("%1:%2").arg(sprev_thash).arg(prevout.n); // tx, 1
+        auto prev_input = QString("%1:%2").arg(prev_thash).arg(prevout.n); // tx, 1
 
         if (mapInputs.find(prevout.hash) != mapInputs.end()) {
             CTransaction& txPrev = mapInputs[prevout.hash].second;
             if (prevout.n < txPrev.vout.size()) {
                 auto addr = scriptToAddress(txPrev.vout[prevout.n].scriptPubKey);
                 if (addr.isEmpty())
-                    row << "N/A"; // address
+                    row << "N/A"; // address, 2
                 else row << addr;
 
                 row << displayValue(txPrev.vout[prevout.n].nValue);
             }
             else {
-                row << "N/A"; // address
-                row << "none"; // value
+                row << "N/A"; // address, 2
+                row << "none"; // value, 3
             }
         }
         else {
@@ -336,6 +337,8 @@ void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
         if (mapInputsFractions.find(fkey) != mapInputsFractions.end()) {
             QVariant vfractions;
             vfractions.setValue(mapInputsFractions[fkey]);
+            input->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+            input->setData(4, BlockchainModel::HashRole, prev_input);
             input->setData(4, BlockchainModel::FractionsRole, vfractions);
             input->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
         }
@@ -364,6 +367,7 @@ void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
 
         row << displayValue(tx.vout[i].nValue);
 
+        QString titleSpend;
         if (i < txindex.vSpent.size()) {
             CDiskTxPos & txpos = txindex.vSpent[i];
             CTransaction txSpend;
@@ -375,6 +379,7 @@ void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
                         QString shashSpend = QString::fromStdString(hashSpend.ToString());
                         QString shashSpendElided = shashSpend.left(4)+"..."+shashSpend.right(4);
                         row << QString("%1:%2").arg(shashSpendElided).arg(vin_idx);
+                        titleSpend = QString("%1:%2").arg(shashSpend).arg(vin_idx);
                     }
                     vin_idx++;
                 }
@@ -386,6 +391,8 @@ void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
         if (mapFractionsUnused.find(fkey) != mapFractionsUnused.end()) {
             QVariant vFractions;
             vFractions.setValue(mapFractionsUnused[fkey]);
+            output->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+            output->setData(4, BlockchainModel::HashRole, titleSpend);
             output->setData(4, BlockchainModel::FractionsRole, vFractions);
             output->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
         }
@@ -393,8 +400,11 @@ void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
     }
 }
 
-void BlockchainPage::openFractions(QTreeWidgetItem * item,int)
+void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)
 {
+    if (column != 4) // only fractions column
+        return;
+
     auto dlg = new QDialog(this);
     Ui::FractionsDialog ui;
     ui.setupUi(dlg);
@@ -431,6 +441,7 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item,int)
     ui.fractions->header()->resizeSection(0 /*n*/, 50);
     ui.fractions->header()->resizeSection(1 /*value*/, 160);
 
+    auto txhash = item->data(4, BlockchainModel::HashRole).toString();
     auto vfractions = item->data(4, BlockchainModel::FractionsRole);
     auto fractions = vfractions.value<CPegFractions>();
     auto fractions_std = fractions.Std();
@@ -448,8 +459,11 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item,int)
     QVector<qreal> bs;
     for (int i=0; i<CPegFractions::PEG_SIZE; i++) {
         QStringList row;
-        row << QString::number(i) << QString::number(fractions_std.f[i]);
-        ui.fractions->addTopLevelItem(new QTreeWidgetItem(row));
+        row << QString::number(i) << displayValue(fractions_std.f[i]);
+        auto row_item = new QTreeWidgetItem(row);
+        row_item->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        ui.fractions->addTopLevelItem(row_item);
         xs[i] = i;
         ys[i] = qreal(fractions_std.f[i]);
         bs.push_back(qreal(fractions_std.f[i]));
@@ -461,6 +475,7 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item,int)
     curve->attach(fplot);
     fplot->replot();
 
+    dlg->setWindowTitle(txhash+" "+tr("fractions"));
     dlg->show();
 }
 

@@ -400,6 +400,7 @@ public:
     bool FetchInputs(CTxDB& txdb,
                      CPegDB& pegdb,
                      const std::map<uint256, CTxIndex>& mapTestPool,
+                     const std::map<uint320, CPegFractions>& mapTestFractionsPool,
                      bool fBlock, bool fMiner,
                      MapPrevTx& inputsRet,
                      MapPrevFractions& finputsRet,
@@ -418,8 +419,9 @@ public:
      */
     bool ConnectInputs(CTxDB& txdb,
                        MapPrevTx inputs,
-                       const MapPrevFractions& finputs,
+                       MapPrevFractions& finputs,
                        std::map<uint256, CTxIndex>& mapTestPool,
+                       std::map<uint320, CPegFractions>& mapTestFractionsPool,
                        const CDiskTxPos& posThisTx,
                        const CBlockIndex* pindexBlock,
                        bool fBlock, bool fMiner, unsigned int flags = STANDARD_SCRIPT_VERIFY_FLAGS);

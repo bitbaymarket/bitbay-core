@@ -5,6 +5,7 @@
 #include "main.h"
 #include "base58.h"
 #include "txdb.h"
+#include "peg.h"
 #include "guiutil.h"
 #include "blockchainmodel.h"
 #include "metatypes.h"
@@ -293,8 +294,9 @@ void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
     MapPrevTx mapInputs;
     MapPrevFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
+    map<uint320, CPegFractions> mapFractionsUnused;
     bool fInvalid = false;
-    tx.FetchInputs(txdb, pegdb, mapUnused, false, false, mapInputs, mapInputsFractions, fInvalid);
+    tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid);
 
     ui->txInputs->clear();
     size_t n_vin = tx.vin.size();
@@ -335,9 +337,17 @@ void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
             QVariant vfractions;
             vfractions.setValue(mapInputsFractions[fkey]);
             input->setData(4, BlockchainModel::FractionsRole, vfractions);
+            input->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
         }
         ui->txInputs->addTopLevelItem(input);
     }
+
+    CalculateTransactionFractions(tx, pblockindex,
+                                  mapInputs, mapInputsFractions,
+                                  mapUnused, mapFractionsUnused);
+
+    CTxIndex txindex;
+    txdb.ReadTxIndex(hash, txindex);
 
     ui->txOutputs->clear();
     size_t n_vout = tx.vout.size();
@@ -354,7 +364,32 @@ void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
 
         row << displayValue(tx.vout[i].nValue);
 
-        ui->txOutputs->addTopLevelItem(new QTreeWidgetItem(row));
+        if (i < txindex.vSpent.size()) {
+            CDiskTxPos & txpos = txindex.vSpent[i];
+            CTransaction txSpend;
+            if (txSpend.ReadFromDisk(txpos)) {
+                int vin_idx =0;
+                for(const CTxIn &txin : txSpend.vin) {
+                    if (txin.prevout.hash == hash && txin.prevout.n == i) {
+                        uint256 hashSpend = txSpend.GetHash();
+                        QString shashSpend = QString::fromStdString(hashSpend.ToString());
+                        QString shashSpendElided = shashSpend.left(4)+"..."+shashSpend.right(4);
+                        row << QString("%1:%2").arg(shashSpendElided).arg(vin_idx);
+                    }
+                    vin_idx++;
+                }
+            }
+        }
+
+        auto output = new QTreeWidgetItem(row);
+        auto fkey = uint320(hash, i);
+        if (mapFractionsUnused.find(fkey) != mapFractionsUnused.end()) {
+            QVariant vFractions;
+            vFractions.setValue(mapFractionsUnused[fkey]);
+            output->setData(4, BlockchainModel::FractionsRole, vFractions);
+            output->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
+        }
+        ui->txOutputs->addTopLevelItem(output);
     }
 }
 
@@ -398,7 +433,7 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item,int)
 
     auto vfractions = item->data(4, BlockchainModel::FractionsRole);
     auto fractions = vfractions.value<CPegFractions>();
-    auto fractions_std = fractions.ToStd();
+    auto fractions_std = fractions.Std();
 
     int64_t f_max = 0;
     for (int i=0; i<CPegFractions::PEG_SIZE; i++) {
@@ -446,7 +481,7 @@ void FractionsItemDelegate::paint(QPainter* p,
 {
     auto vfractions = index.data(BlockchainModel::FractionsRole);
     auto fractions = vfractions.value<CPegFractions>();
-    auto fractions_std = fractions.ToStd();
+    auto fractions_std = fractions.Std();
 
     int64_t f_max = 0;
     for (int i=0; i<CPegFractions::PEG_SIZE; i++) {
@@ -455,6 +490,8 @@ void FractionsItemDelegate::paint(QPainter* p,
     }
     if (f_max == 0)
         return; // zero-value fractions
+
+    auto supply = index.data(BlockchainModel::PegSupplyRole).toInt();
 
     QPainterPath path;
     QVector<QPointF> points;
@@ -484,6 +521,6 @@ void FractionsItemDelegate::paint(QPainter* p,
     p->drawPath( path );
 
     p->setPen( Qt::darkGreen );
-    qreal pegx = rx + 150*rw/w; // test
+    qreal pegx = rx + supply*rw/w;
     p->drawLine(QPointF(pegx, ry), QPointF(pegx, ry+rh));
 }

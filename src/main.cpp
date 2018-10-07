@@ -660,8 +660,9 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
         MapPrevTx mapInputs;
         MapPrevFractions mapInputsFractions;
         map<uint256, CTxIndex> mapUnused;
+        map<uint320, CPegFractions> mapFractionsUnused;
         bool fInvalid = false;
-        if (!tx.FetchInputs(txdb, pegdb, mapUnused, false, false, mapInputs, mapInputsFractions, fInvalid))
+        if (!tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid))
         {
             if (fInvalid)
                 return error("AcceptToMemoryPool : FetchInputs found invalid tx %s", hash.ToString());
@@ -721,7 +722,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
 
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
-        if (!tx.ConnectInputs(txdb, mapInputs, mapInputsFractions, mapUnused, CDiskTxPos(1,1,1), pindexBest, false, false, STANDARD_SCRIPT_VERIFY_FLAGS))
+        if (!tx.ConnectInputs(txdb, mapInputs, mapInputsFractions, mapUnused, mapFractionsUnused, CDiskTxPos(1,1,1), pindexBest, false, false, STANDARD_SCRIPT_VERIFY_FLAGS))
         {
             return error("AcceptToMemoryPool : ConnectInputs failed %s", hash.ToString());
         }
@@ -735,7 +736,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
         // There is a similar check in CreateNewBlock() to prevent creating
         // invalid blocks, however allowing such transactions into the mempool
         // can be exploited as a DoS attack.
-        if (!tx.ConnectInputs(txdb, mapInputs, mapInputsFractions, mapUnused, CDiskTxPos(1,1,1), pindexBest, false, false, MANDATORY_SCRIPT_VERIFY_FLAGS))
+        if (!tx.ConnectInputs(txdb, mapInputs, mapInputsFractions, mapUnused, mapFractionsUnused, CDiskTxPos(1,1,1), pindexBest, false, false, MANDATORY_SCRIPT_VERIFY_FLAGS))
         {
             return error("AcceptToMemoryPool: : BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", hash.ToString());
         }
@@ -1183,6 +1184,7 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb)
 bool CTransaction::FetchInputs(CTxDB& txdb,
                                CPegDB& pegdb,
                                const map<uint256, CTxIndex>& mapTestPool,
+                               const map<uint320, CPegFractions>& mapTestFractionsPool,
                                bool fBlock, bool fMiner,
                                MapPrevTx& inputsRet,
                                MapPrevFractions& finputsRet,
@@ -1308,8 +1310,9 @@ int64_t CTransaction::GetValueIn(const MapPrevTx& inputs) const
 
 bool CTransaction::ConnectInputs(CTxDB& txdb,
                                  MapPrevTx inputs,
-                                 const MapPrevFractions& finputs,
+                                 MapPrevFractions& finputs,
                                  map<uint256, CTxIndex>& mapTestPool,
+                                 map<uint320, CPegFractions>& mapTestFractionsPool,
                                  const CDiskTxPos& posThisTx,
                                  const CBlockIndex* pindexBlock,
                                  bool fBlock, bool fMiner, unsigned int flags)
@@ -1318,129 +1321,134 @@ bool CTransaction::ConnectInputs(CTxDB& txdb,
     // fBlock is true when this is called from AcceptBlock when a new best-block is added to the blockchain
     // fMiner is true when called from the internal bitcoin miner
     // ... both are false when called from CTransaction::AcceptToMemoryPool
-    if (!IsCoinBase())
+    if (IsCoinBase())
     {
-        int64_t nValueIn = 0;
-        int64_t nFees = 0;
-        for (unsigned int i = 0; i < vin.size(); i++)
+        return true;
+    }
+
+    int64_t nValueIn = 0;
+    int64_t nFees = 0;
+    for (unsigned int i = 0; i < vin.size(); i++)
+    {
+        COutPoint prevout = vin[i].prevout;
+        assert(inputs.count(prevout.hash) > 0);
+        CTxIndex& txindex = inputs[prevout.hash].first;
+        CTransaction& txPrev = inputs[prevout.hash].second;
+
+        if (prevout.n >= txPrev.vout.size() || prevout.n >= txindex.vSpent.size())
+            return DoS(100, error("ConnectInputs() : %s prevout.n out of range %d %u %u prev tx %s\n%s", GetHash().ToString(), prevout.n, txPrev.vout.size(), txindex.vSpent.size(), prevout.hash.ToString(), txPrev.ToString()));
+
+        // If prev is coinbase or coinstake, check that it's matured
+        if (txPrev.IsCoinBase() || txPrev.IsCoinStake())
         {
-            COutPoint prevout = vin[i].prevout;
-            assert(inputs.count(prevout.hash) > 0);
-            CTxIndex& txindex = inputs[prevout.hash].first;
-            CTransaction& txPrev = inputs[prevout.hash].second;
-
-            if (prevout.n >= txPrev.vout.size() || prevout.n >= txindex.vSpent.size())
-                return DoS(100, error("ConnectInputs() : %s prevout.n out of range %d %u %u prev tx %s\n%s", GetHash().ToString(), prevout.n, txPrev.vout.size(), txindex.vSpent.size(), prevout.hash.ToString(), txPrev.ToString()));
-
-            // If prev is coinbase or coinstake, check that it's matured
-            if (txPrev.IsCoinBase() || txPrev.IsCoinStake())
-            {
-                int nSpendDepth;
-                if (IsConfirmedInNPrevBlocks(txindex, pindexBlock, nCoinbaseMaturity, nSpendDepth))
-                    return error("ConnectInputs() : tried to spend %s at depth %d", txPrev.IsCoinBase() ? "coinbase" : "coinstake", nSpendDepth);
-            }
-
-            // ppcoin: check transaction timestamp
-            if (txPrev.nTime > nTime)
-                return DoS(100, error("ConnectInputs() : transaction timestamp earlier than input transaction"));
-
-            if (IsProtocolV3(nTime))
-            {
-                if (txPrev.vout[prevout.n].IsEmpty())
-                    return DoS(1, error("ConnectInputs() : special marker is not spendable"));
-            }
-
-            // Check for negative or overflow input values
-            nValueIn += txPrev.vout[prevout.n].nValue;
-            if (!MoneyRange(txPrev.vout[prevout.n].nValue) || !MoneyRange(nValueIn))
-                return DoS(100, error("ConnectInputs() : txin values out of range"));
-
+            int nSpendDepth;
+            if (IsConfirmedInNPrevBlocks(txindex, pindexBlock, nCoinbaseMaturity, nSpendDepth))
+                return error("ConnectInputs() : tried to spend %s at depth %d", txPrev.IsCoinBase() ? "coinbase" : "coinstake", nSpendDepth);
         }
-        // Calculation of fractions is considered less expensive than
-        // signatures checks. For now it reports only about peg violations
-        CalculateTransactionFractions(*this, pindexBlock, inputs);
 
-        // The first loop above does all the inexpensive checks.
-        // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
-        // Helps prevent CPU exhaustion attacks.
-        for (unsigned int i = 0; i < vin.size(); i++)
+        // ppcoin: check transaction timestamp
+        if (txPrev.nTime > nTime)
+            return DoS(100, error("ConnectInputs() : transaction timestamp earlier than input transaction"));
+
+        if (IsProtocolV3(nTime))
         {
-            COutPoint prevout = vin[i].prevout;
-            assert(inputs.count(prevout.hash) > 0);
-            CTxIndex& txindex = inputs[prevout.hash].first;
-            CTransaction& txPrev = inputs[prevout.hash].second;
+            if (txPrev.vout[prevout.n].IsEmpty())
+                return DoS(1, error("ConnectInputs() : special marker is not spendable"));
+        }
 
-            // Check for conflicts (double-spend)
-            // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
-            // for an attacker to attempt to split the network.
-            if (!txindex.vSpent[prevout.n].IsNull())
-                return fMiner ? false : error("ConnectInputs() : %s prev tx already used at %s", GetHash().ToString(), txindex.vSpent[prevout.n].ToString());
+        // Check for negative or overflow input values
+        nValueIn += txPrev.vout[prevout.n].nValue;
+        if (!MoneyRange(txPrev.vout[prevout.n].nValue) || !MoneyRange(nValueIn))
+            return DoS(100, error("ConnectInputs() : txin values out of range"));
 
-            // Skip ECDSA signature verification when connecting blocks (fBlock=true)
-            // before the last blockchain checkpoint. This is safe because block merkle hashes are
-            // still computed and checked, and any change will be caught at the next checkpoint.
-            if (!(fBlock && (nBestHeight < Checkpoints::GetTotalBlocksEstimate())))
+    }
+    // Calculation of fractions is considered less expensive than
+    // signatures checks. For now it reports only about peg violations
+    CalculateTransactionFractions(*this, pindexBlock,
+                                  inputs, finputs,
+                                  mapTestPool, mapTestFractionsPool);
+
+    // The first loop above does all the inexpensive checks.
+    // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
+    // Helps prevent CPU exhaustion attacks.
+    for (unsigned int i = 0; i < vin.size(); i++)
+    {
+        COutPoint prevout = vin[i].prevout;
+        assert(inputs.count(prevout.hash) > 0);
+        CTxIndex& txindex = inputs[prevout.hash].first;
+        CTransaction& txPrev = inputs[prevout.hash].second;
+
+        // Check for conflicts (double-spend)
+        // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
+        // for an attacker to attempt to split the network.
+        if (!txindex.vSpent[prevout.n].IsNull())
+            return fMiner ? false : error("ConnectInputs() : %s prev tx already used at %s", GetHash().ToString(), txindex.vSpent[prevout.n].ToString());
+
+        // Skip ECDSA signature verification when connecting blocks (fBlock=true)
+        // before the last blockchain checkpoint. This is safe because block merkle hashes are
+        // still computed and checked, and any change will be caught at the next checkpoint.
+        if (!(fBlock && (nBestHeight < Checkpoints::GetTotalBlocksEstimate())))
+        {
+            // Verify signature
+            if (!VerifySignature(txPrev, *this, i, flags, 0))
             {
-                // Verify signature
-                if (!VerifySignature(txPrev, *this, i, flags, 0))
-                {
-                    if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
-                        // Check whether the failure was caused by a
-                        // non-mandatory script verification check, such as
-                        // non-null dummy arguments;
-                        // if so, don't trigger DoS protection to
-                        // avoid splitting the network between upgraded and
-                        // non-upgraded nodes.
-                        if (VerifySignature(txPrev, *this, i, flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, 0))
-                            return error("ConnectInputs() : %s non-mandatory VerifySignature failed", GetHash().ToString());
-                    }
-                    // Failures of other flags indicate a transaction that is
-                    // invalid in new blocks, e.g. a invalid P2SH. We DoS ban
-                    // such nodes as they are not following the protocol. That
-                    // said during an upgrade careful thought should be taken
-                    // as to the correct behavior - we may want to continue
-                    // peering with non-upgraded nodes even after a soft-fork
-                    // super-majority vote has passed.
-                    return DoS(100,error("ConnectInputs() : %s VerifySignature failed", GetHash().ToString()));
+                if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
+                    // Check whether the failure was caused by a
+                    // non-mandatory script verification check, such as
+                    // non-null dummy arguments;
+                    // if so, don't trigger DoS protection to
+                    // avoid splitting the network between upgraded and
+                    // non-upgraded nodes.
+                    if (VerifySignature(txPrev, *this, i, flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, 0))
+                        return error("ConnectInputs() : %s non-mandatory VerifySignature failed", GetHash().ToString());
                 }
-            }
-
-            // Mark outpoints as spent
-            txindex.vSpent[prevout.n] = posThisTx;
-
-            // Write back
-            if (fBlock || fMiner)
-            {
-                mapTestPool[prevout.hash] = txindex;
+                // Failures of other flags indicate a transaction that is
+                // invalid in new blocks, e.g. a invalid P2SH. We DoS ban
+                // such nodes as they are not following the protocol. That
+                // said during an upgrade careful thought should be taken
+                // as to the correct behavior - we may want to continue
+                // peering with non-upgraded nodes even after a soft-fork
+                // super-majority vote has passed.
+                return DoS(100,error("ConnectInputs() : %s VerifySignature failed", GetHash().ToString()));
             }
         }
 
-        if (!IsCoinStake())
+        // Mark outpoints as spent
+        txindex.vSpent[prevout.n] = posThisTx;
+
+        // Write back
+        if (fBlock || fMiner)
         {
-            if (nValueIn < GetValueOut())
-                return DoS(100, error("ConnectInputs() : %s value in < value out", GetHash().ToString()));
-
-            // Tally transaction fees
-            int64_t nTxFee = nValueIn - GetValueOut();
-            if (nTxFee < 0)
-                return DoS(100, error("ConnectInputs() : %s nTxFee < 0", GetHash().ToString()));
-
-            if (!IsProtocolV3(nTime)) {
-                // enforce transaction fees for every block
-                int64_t nRequiredFee = GetMinFee(*this);
-                if (nTxFee < nRequiredFee)
-                    return fBlock? DoS(100, error("ConnectInputs() : %s not paying required fee=%s, paid=%s", GetHash().ToString(), FormatMoney(nRequiredFee), FormatMoney(nTxFee))) : false;
-            }
-
-            if (IsProtocolVP(pindexBlock->nHeight)) {
-
-            }
-
-            nFees += nTxFee;
-            if (!MoneyRange(nFees))
-                return DoS(100, error("ConnectInputs() : nFees out of range"));
+            mapTestPool[prevout.hash] = txindex;
         }
     }
+
+    if (IsCoinStake()) {
+        return true;
+    }
+
+    if (nValueIn < GetValueOut())
+        return DoS(100, error("ConnectInputs() : %s value in < value out", GetHash().ToString()));
+
+    // Tally transaction fees
+    int64_t nTxFee = nValueIn - GetValueOut();
+    if (nTxFee < 0)
+        return DoS(100, error("ConnectInputs() : %s nTxFee < 0", GetHash().ToString()));
+
+    if (!IsProtocolV3(nTime)) {
+        // enforce transaction fees for every block
+        int64_t nRequiredFee = GetMinFee(*this);
+        if (nTxFee < nRequiredFee)
+            return fBlock? DoS(100, error("ConnectInputs() : %s not paying required fee=%s, paid=%s", GetHash().ToString(), FormatMoney(nRequiredFee), FormatMoney(nTxFee))) : false;
+    }
+
+    if (IsProtocolVP(pindexBlock->nHeight)) {
+        //peg:todo?
+    }
+
+    nFees += nTxFee;
+    if (!MoneyRange(nFees))
+        return DoS(100, error("ConnectInputs() : nFees out of range"));
 
     return true;
 }
@@ -1496,6 +1504,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         nTxPos = pindex->nBlockPos + ::GetSerializeSize(CBlock(), SER_DISK, CLIENT_VERSION) - (2 * GetSizeOfCompactSize(0)) + GetSizeOfCompactSize(vtx.size());
 
     map<uint256, CTxIndex> mapQueuedChanges;
+    map<uint320, CPegFractions> mapQueuedFractionsChanges;
     int64_t nFees = 0;
     int64_t nValueIn = 0;
     int64_t nValueOut = 0;
@@ -1539,7 +1548,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         else
         {
             bool fInvalid;
-            if (!tx.FetchInputs(txdb, pegdb, mapQueuedChanges, true, false, mapInputs, mapInputsFractions, fInvalid))
+            if (!tx.FetchInputs(txdb, pegdb, mapQueuedChanges, mapQueuedFractionsChanges, true, false, mapInputs, mapInputsFractions, fInvalid))
                 return false;
 
             // Add in sigops done by pay-to-script-hash inputs;
@@ -1558,7 +1567,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
             if (tx.IsCoinStake())
                 nStakeReward = nTxValueOut - nTxValueIn;
 
-            if (!tx.ConnectInputs(txdb, mapInputs, mapInputsFractions, mapQueuedChanges, posThisTx, pindex, true, false, flags))
+            if (!tx.ConnectInputs(txdb, mapInputs, mapInputsFractions, mapQueuedChanges, mapQueuedFractionsChanges, posThisTx, pindex, true, false, flags))
                 return false;
         }
 

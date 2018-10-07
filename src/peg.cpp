@@ -3,11 +3,14 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <map>
+#include <set>
+#include <cstdint>
 
 #include <boost/version.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/foreach.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
 
 #include <leveldb/env.h>
 #include <leveldb/cache.h>
@@ -27,7 +30,7 @@
 using namespace std;
 using namespace boost;
 
-int nPegStartHeight = 1807400;
+int nPegStartHeight = 1837000;
 int nPegMaxSupplyIndex = 1199;
 
 extern leveldb::DB *txdb; // global pointer for LevelDB object instance
@@ -219,7 +222,7 @@ bool WriteFractionsForPegTest(int nStartHeight, CTxDB & ctxdb, LoadMsg load_msg)
 
         // calc votes per block
         block.ReadFromDisk(pblockindex, true);
-        WriteBlockPegFractions(block, pegdb);
+        //WriteBlockPegFractions(block, pegdb);
 
         pblockindex = pblockindex->pnext;
     }
@@ -372,7 +375,7 @@ bool CPegFractions::Unpack(CDataStream & inp)
     return true;
 }
 
-CPegFractions CPegFractions::ToStd() const
+CPegFractions CPegFractions::Std() const
 {
     if (nFlags!=PEG_VALUE)
         return *this;
@@ -393,56 +396,57 @@ CPegFractions CPegFractions::ToStd() const
     return fstd;
 }
 
-bool WriteBlockPegFractions(const CBlock & block, CPegDB& pegdb) {
-    for(const CTransaction & tx : block.vtx) {
-        int vout_idx = 0;
-        for(const CTxOut & out : tx.vout) {
-            uint256 hash = tx.GetHash();
-            CDataStream ssPegFractions(SER_DISK, CLIENT_VERSION);
-            int nFlags = 0;
-            ssPegFractions << nFlags;
+CPegFractions CPegFractions::Reserve(int supply, int64_t* total) const
+{
+    CPegFractions freserve = CPegFractions(0).Std();
+    for(int i=0; i<supply; i++) {
+        if (total) *total += f[i];
+        freserve.f[i] += f[i];
+    }
+    return freserve;
+}
+CPegFractions CPegFractions::Liquidity(int supply, int64_t* total) const
+{
+    CPegFractions fliquidity = CPegFractions(0).Std();
+    for(int i=supply; i<PEG_SIZE; i++) {
+        if (total) *total += f[i];
+        fliquidity.f[i] += f[i];
+    }
+    return fliquidity;
+}
 
-            int64_t f64[1200];
-            int64_t f64d[1200];
-
-            value_to_fractions(out.nValue, f64);
-            fractions_to_deltas(f64, f64d);
-
-            //QByteArray compressed_bytes = qCompress((const uchar *)(f64d), 1200*8, 9);
-            //ssPegFractions.write(compressed_bytes.data(), compressed_bytes.size());
-
-            int compressionLevel = 9;
-            unsigned long nbytes = 1200*8;
-            unsigned long len = nbytes + nbytes / 100 + 13;
-            char zout[len+4];
-            const unsigned char * data = (const unsigned char *)(f64d);
-
-            int res;
-            do {
-                res = ::compress2((unsigned char*)zout+4, &len, data, nbytes, compressionLevel);
-                switch (res) {
-                case Z_OK:
-                    zout[0] = (nbytes & 0xff000000) >> 24;
-                    zout[1] = (nbytes & 0x00ff0000) >> 16;
-                    zout[2] = (nbytes & 0x0000ff00) >> 8;
-                    zout[3] = (nbytes & 0x000000ff);
-                    break;
-                case Z_MEM_ERROR:
-                    return false;
-                case Z_BUF_ERROR:
-                    return false;
-                }
-            } while (res == Z_BUF_ERROR);
-
-            int zout_len = len+4;
-
-            ssPegFractions.write((const char *)zout, zout_len);
-
-            pegdb.Write(make_pair(hash.ToString(), vout_idx), ssPegFractions);
-            vout_idx++;
+CPegFractions CPegFractions::RatioPart(int64_t part, int64_t of_total) const {
+    CPegFractions fpart = CPegFractions(0).Std();
+    for(int i=0; i<PEG_SIZE; i++) {
+        int64_t v = f[i];
+        if (part <= INT_LEAST32_MAX && v <= INT_LEAST32_MAX) { // fast
+            fpart.f[i] = (v*part)/of_total;
+        }
+        else { // slower as multiply can be over int64_t max
+            multiprecision::uint128_t v128(v);
+            multiprecision::uint128_t part128(part);
+            multiprecision::uint128_t of_total128(of_total);
+            multiprecision::uint128_t f128 = (v128*part128)/of_total128;
+            fpart.f[i] = f128.convert_to<int64_t>();
         }
     }
-    return true;
+    return fpart;
+}
+
+CPegFractions& CPegFractions::operator+=(const CPegFractions& b)
+{
+    for(int i=0; i<PEG_SIZE; i++) {
+        f[i] += b.f[i];
+    }
+    return *this;
+}
+
+CPegFractions& CPegFractions::operator-=(const CPegFractions& b)
+{
+    for(int i=0; i<PEG_SIZE; i++) {
+        f[i] -= b.f[i];
+    }
+    return *this;
 }
 
 // temp:peg reporting
@@ -460,19 +464,133 @@ int PegPrintStr(const std::string &str)
 
 bool CalculateTransactionFractions(const CTransaction & tx,
                                    const CBlockIndex* pindexBlock,
-                                   const MapPrevTx & inputs)
+                                   MapPrevTx & inputs,
+                                   MapPrevFractions& fInputs,
+                                   map<uint256, CTxIndex>& mapTestPool,
+                                   map<uint320, CPegFractions>& mapTestFractionsPool,
+                                   bool * ok)
 {
-    // calculate liquidity and reserve pools
+    if (ok) *ok = true;
+
+    // calculate liquidity and total pools
     int64_t nValueIn = 0;
-    int64_t nFees = 0;
-    for (unsigned int i = 0; i < tx.vin.size(); i++)
+    int64_t nReservesTotal =0;
+    int64_t nLiquidityTotal =0;
+
+    auto fValueInPool = CPegFractions(0).Std();
+    auto fReservePool = CPegFractions(0).Std();
+    auto fLiquidityPool = CPegFractions(0).Std();
+
+    int supply = pindexBlock->nPegSupplyIndex;
+    set<string> sInputAddresses;
+
+    size_t n_vin = tx.vin.size();
+    if (tx.IsCoinBase()) n_vin = 0;
+    for (unsigned int i = 0; i < n_vin; i++)
     {
-        COutPoint prevout = tx.vin[i].prevout;
-        assert(inputs.count(prevout.hash) > 0);
-        const CTxIndex& txindex = inputs.at(prevout.hash).first;
-        const CTransaction& txPrev = inputs.at(prevout.hash).second;
+        const COutPoint & prevout = tx.vin[i].prevout;
 
+        auto fkey = uint320(prevout.hash, prevout.n);
+        if (fInputs.find(fkey) == fInputs.end()) {
+            if (ok) *ok = false;
+            return false;
+        }
 
+        auto fInp = fInputs[fkey].Std();
+        fValueInPool += fInp;
+        fReservePool += fInp.Reserve(supply, &nReservesTotal);
+        fLiquidityPool += fInp.Liquidity(supply, &nLiquidityTotal);
+
+        CTransaction& txPrev = inputs[prevout.hash].second;
+        if (prevout.n >= txPrev.vout.size()) {
+            if (ok) *ok = false;
+            return false;
+        }
+
+        nValueIn += txPrev.vout[prevout.n].nValue;
+
+        int nRequired;
+        txnouttype type;
+        vector<CTxDestination> addresses;
+        const CScript& scriptPubKey = txPrev.vout[prevout.n].scriptPubKey;
+        if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
+            for(const CTxDestination& addr : addresses) {
+                std::string str_addr = CBitcoinAddress(addr).ToString();
+                if (!str_addr.empty()) sInputAddresses.insert(str_addr);
+            }
+        }
     }
+
+    auto nRemains = nValueIn;
+    auto fRemainsPool = fValueInPool;
+
+    // Calculation of liquidity outputs
+    // These are substracted from totals
+    size_t n_vout = tx.vout.size();
+    for (unsigned int i = 0; i < n_vout; i++)
+    {
+        bool is_reserve = false;
+
+        int nRequired;
+        txnouttype type;
+        vector<CTxDestination> addresses;
+        const CScript& scriptPubKey = tx.vout[i].scriptPubKey;
+        if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
+            for(const CTxDestination& addr : addresses) {
+                std::string str_addr = CBitcoinAddress(addr).ToString();
+                if (sInputAddresses.count(str_addr) >0) {
+                    is_reserve = true;
+                }
+            }
+        }
+
+        int64_t nValue = tx.vout[i].nValue;
+        auto fkey = uint320(tx.GetHash(), i);
+
+        if (!is_reserve) {
+            if (nLiquidityTotal != 0) {
+                auto fOut = fLiquidityPool.RatioPart(nValue, nLiquidityTotal);
+                mapTestFractionsPool[fkey] = fOut;
+                fRemainsPool -= fOut;
+                nRemains -= nValue;
+            } else {
+                mapTestFractionsPool[fkey] = CPegFractions(0);
+            }
+        }
+    }
+
+    // Calculation of reserve outputs
+    // These are substracted from remains pool
+    for (unsigned int i = 0; i < n_vout; i++)
+    {
+        bool is_reserve = false;
+
+        int nRequired;
+        txnouttype type;
+        vector<CTxDestination> addresses;
+        const CScript& scriptPubKey = tx.vout[i].scriptPubKey;
+        if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
+            for(const CTxDestination& addr : addresses) {
+                std::string str_addr = CBitcoinAddress(addr).ToString();
+                if (sInputAddresses.count(str_addr) >0) {
+                    is_reserve = true;
+                }
+            }
+        }
+
+        int64_t nValue = tx.vout[i].nValue;
+        auto fkey = uint320(tx.GetHash(), i);
+
+        if (is_reserve) {
+            if (nRemains != 0) {
+                auto fOut = fRemainsPool.RatioPart(nValue, nRemains);
+                mapTestFractionsPool[fkey] = fOut;
+            } else {
+                mapTestFractionsPool[fkey] = CPegFractions(0);
+            }
+        }
+    }
+
+    return true;
 }
 

@@ -14,7 +14,7 @@
 #include "sendcoinsdialog.h"
 #include "signmessagepage.h"
 #include "verifymessagepage.h"
-#include "infopage.h"
+#include "blockchainpage.h"
 #include "blockchainmodel.h"
 #include "optionsdialog.h"
 #include "aboutdialog.h"
@@ -126,7 +126,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
 
     verifyMessagePage = new VerifyMessagePage(this);
 
-    infoPage = new InfoPage(this);
+    infoPage = new BlockchainPage(this);
     
     centralStackedWidget = new QStackedWidget(this);
     centralStackedWidget->addWidget(overviewPage);

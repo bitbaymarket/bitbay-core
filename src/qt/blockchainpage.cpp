@@ -1,4 +1,4 @@
-#include "infopage.h"
+#include "blockchainpage.h"
 #include "ui_infopage.h"
 #include "ui_fractionsdialog.h"
 
@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-InfoPage::InfoPage(QWidget *parent) :
+BlockchainPage::BlockchainPage(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::InfoPage)
 {
@@ -106,32 +106,32 @@ InfoPage::InfoPage(QWidget *parent) :
             this, SLOT(openBlockFromInput()));
 }
 
-InfoPage::~InfoPage()
+BlockchainPage::~BlockchainPage()
 {
     delete ui;
 }
 
-BlockchainModel * InfoPage::blockchainModel() const
+BlockchainModel * BlockchainPage::blockchainModel() const
 {
     return model;
 }
 
-void InfoPage::showChainPage()
+void BlockchainPage::showChainPage()
 {
     ui->tabs->setCurrentWidget(ui->pageChain);
 }
 
-void InfoPage::showBlockPage()
+void BlockchainPage::showBlockPage()
 {
     ui->tabs->setCurrentWidget(ui->pageBlock);
 }
 
-void InfoPage::showTxPage()
+void BlockchainPage::showTxPage()
 {
     ui->tabs->setCurrentWidget(ui->pageTx);
 }
 
-void InfoPage::jumpToBlock()
+void BlockchainPage::jumpToBlock()
 {
     bool ok = false;
     int blockNum = ui->lineJumpToBlock->text().toInt(&ok);
@@ -146,7 +146,7 @@ void InfoPage::jumpToBlock()
     ui->blockchainView->scrollTo(mi);
 }
 
-void InfoPage::openBlockFromInput()
+void BlockchainPage::openBlockFromInput()
 {
     bool ok = false;
     int blockNum = ui->lineFindBlock->text().toInt(&ok);
@@ -163,24 +163,24 @@ void InfoPage::openBlockFromInput()
     openBlock(hash);
 }
 
-void InfoPage::updateCurrentBlockIndex()
+void BlockchainPage::updateCurrentBlockIndex()
 {
     currentBlockIndex = ui->blockchainView->currentIndex();
 }
 
-void InfoPage::scrollToCurrentBlockIndex()
+void BlockchainPage::scrollToCurrentBlockIndex()
 {
     ui->blockchainView->scrollTo(currentBlockIndex);
 }
 
-void InfoPage::openBlock(const QModelIndex & mi)
+void BlockchainPage::openBlock(const QModelIndex & mi)
 {
     if (!mi.isValid())
         return;
     openBlock(mi.data(BlockchainModel::HashRole).value<uint256>());
 }
 
-void InfoPage::openBlock(uint256 hash)
+void BlockchainPage::openBlock(uint256 hash)
 {
     currentBlock = hash;
     QString bhash = QString::fromStdString(currentBlock.ToString());
@@ -208,7 +208,7 @@ void InfoPage::openBlock(uint256 hash)
     }
 }
 
-void InfoPage::openTx(QTreeWidgetItem * item, int column)
+void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
 {
     Q_UNUSED(column);
     if (!item->text(0).startsWith("tx"))
@@ -368,7 +368,7 @@ static void value_to_fractions(int64_t v, int64_t *fs) {
     }
 }
 
-void InfoPage::openFractions(QTreeWidgetItem * item,int)
+void BlockchainPage::openFractions(QTreeWidgetItem * item,int)
 {
     auto dlg = new QDialog(this);
     Ui::FractionsDialog ui;

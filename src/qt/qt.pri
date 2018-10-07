@@ -12,7 +12,7 @@ HEADERS += \
     $$PWD/addressbookpage.h \
     $$PWD/signmessagepage.h \
     $$PWD/verifymessagepage.h \
-    $$PWD/infopage.h \
+    $$PWD/blockchainpage.h \
     $$PWD/aboutdialog.h \
     $$PWD/editaddressdialog.h \
     $$PWD/bitcoinaddressvalidator.h \
@@ -54,7 +54,7 @@ SOURCES += \
     $$PWD/addressbookpage.cpp \
     $$PWD/signmessagepage.cpp \
     $$PWD/verifymessagepage.cpp \
-    $$PWD/infopage.cpp \
+    $$PWD/blockchainpage.cpp \
     $$PWD/aboutdialog.cpp \
     $$PWD/editaddressdialog.cpp \
     $$PWD/bitcoinaddressvalidator.cpp \

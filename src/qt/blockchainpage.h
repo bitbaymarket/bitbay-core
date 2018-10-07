@@ -13,13 +13,13 @@ class QModelIndex;
 class QTreeWidgetItem;
 class BlockchainModel;
 
-class InfoPage : public QDialog
+class BlockchainPage : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit InfoPage(QWidget *parent = nullptr);
-    ~InfoPage();
+    explicit BlockchainPage(QWidget *parent = nullptr);
+    ~BlockchainPage();
 
     BlockchainModel * blockchainModel() const;
 

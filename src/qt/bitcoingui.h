@@ -15,7 +15,7 @@ class AddressBookPage;
 class SendCoinsDialog;
 class SignMessagePage;
 class VerifyMessagePage;
-class InfoPage;
+class BlockchainPage;
 class SignVerifyMessageDialog;
 class Notificator;
 class RPCConsole;
@@ -69,7 +69,7 @@ private:
     SendCoinsDialog *sendCoinsPage;
     SignMessagePage *signMessagePage;
     VerifyMessagePage *verifyMessagePage;
-    InfoPage *infoPage;
+    BlockchainPage *infoPage;
 
     QLabel *lastBlockLabel;
     QLabel *lastBlockPegSupplyLabel;

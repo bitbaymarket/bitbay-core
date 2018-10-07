@@ -239,34 +239,6 @@ bool WriteFractionsForPegTest(int nStartHeight, CTxDB & ctxdb, LoadMsg load_msg)
     return true;
 }
 
-static void value_to_fractions(int64_t v, int64_t *fs) {
-    int64_t vf = 0;
-    for(int i=0;i<1200;i++) {
-        int64_t f = v/100;
-        int64_t fm = v % 100;
-        if (fm >= 45) f++;
-        v -= f;
-        vf += f;
-        fs[i] = f;
-    }
-    int64_t r = v-vf;
-    for(int i=0;i<r;i++) {
-        fs[i]++;
-    }
-}
-
-static void fractions_to_deltas(int64_t *f, int64_t *fd) {
-    int64_t fp = 0;
-    for(int i=0; i<1200; i++) {
-        if (i==0) {
-            fp = fd[0] = f[0];
-            continue;
-        }
-        fd[i] = f[i]-fp*99/100;
-        fp = f[i];
-    }
-}
-
 CPegFractions::CPegFractions()
     :nFlags(PEG_VALUE)
 {
@@ -494,6 +466,7 @@ bool PegReport(const char* format)
 int PegPrintStr(const std::string &str)
 {
     LogPrintStr("PEG:"+str);
+    return 0;
 }
 
 bool CalculateTransactionFractions(const CTransaction & tx,

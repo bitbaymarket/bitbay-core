@@ -47,14 +47,15 @@ public:
     bool Unpack(CDataStream &);
 
     CPegFractions Std() const;
-    CPegFractions Reserve(int supply, int64_t* total) const;
-    CPegFractions Liquidity(int supply, int64_t* total) const;
-    CPegFractions RatioPart(int64_t part, int64_t of_total) const;
+    CPegFractions Reserve(int supply, int64_t* total);
+    CPegFractions Liquidity(int supply, int64_t* total);
+    CPegFractions RatioPart(int64_t part, int64_t of_total);
 
     CPegFractions& operator+=(const CPegFractions& b);
     CPegFractions& operator-=(const CPegFractions& b);
 
 private:
+    void ToStd();
     void ToDeltas(int64_t* deltas) const;
     void FromDeltas(const int64_t* deltas);
 };

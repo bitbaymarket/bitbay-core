@@ -396,8 +396,27 @@ CPegFractions CPegFractions::Std() const
     return fstd;
 }
 
-CPegFractions CPegFractions::Reserve(int supply, int64_t* total) const
+void CPegFractions::ToStd()
 {
+    if (nFlags!=PEG_VALUE)
+        return;
+
+    nFlags = PEG_STD;
+    int64_t v = f[0];
+    for(int i=0;i<PEG_SIZE;i++) {
+        if (i == PEG_SIZE-1) {
+            f[i] = v;
+            break;
+        }
+        int64_t frac = v/PEG_RATE;
+        f[i] = frac;
+        v -= frac;
+    }
+}
+
+CPegFractions CPegFractions::Reserve(int supply, int64_t* total)
+{
+    ToStd();
     CPegFractions freserve = CPegFractions(0).Std();
     for(int i=0; i<supply; i++) {
         if (total) *total += f[i];
@@ -405,8 +424,9 @@ CPegFractions CPegFractions::Reserve(int supply, int64_t* total) const
     }
     return freserve;
 }
-CPegFractions CPegFractions::Liquidity(int supply, int64_t* total) const
+CPegFractions CPegFractions::Liquidity(int supply, int64_t* total)
 {
+    ToStd();
     CPegFractions fliquidity = CPegFractions(0).Std();
     for(int i=supply; i<PEG_SIZE; i++) {
         if (total) *total += f[i];
@@ -415,22 +435,31 @@ CPegFractions CPegFractions::Liquidity(int supply, int64_t* total) const
     return fliquidity;
 }
 
-CPegFractions CPegFractions::RatioPart(int64_t part, int64_t of_total) const {
-    CPegFractions fpart = CPegFractions(0).Std();
+/** Take a part as ration part/total where part is also value (sum fraction)
+ *  Returned fractions are also adjusted for part for rounding differences.
+ */
+CPegFractions CPegFractions::RatioPart(int64_t nPartValue, int64_t nTotalValue) {
+    ToStd();
+    int64_t nPartValueSum = 0;
+    CPegFractions fPart = CPegFractions(0).Std();
     for(int i=0; i<PEG_SIZE; i++) {
         int64_t v = f[i];
-        if (part <= INT_LEAST32_MAX && v <= INT_LEAST32_MAX) { // fast
-            fpart.f[i] = (v*part)/of_total;
+        if (nPartValue <= INT_LEAST32_MAX && v <= INT_LEAST32_MAX) { // fast
+            fPart.f[i] = (v*nPartValue)/nTotalValue;
         }
         else { // slower as multiply can be over int64_t max
             multiprecision::uint128_t v128(v);
-            multiprecision::uint128_t part128(part);
-            multiprecision::uint128_t of_total128(of_total);
+            multiprecision::uint128_t part128(nPartValue);
+            multiprecision::uint128_t of_total128(nTotalValue);
             multiprecision::uint128_t f128 = (v128*part128)/of_total128;
-            fpart.f[i] = f128.convert_to<int64_t>();
+            fPart.f[i] = f128.convert_to<int64_t>();
         }
+        nPartValueSum += fPart.f[i];
     }
-    return fpart;
+    for (int64_t i=nPartValueSum; i<nPartValue; i++) {
+        fPart.f[(i-nPartValueSum) % PEG_SIZE]++;
+    }
+    return fPart;
 }
 
 CPegFractions& CPegFractions::operator+=(const CPegFractions& b)

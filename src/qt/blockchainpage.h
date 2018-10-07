@@ -6,7 +6,7 @@
 #include "bignum.h"
 
 namespace Ui {
-    class InfoPage;
+    class BlockchainPage;
 }
 
 class QModelIndex;
@@ -37,7 +37,7 @@ private slots:
     void scrollToCurrentBlockIndex();
 
 private:
-    Ui::InfoPage *ui;
+    Ui::BlockchainPage *ui;
     BlockchainModel *model;
     QPersistentModelIndex currentBlockIndex;
     uint256 currentBlock;

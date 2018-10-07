@@ -1,5 +1,5 @@
 #include "blockchainpage.h"
-#include "ui_infopage.h"
+#include "ui_blockchainpage.h"
 #include "ui_fractionsdialog.h"
 
 #include "main.h"
@@ -20,7 +20,7 @@
 
 BlockchainPage::BlockchainPage(QWidget *parent) :
     QDialog(parent),
-    ui(new Ui::InfoPage)
+    ui(new Ui::BlockchainPage)
 {
     ui->setupUi(this);
     GUIUtil::SetBitBayFonts(this);
@@ -208,6 +208,49 @@ void BlockchainPage::openBlock(uint256 hash)
     }
 }
 
+static QString scriptToAddress(const CScript& scriptPubKey, bool show_alias =true) {
+    int nRequired;
+    txnouttype type;
+    vector<CTxDestination> addresses;
+    if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
+        std::string str_addr_all;
+        for(const CTxDestination& addr : addresses) {
+            std::string str_addr = CBitcoinAddress(addr).ToString();
+            if (show_alias) {
+                if (str_addr == "bNyZrPLQAMPvYedrVLDcBSd8fbLdNgnRPz") {
+                    str_addr = "peginflate";
+                }
+                else if (str_addr == "bNyZrP2SbrV6v5HqeBoXZXZDE2e4fe6STo") {
+                    str_addr = "pegdeflate";
+                }
+                else if (str_addr == "bNyZrPeFFNP6GFJZCkE82DDN7JC4K5Vrkk") {
+                    str_addr = "pegnochange";
+                }
+            }
+            if (!str_addr_all.empty())
+                str_addr_all += "\n";
+            str_addr_all += str_addr;
+        }
+        return QString::fromStdString(str_addr_all);
+    }
+    return QString();
+}
+
+static QString displayValue(int64_t nValue) {
+    QString sValue = QString::number(nValue);
+    if (sValue.length() <8) {
+        sValue = sValue.rightJustified(8, QChar(' '));
+    }
+    sValue.insert(sValue.length()-8, QChar('.'));
+    if (sValue.length() > (8+1+3))
+        sValue.insert(sValue.length()-8-1-3, QChar(','));
+    if (sValue.length() > (8+1+3+1+3))
+        sValue.insert(sValue.length()-8-1-3-1-3, QChar(','));
+    if (sValue.length() > (8+1+3+1+3+1+3))
+        sValue.insert(sValue.length()-8-1-3-1-3-1-3, QChar(','));
+    return sValue;
+}
+
 void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
 {
     Q_UNUSED(column);
@@ -269,34 +312,20 @@ void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
         if (mapInputs.find(prevout.hash) != mapInputs.end()) {
             CTransaction& txPrev = mapInputs[prevout.hash].second;
             if (prevout.n < txPrev.vout.size()) {
-                int nRequired;
-                txnouttype type;
-                vector<CTxDestination> addresses;
-                const CScript& scriptPubKey = txPrev.vout[prevout.n].scriptPubKey;
-                if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
-                    std::string str_addr_all;
-                    for(const CTxDestination& addr : addresses) {
-                        std::string str_addr = CBitcoinAddress(addr).ToString();
-                        if (!str_addr_all.empty())
-                            str_addr_all += "\n";
-                        str_addr_all += str_addr;
-                    }
-                    row << QString::fromStdString(str_addr_all);
-                }
-                else {
+                auto addr = scriptToAddress(txPrev.vout[prevout.n].scriptPubKey);
+                if (addr.isEmpty())
                     row << "N/A"; // address
-                }
+                else row << addr;
 
-                int64_t value = txPrev.vout[prevout.n].nValue;
-                row << QString::number(value);
+                row << displayValue(txPrev.vout[prevout.n].nValue);
             }
             else {
-                row << "none"; // address
+                row << "N/A"; // address
                 row << "none"; // value
             }
         }
         else {
-            row << "none"; // address
+            row << "N/A"; // address
             row << "none"; // value
         }
 
@@ -318,53 +347,14 @@ void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
         QStringList row;
         row << QString::number(i);
 
-        int nRequired;
-        txnouttype type;
-        vector<CTxDestination> addresses;
-        const CScript& scriptPubKey = tx.vout[i].scriptPubKey;
-        if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
-            std::string str_addr_all;
-            for(const CTxDestination& addr : addresses) {
-                std::string str_addr = CBitcoinAddress(addr).ToString();
-                if (str_addr == "bNyZrPLQAMPvYedrVLDcBSd8fbLdNgnRPz") {
-                    str_addr = "peginflate";
-                }
-                else if (str_addr == "bNyZrP2SbrV6v5HqeBoXZXZDE2e4fe6STo") {
-                    str_addr = "pegdeflate";
-                }
-                else if (str_addr == "bNyZrPeFFNP6GFJZCkE82DDN7JC4K5Vrkk") {
-                    str_addr = "pegnochange";
-                }
-                if (!str_addr_all.empty())
-                    str_addr_all += "\n";
-                str_addr_all += str_addr;
-            }
-            row << QString::fromStdString(str_addr_all);
-        }
-        else {
+        auto addr = scriptToAddress(tx.vout[i].scriptPubKey);
+        if (addr.isEmpty())
             row << "N/A"; // address
-        }
+        else row << addr;
 
-        int64_t value = tx.vout[i].nValue;
-        row << QString::number(value);
+        row << displayValue(tx.vout[i].nValue);
 
         ui->txOutputs->addTopLevelItem(new QTreeWidgetItem(row));
-    }
-}
-
-static void value_to_fractions(int64_t v, int64_t *fs) {
-    int64_t vf = 0;
-    for(int i=0;i<1200;i++) {
-        int64_t f = v/100;
-        int64_t fm = v % 100;
-        if (fm >= 45) f++;
-        v -= f;
-        vf += f;
-        fs[i] = f;
-    }
-    int64_t r = v-vf;
-    for(int i=0;i<r;i++) {
-        fs[i]++;
     }
 }
 

@@ -24,6 +24,11 @@ extern int nPegMaxSupplyIndex;
 // functors for messagings
 typedef std::function<void(const std::string &)> LoadMsg;
 
+enum
+{
+    PEG_INTERVAL = 200
+};
+
 class CPegFractions {
 public:
     unsigned int nFlags;

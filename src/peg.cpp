@@ -132,14 +132,19 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex)
         return true;
     }
 
-    if (pindex->nHeight % 200 == 0) {
+    if (pindex->nHeight % PEG_INTERVAL == 0) {
         pindex->nPegVotesInflate =0;
         pindex->nPegVotesDeflate =0;
         pindex->nPegVotesNochange =0;
 
-        int inflate = pindex->pprev->nPegVotesInflate;
-        int deflate = pindex->pprev->nPegVotesDeflate;
-        int nochange = pindex->pprev->nPegVotesNochange;
+        // back to 2 intervals and -1 to count voice of back-third interval, as votes sum at PEG_INTERVAL-1
+        auto usevotesindex = pindex;
+        while (usevotesindex->nHeight > (pindex->nHeight - PEG_INTERVAL*2 -1))
+            usevotesindex = usevotesindex->pprev;
+
+        int inflate = usevotesindex->nPegVotesInflate;
+        int deflate = usevotesindex->nPegVotesDeflate;
+        int nochange = usevotesindex->nPegVotesNochange;
 
         pindex->nPegSupplyIndex = pindex->pprev->nPegSupplyIndex;
         if (deflate > inflate && deflate > nochange) pindex->nPegSupplyIndex++;

@@ -446,6 +446,11 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)
     auto fractions = vfractions.value<CPegFractions>();
     auto fractions_std = fractions.Std();
 
+    unsigned long len_test = 0;
+    CDataStream fout_test(SER_DISK, CLIENT_VERSION);
+    fractions.Pack(fout_test, &len_test);
+    ui.packedLabel->setText(tr("Packed: %1 bytes").arg(len_test));
+
     int64_t f_max = 0;
     for (int i=0; i<CPegFractions::PEG_SIZE; i++) {
         auto f = fractions_std.f[i];

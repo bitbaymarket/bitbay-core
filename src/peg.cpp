@@ -327,7 +327,7 @@ void CPegFractions::FromDeltas(const int64_t* deltas)
     }
 }
 
-bool CPegFractions::Pack(CDataStream & out) const
+bool CPegFractions::Pack(CDataStream& out, unsigned long* report_len) const
 {
     if (nFlags == PEG_VALUE) {
         out << int(SER_VALUE);
@@ -343,12 +343,14 @@ bool CPegFractions::Pack(CDataStream & out) const
         auto src = reinterpret_cast<const unsigned char *>(deltas);
         int res = ::compress2(zout, &zlen, src, n, zlevel);
         if (res == Z_OK) {
+            if (report_len) *report_len = zlen;
             out << int(SER_ZDELTA);
             auto ser = reinterpret_cast<const char *>(zout);
             out << zlen;
             out.write(ser, zlen);
         }
         else {
+            if (report_len) *report_len = PEG_SIZE*sizeof(int64_t);
             out << int(SER_RAW);
             auto ser = reinterpret_cast<const char *>(f);
             out.write(ser, PEG_SIZE*sizeof(int64_t));
@@ -357,7 +359,7 @@ bool CPegFractions::Pack(CDataStream & out) const
     return true;
 }
 
-bool CPegFractions::Unpack(CDataStream & inp)
+bool CPegFractions::Unpack(CDataStream& inp)
 {
     int nSerFlags = 0;
     inp >> nSerFlags;

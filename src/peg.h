@@ -48,7 +48,7 @@ public:
     CPegFractions(int64_t);
     CPegFractions(const CPegFractions &);
 
-    bool Pack(CDataStream &) const;
+    bool Pack(CDataStream &, unsigned long* len =nullptr) const;
     bool Unpack(CDataStream &);
 
     CPegFractions Std() const;

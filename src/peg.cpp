@@ -87,7 +87,7 @@ bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb, LoadMsg load_msg) {
     return true;
 }
 
-bool CalculateVotesForPeg(CTxDB & ctxdb, LoadMsg load_msg) {
+bool CalculateVotesForPeg(CTxDB & ctxdb, CPegDB& pegdb, LoadMsg load_msg) {
     if (!ctxdb.TxnBegin())
         return error("CalculateVotesForPeg() : TxnBegin failed");
 
@@ -107,7 +107,7 @@ bool CalculateVotesForPeg(CTxDB & ctxdb, LoadMsg load_msg) {
 
         // calc votes per block
         block.ReadFromDisk(pblockindex, true);
-        CalculateBlockPegVotes(block, pblockindex);
+        CalculateBlockPegVotes(block, pblockindex, pegdb);
         ctxdb.WriteBlockIndex(CDiskBlockIndex(pblockindex));
 
         pblockindex = pblockindex->pnext;
@@ -122,7 +122,7 @@ bool CalculateVotesForPeg(CTxDB & ctxdb, LoadMsg load_msg) {
     return true;
 }
 
-bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex)
+bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& pegdb)
 {
     if (!cblock.IsProofOfStake() || pindex->nHeight < nPegStartHeight) {
         pindex->nPegSupplyIndex =0;
@@ -162,7 +162,51 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex)
         pindex->nPegVotesNochange = pindex->pprev->nPegVotesNochange;
     }
 
+    int nVoteWeight=1;
+
     const CTransaction & tx = cblock.vtx[1];
+
+    size_t n_vin = tx.vin.size();
+    if (tx.IsCoinBase()) n_vin = 0;
+    for (unsigned int i = 0; i < n_vin; i++)
+    {
+        auto fractions = CPegFractions(0);
+        const COutPoint & prevout = tx.vin[i].prevout;
+        if (!pegdb.Read(prevout.hash, prevout.n, fractions)) {
+            continue;
+        }
+
+        int64_t nReserveWeight=0;
+        int64_t nLiquidityWeight=0;
+
+        fractions.Reserve(pindex->nPegSupplyIndex, &nReserveWeight);
+        fractions.Liquidity(pindex->nPegSupplyIndex, &nLiquidityWeight);
+
+        if (nLiquidityWeight > INT_LEAST64_MAX/(pindex->nPegSupplyIndex+2)) {
+            // check for rare extreme case when user stake more than about 100M coins
+            // in this case multiplication is very close int64_t overflow (int64 max is ~92 GCoins)
+            multiprecision::uint128_t nLiquidityWeight128(nLiquidityWeight);
+            multiprecision::uint128_t nPegSupplyIndex128(pindex->nPegSupplyIndex);
+            multiprecision::uint128_t nPegMaxSupplyIndex128(nPegMaxSupplyIndex);
+            multiprecision::uint128_t f128 = (nLiquidityWeight128*nPegSupplyIndex128)/nPegMaxSupplyIndex128;
+            nLiquidityWeight -= f128.convert_to<int64_t>();
+        }
+        else // usual case, fast calculations
+            nLiquidityWeight -= nLiquidityWeight * pindex->nPegSupplyIndex / nPegMaxSupplyIndex;
+
+        int nWeightMultiplier = pindex->nPegSupplyIndex/120+1;
+        if (nLiquidityWeight > (nReserveWeight*4)) {
+            nVoteWeight = 4*nWeightMultiplier;
+        }
+        else if (nLiquidityWeight > (nReserveWeight*3)) {
+            nVoteWeight = 3*nWeightMultiplier;
+        }
+        else if (nLiquidityWeight > (nReserveWeight*2)) {
+            nVoteWeight = 2*nWeightMultiplier;
+        }
+        break;
+    }
+
     for(const CTxOut & out : tx.vout) {
         const CScript& scriptPubKey = out.scriptPubKey;
 
@@ -178,17 +222,17 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex)
         for(const CTxDestination& addr : addresses) {
             std::string str_addr = CBitcoinAddress(addr).ToString();
             if (str_addr == "bNyZrPLQAMPvYedrVLDcBSd8fbLdNgnRPz") {
-                pindex->nPegVotesInflate++;
+                pindex->nPegVotesInflate += nVoteWeight;
                 voted = true;
                 break;
             }
             else if (str_addr == "bNyZrP2SbrV6v5HqeBoXZXZDE2e4fe6STo") {
-                pindex->nPegVotesDeflate++;
+                pindex->nPegVotesDeflate += nVoteWeight;
                 voted = true;
                 break;
             }
             else if (str_addr == "bNyZrPeFFNP6GFJZCkE82DDN7JC4K5Vrkk") {
-                pindex->nPegVotesNochange++;
+                pindex->nPegVotesNochange += nVoteWeight;
                 voted = true;
                 break;
             }

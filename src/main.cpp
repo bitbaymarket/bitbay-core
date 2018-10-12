@@ -1260,6 +1260,7 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
         // Read previous fractions
         CPegFractions& fractions = finputsRet[uint320(prevout.hash, prevout.n)];
         fractions = CPegFractions(txPrev.vout[prevout.n].nValue);
+        //peg:todo: not to read before peg start, expensive to know tx height?
         if (!pegdb.Read(prevout.hash, prevout.n, fractions)) {
             PegError("FetchInputs() : %s pegdb.Read/Unpack prev tx fractions %s failed", GetHash().ToString(),  prevout.hash.ToString());
             //return DoS?
@@ -1600,7 +1601,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     pindex->nMint = nValueOut - nValueIn + nFees;
     pindex->nMoneySupply = (pindex->pprev? pindex->pprev->nMoneySupply : 0) + nValueOut - nValueIn;
     // bitbay: trac peg voting information
-    CalculateBlockPegVotes(*this, pindex);
+    CalculateBlockPegVotes(*this, pindex, pegdb);
 
     if (!txdb.WriteBlockIndex(CDiskBlockIndex(pindex)))
         return error("Connect() : WriteBlockIndex for pindex failed");

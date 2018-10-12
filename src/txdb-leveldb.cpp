@@ -606,13 +606,22 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
             return error("LoadBlockIndex() : SetBlocksIndexesReadyForPeg failed");
     }
 
+    { // unsure pegdb is created
+        CPegDB pegdb("cr+");
+        if (!pegdb.TxnBegin())
+            return error("LoadBlockIndex() : peg TxnBegin failed");
+        if (!pegdb.TxnCommit())
+            return error("LoadBlockIndex() : peg TxnCommit failed");
+    }
+
     bool bVotesAreReady = false;
     if (!ReadPegVotesAreReady(bVotesAreReady)) {
         bVotesAreReady = false;
     }
 
     if (!bVotesAreReady) {
-        if (!CalculateVotesForPeg(*this, load_msg))
+        CPegDB pegdb("r");
+        if (!CalculateVotesForPeg(*this, pegdb, load_msg))
             return error("LoadBlockIndex() : SetBlocksIndexesReadyForPeg failed");
     }
 
@@ -623,14 +632,6 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
             return error("WritePegStartHeight() : flag write failed");
         if (!TxnCommit())
             return error("WriteBlockIndexIsPegReady() : TxnCommit failed");
-    }
-
-    { // unsure pegdb is created
-        CPegDB pegdb("cr+");
-        if (!pegdb.TxnBegin())
-            return error("LoadBlockIndex() : peg TxnBegin failed");
-        if (!pegdb.TxnCommit())
-            return error("LoadBlockIndex() : peg TxnCommit failed");
     }
 
     return true;

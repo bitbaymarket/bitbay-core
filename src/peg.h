@@ -70,9 +70,11 @@ typedef std::map<uint320, CPegFractions> MapPrevFractions;
 bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb,
                                  LoadMsg load_msg);
 bool CalculateVotesForPeg(CTxDB & ctxdb,
+                          CPegDB& pegdb,
                           LoadMsg load_msg);
 bool CalculateBlockPegVotes(const CBlock & cblock,
-                            CBlockIndex* pindex);
+                            CBlockIndex* pindex,
+                            CPegDB& pegdb);
 bool WriteFractionsForPegTest(int nStartHeight,
                               CTxDB & ctxdb,
                               LoadMsg load_msg);
@@ -105,10 +107,10 @@ int PegPrintStr(const std::string &str);
 
 TINYFORMAT_FOREACH_ARGNUM(MAKE_PEG_LOG_FUNC)
 
-static inline bool PegError(const char* format)
-{
-    PegPrintStr(std::string("ERROR: ") + format + "\n");
-    return false;
-}
+//static inline bool PegError(const char* format)
+//{
+//    PegPrintStr(std::string("ERROR: ") + format + "\n");
+//    return false;
+//}
 
 #endif

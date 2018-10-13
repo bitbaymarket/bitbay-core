@@ -606,14 +606,6 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
             return error("LoadBlockIndex() : SetBlocksIndexesReadyForPeg failed");
     }
 
-    { // unsure pegdb is created
-        CPegDB pegdb("cr+");
-        if (!pegdb.TxnBegin())
-            return error("LoadBlockIndex() : peg TxnBegin failed");
-        if (!pegdb.TxnCommit())
-            return error("LoadBlockIndex() : peg TxnCommit failed");
-    }
-
     bool bVotesAreReady = false;
     if (!ReadPegVotesAreReady(bVotesAreReady)) {
         bVotesAreReady = false;

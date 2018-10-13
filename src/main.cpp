@@ -2556,6 +2556,13 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
     // Load block index
     //
     CTxDB txdb("cr+");
+    { // ensure pegdb is created
+        CPegDB pegdb("cr+");
+        if (!pegdb.TxnBegin())
+            return error("LoadBlockIndex() : peg TxnBegin failed");
+        if (!pegdb.TxnCommit())
+            return error("LoadBlockIndex() : peg TxnCommit failed");
+    }
     if (!txdb.LoadBlockIndex(load_msg))
         return false;
 

@@ -330,6 +330,7 @@ void CPegFractions::FromDeltas(const int64_t* deltas)
 bool CPegFractions::Pack(CDataStream& out, unsigned long* report_len) const
 {
     if (nFlags == PEG_VALUE) {
+        if (report_len) *report_len = sizeof(int64_t);
         out << int(SER_VALUE);
         out << f[0];
     } else {

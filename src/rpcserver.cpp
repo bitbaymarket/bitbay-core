@@ -248,10 +248,6 @@ static const CRPCCommand vRPCCommands[] =
     { "gettxout",               &gettxout,               false,     false,     false },
     { "getpeginfo",             &getpeginfo,             false,     false,     false },
 
-#ifdef ENABLE_PEG_TEST
-    { "setpegstartheight",      &setpegstartheight,      false,     false,     false },
-#endif
-  
 #ifdef ENABLE_WALLET
     { "getmininginfo",          &getmininginfo,          true,      false,     false },
     { "getstakinginfo",         &getstakinginfo,         true,      false,     false },

@@ -240,22 +240,3 @@ Value getpeginfo(const Array& params, bool fHelp)
     obj.push_back(Pair("startheight", nPegStartHeight));
     return obj;
 }
-
-Value setpegstartheight(const Array& params, bool fHelp)
-{
-    if (fHelp || params.size() != 1)
-        throw runtime_error(
-            "setpegstartheight\n"
-            "Sets the height of starting the peg.");
-
-    int nHeight  = params[0].get_int();
-    int nBlocksChanged = -1;
-    
-    Object obj;
-    bool ok = SetPegStartHeight(nHeight, nBlocksChanged);
-    obj.push_back(Pair("status", ok));
-    obj.push_back(Pair("startheight", nHeight));
-    obj.push_back(Pair("changedblocks", nBlocksChanged));
-    return obj;
-}
-

@@ -180,6 +180,5 @@ extern json_spirit::Value getblockbynumber(const json_spirit::Array& params, boo
 extern json_spirit::Value getcheckpoint(const json_spirit::Array& params, bool fHelp);
 
 extern json_spirit::Value getpeginfo(const json_spirit::Array& params, bool fHelp);
-extern json_spirit::Value setpegstartheight(const json_spirit::Array& params, bool fHelp);
 
 #endif

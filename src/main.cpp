@@ -1128,23 +1128,6 @@ bool IsConfirmedInNPrevBlocks(const CTxIndex& txindex, const CBlockIndex* pindex
     return false;
 }
 
-// Set the height of peg start
-bool SetPegStartHeight(int nHeight, int& nBlocksChanged)
-{
-    LOCK(cs_main);
-//    CTxDB txdb;
-//    if (!txdb.TxnBegin())
-//        return false;
-//    if (!txdb.WritePegStartHeight(nHeight))
-//        return false;
-//    if (!txdb.UpdateBlocksForPeg(nHeight, nBlocksChanged))
-//        return false;
-//    if (!txdb.TxnCommit())
-//        return false;
-    return true;
-}
-
-
 bool CTransaction::DisconnectInputs(CTxDB& txdb)
 {
     // Relinquish previous transactions' spent pointers

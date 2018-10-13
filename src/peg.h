@@ -59,10 +59,11 @@ public:
     CPegFractions& operator+=(const CPegFractions& b);
     CPegFractions& operator-=(const CPegFractions& b);
 
-private:
-    void ToStd();
     void ToDeltas(int64_t* deltas) const;
     void FromDeltas(const int64_t* deltas);
+
+private:
+    void ToStd();
 };
 
 typedef std::map<uint320, CPegFractions> MapPrevFractions;

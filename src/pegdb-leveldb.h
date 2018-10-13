@@ -27,8 +27,8 @@ public:
     // Destroys the underlying shared global state accessed by this TxDB.
     void Close();
 
-    bool Read(uint256 txhash, unsigned int txout, CPegFractions &);
-    bool Write(uint256 txhash, unsigned int txout, const CPegFractions &);
+    bool Read(uint320 txout, CPegFractions &);
+    bool Write(uint320 txout, const CPegFractions &);
 
 private:
     leveldb::DB *pdb;  // Points to the global instance.

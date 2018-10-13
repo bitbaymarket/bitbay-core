@@ -203,9 +203,9 @@ bool CPegDB::ScanBatch(const CDataStream &key, string *value, bool *deleted) con
     return scanner.foundEntry;
 }
 
-bool CPegDB::Read(uint256 txhash, unsigned int vout, CPegFractions & f) {
+bool CPegDB::Read(uint320 txout, CPegFractions & f) {
     std::string strValue;
-    if (!ReadStr(make_pair(txhash.ToString(), vout), strValue)) {
+    if (!ReadStr(txout, strValue)) {
         // For now returns true indicating this output is not in pegdb
         // and supposed to be before the peg started, otherwise may
         // need to know height of transction to compare with peg start
@@ -217,10 +217,10 @@ bool CPegDB::Read(uint256 txhash, unsigned int vout, CPegFractions & f) {
                      SER_DISK, CLIENT_VERSION);
     return f.Unpack(finp);
 }
-bool CPegDB::Write(uint256 txhash, unsigned int vout, const CPegFractions & f) {
+bool CPegDB::Write(uint320 txout, const CPegFractions & f) {
     CDataStream fout(SER_DISK, CLIENT_VERSION);
     f.Pack(fout);
-    Write(make_pair(txhash.ToString(), vout), fout);
+    Write(txout, fout);
     return false;
 }
 

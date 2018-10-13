@@ -1275,7 +1275,7 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
         else {
             //peg:todo: not to read before peg start, expensive to know tx height?
             fractions = CPegFractions(txPrev.vout[prevout.n].nValue);
-            if (!pegdb.Read(prevout.hash, prevout.n, fractions)) {
+            if (!pegdb.Read(uint320(prevout.hash, prevout.n), fractions)) {
                 PegError("FetchInputs() : %s pegdb.Read/Unpack prev tx fractions %s failed", GetHash().ToString(),  prevout.hash.ToString());
                 //return DoS?
             }
@@ -1458,10 +1458,6 @@ bool CTransaction::ConnectInputs(CTxDB& txdb,
             return fBlock? DoS(100, error("ConnectInputs() : %s not paying required fee=%s, paid=%s", GetHash().ToString(), FormatMoney(nRequiredFee), FormatMoney(nTxFee))) : false;
     }
 
-    if (IsProtocolVP(pindexBlock->nHeight)) {
-        //peg:todo?
-    }
-
     nFees += nTxFee;
     if (!MoneyRange(nFees))
         return DoS(100, error("ConnectInputs() : nFees out of range"));
@@ -1629,6 +1625,13 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     {
         if (!txdb.UpdateTxIndex((*mi).first, (*mi).second))
             return error("ConnectBlock() : UpdateTxIndex failed");
+    }
+
+    // Write queued fractions changes
+    for (map<uint320, CPegFractions>::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
+    {
+        if (!pegdb.Write((*mi).first, (*mi).second))
+            return error("ConnectBlock() : pegdb Write failed");
     }
 
     // Update block index on disk without changing it in memory.

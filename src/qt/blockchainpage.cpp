@@ -309,8 +309,17 @@ void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
         row << QString::number(i); // idx, 0
 
         QString prev_thash = QString::fromStdString(prevout.hash.ToString());
-        QString sprev_thash = prev_thash.left(4)+"..."+prev_thash.right(4);
-        row << QString("%1:%2").arg(sprev_thash).arg(prevout.n); // tx, 1
+        QString prev_txid = prev_thash.left(4)+"..."+prev_thash.right(4);
+
+        CTxIndex prevtxindex;
+        txdb.ReadTxIndex(prevout.hash, prevtxindex);
+        int nPrevTxNum = 0;
+        int nPrevHeight = prevtxindex.GetHeightInMainChain(&nPrevTxNum, prevout.hash);
+        if (nPrevHeight >0) {
+            prev_txid = QString("%1-%2").arg(nPrevHeight).arg(nPrevTxNum);
+        }
+
+        row << QString("%1:%2").arg(prev_txid).arg(prevout.n); // tx, 1
         auto prev_input = QString("%1:%2").arg(prev_thash).arg(prevout.n); // tx, 1
 
         if (mapInputs.find(prevout.hash) != mapInputs.end()) {

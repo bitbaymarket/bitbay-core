@@ -582,7 +582,10 @@ public:
     {
         return !(a == b);
     }
+
     int GetDepthInMainChain() const;
+    // if pTxIndex - expensive - read whole block
+    int GetHeightInMainChain(int* vtxidx =nullptr, uint256 txhash =uint256(0)) const;
 
 };
 

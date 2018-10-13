@@ -33,6 +33,27 @@ using namespace boost;
 int nPegStartHeight = 1837000;
 int nPegMaxSupplyIndex = 1199;
 
+static set<string> vPegWhitelist = {
+    "bbiUkiqFUsTciMsBdnYETgE2DMg4k3fMdP",
+    "bFFE6UMxmVqFDfsAXS4XH52DGUuTKrDtp8",
+    "bEQUsGaa2ZVW4au3gSsVADhEhFYJr3gCkT",
+    "bZXmqJqPJ9fyLyCPKAYEaKJqGwBA6jaQHR",
+    "bMkmLGdNxbr4wpbZUr1k67Tdq5yYLE9jV2",
+    "bNfFbrFau9upJ69VQrmSV3EsDwShKpb2pw",
+    "bHGcVEP6piBNTnLoeyW5s18AAPbT2K8XJC",
+    "bXnG4VTHFyy7Xt7sUJmKuWVerm7T4gKWSj",
+    "bXxHTFPRXD5JbFzxcypMkrBCN9HNULsvfG",
+    "bHkh3qrEhyJ7wnMvgzLzhrghLaX3WPpLEX",
+    "bT73XQJSMhpwHnFDuC2vvUbXBGNvRk37L5",
+    "bSbxMhBN2u9EmTeugpu7EQT2DAwikym64K",
+    "bEnDRACm7n3pPJQhfEJ1kC2zT59fMxTeDh",
+    "bQMxcnPpuga2TdxTVFr7wSCaUb7hVpfnpN",
+    "bPoxnznczDN5GcryGLZ7bGpFFJtsE3RHww",
+    "bLbk2cj78mUDpKvJF7xyVtVoYd1AX7PaRd",
+    "bVuGpma6c8Yz5mUxswtHcZk1fQt36q1zvA",
+    "bJvjfxvBQ3sc5Gj8sTQ6vLbAMsg6CfVVcz"
+};
+
 extern leveldb::DB *txdb; // global pointer for LevelDB object instance
 
 bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb, LoadMsg load_msg) {
@@ -468,16 +489,26 @@ CPegFractions CPegFractions::RatioPart(int64_t nPartValue, int64_t nTotalValue) 
     CPegFractions fPart = CPegFractions(0).Std();
     for(int i=0; i<PEG_SIZE; i++) {
         int64_t v = f[i];
-        if (nPartValue <= INT_LEAST32_MAX && v <= INT_LEAST32_MAX) { // fast
-            fPart.f[i] = (v*nPartValue)/nTotalValue;
-        }
-        else { // slower as multiply can be over int64_t max
+        int64_t m_test;
+        if (__builtin_smulll_overflow(v, nPartValue, &m_test)) {
             multiprecision::uint128_t v128(v);
             multiprecision::uint128_t part128(nPartValue);
-            multiprecision::uint128_t of_total128(nTotalValue);
-            multiprecision::uint128_t f128 = (v128*part128)/of_total128;
+            multiprecision::uint128_t f128 = (v128*part128)/nTotalValue;
             fPart.f[i] = f128.convert_to<int64_t>();
         }
+        else {
+            fPart.f[i] = (v*nPartValue)/nTotalValue;
+        }
+//        if (nPartValue <= INT_LEAST32_MAX && v <= INT_LEAST32_MAX) { // fast
+//            fPart.f[i] = (v*nPartValue)/nTotalValue;
+//        }
+//        else { // slower as multiply can be over int64_t max
+//            multiprecision::uint128_t v128(v);
+//            multiprecision::uint128_t part128(nPartValue);
+//            multiprecision::uint128_t of_total128(nTotalValue);
+//            multiprecision::uint128_t f128 = (v128*part128)/of_total128;
+//            fPart.f[i] = f128.convert_to<int64_t>();
+//        }
         nPartValueSum += fPart.f[i];
     }
     for (int64_t i=nPartValueSum; i<nPartValue; i++) {
@@ -516,6 +547,34 @@ int PegPrintStr(const std::string &str)
     return 0;
 }
 
+bool IsPegWhiteListed(const CTransaction & tx,
+                      MapPrevTx & inputs)
+{
+    size_t n_vin = tx.vin.size();
+    if (tx.IsCoinBase()) n_vin = 0;
+    for (unsigned int i = 0; i < n_vin; i++)
+    {
+        const COutPoint & prevout = tx.vin[i].prevout;
+        CTransaction& txPrev = inputs[prevout.hash].second;
+        if (prevout.n >= txPrev.vout.size()) {
+            continue;
+        }
+
+        int nRequired;
+        txnouttype type;
+        vector<CTxDestination> addresses;
+        const CScript& scriptPubKey = txPrev.vout[prevout.n].scriptPubKey;
+        if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
+            for(const CTxDestination& addr : addresses) {
+                std::string str_addr = CBitcoinAddress(addr).ToString();
+                if (vPegWhitelist.count(str_addr))
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+
 bool CalculateTransactionFractions(const CTransaction & tx,
                                    const CBlockIndex* pindexBlock,
                                    MapPrevTx & inputs,
@@ -525,6 +584,8 @@ bool CalculateTransactionFractions(const CTransaction & tx,
                                    bool * ok)
 {
     if (ok) *ok = true;
+    if (!IsPegWhiteListed(tx, inputs))
+        return true;
 
     // calculate liquidity and total pools
     int64_t nValueIn = 0;

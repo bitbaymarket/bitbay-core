@@ -80,6 +80,8 @@ bool WriteFractionsForPegTest(int nStartHeight,
                               CTxDB & ctxdb,
                               LoadMsg load_msg);
 
+bool IsPegWhiteListed(const CTransaction & tx, MapPrevTx & inputs);
+
 bool CalculateTransactionFractions(const CTransaction & tx,
                                    const CBlockIndex* pindexBlock,
                                    MapPrevTx & inputs,

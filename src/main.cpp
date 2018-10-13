@@ -1242,11 +1242,18 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
         }
         // Read previous fractions
         CPegFractions& fractions = finputsRet[uint320(prevout.hash, prevout.n)];
-        fractions = CPegFractions(txPrev.vout[prevout.n].nValue);
-        //peg:todo: not to read before peg start, expensive to know tx height?
-        if (!pegdb.Read(prevout.hash, prevout.n, fractions)) {
-            PegError("FetchInputs() : %s pegdb.Read/Unpack prev tx fractions %s failed", GetHash().ToString(),  prevout.hash.ToString());
-            //return DoS?
+        if ((fBlock || fMiner) && mapTestFractionsPool.count(uint320(prevout.hash, prevout.n)))
+        {
+            // Get fractions from current proposed changes
+            fractions = mapTestFractionsPool.find(uint320(prevout.hash, prevout.n))->second;
+        }
+        else {
+            //peg:todo: not to read before peg start, expensive to know tx height?
+            fractions = CPegFractions(txPrev.vout[prevout.n].nValue);
+            if (!pegdb.Read(prevout.hash, prevout.n, fractions)) {
+                PegError("FetchInputs() : %s pegdb.Read/Unpack prev tx fractions %s failed", GetHash().ToString(),  prevout.hash.ToString());
+                //return DoS?
+            }
         }
     }
 

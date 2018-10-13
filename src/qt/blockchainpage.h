@@ -29,6 +29,7 @@ private slots:
     void showTxPage();
     void openBlock(uint256);
     void openBlock(const QModelIndex &);
+    void openBlock(QTreeWidgetItem*,int);
     void openTx(QTreeWidgetItem*,int);
     void openTx(uint256 blockhash, uint txidx);
     void openFractions(QTreeWidgetItem*,int);

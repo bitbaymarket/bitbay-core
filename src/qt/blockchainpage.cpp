@@ -42,6 +42,8 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
             this, SLOT(openBlock(const QModelIndex &)));
     connect(ui->blockValues, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
             this, SLOT(openTx(QTreeWidgetItem*,int)));
+    connect(ui->blockValues, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
+            this, SLOT(openBlock(QTreeWidgetItem*,int)));
     connect(ui->txInputs, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
             this, SLOT(openFractions(QTreeWidgetItem*,int)));
     connect(ui->txOutputs, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
@@ -148,7 +150,9 @@ void BlockchainPage::jumpToBlock()
     auto mi = ui->blockchainView->model()->index(r, 0);
     ui->blockchainView->setCurrentIndex(mi);
     ui->blockchainView->selectionModel()->select(mi, QItemSelectionModel::Current);
-    ui->blockchainView->scrollTo(mi);
+    ui->blockchainView->scrollTo(mi, QAbstractItemView::PositionAtCenter);
+    ui->blockchainView->setFocus();
+    ui->lineJumpToBlock->clear();
 }
 
 void BlockchainPage::openBlockFromInput()
@@ -175,7 +179,7 @@ void BlockchainPage::updateCurrentBlockIndex()
 
 void BlockchainPage::scrollToCurrentBlockIndex()
 {
-    ui->blockchainView->scrollTo(currentBlockIndex);
+    ui->blockchainView->scrollTo(currentBlockIndex, QAbstractItemView::PositionAtCenter);
 }
 
 void BlockchainPage::openBlock(const QModelIndex & mi)
@@ -183,6 +187,14 @@ void BlockchainPage::openBlock(const QModelIndex & mi)
     if (!mi.isValid())
         return;
     openBlock(mi.data(BlockchainModel::HashRole).value<uint256>());
+}
+
+void BlockchainPage::openBlock(QTreeWidgetItem* item, int)
+{
+    if (item->text(0) == "Next" || item->text(0) == "Previous") {
+        uint256 bhash(item->text(1).toStdString());
+        openBlock(bhash);
+    }
 }
 
 void BlockchainPage::openBlock(uint256 hash)
@@ -197,9 +209,21 @@ void BlockchainPage::openBlock(uint256 hash)
     if (!pblockindex)
         return;
     showBlockPage();
+    if (ui->lineFindBlock->text() != bhash && ui->lineFindBlock->text().toInt() != pblockindex->nHeight)
+        ui->lineFindBlock->clear();
     ui->blockValues->clear();
     ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Height",QString::number(pblockindex->nHeight)})));
     ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Hash",bhash})));
+    QString pbhash;
+    QString nbhash;
+    if (pblockindex->pprev) {
+        pbhash = QString::fromStdString(pblockindex->pprev->GetBlockHash().ToString());
+    }
+    if (pblockindex->pnext) {
+        nbhash = QString::fromStdString(pblockindex->pnext->GetBlockHash().ToString());
+    }
+    ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Next",nbhash})));
+    ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Previous",pbhash})));
 
     CBlock block;
     block.ReadFromDisk(pblockindex, true);

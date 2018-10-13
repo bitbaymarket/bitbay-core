@@ -209,17 +209,17 @@
          </column>
          <column>
           <property name="text">
+           <string>Spent</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
            <string>Address</string>
           </property>
          </column>
          <column>
           <property name="text">
            <string>Value</string>
-          </property>
-         </column>
-         <column>
-          <property name="text">
-           <string>Spent</string>
           </property>
          </column>
          <column>

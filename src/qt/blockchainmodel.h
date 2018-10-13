@@ -30,6 +30,8 @@ public:
     };
     enum Roles {
         HashRole = Qt::UserRole+1000,
+        TxNumRole,
+        OutNumRole,
         FractionsRole,
         PegSupplyRole
     };

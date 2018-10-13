@@ -848,20 +848,22 @@ int CTxIndex::GetDepthInMainChain() const
     return 1 + nBestHeight - pindex->nHeight;
 }
 
-int CTxIndex::GetHeightInMainChain(int* vtxidx, uint256 txhash) const
+int CTxIndex::GetHeightInMainChain(uint* vtxidx, uint256 txhash, uint256* blockhash) const
 {
     // Read block header
     CBlock block;
     if (!block.ReadFromDisk(pos.nFile, pos.nBlockPos, vtxidx != nullptr))
         return 0;
     if (vtxidx) {
-        for(int i=0; i<block.vtx.size(); i++) {
+        for(uint i=0; i<block.vtx.size(); i++) {
             if (block.vtx[i].GetHash() == txhash)
                 *vtxidx = i;
         }
     }
     // Find the block in the index
-    map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(block.GetHash());
+    uint256 bhash = block.GetHash();
+    if (blockhash) *blockhash = bhash;
+    map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(bhash);
     if (mi == mapBlockIndex.end())
         return 0;
     CBlockIndex* pindex = (*mi).second;

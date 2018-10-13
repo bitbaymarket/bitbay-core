@@ -30,6 +30,7 @@ private slots:
     void openBlock(uint256);
     void openBlock(const QModelIndex &);
     void openTx(QTreeWidgetItem*,int);
+    void openTx(uint256 blockhash, uint txidx);
     void openFractions(QTreeWidgetItem*,int);
     void jumpToBlock();
     void openBlockFromInput();

@@ -585,7 +585,9 @@ public:
 
     int GetDepthInMainChain() const;
     // if pTxIndex - expensive - read whole block
-    int GetHeightInMainChain(int* vtxidx =nullptr, uint256 txhash =uint256(0)) const;
+    int GetHeightInMainChain(uint* vtxidx =nullptr,
+                             uint256 txhash =uint256(0),
+                             uint256* blockhash =nullptr) const;
 
 };
 

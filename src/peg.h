@@ -76,9 +76,6 @@ bool CalculateVotesForPeg(CTxDB & ctxdb,
 bool CalculateBlockPegVotes(const CBlock & cblock,
                             CBlockIndex* pindex,
                             CPegDB& pegdb);
-bool WriteFractionsForPegTest(int nStartHeight,
-                              CTxDB & ctxdb,
-                              LoadMsg load_msg);
 
 bool IsPegWhiteListed(const CTransaction & tx, MapPrevTx & inputs);
 

@@ -266,44 +266,6 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& 
     return true;
 }
 
-bool WriteFractionsForPegTest(int nStartHeight, CTxDB & ctxdb, LoadMsg load_msg) {
-    // now calculate peg votes
-    CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
-    while (pblockindex->nHeight > nStartHeight)
-        pblockindex = pblockindex->pprev;
-
-    CPegDB pegdb("cr+");
-    if (!pegdb.TxnBegin())
-        return error("LoadBlockIndex() : peg TxnBegin failed");
-
-    CBlock block;
-    while (pblockindex && pblockindex->nHeight <= nBestHeight) {
-        uint256 hash = *pblockindex->phashBlock;
-        pblockindex = mapBlockIndex[hash];
-
-        if (pblockindex->nHeight % 1000 == 0) {
-            load_msg(std::string(" save fractions: ")+std::to_string(pblockindex->nHeight));
-
-            if (!pegdb.TxnCommit())
-                return error("LoadBlockIndex() : peg db update failed");
-            if (!pegdb.TxnBegin())
-                return error("LoadBlockIndex() : peg TxnBegin failed");
-        }
-
-        // calc votes per block
-        block.ReadFromDisk(pblockindex, true);
-        //WriteBlockPegFractions(block, pegdb);
-
-        pblockindex = pblockindex->pnext;
-    }
-
-    if (!pegdb.TxnCommit())
-        return error("LoadBlockIndex() :peg db update failed");
-
-    //return error("LoadBlockIndex() : votes are not ready");
-    return true;
-}
-
 CPegFractions::CPegFractions()
     :nFlags(PEG_VALUE)
 {

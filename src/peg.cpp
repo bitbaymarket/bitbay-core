@@ -164,13 +164,30 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& 
         while (usevotesindex->nHeight > (pindex->nHeight - PEG_INTERVAL*2 -1))
             usevotesindex = usevotesindex->pprev;
 
+        // back to 3 intervals and -1 for votes calculations of 2x and 3x
+        auto prevvotesindex = pindex;
+        while (prevvotesindex->nHeight > (pindex->nHeight - PEG_INTERVAL*3 -1))
+            prevvotesindex = prevvotesindex->pprev;
+
         int inflate = usevotesindex->nPegVotesInflate;
         int deflate = usevotesindex->nPegVotesDeflate;
         int nochange = usevotesindex->nPegVotesNochange;
 
+        int inflate_prev = prevvotesindex->nPegVotesInflate;
+        int deflate_prev = prevvotesindex->nPegVotesDeflate;
+        int nochange_prev = prevvotesindex->nPegVotesNochange;
+
         pindex->nPegSupplyIndex = pindex->pprev->nPegSupplyIndex;
-        if (deflate > inflate && deflate > nochange) pindex->nPegSupplyIndex++;
-        if (inflate > deflate && inflate > nochange) pindex->nPegSupplyIndex--;
+        if (deflate > inflate && deflate > nochange) {
+            pindex->nPegSupplyIndex++;
+//            if (deflate > 2*inflate_prev && deflate > 2*nochange_prev) pindex->nPegSupplyIndex++;
+//            if (deflate > 3*inflate_prev && deflate > 3*nochange_prev) pindex->nPegSupplyIndex++;
+        }
+        if (inflate > deflate && inflate > nochange) {
+            pindex->nPegSupplyIndex--;
+//            if (inflate > 2*deflate_prev && inflate > 2*nochange_prev) pindex->nPegSupplyIndex--;
+//            if (inflate > 3*deflate_prev && inflate > 3*nochange_prev) pindex->nPegSupplyIndex--;
+        }
 
         if (pindex->nPegSupplyIndex >= nPegMaxSupplyIndex)
             pindex->nPegSupplyIndex = pindex->pprev->nPegSupplyIndex;
@@ -413,10 +430,12 @@ bool CPegFractions::Unpack(CDataStream& inp)
             return false;
         }
         FromDeltas(deltas);
+        nFlags = PEG_STD;
     }
     else if (nSerFlags == SER_RAW) {
         auto ser = reinterpret_cast<char *>(f);
         inp.read(ser, PEG_SIZE*sizeof(int64_t));
+        nFlags = PEG_STD;
     }
     return true;
 }
@@ -440,6 +459,18 @@ CPegFractions CPegFractions::Std() const
         v -= frac;
     }
     return fstd;
+}
+
+int64_t CPegFractions::Total() const
+{
+    int64_t nValue =0;
+    if (nFlags == PEG_VALUE)
+        return f[0];
+
+    for(int i=0;i<PEG_SIZE;i++) {
+        nValue += f[i];
+    }
+    return nValue;
 }
 
 void CPegFractions::ToStd()
@@ -484,7 +515,9 @@ CPegFractions CPegFractions::Liquidity(int supply, int64_t* total)
 /** Take a part as ration part/total where part is also value (sum fraction)
  *  Returned fractions are also adjusted for part for rounding differences.
  */
-CPegFractions CPegFractions::RatioPart(int64_t nPartValue, int64_t nTotalValue) {
+CPegFractions CPegFractions::RatioPart(int64_t nPartValue,
+                                       int64_t nTotalValue,
+                                       int adjust_from) {
     ToStd();
     int64_t nPartValueSum = 0;
     CPegFractions fPart = CPegFractions(0).Std();
@@ -515,7 +548,7 @@ CPegFractions CPegFractions::RatioPart(int64_t nPartValue, int64_t nTotalValue) 
         nPartValueSum += fPart.f[i];
     }
     for (int64_t i=nPartValueSum; i<nPartValue; i++) {
-        fPart.f[(i-nPartValueSum) % PEG_SIZE]++;
+        fPart.f[adjust_from + ((i-nPartValueSum) % (PEG_SIZE-adjust_from))]++;
     }
     return fPart;
 }
@@ -592,11 +625,9 @@ bool CalculateTransactionFractions(const CTransaction & tx,
 
     // calculate liquidity and total pools
     int64_t nValueIn = 0;
-    int64_t nReservesTotal =0;
     int64_t nLiquidityTotal =0;
 
     auto fValueInPool = CPegFractions(0).Std();
-    auto fReservePool = CPegFractions(0).Std();
     auto fLiquidityPool = CPegFractions(0).Std();
 
     int supply = pindexBlock->nPegSupplyIndex;
@@ -615,12 +646,18 @@ bool CalculateTransactionFractions(const CTransaction & tx,
         }
 
         auto fInp = fInputs[fkey].Std();
+
         fValueInPool += fInp;
-        fReservePool += fInp.Reserve(supply, &nReservesTotal);
         fLiquidityPool += fInp.Liquidity(supply, &nLiquidityTotal);
 
         CTransaction& txPrev = inputs[prevout.hash].second;
         if (prevout.n >= txPrev.vout.size()) {
+            if (ok) *ok = false;
+            return false;
+        }
+
+        if (fInp.Total() != txPrev.vout[prevout.n].nValue) {
+            // input mismatch!!!!
             if (ok) *ok = false;
             return false;
         }
@@ -639,7 +676,7 @@ bool CalculateTransactionFractions(const CTransaction & tx,
         }
     }
 
-    auto nRemains = nValueIn;
+    auto nRemainsTotal = nValueIn;
     auto fRemainsPool = fValueInPool;
 
     // Calculation of liquidity outputs
@@ -666,14 +703,27 @@ bool CalculateTransactionFractions(const CTransaction & tx,
         auto fkey = uint320(tx.GetHash(), i);
 
         if (!is_reserve) {
-            if (nLiquidityTotal != 0) {
-                auto fOut = fLiquidityPool.RatioPart(nValue, nLiquidityTotal);
-                mapTestFractionsPool[fkey] = fOut;
-                fRemainsPool -= fOut;
-                nRemains -= nValue;
-            } else {
+            if (nLiquidityTotal == 0) {
                 mapTestFractionsPool[fkey] = CPegFractions(0);
+                continue;
             }
+
+            if (nValue > nLiquidityTotal) {
+                // violate peg
+                if (ok) *ok = false;
+                return false;
+            }
+            auto fOut = fLiquidityPool.RatioPart(nValue, nLiquidityTotal, supply);
+            mapTestFractionsPool[fkey] = fOut;
+            fRemainsPool -= fOut;
+            nRemainsTotal -= nValue;
+
+            if (fOut.Total() != tx.vout[i].nValue) {
+                // output mismatch!!!!
+                if (ok) *ok = false;
+                return false;
+            }
+
         }
     }
 
@@ -700,11 +750,24 @@ bool CalculateTransactionFractions(const CTransaction & tx,
         auto fkey = uint320(tx.GetHash(), i);
 
         if (is_reserve) {
-            if (nRemains != 0) {
-                auto fOut = fRemainsPool.RatioPart(nValue, nRemains);
-                mapTestFractionsPool[fkey] = fOut;
-            } else {
+            if (nRemainsTotal == 0) {
                 mapTestFractionsPool[fkey] = CPegFractions(0);
+                continue;
+            }
+
+            if (nValue > nRemainsTotal) {
+                // violate peg
+                if (ok) *ok = false;
+                return false;
+            }
+
+            auto fOut = fRemainsPool.RatioPart(nValue, nRemainsTotal, 0);
+            mapTestFractionsPool[fkey] = fOut;
+
+            if (fOut.Total() != tx.vout[i].nValue) {
+                // output mismatch!!!!
+                if (ok) *ok = false;
+                return false;
             }
         }
     }

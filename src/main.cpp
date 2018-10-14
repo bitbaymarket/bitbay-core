@@ -2559,12 +2559,31 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
     // Load block index
     //
     CTxDB txdb("cr+");
-    { // ensure pegdb is created
-        CPegDB pegdb("cr+");
-        if (!pegdb.TxnBegin())
-            return error("LoadBlockIndex() : peg TxnBegin failed");
-        if (!pegdb.TxnCommit())
-            return error("LoadBlockIndex() : peg TxnCommit failed");
+    {
+        // ensure pegdb is created
+        int nPegStartHeightStored = 0;
+        {
+            CPegDB pegdb("cr+");
+            if (!pegdb.TxnBegin())
+                return error("LoadBlockIndex() : peg TxnBegin failed");
+            if (!pegdb.TxnCommit())
+                return error("LoadBlockIndex() : peg TxnCommit failed");
+            pegdb.ReadPegStartHeight(nPegStartHeightStored);
+            pegdb.Close();
+        }
+        // and peg start matches
+        if (nPegStartHeightStored != nPegStartHeight) {
+            // remove previous db
+            {
+                boost::filesystem::remove_all(GetDataDir() / "pegleveldb");
+            }
+            // recreate
+            CPegDB pegdb("cr+");
+            if (!pegdb.TxnBegin())
+                return error("LoadBlockIndex() : peg TxnBegin failed");
+            if (!pegdb.TxnCommit())
+                return error("LoadBlockIndex() : peg TxnCommit failed");
+        }
     }
     if (!txdb.LoadBlockIndex(load_msg))
         return false;

@@ -54,13 +54,15 @@ public:
     CPegFractions Std() const;
     CPegFractions Reserve(int supply, int64_t* total);
     CPegFractions Liquidity(int supply, int64_t* total);
-    CPegFractions RatioPart(int64_t part, int64_t of_total);
+    CPegFractions RatioPart(int64_t part, int64_t of_total, int adjust_from);
 
     CPegFractions& operator+=(const CPegFractions& b);
     CPegFractions& operator-=(const CPegFractions& b);
 
     void ToDeltas(int64_t* deltas) const;
     void FromDeltas(const int64_t* deltas);
+
+    int64_t Total() const;
 
 private:
     void ToStd();

@@ -38,30 +38,6 @@ static leveldb::Options GetOptions() {
 static void init_blockindex(leveldb::Options& options, bool fRemoveOld = false, bool fCreateBootstrap = false) {
     // First time init.
     filesystem::path directory = GetDataDir() / "pegleveldb";
-
-//    if (fRemoveOld) {
-//        filesystem::remove_all(directory); // remove directory
-//        unsigned int nFile = 1;
-//        filesystem::path bootstrap = GetDataDir() / "bootstrap.dat";
-
-//        while (true)
-//        {
-//            filesystem::path strBlockFile = GetDataDir() / strprintf("blk%04u.dat", nFile);
-
-//            // Break if no such file
-//            if( !filesystem::exists( strBlockFile ) )
-//                break;
-
-//            if (fCreateBootstrap && nFile == 1 && !filesystem::exists(bootstrap)) {
-//                filesystem::rename(strBlockFile, bootstrap);
-//            } else {
-//                filesystem::remove(strBlockFile);
-//            }
-
-//            nFile++;
-//        }
-//    }
-
     filesystem::create_directory(directory);
     LogPrintf("Opening LevelDB in %s\n", directory.string());
     leveldb::Status status = leveldb::DB::Open(options, directory.string(), &pegdb);
@@ -220,7 +196,15 @@ bool CPegDB::Read(uint320 txout, CPegFractions & f) {
 bool CPegDB::Write(uint320 txout, const CPegFractions & f) {
     CDataStream fout(SER_DISK, CLIENT_VERSION);
     f.Pack(fout);
-    Write(txout, fout);
-    return false;
+    return Write(txout, fout);
 }
 
+bool CPegDB::ReadPegStartHeight(int& nHeight)
+{
+    return Read(string("pegStartHeight"), nHeight);
+}
+
+bool CPegDB::WritePegStartHeight(int nHeight)
+{
+    return Write(string("pegStartHeight"), nHeight);
+}

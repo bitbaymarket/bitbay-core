@@ -626,5 +626,70 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
             return error("WriteBlockIndexIsPegReady() : TxnCommit failed");
     }
 
+    // now process pegdb if not ready
+    {
+        CPegDB pegdb("r+");
+
+        int nPegStartHeightStored = 0;
+        pegdb.ReadPegStartHeight(nPegStartHeightStored);
+        if (nPegStartHeightStored != nPegStartHeight) {
+            // reprocess from nPegStartHeight
+
+            if (!pegdb.TxnBegin())
+                return error("LoadBlockIndex() : peg TxnBegin failed");
+
+            // back to nPegStartHeight
+            CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
+            while (pblockindex->nHeight > nPegStartHeight)
+                pblockindex = pblockindex->pprev;
+
+            CBlock block;
+            while (pblockindex && pblockindex->nHeight <= nBestHeight) {
+                uint256 hash = *pblockindex->phashBlock;
+                pblockindex = mapBlockIndex[hash];
+
+                if (pblockindex->nHeight % 10000 == 0) {
+                    load_msg(std::string(" process peg fractions: ")+std::to_string(pblockindex->nHeight));
+                }
+
+                // calc votes per block
+                block.ReadFromDisk(pblockindex, true);
+
+                int idx = 0;
+                for(CTransaction & tx : block.vtx) {
+
+                    MapPrevTx mapInputs;
+                    MapPrevFractions mapInputsFractions;
+                    map<uint256, CTxIndex> mapUnused;
+                    map<uint320, CPegFractions> mapQueuedFractionsChanges;
+                    bool fInvalid = false;
+                    tx.FetchInputs(*this, pegdb, mapUnused, mapQueuedFractionsChanges, false, false, mapInputs, mapInputsFractions, fInvalid);
+
+                    CalculateTransactionFractions(tx, pblockindex,
+                                                  mapInputs, mapInputsFractions,
+                                                  mapUnused, mapQueuedFractionsChanges);
+
+                    // Write queued fractions changes
+                    for (map<uint320, CPegFractions>::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
+                    {
+                        if (!pegdb.Write((*mi).first, (*mi).second))
+                            return error("LoadBlockIndex() : pegdb Write failed");
+                    }
+
+                    idx++;
+                }
+
+                pblockindex = pblockindex->pnext;
+            }
+
+            if (!pegdb.WritePegStartHeight(nPegStartHeight))
+                return error("WritePegStartHeight() : flag write failed");
+
+            if (!pegdb.TxnCommit())
+                return error("LoadBlockIndex() : peg TxnCommit failed");
+        }
+    }
+
+
     return true;
 }

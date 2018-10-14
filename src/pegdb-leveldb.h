@@ -204,6 +204,9 @@ public:
         return Write(std::string("version"), nVersion);
     }
 
+    bool ReadPegStartHeight(int& nHeight);
+    bool WritePegStartHeight(int nHeight);
+
 };
 
 

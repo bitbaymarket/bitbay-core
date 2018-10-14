@@ -94,8 +94,8 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
 
     ui->txInputs->header()->resizeSection(0 /*n*/, 50);
     ui->txOutputs->header()->resizeSection(0 /*n*/, 50);
-    ui->txInputs->header()->resizeSection(1 /*tx*/, 100);
-    ui->txOutputs->header()->resizeSection(1 /*tx*/, 100);
+    ui->txInputs->header()->resizeSection(1 /*tx*/, 140);
+    ui->txOutputs->header()->resizeSection(1 /*tx*/, 140);
     ui->txInputs->header()->resizeSection(2 /*addr*/, 280);
     ui->txOutputs->header()->resizeSection(2 /*addr*/, 280);
     ui->txInputs->header()->resizeSection(3 /*value*/, 160);

@@ -5,6 +5,7 @@
 #include <map>
 #include <set>
 #include <cstdint>
+#include <type_traits>
 
 #include <boost/version.hpp>
 #include <boost/filesystem.hpp>
@@ -451,8 +452,19 @@ CPegFractions CPegFractions::RatioPart(int64_t nPartValue, int64_t nTotalValue) 
     CPegFractions fPart = CPegFractions(0).Std();
     for(int i=0; i<PEG_SIZE; i++) {
         int64_t v = f[i];
-        int64_t m_test;
-        if (__builtin_smulll_overflow(v, nPartValue, &m_test)) {
+
+        bool has_overflow = false;
+        if (std::is_same<int64_t,long>()) {
+            long m_test;
+            has_overflow = __builtin_smull_overflow(v, nPartValue, &m_test);
+        } else if (std::is_same<int64_t,long long>()) {
+            long long m_test;
+            has_overflow = __builtin_smulll_overflow(v, nPartValue, &m_test);
+        } else {
+            has_overflow = false; // todo: compile error
+        }
+
+        if (has_overflow) {
             multiprecision::uint128_t v128(v);
             multiprecision::uint128_t part128(nPartValue);
             multiprecision::uint128_t f128 = (v128*part128)/nTotalValue;
@@ -461,16 +473,7 @@ CPegFractions CPegFractions::RatioPart(int64_t nPartValue, int64_t nTotalValue) 
         else {
             fPart.f[i] = (v*nPartValue)/nTotalValue;
         }
-//        if (nPartValue <= INT_LEAST32_MAX && v <= INT_LEAST32_MAX) { // fast
-//            fPart.f[i] = (v*nPartValue)/nTotalValue;
-//        }
-//        else { // slower as multiply can be over int64_t max
-//            multiprecision::uint128_t v128(v);
-//            multiprecision::uint128_t part128(nPartValue);
-//            multiprecision::uint128_t of_total128(nTotalValue);
-//            multiprecision::uint128_t f128 = (v128*part128)/of_total128;
-//            fPart.f[i] = f128.convert_to<int64_t>();
-//        }
+
         nPartValueSum += fPart.f[i];
     }
     for (int64_t i=nPartValueSum; i<nPartValue; i++) {

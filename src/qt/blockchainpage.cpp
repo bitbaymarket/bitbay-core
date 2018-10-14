@@ -213,6 +213,7 @@ void BlockchainPage::openBlock(uint256 hash)
         ui->lineFindBlock->clear();
     ui->blockValues->clear();
     ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Height",QString::number(pblockindex->nHeight)})));
+    ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Datetime",QString::fromStdString(DateTimeStrFormat(pblockindex->GetBlockTime()))})));
     ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Hash",bhash})));
     QString pbhash;
     QString nbhash;

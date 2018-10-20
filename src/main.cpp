@@ -1396,6 +1396,7 @@ bool CTransaction::ConnectInputs(CTxDB& txdb,
     CalculateTransactionFractions(*this, pindexBlock,
                                   inputs, finputs,
                                   mapTestPool, mapTestFractionsPool,
+                                  feesFractions,
                                   vOutputsTypes);
 
     // The first loop above does all the inexpensive checks.

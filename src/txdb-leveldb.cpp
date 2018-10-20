@@ -656,7 +656,10 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                 block.ReadFromDisk(pblockindex, true);
 
                 int idx = 0;
-                for(CTransaction & tx : block.vtx) {
+                CPegFractions feesFractions;
+                for(CTransaction& tx : block.vtx) {
+
+                    if (tx.IsCoinStake()) continue;
 
                     MapPrevTx mapInputs;
                     MapPrevFractions mapInputsFractions;
@@ -669,6 +672,7 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     CalculateTransactionFractions(tx, pblockindex,
                                                   mapInputs, mapInputsFractions,
                                                   mapUnused, mapQueuedFractionsChanges,
+                                                  feesFractions,
                                                   vOutputsTypes);
 
                     // Write queued fractions changes
@@ -679,6 +683,31 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     }
 
                     idx++;
+                }
+
+                if (block.vtx.size() >1 && block.vtx[1].IsCoinStake()) {
+                    CTransaction& tx = block.vtx[1];
+
+                    MapPrevTx mapInputs;
+                    MapPrevFractions mapInputsFractions;
+                    map<uint256, CTxIndex> mapUnused;
+                    map<uint320, CPegFractions> mapQueuedFractionsChanges;
+                    vector<int> vOutputsTypes;
+                    bool fInvalid = false;
+                    tx.FetchInputs(*this, pegdb, mapUnused, mapQueuedFractionsChanges, false, false, mapInputs, mapInputsFractions, fInvalid);
+
+                    CalculateTransactionFractions(tx, pblockindex,
+                                                  mapInputs, mapInputsFractions,
+                                                  mapUnused, mapQueuedFractionsChanges,
+                                                  feesFractions,
+                                                  vOutputsTypes);
+
+                    // Write queued fractions changes
+                    for (map<uint320, CPegFractions>::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
+                    {
+                        if (!pegdb.Write((*mi).first, (*mi).second))
+                            return error("LoadBlockIndex() : pegdb Write failed");
+                    }
                 }
 
                 pblockindex = pblockindex->pnext;

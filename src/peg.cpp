@@ -583,6 +583,7 @@ bool CalculateTransactionFractions(const CTransaction & tx,
                                    MapPrevFractions& fInputs,
                                    map<uint256, CTxIndex>& mapTestPool,
                                    map<uint320, CPegFractions>& mapTestFractionsPool,
+                                   CPegFractions& feesFractions,
                                    std::vector<int>& vOutputsTypes)
 {
     size_t n_vin = tx.vin.size();
@@ -717,4 +718,82 @@ bool CalculateTransactionFractions(const CTransaction & tx,
 
     return true;
 }
+
+bool CalculateStakingFractions(const CTransaction & tx,
+                               const CBlockIndex* pindexBlock,
+                               MapPrevTx & inputs,
+                               MapPrevFractions& fInputs,
+                               std::map<uint256, CTxIndex>& mapTestPool,
+                               std::map<uint320, CPegFractions>& mapTestFractionsPool,
+                               const CPegFractions& feesFractions,
+                               int64_t nCalculatedStakeRewardWithoutFees,
+                               std::vector<int>& vOutputsTypes)
+{
+    size_t n_vin = tx.vin.size();
+    size_t n_vout = tx.vout.size();
+    vOutputsTypes.resize(n_vout);
+
+    if (!IsPegWhiteListed(tx, inputs))
+        return true;
+
+    // calculate pools
+    int64_t nValueIn = 0;
+
+    auto fValueInPool = CPegFractions(0).Std();
+
+    for (unsigned int i = 0; i < n_vin; i++)
+    {
+        const COutPoint & prevout = tx.vin[i].prevout;
+
+        auto fkey = uint320(prevout.hash, prevout.n);
+        if (fInputs.find(fkey) == fInputs.end()) {
+            return false;
+        }
+
+        auto fInp = fInputs[fkey].Std();
+
+        fValueInPool += fInp;
+
+        CTransaction& txPrev = inputs[prevout.hash].second;
+        if (prevout.n >= txPrev.vout.size()) {
+            return false;
+        }
+
+        if (fInp.Total() != txPrev.vout[prevout.n].nValue) {
+            return false; // input mismatch
+        }
+
+        nValueIn += txPrev.vout[prevout.n].nValue;
+    }
+
+    auto fValueOutPool = fValueInPool;
+    CPegFractions fStakeReward(nCalculatedStakeRewardWithoutFees);
+    fValueOutPool += fStakeReward.Std();
+    fValueOutPool += feesFractions;
+
+    auto nValueOut = nValueIn;
+    nValueOut += nCalculatedStakeRewardWithoutFees;
+    nValueOut += feesFractions.Total();
+
+    // Calculation of outputs fractions just as ratio
+    for (unsigned int i = 0; i < n_vout; i++)
+    {
+        int64_t nValue = tx.vout[i].nValue;
+        auto fkey = uint320(tx.GetHash(), i);
+
+        if (nValue > nValueOut) {
+            return false; // violate peg
+        }
+
+        auto fOut = fValueOutPool.RatioPart(nValue, nValueOut, 0);
+        mapTestFractionsPool[fkey] = fOut;
+
+        if (fOut.Total() != tx.vout[i].nValue) {
+            return false; // output mismatch
+        }
+    }
+
+    return true;
+}
+
 

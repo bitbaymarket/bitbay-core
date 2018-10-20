@@ -89,7 +89,18 @@ bool CalculateTransactionFractions(const CTransaction & tx,
                                    MapPrevFractions& finputs,
                                    std::map<uint256, CTxIndex>& mapTestPool,
                                    std::map<uint320, CPegFractions>& mapTestFractionsPool,
+                                   CPegFractions& feesFractions,
                                    std::vector<int>& vOutputsTypes);
+
+bool CalculateStakingFractions(const CTransaction & tx,
+                               const CBlockIndex* pindexBlock,
+                               MapPrevTx & inputs,
+                               MapPrevFractions& finputs,
+                               std::map<uint256, CTxIndex>& mapTestPool,
+                               std::map<uint320, CPegFractions>& mapTestFractionsPool,
+                               const CPegFractions& feesFractions,
+                               int64_t nCalculatedStakeRewardWithoutFees,
+                               std::vector<int>& vOutputsTypes);
 
 #define PegFail(...) PegReport(__VA_ARGS__)
 #define PegReportf(...) PegReport(__VA_ARGS__)

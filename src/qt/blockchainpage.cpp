@@ -323,6 +323,53 @@ void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
     }
 }
 
+static bool calculateFeesFractions(CBlockIndex* pblockindex,
+                                   CBlock& block,
+                                   CPegFractions& feesFractions,
+                                   int64_t& nFeesValue)
+{
+    MapPrevTx mapInputs;
+    MapPrevFractions mapInputsFractions;
+    map<uint256, CTxIndex> mapUnused;
+    map<uint320, CPegFractions> mapFractionsUnused;
+
+    for (CTransaction & tx : block.vtx) {
+
+        if (tx.IsCoinBase()) continue;
+        if (tx.IsCoinStake()) continue;
+
+        uint256 hash = tx.GetHash();
+
+        CTxDB txdb("r");
+        CPegDB pegdb("r");
+        if (!txdb.ContainsTx(hash))
+            return false;
+
+        vector<int> vOutputsTypes;
+        bool fInvalid = false;
+        tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid);
+
+        if (!IsPegWhiteListed(tx, mapInputs)) {
+            int64_t nTxValueIn = tx.GetValueIn(mapInputs);
+            int64_t nTxValueOut = tx.GetValueOut();
+
+            nFeesValue += nTxValueIn - nTxValueOut;
+            continue;
+        }
+
+        bool peg_ok = CalculateTransactionFractions(tx, pblockindex,
+                                                    mapInputs, mapInputsFractions,
+                                                    mapUnused, mapFractionsUnused,
+                                                    feesFractions,
+                                                    vOutputsTypes);
+
+        if (!peg_ok)
+            return false;
+    }
+
+    return true;
+}
+
 void BlockchainPage::openTx(uint256 blockhash, uint txidx)
 {
     LOCK(cs_main);
@@ -363,6 +410,8 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     MapPrevFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
     map<uint320, CPegFractions> mapFractionsUnused;
+    CPegFractions feesFractions;
+    int64_t nFeesValue = 0;
     vector<int> vOutputsTypes;
     bool fInvalid = false;
     tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid);
@@ -437,28 +486,65 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         if (!tx.GetCoinAge(txdb, pblockindex->pprev, nCoinAge)) {
             //something went wrong
         }
-        int64_t nCalculatedStakeReward = GetProofOfStakeReward(pblockindex->pprev, nCoinAge, 0);
+        int64_t nCalculatedStakeReward = GetProofOfStakeReward(pblockindex->pprev, nCoinAge, 0 /*fees*/);
 
-        QStringList row;
-        row << "Mined"; // idx, 0
-        row << "";      // tx, 1
-        row << "N/A";   // address, 2
-        row << displayValue(nCalculatedStakeReward);
+        QStringList rowMined;
+        rowMined << "Mined"; // idx, 0
+        rowMined << "";      // tx, 1
+        rowMined << "N/A";   // address, 2
+        rowMined << displayValue(nCalculatedStakeReward);
 
-        auto input = new QTreeWidgetItem(row);
+        auto inputMined = new QTreeWidgetItem(rowMined);
         QVariant vfractions;
         vfractions.setValue(CPegFractions(nCalculatedStakeReward));
-        input->setData(4, BlockchainModel::FractionsRole, vfractions);
-        input->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
-        input->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        ui->txInputs->addTopLevelItem(input);
+        inputMined->setData(4, BlockchainModel::FractionsRole, vfractions);
+        inputMined->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
+        inputMined->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        ui->txInputs->addTopLevelItem(inputMined);
+
+        // need to collect all fees fractions from all tx in the block
+        if (!calculateFeesFractions(pblockindex, block, feesFractions, nFeesValue)) {
+            // peg violation?
+        }
+
+        QStringList rowFees;
+        rowFees << "Fees";  // idx, 0
+        rowFees << "";      // tx, 1
+        rowFees << "N/A";   // address, 2
+        rowFees << displayValue(nFeesValue);
+
+        auto inputFees = new QTreeWidgetItem(rowFees);
+        vfractions.setValue(feesFractions);
+        inputFees->setData(4, BlockchainModel::FractionsRole, vfractions);
+        inputFees->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
+        inputFees->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        ui->txInputs->addTopLevelItem(inputFees);
     }
 
     bool peg_whitelisted = IsPegWhiteListed(tx, mapInputs);
-    bool peg_ok = CalculateTransactionFractions(tx, pblockindex,
-                                                mapInputs, mapInputsFractions,
-                                                mapUnused, mapFractionsUnused,
-                                                vOutputsTypes);
+    bool peg_ok = false;
+
+    if (tx.IsCoinStake()) {
+        uint64_t nCoinAge = 0;
+        if (!tx.GetCoinAge(txdb, pblockindex->pprev, nCoinAge)) {
+            //something went wrong
+        }
+        int64_t nCalculatedStakeRewardWithoutFees = GetProofOfStakeReward(pblockindex->pprev, nCoinAge, 0 /*fees*/);
+
+        peg_ok = CalculateStakingFractions(tx, pblockindex,
+                                           mapInputs, mapInputsFractions,
+                                           mapUnused, mapFractionsUnused,
+                                           feesFractions,
+                                           nCalculatedStakeRewardWithoutFees,
+                                           vOutputsTypes);
+    }
+    else {
+        peg_ok = CalculateTransactionFractions(tx, pblockindex,
+                                               mapInputs, mapInputsFractions,
+                                               mapUnused, mapFractionsUnused,
+                                               feesFractions,
+                                               vOutputsTypes);
+    }
 
     CTxIndex txindex;
     txdb.ReadTxIndex(hash, txindex);

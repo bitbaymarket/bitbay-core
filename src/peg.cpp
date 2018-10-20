@@ -663,11 +663,15 @@ bool CalculateTransactionFractions(const CTransaction & tx,
         }
     }
 
+    int64_t nValueOut = 0;
+
     // Calculation of liquidity outputs
     // These are substracted from totals
     for (unsigned int i = 0; i < n_vout; i++)
     {
         int64_t nValue = tx.vout[i].nValue;
+        nValueOut += nValue;
+
         auto fkey = uint320(tx.GetHash(), i);
 
         if (vOutputsTypes[i] == PEG_DEST_OUT) {
@@ -714,6 +718,20 @@ bool CalculateTransactionFractions(const CTransaction & tx,
                 return false; // output mismatch
             }
         }
+    }
+
+    // Calculation of fees
+    // These are substracted from remains pool
+    {
+        if (nRemainsTotal == 0) {
+            return false; // no remains for fee?
+        }
+        int64_t nValueFee = nValueIn - nValueOut;
+        if (nValueFee > nRemainsTotal) {
+            return false; // violate peg
+        }
+        auto fFee = fRemainsPool.RatioPart(nValueFee, nRemainsTotal, 0);
+        feesFractions += fFee;
     }
 
     return true;

@@ -245,6 +245,7 @@ static QString scriptToAddress(const CScript& scriptPubKey, bool show_alias =tru
     vector<CTxDestination> addresses;
     if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
         std::string str_addr_all;
+        bool none = true;
         for(const CTxDestination& addr : addresses) {
             std::string str_addr = CBitcoinAddress(addr).ToString();
             if (show_alias) {
@@ -261,9 +262,30 @@ static QString scriptToAddress(const CScript& scriptPubKey, bool show_alias =tru
             if (!str_addr_all.empty())
                 str_addr_all += "\n";
             str_addr_all += str_addr;
+            none = false;
         }
-        return QString::fromStdString(str_addr_all);
+        if (!none)
+            return QString::fromStdString(str_addr_all);
     }
+    const CScript& script1 = scriptPubKey;
+
+    opcodetype opcode1;
+    vector<unsigned char> vch1;
+    CScript::const_iterator pc1 = script1.begin();
+    if (!script1.GetOp(pc1, opcode1, vch1))
+        return QString();
+
+    if (opcode1 == OP_RETURN && script1.size()>1) {
+        QString left_bytes;
+        unsigned long len_bytes = script1[1];
+        if (len_bytes > script1.size()-2)
+            len_bytes = script1.size()-2;
+        for(unsigned int i=0; i< len_bytes; i++) {
+            left_bytes += char(script1[i+2]);
+        }
+        return left_bytes;
+    }
+
     return QString();
 }
 
@@ -349,11 +371,11 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
         bool fInvalid = false;
         tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid);
 
-        if (!IsPegWhiteListed(tx, mapInputs)) {
-            int64_t nTxValueIn = tx.GetValueIn(mapInputs);
-            int64_t nTxValueOut = tx.GetValueOut();
+        int64_t nTxValueIn = tx.GetValueIn(mapInputs);
+        int64_t nTxValueOut = tx.GetValueOut();
+        nFeesValue += nTxValueIn - nTxValueOut;
 
-            nFeesValue += nTxValueIn - nTxValueOut;
+        if (!IsPegWhiteListed(tx, mapInputs)) {
             continue;
         }
 
@@ -410,7 +432,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     MapPrevFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
     map<uint320, CPegFractions> mapFractionsUnused;
-    CPegFractions feesFractions;
+    auto feesFractions = CPegFractions(0).Std();
     int64_t nFeesValue = 0;
     vector<int> vOutputsTypes;
     bool fInvalid = false;
@@ -624,9 +646,9 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Value In",displayValueR(nValueIn)})));
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Value Out",displayValueR(nValueOut)})));
 
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Reserve In",displayValueR(nReserveIn)})));
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Liquidity In",displayValueR(nLiquidityIn)})));
-    auto twiOutLiquidity = new QTreeWidgetItem(QStringList({"Liquidity Out",displayValueR(nLiquidityOut)}));
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Reserves",displayValueR(nReserveIn)})));
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Liquidity",displayValueR(nLiquidityIn)})));
+    auto twiOutLiquidity = new QTreeWidgetItem(QStringList({"Liquidity Move",displayValueR(nLiquidityOut)}));
     if (nLiquidityOut > nLiquidityIn)
         twiOutLiquidity->setBackgroundColor(1, Qt::red);
     ui->txValues->addTopLevelItem(twiOutLiquidity);
@@ -647,9 +669,13 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         row << ""; // spent
         row << ""; // address (todo)
         row << displayValue(nValueIn - nValueOut);
-        auto output = new QTreeWidgetItem(row);
-        output->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        ui->txOutputs->addTopLevelItem(output);
+        auto outputFees = new QTreeWidgetItem(row);
+        QVariant vfractions;
+        vfractions.setValue(feesFractions);
+        outputFees->setData(4, BlockchainModel::FractionsRole, vfractions);
+        outputFees->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
+        outputFees->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        ui->txOutputs->addTopLevelItem(outputFees);
     }
 }
 

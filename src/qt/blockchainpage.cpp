@@ -432,6 +432,29 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         ui->txInputs->addTopLevelItem(input);
     }
 
+    if (tx.IsCoinStake()) {
+        uint64_t nCoinAge = 0;
+        if (!tx.GetCoinAge(txdb, pblockindex->pprev, nCoinAge)) {
+            //something went wrong
+        }
+        int64_t nCalculatedStakeReward = GetProofOfStakeReward(pblockindex->pprev, nCoinAge, 0);
+
+        QStringList row;
+        row << "Mined"; // idx, 0
+        row << "";      // tx, 1
+        row << "N/A";   // address, 2
+        row << displayValue(nCalculatedStakeReward);
+
+        auto input = new QTreeWidgetItem(row);
+        QVariant vfractions;
+        vfractions.setValue(CPegFractions(nCalculatedStakeReward));
+        input->setData(4, BlockchainModel::FractionsRole, vfractions);
+        input->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
+        input->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        ui->txInputs->addTopLevelItem(input);
+    }
+
+    bool peg_whitelisted = IsPegWhiteListed(tx, mapInputs);
     bool peg_ok = CalculateTransactionFractions(tx, pblockindex,
                                                 mapInputs, mapInputsFractions,
                                                 mapUnused, mapFractionsUnused,
@@ -522,7 +545,15 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         twiOutLiquidity->setBackgroundColor(1, Qt::red);
     ui->txValues->addTopLevelItem(twiOutLiquidity);
 
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Peg Checks", peg_ok ? "OK" : "FAIL"})));
+    auto twiPegChecks = new QTreeWidgetItem(
+                QStringList({
+                    "Peg Checks",
+                    peg_whitelisted
+                        ? peg_ok ? "OK" : "FAIL"
+                        : "Not Whitelisted"
+                })
+    );
+    ui->txValues->addTopLevelItem(twiPegChecks);
 
     if (!tx.IsCoinBase() && !tx.IsCoinStake() && nValueOut < nValueIn) {
         QStringList row;

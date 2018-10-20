@@ -92,14 +92,15 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     ui->blockValues->header()->setFont(font);
     ui->blockchainView->header()->setFont(font);
 
+    ui->txValues->header()->resizeSection(0 /*property*/, 250);
     ui->txInputs->header()->resizeSection(0 /*n*/, 50);
     ui->txOutputs->header()->resizeSection(0 /*n*/, 50);
     ui->txInputs->header()->resizeSection(1 /*tx*/, 140);
     ui->txOutputs->header()->resizeSection(1 /*tx*/, 140);
     ui->txInputs->header()->resizeSection(2 /*addr*/, 280);
     ui->txOutputs->header()->resizeSection(2 /*addr*/, 280);
-    ui->txInputs->header()->resizeSection(3 /*value*/, 160);
-    ui->txOutputs->header()->resizeSection(3 /*value*/, 160);
+    ui->txInputs->header()->resizeSection(3 /*value*/, 180);
+    ui->txOutputs->header()->resizeSection(3 /*value*/, 180);
 
     auto txInpDelegate = new FractionsItemDelegate(ui->txInputs);
     ui->txInputs->setItemDelegateForColumn(4 /*frac*/, txInpDelegate);
@@ -281,6 +282,12 @@ static QString displayValue(int64_t nValue) {
     return sValue;
 }
 
+static QString displayValueR(int64_t nValue) {
+    QString sValue = displayValue(nValue);
+    sValue = sValue.rightJustified(8+1+3+1+3+1+3+5, QChar(' '));
+    return sValue;
+}
+
 static QString txId(CTxDB& txdb, uint256 txhash) {
     QString txid;
     CTxIndex txindex;
@@ -343,7 +350,14 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     showTxPage();
     ui->txValues->clear();
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Height",sheight})));
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Datetime",QString::fromStdString(DateTimeStrFormat(pblockindex->GetBlockTime()))})));
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Hash",thash})));
+
+    QString txtype = tr("Transaction");
+    if (tx.IsCoinBase()) txtype = tr("CoinBase");
+    if (tx.IsCoinStake()) txtype = tr("CoinStake");
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Type",txtype})));
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Peg Supply Index",QString::number(pblockindex->nPegSupplyIndex)})));
 
     MapPrevTx mapInputs;
     MapPrevFractions mapInputsFractions;
@@ -351,6 +365,13 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     map<uint320, CPegFractions> mapFractionsUnused;
     bool fInvalid = false;
     tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid);
+
+    int64_t nReserveIn = 0;
+    int64_t nLiquidityIn = 0;
+    for(auto const & inputFractionItem : mapInputsFractions) {
+        inputFractionItem.second.Reserve(pblockindex->nPegSupplyIndex, &nReserveIn);
+        inputFractionItem.second.Liquidity(pblockindex->nPegSupplyIndex, &nLiquidityIn);
+    }
 
     ui->txInputs->clear();
     size_t n_vin = tx.vin.size();
@@ -484,6 +505,22 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         ui->txOutputs->addTopLevelItem(output);
     }
 
+    int64_t nReserveOut = 0;
+    int64_t nLiquidityOut = 0;
+    for(auto const & outputFractionItem : mapFractionsUnused) {
+        outputFractionItem.second.Reserve(pblockindex->nPegSupplyIndex, &nReserveOut);
+        outputFractionItem.second.Liquidity(pblockindex->nPegSupplyIndex, &nLiquidityOut);
+    }
+
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Value In",displayValueR(nValueIn)})));
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Value Out",displayValueR(nValueOut)})));
+
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Reserve In",displayValueR(nReserveIn)})));
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Reserve Out",displayValueR(nReserveOut)})));
+
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Liquidity In",displayValueR(nLiquidityIn)})));
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Liquidity Out",displayValueR(nLiquidityOut)})));
+
     if (!tx.IsCoinBase() && !tx.IsCoinStake() && nValueOut < nValueIn) {
         QStringList row;
         row << "Fee";
@@ -615,8 +652,10 @@ void FractionsItemDelegate::paint(QPainter* p,
 
     auto supply = index.data(BlockchainModel::PegSupplyRole).toInt();
 
-    QPainterPath path;
-    QVector<QPointF> points;
+    QPainterPath path_reserve;
+    QPainterPath path_liquidity;
+    QVector<QPointF> points_reserve;
+    QVector<QPointF> points_liquidity;
 
     QRect r = o.rect;
     qreal rx = r.x();
@@ -625,24 +664,42 @@ void FractionsItemDelegate::paint(QPainter* p,
     qreal rh = r.height();
     qreal w = CPegFractions::PEG_SIZE;
     qreal h = f_max;
+    qreal pegx = rx + supply*rw/w;
 
-    points.push_back(QPointF(r.x(),r.bottom()));
-
-    for (int i=0; i<CPegFractions::PEG_SIZE; i++) {
+    points_reserve.push_back(QPointF(rx,r.bottom()));
+    for (int i=0; i<supply; i++) {
         int64_t f = fractions_std.f[i];
         qreal x = rx + qreal(i)*rw/w;
         qreal y = ry + rh - qreal(f)*rh/h;
-        points.push_back(QPointF(x,y));
+        points_reserve.push_back(QPointF(x,y));
     }
+    points_reserve.push_back(QPointF(pegx,r.bottom()));
 
-    QPolygonF poly(points);
-    path.addPolygon(poly);
+    points_liquidity.push_back(QPointF(pegx,r.bottom()));
+    for (int i=supply; i<CPegFractions::PEG_SIZE; i++) {
+        int64_t f = fractions_std.f[i];
+        qreal x = rx + qreal(i)*rw/w;
+        qreal y = ry + rh - qreal(f)*rh/h;
+        points_liquidity.push_back(QPointF(x,y));
+    }
+    points_liquidity.push_back(QPointF(rx+rw,r.bottom()));
+
+    QPolygonF poly_reserve(points_reserve);
+    path_reserve.addPolygon(poly_reserve);
+
+    QPolygonF poly_liquidity(points_liquidity);
+    path_liquidity.addPolygon(poly_liquidity);
+
     p->setRenderHint( QPainter::Antialiasing );
-    p->setBrush( Qt::blue );
-    p->setPen( Qt::darkBlue );
-    p->drawPath( path );
 
-    p->setPen( Qt::darkGreen );
-    qreal pegx = rx + supply*rw/w;
+    p->setBrush( QColor("#c06a15") );
+    p->setPen( QColor("#c06a15") );
+    p->drawPath( path_reserve );
+
+    p->setBrush( QColor("#2da5e0") );
+    p->setPen( QColor("#2da5e0") );
+    p->drawPath( path_liquidity );
+
+    p->setPen( Qt::red );
     p->drawLine(QPointF(pegx, ry), QPointF(pegx, ry+rh));
 }

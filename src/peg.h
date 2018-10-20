@@ -52,8 +52,8 @@ public:
     bool Unpack(CDataStream &);
 
     CPegFractions Std() const;
-    CPegFractions Reserve(int supply, int64_t* total);
-    CPegFractions Liquidity(int supply, int64_t* total);
+    CPegFractions Reserve(int supply, int64_t* total) const;
+    CPegFractions Liquidity(int supply, int64_t* total) const;
     CPegFractions RatioPart(int64_t part, int64_t of_total, int adjust_from);
 
     CPegFractions& operator+=(const CPegFractions& b);

@@ -453,9 +453,11 @@ void CPegFractions::ToStd()
     }
 }
 
-CPegFractions CPegFractions::Reserve(int supply, int64_t* total)
+CPegFractions CPegFractions::Reserve(int supply, int64_t* total) const
 {
-    ToStd();
+    if (nFlags != PEG_STD) {
+        return Std().Reserve(supply, total);
+    }
     CPegFractions freserve = CPegFractions(0).Std();
     for(int i=0; i<supply; i++) {
         if (total) *total += f[i];
@@ -463,9 +465,11 @@ CPegFractions CPegFractions::Reserve(int supply, int64_t* total)
     }
     return freserve;
 }
-CPegFractions CPegFractions::Liquidity(int supply, int64_t* total)
+CPegFractions CPegFractions::Liquidity(int supply, int64_t* total) const
 {
-    ToStd();
+    if (nFlags != PEG_STD) {
+        return Std().Liquidity(supply, total);
+    }
     CPegFractions fliquidity = CPegFractions(0).Std();
     for(int i=supply; i<PEG_SIZE; i++) {
         if (total) *total += f[i];

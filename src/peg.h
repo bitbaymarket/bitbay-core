@@ -77,6 +77,9 @@ bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb,
 bool CalculateVotesForPeg(CTxDB & ctxdb,
                           CPegDB& pegdb,
                           LoadMsg load_msg);
+bool CalculateBlockPegIndex(const CBlock & cblock,
+                            CBlockIndex* pindex,
+                            CPegDB& pegdb);
 bool CalculateBlockPegVotes(const CBlock & cblock,
                             CBlockIndex* pindex,
                             CPegDB& pegdb);

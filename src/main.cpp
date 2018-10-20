@@ -1530,6 +1530,9 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     else
         nTxPos = pindex->nBlockPos + ::GetSerializeSize(CBlock(), SER_DISK, CLIENT_VERSION) - (2 * GetSizeOfCompactSize(0)) + GetSizeOfCompactSize(vtx.size());
 
+    // bitbay: prepare peg supply index information
+    CalculateBlockPegIndex(*this, pindex, pegdb);
+
     map<uint256, CTxIndex> mapQueuedChanges;
     map<uint320, CPegFractions> mapQueuedFractionsChanges;
     CPegFractions feesFractions;

@@ -661,6 +661,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
         MapPrevFractions mapInputsFractions;
         map<uint256, CTxIndex> mapUnused;
         map<uint320, CPegFractions> mapFractionsUnused;
+        CPegFractions feesFractions;
         bool fInvalid = false;
         if (!tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid))
         {
@@ -722,7 +723,12 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
 
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
-        if (!tx.ConnectInputs(txdb, mapInputs, mapInputsFractions, mapUnused, mapFractionsUnused, CDiskTxPos(1,1,1), pindexBest, false, false, STANDARD_SCRIPT_VERIFY_FLAGS))
+        if (!tx.ConnectInputs(txdb,
+                              mapInputs, mapInputsFractions,
+                              mapUnused, mapFractionsUnused,
+                              feesFractions,
+                              CDiskTxPos(1,1,1), pindexBest, false, false,
+                              STANDARD_SCRIPT_VERIFY_FLAGS))
         {
             return error("AcceptToMemoryPool : ConnectInputs failed %s", hash.ToString());
         }
@@ -736,7 +742,12 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
         // There is a similar check in CreateNewBlock() to prevent creating
         // invalid blocks, however allowing such transactions into the mempool
         // can be exploited as a DoS attack.
-        if (!tx.ConnectInputs(txdb, mapInputs, mapInputsFractions, mapUnused, mapFractionsUnused, CDiskTxPos(1,1,1), pindexBest, false, false, MANDATORY_SCRIPT_VERIFY_FLAGS))
+        if (!tx.ConnectInputs(txdb,
+                              mapInputs, mapInputsFractions,
+                              mapUnused, mapFractionsUnused,
+                              feesFractions,
+                              CDiskTxPos(1,1,1), pindexBest, false, false,
+                              MANDATORY_SCRIPT_VERIFY_FLAGS))
         {
             return error("AcceptToMemoryPool: : BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", hash.ToString());
         }
@@ -1329,6 +1340,7 @@ bool CTransaction::ConnectInputs(CTxDB& txdb,
                                  MapPrevFractions& finputs,
                                  map<uint256, CTxIndex>& mapTestPool,
                                  map<uint320, CPegFractions>& mapTestFractionsPool,
+                                 CPegFractions& feesFractions,
                                  const CDiskTxPos& posThisTx,
                                  const CBlockIndex* pindexBlock,
                                  bool fBlock, bool fMiner, unsigned int flags)
@@ -1380,9 +1392,11 @@ bool CTransaction::ConnectInputs(CTxDB& txdb,
     }
     // Calculation of fractions is considered less expensive than
     // signatures checks. For now it reports only about peg violations
+    vector<int> vOutputsTypes;
     CalculateTransactionFractions(*this, pindexBlock,
                                   inputs, finputs,
-                                  mapTestPool, mapTestFractionsPool);
+                                  mapTestPool, mapTestFractionsPool,
+                                  vOutputsTypes);
 
     // The first loop above does all the inexpensive checks.
     // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
@@ -1517,6 +1531,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
 
     map<uint256, CTxIndex> mapQueuedChanges;
     map<uint320, CPegFractions> mapQueuedFractionsChanges;
+    CPegFractions feesFractions;
     int64_t nFees = 0;
     int64_t nValueIn = 0;
     int64_t nValueOut = 0;
@@ -1560,7 +1575,11 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         else
         {
             bool fInvalid;
-            if (!tx.FetchInputs(txdb, pegdb, mapQueuedChanges, mapQueuedFractionsChanges, true, false, mapInputs, mapInputsFractions, fInvalid))
+            if (!tx.FetchInputs(txdb, pegdb,
+                                mapQueuedChanges, mapQueuedFractionsChanges,
+                                true, false,
+                                mapInputs, mapInputsFractions,
+                                fInvalid))
                 return false;
 
             // Add in sigops done by pay-to-script-hash inputs;
@@ -1579,7 +1598,11 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
             if (tx.IsCoinStake())
                 nStakeReward = nTxValueOut - nTxValueIn;
 
-            if (!tx.ConnectInputs(txdb, mapInputs, mapInputsFractions, mapQueuedChanges, mapQueuedFractionsChanges, posThisTx, pindex, true, false, flags))
+            if (!tx.ConnectInputs(txdb,
+                                  mapInputs, mapInputsFractions,
+                                  mapQueuedChanges, mapQueuedFractionsChanges,
+                                  feesFractions,
+                                  posThisTx, pindex, true, false, flags))
                 return false;
         }
 

@@ -420,6 +420,7 @@ public:
                        MapPrevFractions& finputs,
                        std::map<uint256, CTxIndex>& mapTestPool,
                        std::map<uint320, CPegFractions>& mapTestFractionsPool,
+                       CPegFractions& feesFractions,
                        const CDiskTxPos& posThisTx,
                        const CBlockIndex* pindexBlock,
                        bool fBlock, bool fMiner, unsigned int flags = STANDARD_SCRIPT_VERIFY_FLAGS);

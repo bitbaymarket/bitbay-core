@@ -583,9 +583,12 @@ bool CalculateTransactionFractions(const CTransaction & tx,
                                    MapPrevFractions& fInputs,
                                    map<uint256, CTxIndex>& mapTestPool,
                                    map<uint320, CPegFractions>& mapTestFractionsPool,
-                                   bool * ok)
+                                   std::vector<int>& vOutputsTypes)
 {
-    if (ok) *ok = true;
+    size_t n_vin = tx.vin.size();
+    size_t n_vout = tx.vout.size();
+    vOutputsTypes.resize(n_vout);
+
     if (!IsPegWhiteListed(tx, inputs))
         return true;
 
@@ -599,7 +602,6 @@ bool CalculateTransactionFractions(const CTransaction & tx,
     int supply = pindexBlock->nPegSupplyIndex;
     set<string> sInputAddresses;
 
-    size_t n_vin = tx.vin.size();
     if (tx.IsCoinBase()) n_vin = 0;
     for (unsigned int i = 0; i < n_vin; i++)
     {
@@ -607,7 +609,6 @@ bool CalculateTransactionFractions(const CTransaction & tx,
 
         auto fkey = uint320(prevout.hash, prevout.n);
         if (fInputs.find(fkey) == fInputs.end()) {
-            if (ok) *ok = false;
             return false;
         }
 
@@ -618,14 +619,11 @@ bool CalculateTransactionFractions(const CTransaction & tx,
 
         CTransaction& txPrev = inputs[prevout.hash].second;
         if (prevout.n >= txPrev.vout.size()) {
-            if (ok) *ok = false;
             return false;
         }
 
         if (fInp.Total() != txPrev.vout[prevout.n].nValue) {
-            // input mismatch!!!!
-            if (ok) *ok = false;
-            return false;
+            return false; // input mismatch
         }
 
         nValueIn += txPrev.vout[prevout.n].nValue;
@@ -645,12 +643,10 @@ bool CalculateTransactionFractions(const CTransaction & tx,
     auto nRemainsTotal = nValueIn;
     auto fRemainsPool = fValueInPool;
 
-    // Calculation of liquidity outputs
-    // These are substracted from totals
-    size_t n_vout = tx.vout.size();
+    // Reveal outs destination type
     for (unsigned int i = 0; i < n_vout; i++)
     {
-        bool is_reserve = false;
+        vOutputsTypes[i] = PEG_DEST_OUT;
 
         int nRequired;
         txnouttype type;
@@ -660,24 +656,27 @@ bool CalculateTransactionFractions(const CTransaction & tx,
             for(const CTxDestination& addr : addresses) {
                 std::string str_addr = CBitcoinAddress(addr).ToString();
                 if (sInputAddresses.count(str_addr) >0) {
-                    is_reserve = true;
+                    vOutputsTypes[i] = PEG_DEST_SELF;
                 }
             }
         }
+    }
 
+    // Calculation of liquidity outputs
+    // These are substracted from totals
+    for (unsigned int i = 0; i < n_vout; i++)
+    {
         int64_t nValue = tx.vout[i].nValue;
         auto fkey = uint320(tx.GetHash(), i);
 
-        if (!is_reserve) {
+        if (vOutputsTypes[i] == PEG_DEST_OUT) {
             if (nLiquidityTotal == 0) {
                 mapTestFractionsPool[fkey] = CPegFractions(0);
                 continue;
             }
 
             if (nValue > nLiquidityTotal) {
-                // violate peg
-                if (ok) *ok = false;
-                return false;
+                return false; // violate peg
             }
             auto fOut = fLiquidityPool.RatioPart(nValue, nLiquidityTotal, supply);
             mapTestFractionsPool[fkey] = fOut;
@@ -685,11 +684,8 @@ bool CalculateTransactionFractions(const CTransaction & tx,
             nRemainsTotal -= nValue;
 
             if (fOut.Total() != tx.vout[i].nValue) {
-                // output mismatch!!!!
-                if (ok) *ok = false;
-                return false;
+                return false; // output mismatch
             }
-
         }
     }
 
@@ -697,43 +693,24 @@ bool CalculateTransactionFractions(const CTransaction & tx,
     // These are substracted from remains pool
     for (unsigned int i = 0; i < n_vout; i++)
     {
-        bool is_reserve = false;
-
-        int nRequired;
-        txnouttype type;
-        vector<CTxDestination> addresses;
-        const CScript& scriptPubKey = tx.vout[i].scriptPubKey;
-        if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
-            for(const CTxDestination& addr : addresses) {
-                std::string str_addr = CBitcoinAddress(addr).ToString();
-                if (sInputAddresses.count(str_addr) >0) {
-                    is_reserve = true;
-                }
-            }
-        }
-
         int64_t nValue = tx.vout[i].nValue;
         auto fkey = uint320(tx.GetHash(), i);
 
-        if (is_reserve) {
+        if (vOutputsTypes[i] == PEG_DEST_SELF) {
             if (nRemainsTotal == 0) {
                 mapTestFractionsPool[fkey] = CPegFractions(0);
                 continue;
             }
 
             if (nValue > nRemainsTotal) {
-                // violate peg
-                if (ok) *ok = false;
-                return false;
+                return false; // violate peg
             }
 
             auto fOut = fRemainsPool.RatioPart(nValue, nRemainsTotal, 0);
             mapTestFractionsPool[fkey] = fOut;
 
             if (fOut.Total() != tx.vout[i].nValue) {
-                // output mismatch!!!!
-                if (ok) *ok = false;
-                return false;
+                return false; // output mismatch
             }
         }
     }

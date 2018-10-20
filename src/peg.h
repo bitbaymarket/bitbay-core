@@ -26,7 +26,11 @@ typedef std::function<void(const std::string &)> LoadMsg;
 
 enum
 {
-    PEG_INTERVAL = 200
+    PEG_INTERVAL    = 200,
+    PEG_RATE        = 100,
+    PEG_SIZE        = 1200,
+    PEG_DEST_OUT    = 1,
+    PEG_DEST_SELF   = 2
 };
 
 class CPegFractions {
@@ -36,8 +40,6 @@ public:
     {
         PEG_VALUE   = 1,
         PEG_STD     = 2,
-        PEG_RATE    = 100,
-        PEG_SIZE    = 1200,
         SER_VALUE   = 0,
         SER_ZDELTA  = 1,
         SER_RAW     = 2
@@ -87,7 +89,7 @@ bool CalculateTransactionFractions(const CTransaction & tx,
                                    MapPrevFractions& finputs,
                                    std::map<uint256, CTxIndex>& mapTestPool,
                                    std::map<uint320, CPegFractions>& mapTestFractionsPool,
-                                   bool *ok =nullptr);
+                                   std::vector<int>& vOutputsTypes);
 
 #define PegFail(...) PegReport(__VA_ARGS__)
 #define PegReportf(...) PegReport(__VA_ARGS__)

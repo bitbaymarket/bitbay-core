@@ -363,6 +363,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     MapPrevFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
     map<uint320, CPegFractions> mapFractionsUnused;
+    vector<int> vOutputsTypes;
     bool fInvalid = false;
     tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid);
 
@@ -431,9 +432,10 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         ui->txInputs->addTopLevelItem(input);
     }
 
-    CalculateTransactionFractions(tx, pblockindex,
-                                  mapInputs, mapInputsFractions,
-                                  mapUnused, mapFractionsUnused);
+    bool peg_ok = CalculateTransactionFractions(tx, pblockindex,
+                                                mapInputs, mapInputsFractions,
+                                                mapUnused, mapFractionsUnused,
+                                                vOutputsTypes);
 
     CTxIndex txindex;
     txdb.ReadTxIndex(hash, txindex);
@@ -442,6 +444,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     size_t n_vout = tx.vout.size();
     if (tx.IsCoinBase()) n_vout = 0;
     int64_t nValueOut = 0;
+    int64_t nLiquidityOut = 0;
     for (unsigned int i = 0; i < n_vout; i++)
     {
         QStringList row;
@@ -503,23 +506,23 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         }
         output->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         ui->txOutputs->addTopLevelItem(output);
-    }
 
-    int64_t nReserveOut = 0;
-    int64_t nLiquidityOut = 0;
-    for(auto const & outputFractionItem : mapFractionsUnused) {
-        outputFractionItem.second.Reserve(pblockindex->nPegSupplyIndex, &nReserveOut);
-        outputFractionItem.second.Liquidity(pblockindex->nPegSupplyIndex, &nLiquidityOut);
+        if (vOutputsTypes[i] == PEG_DEST_OUT) {
+            nLiquidityOut += tx.vout[i].nValue;
+        }
     }
 
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Value In",displayValueR(nValueIn)})));
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Value Out",displayValueR(nValueOut)})));
 
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Reserve In",displayValueR(nReserveIn)})));
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Reserve Out",displayValueR(nReserveOut)})));
-
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Liquidity In",displayValueR(nLiquidityIn)})));
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Liquidity Out",displayValueR(nLiquidityOut)})));
+    auto twiOutLiquidity = new QTreeWidgetItem(QStringList({"Liquidity Out",displayValueR(nLiquidityOut)}));
+    if (nLiquidityOut > nLiquidityIn)
+        twiOutLiquidity->setBackgroundColor(1, Qt::red);
+    ui->txValues->addTopLevelItem(twiOutLiquidity);
+
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Peg Checks", peg_ok ? "OK" : "FAIL"})));
 
     if (!tx.IsCoinBase() && !tx.IsCoinStake() && nValueOut < nValueIn) {
         QStringList row;
@@ -591,7 +594,7 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)
     ui.packedLabel->setText(tr("Packed: %1 bytes").arg(len_test));
 
     int64_t f_max = 0;
-    for (int i=0; i<CPegFractions::PEG_SIZE; i++) {
+    for (int i=0; i<PEG_SIZE; i++) {
         auto f = fractions_std.f[i];
         if (f > f_max) f_max = f;
     }
@@ -601,7 +604,7 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)
     qreal xs[1200];
     qreal ys[1200];
     QVector<qreal> bs;
-    for (int i=0; i<CPegFractions::PEG_SIZE; i++) {
+    for (int i=0; i<PEG_SIZE; i++) {
         QStringList row;
         row << QString::number(i) << displayValue(fractions_std.f[i]); // << QString::number(fdelta[i]) << QString::number(fd.f[i]);
         auto row_item = new QTreeWidgetItem(row);
@@ -643,7 +646,7 @@ void FractionsItemDelegate::paint(QPainter* p,
     auto fractions_std = fractions.Std();
 
     int64_t f_max = 0;
-    for (int i=0; i<CPegFractions::PEG_SIZE; i++) {
+    for (int i=0; i<PEG_SIZE; i++) {
         auto f = fractions_std.f[i];
         if (f > f_max) f_max = f;
     }
@@ -662,7 +665,7 @@ void FractionsItemDelegate::paint(QPainter* p,
     qreal ry = r.y();
     qreal rw = r.width();
     qreal rh = r.height();
-    qreal w = CPegFractions::PEG_SIZE;
+    qreal w = PEG_SIZE;
     qreal h = f_max;
     qreal pegx = rx + supply*rw/w;
 
@@ -676,7 +679,7 @@ void FractionsItemDelegate::paint(QPainter* p,
     points_reserve.push_back(QPointF(pegx,r.bottom()));
 
     points_liquidity.push_back(QPointF(pegx,r.bottom()));
-    for (int i=supply; i<CPegFractions::PEG_SIZE; i++) {
+    for (int i=supply; i<PEG_SIZE; i++) {
         int64_t f = fractions_std.f[i];
         qreal x = rx + qreal(i)*rw/w;
         qreal y = ry + rh - qreal(f)*rh/h;

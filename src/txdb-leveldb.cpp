@@ -662,12 +662,14 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     MapPrevFractions mapInputsFractions;
                     map<uint256, CTxIndex> mapUnused;
                     map<uint320, CPegFractions> mapQueuedFractionsChanges;
+                    vector<int> vOutputsTypes;
                     bool fInvalid = false;
                     tx.FetchInputs(*this, pegdb, mapUnused, mapQueuedFractionsChanges, false, false, mapInputs, mapInputsFractions, fInvalid);
 
                     CalculateTransactionFractions(tx, pblockindex,
                                                   mapInputs, mapInputsFractions,
-                                                  mapUnused, mapQueuedFractionsChanges);
+                                                  mapUnused, mapQueuedFractionsChanges,
+                                                  vOutputsTypes);
 
                     // Write queued fractions changes
                     for (map<uint320, CPegFractions>::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)

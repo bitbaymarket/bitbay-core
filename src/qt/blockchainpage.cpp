@@ -112,6 +112,8 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
             this, SLOT(jumpToBlock()));
     connect(ui->lineFindBlock, SIGNAL(returnPressed()),
             this, SLOT(openBlockFromInput()));
+    connect(ui->lineTx, SIGNAL(returnPressed()),
+            this, SLOT(openTxFromInput()));
 }
 
 BlockchainPage::~BlockchainPage()
@@ -304,9 +306,12 @@ static QString displayValue(int64_t nValue) {
     return sValue;
 }
 
-static QString displayValueR(int64_t nValue) {
+static QString displayValueR(int64_t nValue, int len=0) {
+    if (len==0) {
+        len = 8+1+3+1+3+1+3+5;
+    }
     QString sValue = displayValue(nValue);
-    sValue = sValue.rightJustified(8+1+3+1+3+1+3+5, QChar(' '));
+    sValue = sValue.rightJustified(len, QChar(' '));
     return sValue;
 }
 
@@ -320,6 +325,38 @@ static QString txId(CTxDB& txdb, uint256 txhash) {
         txid = QString("%1-%2").arg(nHeight).arg(nTxNum);
     }
     return txid;
+}
+
+void BlockchainPage::openTxFromInput()
+{
+    // as height-index
+    if (ui->lineTx->text().contains("-")) {
+        auto args = ui->lineTx->text().split("-");
+        bool ok = false;
+        int blockNum = args.front().toInt(&ok);
+        if (ok) {
+            uint txidx = args.back().toUInt();
+            int n = ui->blockchainView->model()->rowCount();
+            int r = n-blockNum;
+            if (r<0 || r>=n) return;
+            auto mi = ui->blockchainView->model()->index(r, 0);
+            auto bhash = mi.data(BlockchainModel::HashRole).value<uint256>();
+            openTx(bhash, txidx);
+        }
+        return;
+    }
+    // consider it as hash
+    uint nTxNum = 0;
+    uint256 blockhash;
+    uint256 txhash(ui->lineTx->text().toStdString());
+    {
+        LOCK(cs_main);
+        CTxDB txdb("r");
+        CTxIndex txindex;
+        txdb.ReadTxIndex(txhash, txindex);
+        txindex.GetHeightInMainChain(&nTxNum, txhash, &blockhash);
+    }
+    openTx(blockhash, nTxNum);
 }
 
 void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
@@ -643,12 +680,24 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         }
     }
 
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Value In",displayValueR(nValueIn)})));
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Value Out",displayValueR(nValueOut)})));
+    int nValueMaxLen = qMax(displayValue(nValueIn).length(),
+                            qMax(displayValue(nValueOut).length(),
+                                 qMax(displayValue(nReserveIn).length(),
+                                      qMax(displayValue(nLiquidityIn).length(),
+                                           displayValue(nLiquidityOut).length()))));
+    auto sValueIn = displayValueR(nValueIn, nValueMaxLen);
+    auto sValueOut = displayValueR(nValueOut, nValueMaxLen);
+    auto sReserveIn = displayValueR(nReserveIn, nValueMaxLen);
+    auto sLiquidityIn = displayValueR(nLiquidityIn, nValueMaxLen);
+    auto sLiquidityOut = displayValueR(nLiquidityOut, nValueMaxLen);
 
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Reserves",displayValueR(nReserveIn)})));
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Liquidity",displayValueR(nLiquidityIn)})));
-    auto twiOutLiquidity = new QTreeWidgetItem(QStringList({"Liquidity Move",displayValueR(nLiquidityOut)}));
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Value In",sValueIn})));
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Value Out",sValueOut})));
+
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Reserves",sReserveIn})));
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Liquidity",sLiquidityIn})));
+    auto twiOutLiquidity = new QTreeWidgetItem(QStringList({"Liquidity Move",sLiquidityOut}));
+
     if (nLiquidityOut > nLiquidityIn)
         twiOutLiquidity->setBackgroundColor(1, Qt::red);
     ui->txValues->addTopLevelItem(twiOutLiquidity);

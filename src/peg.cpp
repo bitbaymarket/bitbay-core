@@ -129,6 +129,7 @@ bool CalculateVotesForPeg(CTxDB & ctxdb, CPegDB& pegdb, LoadMsg load_msg) {
 
         // calc votes per block
         block.ReadFromDisk(pblockindex, true);
+        CalculateBlockPegIndex(block, pblockindex, pegdb);
         CalculateBlockPegVotes(block, pblockindex, pegdb);
         ctxdb.WriteBlockIndex(CDiskBlockIndex(pblockindex));
 
@@ -144,21 +145,14 @@ bool CalculateVotesForPeg(CTxDB & ctxdb, CPegDB& pegdb, LoadMsg load_msg) {
     return true;
 }
 
-bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& pegdb)
+bool CalculateBlockPegIndex(const CBlock & cblock, CBlockIndex* pindex, CPegDB& pegdb)
 {
     if (!cblock.IsProofOfStake() || pindex->nHeight < nPegStartHeight) {
         pindex->nPegSupplyIndex =0;
-        pindex->nPegVotesInflate =0;
-        pindex->nPegVotesDeflate =0;
-        pindex->nPegVotesNochange =0;
         return true;
     }
 
     if (pindex->nHeight % PEG_INTERVAL == 0) {
-        pindex->nPegVotesInflate =0;
-        pindex->nPegVotesDeflate =0;
-        pindex->nPegVotesNochange =0;
-
         // back to 2 intervals and -1 to count voice of back-third interval, as votes sum at PEG_INTERVAL-1
         auto usevotesindex = pindex;
         while (usevotesindex->nHeight > (pindex->nHeight - PEG_INTERVAL*2 -1))
@@ -196,6 +190,26 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& 
     }
     else if (pindex->pprev) {
         pindex->nPegSupplyIndex = pindex->pprev->nPegSupplyIndex;
+    }
+
+    return true;
+}
+
+bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& pegdb)
+{
+    if (!cblock.IsProofOfStake() || pindex->nHeight < nPegStartHeight) {
+        pindex->nPegVotesInflate =0;
+        pindex->nPegVotesDeflate =0;
+        pindex->nPegVotesNochange =0;
+        return true;
+    }
+
+    if (pindex->nHeight % PEG_INTERVAL == 0) {
+        pindex->nPegVotesInflate =0;
+        pindex->nPegVotesDeflate =0;
+        pindex->nPegVotesNochange =0;
+    }
+    else if (pindex->pprev) {
         pindex->nPegVotesInflate = pindex->pprev->nPegVotesInflate;
         pindex->nPegVotesDeflate = pindex->pprev->nPegVotesDeflate;
         pindex->nPegVotesNochange = pindex->pprev->nPegVotesNochange;

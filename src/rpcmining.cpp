@@ -588,7 +588,7 @@ Value getblocktemplate(const Array& params, bool fHelp)
         MapPrevTx mapInputs;
         MapPrevFractions mapInputsFractions;
         map<uint256, CTxIndex> mapUnused;
-        map<uint320, CPegFractions> mapFractionsUnused;
+        map<uint320, CFractions> mapFractionsUnused;
         bool fInvalid = false;
         if (tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid))
         {

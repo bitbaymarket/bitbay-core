@@ -179,7 +179,7 @@ bool CPegDB::ScanBatch(const CDataStream &key, string *value, bool *deleted) con
     return scanner.foundEntry;
 }
 
-bool CPegDB::Read(uint320 txout, CPegFractions & f) {
+bool CPegDB::Read(uint320 txout, CFractions & f) {
     std::string strValue;
     if (!ReadStr(txout, strValue)) {
         // For now returns true indicating this output is not in pegdb
@@ -193,7 +193,7 @@ bool CPegDB::Read(uint320 txout, CPegFractions & f) {
                      SER_DISK, CLIENT_VERSION);
     return f.Unpack(finp);
 }
-bool CPegDB::Write(uint320 txout, const CPegFractions & f) {
+bool CPegDB::Write(uint320 txout, const CFractions & f) {
     CDataStream fout(SER_DISK, CLIENT_VERSION);
     f.Pack(fout);
     return Write(txout, fout);

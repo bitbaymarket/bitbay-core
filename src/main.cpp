@@ -660,8 +660,8 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
         MapPrevTx mapInputs;
         MapPrevFractions mapInputsFractions;
         map<uint256, CTxIndex> mapUnused;
-        map<uint320, CPegFractions> mapFractionsUnused;
-        CPegFractions feesFractions;
+        map<uint320, CFractions> mapFractionsUnused;
+        CFractions feesFractions;
         bool fInvalid = false;
         if (!tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid))
         {
@@ -1203,7 +1203,7 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb)
 bool CTransaction::FetchInputs(CTxDB& txdb,
                                CPegDB& pegdb,
                                const map<uint256, CTxIndex>& mapTestPool,
-                               const map<uint320, CPegFractions>& mapTestFractionsPool,
+                               const map<uint320, CFractions>& mapTestFractionsPool,
                                bool fBlock, bool fMiner,
                                MapPrevTx& inputsRet,
                                MapPrevFractions& finputsRet,
@@ -1277,7 +1277,7 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
             return DoS(100, error("FetchInputs() : %s prevout.n out of range %d %u %u prev tx %s\n%s", GetHash().ToString(), prevout.n, txPrev.vout.size(), txindex.vSpent.size(), prevout.hash.ToString(), txPrev.ToString()));
         }
         // Read previous fractions
-        CPegFractions& fractions = finputsRet[uint320(prevout.hash, prevout.n)];
+        CFractions& fractions = finputsRet[uint320(prevout.hash, prevout.n)];
         if ((fBlock || fMiner) && mapTestFractionsPool.count(uint320(prevout.hash, prevout.n)))
         {
             // Get fractions from current proposed changes
@@ -1285,7 +1285,7 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
         }
         else {
             //peg:todo: not to read before peg start, expensive to know tx height?
-            fractions = CPegFractions(txPrev.vout[prevout.n].nValue);
+            fractions = CFractions(txPrev.vout[prevout.n].nValue, CFractions::VALUE);
             if (!pegdb.Read(uint320(prevout.hash, prevout.n), fractions)) {
                 PegError("FetchInputs() : %s pegdb.Read/Unpack prev tx fractions %s failed", GetHash().ToString(),  prevout.hash.ToString());
                 //return DoS?
@@ -1339,8 +1339,8 @@ bool CTransaction::ConnectInputs(CTxDB& txdb,
                                  MapPrevTx inputs,
                                  MapPrevFractions& finputs,
                                  map<uint256, CTxIndex>& mapTestPool,
-                                 map<uint320, CPegFractions>& mapTestFractionsPool,
-                                 CPegFractions& feesFractions,
+                                 map<uint320, CFractions>& mapTestFractionsPool,
+                                 CFractions& feesFractions,
                                  const CDiskTxPos& posThisTx,
                                  const CBlockIndex* pindexBlock,
                                  bool fBlock, bool fMiner, unsigned int flags)
@@ -1534,8 +1534,8 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     CalculateBlockPegIndex(*this, pindex, pegdb);
 
     map<uint256, CTxIndex> mapQueuedChanges;
-    map<uint320, CPegFractions> mapQueuedFractionsChanges;
-    CPegFractions feesFractions;
+    map<uint320, CFractions> mapQueuedFractionsChanges;
+    CFractions feesFractions;
     int64_t nFees = 0;
     int64_t nValueIn = 0;
     int64_t nValueOut = 0;
@@ -1655,7 +1655,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     }
 
     // Write queued fractions changes
-    for (map<uint320, CPegFractions>::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
+    for (map<uint320, CFractions>::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
     {
         if (!pegdb.Write((*mi).first, (*mi).second))
             return error("ConnectBlock() : pegdb Write failed");

@@ -398,7 +398,7 @@ Value signrawtransaction(const Array& params, bool fHelp)
         CTxDB txdb("r");
         CPegDB pegdb("r");
         map<uint256, CTxIndex> unused;
-        map<uint320, CPegFractions> fractionsUnused;
+        map<uint320, CFractions> fractionsUnused;
         bool fInvalid;
 
         // FetchInputs aborts on failure, so we go one at a time.

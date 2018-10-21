@@ -7,6 +7,6 @@
 #include "peg.h"
 
 Q_DECLARE_METATYPE(uint256);
-Q_DECLARE_METATYPE(CPegFractions);
+Q_DECLARE_METATYPE(CFractions);
 
 #endif // METATYPES_H

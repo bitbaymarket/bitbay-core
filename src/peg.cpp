@@ -223,7 +223,7 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& 
     if (tx.IsCoinBase()) n_vin = 0;
     for (unsigned int i = 0; i < n_vin; i++)
     {
-        auto fractions = CFractions(0);
+        CFractions fractions(0, CFractions::STD);
         const COutPoint & prevout = tx.vin[i].prevout;
         if (!pegdb.Read(uint320(prevout.hash, prevout.n), fractions)) {
             continue;
@@ -299,14 +299,24 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& 
 }
 
 CFractions::CFractions()
-    :nFlags(PEG_VALUE)
+    :nFlags(VALUE)
 {
     f[0] = 0; // fast init first item
 }
-CFractions::CFractions(int64_t value)
-    :nFlags(PEG_VALUE)
+CFractions::CFractions(int64_t value, uint32_t flags)
+    :nFlags(flags)
 {
-    f[0] = value; // fast init first item
+    if (flags & VALUE)
+        f[0] = value; // fast init first item
+    else if (flags & STD) {
+        f[0] = value;
+        nFlags = VALUE;
+        ToStd();
+        nFlags = flags;
+    }
+    else {
+        assert(0);
+    }
 }
 CFractions::CFractions(const CFractions & o)
     :nFlags(o.nFlags)
@@ -344,7 +354,7 @@ void CFractions::FromDeltas(const int64_t* deltas)
 
 bool CFractions::Pack(CDataStream& out, unsigned long* report_len) const
 {
-    if (nFlags == PEG_VALUE) {
+    if (nFlags & VALUE) {
         if (report_len) *report_len = sizeof(int64_t);
         out << int(SER_VALUE);
         out << f[0];
@@ -380,7 +390,7 @@ bool CFractions::Unpack(CDataStream& inp)
     int nSerFlags = 0;
     inp >> nSerFlags;
     if (nSerFlags == SER_VALUE) {
-        nFlags = PEG_VALUE;
+        nFlags = VALUE;
         inp >> f[0];
     }
     else if (nSerFlags == SER_ZDELTA) {
@@ -406,23 +416,23 @@ bool CFractions::Unpack(CDataStream& inp)
             return false;
         }
         FromDeltas(deltas);
-        nFlags = PEG_STD;
+        nFlags = STD;
     }
     else if (nSerFlags == SER_RAW) {
         auto ser = reinterpret_cast<char *>(f);
         inp.read(ser, PEG_SIZE*sizeof(int64_t));
-        nFlags = PEG_STD;
+        nFlags = STD;
     }
     return true;
 }
 
 CFractions CFractions::Std() const
 {
-    if (nFlags!=PEG_VALUE)
+    if ((nFlags & VALUE) ==0)
         return *this;
 
     CFractions fstd;
-    fstd.nFlags = PEG_STD;
+    fstd.nFlags = STD;
 
     int64_t v = f[0];
     for(int i=0;i<PEG_SIZE;i++) {
@@ -440,7 +450,7 @@ CFractions CFractions::Std() const
 int64_t CFractions::Total() const
 {
     int64_t nValue =0;
-    if (nFlags == PEG_VALUE)
+    if (nFlags & VALUE)
         return f[0];
 
     for(int i=0;i<PEG_SIZE;i++) {
@@ -451,10 +461,10 @@ int64_t CFractions::Total() const
 
 void CFractions::ToStd()
 {
-    if (nFlags!=PEG_VALUE)
+    if ((nFlags & VALUE) == 0)
         return;
 
-    nFlags = PEG_STD;
+    nFlags = STD;
     int64_t v = f[0];
     for(int i=0;i<PEG_SIZE;i++) {
         if (i == PEG_SIZE-1) {
@@ -469,10 +479,10 @@ void CFractions::ToStd()
 
 CFractions CFractions::Reserve(int supply, int64_t* total) const
 {
-    if (nFlags != PEG_STD) {
+    if ((nFlags & STD) == 0) {
         return Std().Reserve(supply, total);
     }
-    CFractions freserve = CFractions(0).Std();
+    CFractions freserve(0, CFractions::STD);
     for(int i=0; i<supply; i++) {
         if (total) *total += f[i];
         freserve.f[i] += f[i];
@@ -481,10 +491,10 @@ CFractions CFractions::Reserve(int supply, int64_t* total) const
 }
 CFractions CFractions::Liquidity(int supply, int64_t* total) const
 {
-    if (nFlags != PEG_STD) {
+    if ((nFlags & STD) == 0) {
         return Std().Liquidity(supply, total);
     }
-    CFractions fliquidity = CFractions(0).Std();
+    CFractions fliquidity(0, CFractions::STD);
     for(int i=supply; i<PEG_SIZE; i++) {
         if (total) *total += f[i];
         fliquidity.f[i] += f[i];
@@ -500,7 +510,7 @@ CFractions CFractions::RatioPart(int64_t nPartValue,
                                        int adjust_from) {
     ToStd();
     int64_t nPartValueSum = 0;
-    CFractions fPart = CFractions(0).Std();
+    CFractions fPart(0, CFractions::STD);
     for(int i=0; i<PEG_SIZE; i++) {
         int64_t v = f[i];
 
@@ -512,7 +522,7 @@ CFractions CFractions::RatioPart(int64_t nPartValue,
             long long m_test;
             has_overflow = __builtin_smulll_overflow(v, nPartValue, &m_test);
         } else {
-            has_overflow = false; // todo: compile error
+            assert(0); // todo: compile error
         }
 
         if (has_overflow) {
@@ -611,8 +621,8 @@ bool CalculateTransactionFractions(const CTransaction & tx,
     int64_t nValueIn = 0;
     int64_t nLiquidityTotal =0;
 
-    auto fValueInPool = CFractions(0).Std();
-    auto fLiquidityPool = CFractions(0).Std();
+    CFractions fValueInPool(0, CFractions::STD);
+    CFractions fLiquidityPool(0, CFractions::STD);
 
     int supply = pindexBlock->nPegSupplyIndex;
     set<string> sInputAddresses;
@@ -690,7 +700,7 @@ bool CalculateTransactionFractions(const CTransaction & tx,
 
         if (vOutputsTypes[i] == PEG_DEST_OUT) {
             if (nLiquidityTotal == 0) {
-                mapTestFractionsPool[fkey] = CFractions(0);
+                mapTestFractionsPool[fkey] = CFractions(0, CFractions::VALUE);
                 continue;
             }
 
@@ -717,7 +727,7 @@ bool CalculateTransactionFractions(const CTransaction & tx,
 
         if (vOutputsTypes[i] == PEG_DEST_SELF) {
             if (nRemainsTotal == 0) {
-                mapTestFractionsPool[fkey] = CFractions(0);
+                mapTestFractionsPool[fkey] = CFractions(0, CFractions::VALUE);
                 continue;
             }
 
@@ -770,8 +780,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
 
     // calculate pools
     int64_t nValueIn = 0;
-
-    auto fValueInPool = CFractions(0).Std();
+    CFractions fValueInPool(0, CFractions::STD);
 
     for (unsigned int i = 0; i < n_vin; i++)
     {
@@ -799,8 +808,8 @@ bool CalculateStakingFractions(const CTransaction & tx,
     }
 
     auto fValueOutPool = fValueInPool;
-    CFractions fStakeReward(nCalculatedStakeRewardWithoutFees);
-    fValueOutPool += fStakeReward.Std();
+    CFractions fStakeReward(nCalculatedStakeRewardWithoutFees, CFractions::STD);
+    fValueOutPool += fStakeReward;
     fValueOutPool += feesFractions;
 
     auto nValueOut = nValueIn;

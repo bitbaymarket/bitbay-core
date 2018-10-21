@@ -432,7 +432,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     MapPrevFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
     map<uint320, CFractions> mapFractionsUnused;
-    auto feesFractions = CFractions(0).Std();
+    CFractions feesFractions(0, CFractions::STD);
     int64_t nFeesValue = 0;
     vector<int> vOutputsTypes;
     bool fInvalid = false;
@@ -518,7 +518,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
 
         auto inputMined = new QTreeWidgetItem(rowMined);
         QVariant vfractions;
-        vfractions.setValue(CFractions(nCalculatedStakeReward));
+        vfractions.setValue(CFractions(nCalculatedStakeReward, CFractions::STD));
         inputMined->setData(4, BlockchainModel::FractionsRole, vfractions);
         inputMined->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
         inputMined->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));

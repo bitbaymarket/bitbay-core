@@ -35,19 +35,22 @@ enum
 
 class CFractions {
 public:
-    unsigned int nFlags;
+    uint32_t nFlags;
     enum
     {
-        PEG_VALUE   = 1,
-        PEG_STD     = 2,
-        SER_VALUE   = 0,
-        SER_ZDELTA  = 1,
-        SER_RAW     = 2
+        VALUE   = (1 << 0),
+        STD     = (1 << 1),
+        FROZEN  = (1 << 2)
+    };
+    enum {
+        SER_VALUE   = (1 << 0),
+        SER_ZDELTA  = (1 << 1),
+        SER_RAW     = (1 << 2)
     };
     int64_t f[PEG_SIZE];
 
     CFractions();
-    CFractions(int64_t);
+    CFractions(int64_t, uint32_t flags);
     CFractions(const CFractions &);
 
     bool Pack(CDataStream &, unsigned long* len =nullptr) const;

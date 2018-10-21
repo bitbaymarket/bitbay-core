@@ -33,7 +33,7 @@ enum
     PEG_DEST_SELF   = 2
 };
 
-class CPegFractions {
+class CFractions {
 public:
     unsigned int nFlags;
     enum
@@ -46,20 +46,20 @@ public:
     };
     int64_t f[PEG_SIZE];
 
-    CPegFractions();
-    CPegFractions(int64_t);
-    CPegFractions(const CPegFractions &);
+    CFractions();
+    CFractions(int64_t);
+    CFractions(const CFractions &);
 
     bool Pack(CDataStream &, unsigned long* len =nullptr) const;
     bool Unpack(CDataStream &);
 
-    CPegFractions Std() const;
-    CPegFractions Reserve(int supply, int64_t* total) const;
-    CPegFractions Liquidity(int supply, int64_t* total) const;
-    CPegFractions RatioPart(int64_t part, int64_t of_total, int adjust_from);
+    CFractions Std() const;
+    CFractions Reserve(int supply, int64_t* total) const;
+    CFractions Liquidity(int supply, int64_t* total) const;
+    CFractions RatioPart(int64_t part, int64_t of_total, int adjust_from);
 
-    CPegFractions& operator+=(const CPegFractions& b);
-    CPegFractions& operator-=(const CPegFractions& b);
+    CFractions& operator+=(const CFractions& b);
+    CFractions& operator-=(const CFractions& b);
 
     void ToDeltas(int64_t* deltas) const;
     void FromDeltas(const int64_t* deltas);
@@ -70,7 +70,7 @@ private:
     void ToStd();
 };
 
-typedef std::map<uint320, CPegFractions> MapPrevFractions;
+typedef std::map<uint320, CFractions> MapPrevFractions;
 
 bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb,
                                  LoadMsg load_msg);
@@ -91,8 +91,8 @@ bool CalculateTransactionFractions(const CTransaction & tx,
                                    MapPrevTx & inputs,
                                    MapPrevFractions& finputs,
                                    std::map<uint256, CTxIndex>& mapTestPool,
-                                   std::map<uint320, CPegFractions>& mapTestFractionsPool,
-                                   CPegFractions& feesFractions,
+                                   std::map<uint320, CFractions>& mapTestFractionsPool,
+                                   CFractions& feesFractions,
                                    std::vector<int>& vOutputsTypes);
 
 bool CalculateStakingFractions(const CTransaction & tx,
@@ -100,8 +100,8 @@ bool CalculateStakingFractions(const CTransaction & tx,
                                MapPrevTx & inputs,
                                MapPrevFractions& finputs,
                                std::map<uint256, CTxIndex>& mapTestPool,
-                               std::map<uint320, CPegFractions>& mapTestFractionsPool,
-                               const CPegFractions& feesFractions,
+                               std::map<uint320, CFractions>& mapTestFractionsPool,
+                               const CFractions& feesFractions,
                                int64_t nCalculatedStakeRewardWithoutFees,
                                std::vector<int>& vOutputsTypes);
 

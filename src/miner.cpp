@@ -250,8 +250,8 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
 
         // Collect transactions into block
         map<uint256, CTxIndex> mapTestPool;
-        map<uint320, CPegFractions> mapTestFractionsPool;
-        CPegFractions feesFractions;
+        map<uint320, CFractions> mapTestFractionsPool;
+        CFractions feesFractions;
         uint64_t nBlockSize = 1000;
         uint64_t nBlockTx = 0;
         int nBlockSigOps = 100;
@@ -305,7 +305,7 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
             // Connecting shouldn't fail due to dependency on other memory pool transactions
             // because we're already processing them in order of dependency
             map<uint256, CTxIndex> mapTestPoolTmp(mapTestPool);
-            map<uint320, CPegFractions> mapTestFractionsPoolTmp(mapTestFractionsPool);
+            map<uint320, CFractions> mapTestFractionsPoolTmp(mapTestFractionsPool);
             MapPrevTx mapInputs;
             MapPrevFractions mapInputsFractions;
             bool fInvalid;

@@ -347,13 +347,13 @@ void BlockchainPage::openTx(QTreeWidgetItem * item, int column)
 
 static bool calculateFeesFractions(CBlockIndex* pblockindex,
                                    CBlock& block,
-                                   CPegFractions& feesFractions,
+                                   CFractions& feesFractions,
                                    int64_t& nFeesValue)
 {
     MapPrevTx mapInputs;
     MapPrevFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
-    map<uint320, CPegFractions> mapFractionsUnused;
+    map<uint320, CFractions> mapFractionsUnused;
 
     for (CTransaction & tx : block.vtx) {
 
@@ -431,8 +431,8 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     MapPrevTx mapInputs;
     MapPrevFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
-    map<uint320, CPegFractions> mapFractionsUnused;
-    auto feesFractions = CPegFractions(0).Std();
+    map<uint320, CFractions> mapFractionsUnused;
+    auto feesFractions = CFractions(0).Std();
     int64_t nFeesValue = 0;
     vector<int> vOutputsTypes;
     bool fInvalid = false;
@@ -518,7 +518,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
 
         auto inputMined = new QTreeWidgetItem(rowMined);
         QVariant vfractions;
-        vfractions.setValue(CPegFractions(nCalculatedStakeReward));
+        vfractions.setValue(CFractions(nCalculatedStakeReward));
         inputMined->setData(4, BlockchainModel::FractionsRole, vfractions);
         inputMined->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
         inputMined->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
@@ -722,7 +722,7 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)
 
     auto txhash = item->data(4, BlockchainModel::HashRole).toString();
     auto vfractions = item->data(4, BlockchainModel::FractionsRole);
-    auto fractions = vfractions.value<CPegFractions>();
+    auto fractions = vfractions.value<CFractions>();
     auto fractions_std = fractions.Std();
 
 //    int64_t fdelta[CPegFractions::PEG_SIZE];
@@ -785,7 +785,7 @@ void FractionsItemDelegate::paint(QPainter* p,
                                   const QModelIndex& index) const
 {
     auto vfractions = index.data(BlockchainModel::FractionsRole);
-    auto fractions = vfractions.value<CPegFractions>();
+    auto fractions = vfractions.value<CFractions>();
     auto fractions_std = fractions.Std();
 
     int64_t f_max = 0;

@@ -781,6 +781,7 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)
     ui.fractions->header()->resizeSection(1 /*value*/, 160);
 
     auto txhash = item->data(4, BlockchainModel::HashRole).toString();
+    auto supply = item->data(4, BlockchainModel::PegSupplyRole).toInt();
     auto vfractions = item->data(4, BlockchainModel::FractionsRole);
     auto fractions = vfractions.value<CFractions>();
     auto fractions_std = fractions.Std();
@@ -795,6 +796,9 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)
     CDataStream fout_test(SER_DISK, CLIENT_VERSION);
     fractions.Pack(fout_test, &len_test);
     ui.packedLabel->setText(tr("Packed: %1 bytes").arg(len_test));
+    ui.valueLabel->setText(tr("Value: %1").arg(displayValue(fractions.Total())));
+    ui.reserveLabel->setText(tr("Reserve: %1").arg(displayValue(fractions.Low(supply))));
+    ui.liquidityLabel->setText(tr("Liquidity: %1").arg(displayValue(fractions.High(supply))));
 
     int64_t f_max = 0;
     for (int i=0; i<PEG_SIZE; i++) {

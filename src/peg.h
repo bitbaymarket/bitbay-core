@@ -70,6 +70,8 @@ public:
     void ToDeltas(int64_t* deltas) const;
     void FromDeltas(const int64_t* deltas);
 
+    int64_t Low(int supply) const;
+    int64_t High(int supply) const;
     int64_t Total() const;
 
 private:

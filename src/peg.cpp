@@ -467,6 +467,30 @@ int64_t CFractions::Total() const
     return nValue;
 }
 
+int64_t CFractions::Low(int supply) const
+{
+    int64_t nValue =0;
+    if (nFlags & VALUE)
+        return Std().Low(supply);
+
+    for(int i=0;i<supply;i++) {
+        nValue += f[i];
+    }
+    return nValue;
+}
+
+int64_t CFractions::High(int supply) const
+{
+    int64_t nValue =0;
+    if (nFlags & VALUE)
+        return Std().High(supply);
+
+    for(int i=supply;i<PEG_SIZE;i++) {
+        nValue += f[i];
+    }
+    return nValue;
+}
+
 void CFractions::ToStd()
 {
     if ((nFlags & VALUE) == 0)

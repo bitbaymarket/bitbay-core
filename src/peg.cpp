@@ -12,6 +12,9 @@
 #include <boost/filesystem/fstream.hpp>
 #include <boost/foreach.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/split.hpp>
 
 #include <leveldb/env.h>
 #include <leveldb/cache.h>
@@ -54,6 +57,9 @@ static set<string> vPegWhitelist = {
     "bVuGpma6c8Yz5mUxswtHcZk1fQt36q1zvA",
     "bJvjfxvBQ3sc5Gj8sTQ6vLbAMsg6CfVVcz"
 };
+
+static string sBurnAddress =
+    "bJnV8J5v74MGctMyVSVPfGu1mGQ9nMTiB3";
 
 extern leveldb::DB *txdb; // global pointer for LevelDB object instance
 
@@ -232,8 +238,8 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& 
         int64_t nReserveWeight=0;
         int64_t nLiquidityWeight=0;
 
-        fractions.Reserve(pindex->nPegSupplyIndex, &nReserveWeight);
-        fractions.Liquidity(pindex->nPegSupplyIndex, &nLiquidityWeight);
+        fractions.LowPart(pindex->nPegSupplyIndex, &nReserveWeight);
+        fractions.HighPart(pindex->nPegSupplyIndex, &nLiquidityWeight);
 
         if (nLiquidityWeight > INT_LEAST64_MAX/(pindex->nPegSupplyIndex+2)) {
             // check for rare extreme case when user stake more than about 100M coins
@@ -356,7 +362,7 @@ bool CFractions::Pack(CDataStream& out, unsigned long* report_len) const
 {
     if (nFlags & VALUE) {
         if (report_len) *report_len = sizeof(int64_t);
-        out << int(SER_VALUE);
+        out << uint32_t(nFlags | SER_VALUE);
         out << f[0];
     } else {
         int64_t deltas[PEG_SIZE];
@@ -370,14 +376,14 @@ bool CFractions::Pack(CDataStream& out, unsigned long* report_len) const
         int res = ::compress2(zout, &zlen, src, n, zlevel);
         if (res == Z_OK) {
             if (report_len) *report_len = zlen;
-            out << int(SER_ZDELTA);
+            out << uint32_t(nFlags | SER_ZDELTA);
             auto ser = reinterpret_cast<const char *>(zout);
             out << zlen;
             out.write(ser, zlen);
         }
         else {
             if (report_len) *report_len = PEG_SIZE*sizeof(int64_t);
-            out << int(SER_RAW);
+            out << uint32_t(nFlags | SER_RAW);
             auto ser = reinterpret_cast<const char *>(f);
             out.write(ser, PEG_SIZE*sizeof(int64_t));
         }
@@ -387,13 +393,13 @@ bool CFractions::Pack(CDataStream& out, unsigned long* report_len) const
 
 bool CFractions::Unpack(CDataStream& inp)
 {
-    int nSerFlags = 0;
+    uint32_t nSerFlags = 0;
     inp >> nSerFlags;
-    if (nSerFlags == SER_VALUE) {
-        nFlags = VALUE;
+    if (nSerFlags & SER_VALUE) {
+        nFlags = nSerFlags | VALUE;
         inp >> f[0];
     }
-    else if (nSerFlags == SER_ZDELTA) {
+    else if (nSerFlags & SER_ZDELTA) {
         unsigned long zlen = 0;
         inp >> zlen;
 
@@ -416,12 +422,12 @@ bool CFractions::Unpack(CDataStream& inp)
             return false;
         }
         FromDeltas(deltas);
-        nFlags = STD;
+        nFlags = nSerFlags | STD;
     }
-    else if (nSerFlags == SER_RAW) {
+    else if (nSerFlags & SER_RAW) {
         auto ser = reinterpret_cast<char *>(f);
         inp.read(ser, PEG_SIZE*sizeof(int64_t));
-        nFlags = STD;
+        nFlags = nSerFlags | STD;
     }
     return true;
 }
@@ -432,7 +438,9 @@ CFractions CFractions::Std() const
         return *this;
 
     CFractions fstd;
-    fstd.nFlags = STD;
+    fstd.nFlags = nFlags;
+    fstd.nFlags &= ~uint32_t(VALUE);
+    fstd.nFlags |= STD;
 
     int64_t v = f[0];
     for(int i=0;i<PEG_SIZE;i++) {
@@ -464,7 +472,9 @@ void CFractions::ToStd()
     if ((nFlags & VALUE) == 0)
         return;
 
-    nFlags = STD;
+    nFlags &= ~uint32_t(VALUE);
+    nFlags |= STD;
+
     int64_t v = f[0];
     for(int i=0;i<PEG_SIZE;i++) {
         if (i == PEG_SIZE-1) {
@@ -477,10 +487,10 @@ void CFractions::ToStd()
     }
 }
 
-CFractions CFractions::Reserve(int supply, int64_t* total) const
+CFractions CFractions::LowPart(int supply, int64_t* total) const
 {
     if ((nFlags & STD) == 0) {
-        return Std().Reserve(supply, total);
+        return Std().LowPart(supply, total);
     }
     CFractions freserve(0, CFractions::STD);
     for(int i=0; i<supply; i++) {
@@ -489,10 +499,10 @@ CFractions CFractions::Reserve(int supply, int64_t* total) const
     }
     return freserve;
 }
-CFractions CFractions::Liquidity(int supply, int64_t* total) const
+CFractions CFractions::HighPart(int supply, int64_t* total) const
 {
     if ((nFlags & STD) == 0) {
-        return Std().Liquidity(supply, total);
+        return Std().HighPart(supply, total);
     }
     CFractions fliquidity(0, CFractions::STD);
     for(int i=supply; i<PEG_SIZE; i++) {
@@ -511,6 +521,10 @@ CFractions CFractions::RatioPart(int64_t nPartValue,
     ToStd();
     int64_t nPartValueSum = 0;
     CFractions fPart(0, CFractions::STD);
+
+    if (nPartValue == 0 && nTotalValue == 0)
+        return fPart;
+
     for(int i=0; i<PEG_SIZE; i++) {
         int64_t v = f[i];
 
@@ -545,6 +559,12 @@ CFractions CFractions::RatioPart(int64_t nPartValue,
 
 CFractions& CFractions::operator+=(const CFractions& b)
 {
+    if ((b.nFlags & STD) == 0) {
+        return operator+=(b.Std());
+    }
+    if ((nFlags & STD) == 0) {
+        ToStd();
+    }
     for(int i=0; i<PEG_SIZE; i++) {
         f[i] += b.f[i];
     }
@@ -553,6 +573,12 @@ CFractions& CFractions::operator+=(const CFractions& b)
 
 CFractions& CFractions::operator-=(const CFractions& b)
 {
+    if ((b.nFlags & STD) == 0) {
+        return operator-=(b.Std());
+    }
+    if ((nFlags & STD) == 0) {
+        ToStd();
+    }
     for(int i=0; i<PEG_SIZE; i++) {
         f[i] -= b.f[i];
     }
@@ -573,6 +599,56 @@ int PegPrintStr(const std::string &str)
     return 0;
 }
 
+static string toAddress(const CScript& scriptPubKey,
+                        bool* ptrIsNotary = nullptr,
+                        string* ptrNotary = nullptr) {
+    int nRequired;
+    txnouttype type;
+    vector<CTxDestination> addresses;
+    if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
+        std::string str_addr_all;
+        bool fNone = true;
+        for(const CTxDestination& addr : addresses) {
+            std::string str_addr = CBitcoinAddress(addr).ToString();
+            if (!str_addr_all.empty())
+                str_addr_all += "\n";
+            str_addr_all += str_addr;
+            fNone = false;
+        }
+        if (!fNone)
+            return str_addr_all;
+    }
+
+    if (ptrNotary || ptrIsNotary) {
+        if (ptrIsNotary) *ptrIsNotary = false;
+        if (ptrNotary) *ptrNotary = "";
+
+        opcodetype opcode1;
+        vector<unsigned char> vch1;
+        CScript::const_iterator pc1 = scriptPubKey.begin();
+        if (scriptPubKey.GetOp(pc1, opcode1, vch1)) {
+            if (opcode1 == OP_RETURN && scriptPubKey.size()>1) {
+                if (ptrIsNotary) *ptrIsNotary = true;
+                if (ptrNotary) {
+                    unsigned long len_bytes = scriptPubKey[1];
+                    if (len_bytes > scriptPubKey.size()-2)
+                        len_bytes = scriptPubKey.size()-2;
+                    for (uint32_t i=0; i< len_bytes; i++) {
+                        ptrNotary->push_back(char(scriptPubKey[i+2]));
+                    }
+                }
+            }
+        }
+    }
+
+    string as_bytes;
+    unsigned long len_bytes = scriptPubKey.size();
+    for(unsigned int i=0; i< len_bytes; i++) {
+        as_bytes += char(scriptPubKey[i]);
+    }
+    return as_bytes;
+}
+
 bool IsPegWhiteListed(const CTransaction & tx,
                       MapPrevTx & inputs)
 {
@@ -586,17 +662,9 @@ bool IsPegWhiteListed(const CTransaction & tx,
             continue;
         }
 
-        int nRequired;
-        txnouttype type;
-        vector<CTxDestination> addresses;
-        const CScript& scriptPubKey = txPrev.vout[prevout.n].scriptPubKey;
-        if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
-            for(const CTxDestination& addr : addresses) {
-                std::string str_addr = CBitcoinAddress(addr).ToString();
-                if (vPegWhitelist.count(str_addr))
-                    return true;
-            }
-        }
+        auto sAddress = toAddress(txPrev.vout[prevout.n].scriptPubKey);
+        if (vPegWhitelist.count(sAddress))
+            return true;
     }
     return false;
 }
@@ -617,145 +685,341 @@ bool CalculateTransactionFractions(const CTransaction & tx,
     if (!IsPegWhiteListed(tx, inputs))
         return true;
 
-    // calculate liquidity and total pools
     int64_t nValueIn = 0;
+    int64_t nReservesTotal =0;
     int64_t nLiquidityTotal =0;
 
-    CFractions fValueInPool(0, CFractions::STD);
-    CFractions fLiquidityPool(0, CFractions::STD);
+    map<string, CFractions> poolReserves;
+    map<string, CFractions> poolLiquidity;
+    map<long, FrozenTxOut> poolFrozen;
+    bool fFreezeAll = false;
 
-    int supply = pindexBlock->nPegSupplyIndex;
-    set<string> sInputAddresses;
+    int nSupply = pindexBlock->nPegSupplyIndex;
+    set<string> setInputAddresses;
+
+    if (tx.GetHash().ToString().substr(0,3)=="e55") {
+        nValueIn = nReservesTotal + nLiquidityTotal;
+    }
 
     if (tx.IsCoinBase()) n_vin = 0;
     for (unsigned int i = 0; i < n_vin; i++)
     {
         const COutPoint & prevout = tx.vin[i].prevout;
-
-        auto fkey = uint320(prevout.hash, prevout.n);
-        if (fInputs.find(fkey) == fInputs.end()) {
-            return false;
-        }
-
-        auto fInp = fInputs[fkey].Std();
-
-        fValueInPool += fInp;
-        fLiquidityPool += fInp.Liquidity(supply, &nLiquidityTotal);
-
         CTransaction& txPrev = inputs[prevout.hash].second;
         if (prevout.n >= txPrev.vout.size()) {
-            return false;
-        }
-
-        if (fInp.Total() != txPrev.vout[prevout.n].nValue) {
-            return false; // input mismatch
+            return false; // out of range
         }
 
         nValueIn += txPrev.vout[prevout.n].nValue;
+        auto sAddress = toAddress(txPrev.vout[prevout.n].scriptPubKey);
+        setInputAddresses.insert(sAddress);
 
-        int nRequired;
-        txnouttype type;
-        vector<CTxDestination> addresses;
-        const CScript& scriptPubKey = txPrev.vout[prevout.n].scriptPubKey;
-        if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
-            for(const CTxDestination& addr : addresses) {
-                std::string str_addr = CBitcoinAddress(addr).ToString();
-                if (!str_addr.empty()) sInputAddresses.insert(str_addr);
+        auto fkey = uint320(prevout.hash, prevout.n);
+        if (fInputs.find(fkey) == fInputs.end()) {
+            return false; // no input fractions loaded
+        }
+
+        auto frInp = fInputs[fkey].Std();
+        if (frInp.Total() != txPrev.vout[prevout.n].nValue) {
+            return false; // input value mismatch
+        }
+
+        int64_t nReserveIn = 0;
+        auto & frReserve = poolReserves[sAddress];
+        frReserve += frInp.LowPart(nSupply, &nReserveIn);
+
+        int64_t nLiquidityIn = 0;
+        auto & frLiquidity = poolLiquidity[sAddress];
+        frLiquidity += frInp.HighPart(nSupply, &nLiquidityIn);
+
+        // check if intend to transfer frozen
+        // if so need to do appropriate deductions from pools
+        // if there is a notary on same position as input
+        if (i < n_vout) {
+            string sNotary;
+            bool fNotary = false;
+            {
+                opcodetype opcode1;
+                vector<unsigned char> vch1;
+                const CScript& script1 = tx.vout[i].scriptPubKey;
+                CScript::const_iterator pc1 = script1.begin();
+                if (script1.GetOp(pc1, opcode1, vch1)) {
+                    if (opcode1 == OP_RETURN && script1.size()>1) {
+                        unsigned long len_bytes = script1[1];
+                        if (len_bytes > script1.size()-2)
+                            len_bytes = script1.size()-2;
+                        fNotary = true;
+                        for (uint32_t i=0; i< len_bytes; i++) {
+                            sNotary.push_back(char(script1[i+2]));
+                        }
+                    }
+                }
+            }
+
+            bool fNotaryF = boost::starts_with(sNotary, "**F**");
+            bool fNotaryV = boost::starts_with(sNotary, "**V**");
+            bool fNotaryL = boost::starts_with(sNotary, "**L**");
+
+            if (fNotary && (fNotaryF || fNotaryV || fNotaryL)) {
+                long nFrozenIndex = 0;
+                auto sOutputDef = sNotary.substr(5 /*length **F** */);
+                vector<string> sOutputArgs;
+                boost::split(sOutputArgs, sOutputDef, boost::is_any_of(":"));
+                if (sOutputArgs.size() == 1) {
+                    char * pEnd = nullptr;
+                    nFrozenIndex = strtol(sOutputDef.c_str(), &pEnd, 0);
+                    bool fValidIndex = !(pEnd == sOutputDef.c_str()) && nFrozenIndex >= 0 && size_t(nFrozenIndex) < n_vout;
+                    if (!fValidIndex) {
+                        return false; // not convertible to output index
+                    }
+                }
+                else if (sOutputArgs.size() == 2) {
+                    char * pEnd = nullptr;
+                    auto sSplitArg1 = sOutputArgs.front().c_str();
+                    auto sSplitArg2 = sOutputArgs.back().c_str();
+
+                    int nSplitArg1 = int(strtol(sSplitArg1, &pEnd, 0));
+                    bool fValidIndex1 = !(pEnd == sSplitArg1) && nSplitArg1 >= 0 && size_t(nSplitArg1) < n_vout;
+                    if (!fValidIndex1) {
+                        return false; // not convertible to output index or out of range
+                    }
+                    int nSplitArg2 = int(strtol(sSplitArg2, &pEnd, 0));
+                    bool fValidIndex2 = !(pEnd == sSplitArg2) && nSplitArg2 >= 0 && size_t(nSplitArg2) < n_vout;
+                    if (!fValidIndex2) {
+                        return false; // not convertible to output index or out of range
+                    }
+                    nFrozenIndex = nSplitArg1;
+                }
+                else { // more than two: todo when py ready
+                    return false;
+                }
+                if (nFrozenIndex == i) {
+                    return false; // refer to itself
+                }
+
+                int64_t nNotaryOut = tx.vout[i].nValue;
+
+                auto & frozenTxOut = poolFrozen[nFrozenIndex];
+                frozenTxOut.nValue = nNotaryOut;
+                frozenTxOut.sAddress = sAddress;
+                if (fNotaryF) frozenTxOut.fractions.nFlags |= CFractions::FROZEN_F;
+                if (fNotaryV) frozenTxOut.fractions.nFlags |= CFractions::FROZEN_V;
+
+                bool fSharedFreeze = false;
+                if (fNotaryF && nReserveIn < nNotaryOut) {
+                    fFreezeAll = true;
+                    fSharedFreeze = true;
+                }
+                else if (fNotaryV && nLiquidityIn < nNotaryOut) {
+                    fFreezeAll = true;
+                    fSharedFreeze = true;
+                }
+                else if (fNotaryL && nLiquidityIn < nNotaryOut) {
+                    return false; // not enough liquidity
+                }
+
+                // deductions if not shared freeze
+                if (!fSharedFreeze) {
+                    if (fNotaryF) {
+                        frozenTxOut.fractions = frReserve.RatioPart(nNotaryOut, nReserveIn, 0);
+                        frozenTxOut.fractions.nFlags |= CFractions::FROZEN_F;
+                        frInp -= frozenTxOut.fractions;
+                        frReserve -= frozenTxOut.fractions;
+                        nReserveIn -= nNotaryOut;
+                    }
+                    else if (fNotaryV) {
+                        frozenTxOut.fractions = frLiquidity.RatioPart(nNotaryOut, nLiquidityIn, nSupply);
+                        frozenTxOut.fractions.nFlags |= CFractions::FROZEN_V;
+                        frInp -= frozenTxOut.fractions;
+                        frLiquidity -= frozenTxOut.fractions;
+                        nLiquidityIn -= nNotaryOut;
+                    }
+                    else if (fNotaryL) {
+                        frozenTxOut.fractions = frLiquidity.RatioPart(nNotaryOut, nLiquidityIn, nSupply);
+                        frInp -= frozenTxOut.fractions;
+                        frLiquidity -= frozenTxOut.fractions;
+                        nLiquidityIn -= nNotaryOut;
+                    }
+                }
             }
         }
+
+        nReservesTotal += nReserveIn;
+        nLiquidityTotal += nLiquidityIn;
     }
 
-    auto nRemainsTotal = nValueIn;
-    auto fRemainsPool = fValueInPool;
+    CFractions frCommonLiquidity(0, CFractions::STD);
+    for(const auto & item : poolLiquidity) {
+        frCommonLiquidity += item.second;
+    }
+
+    //auto nRemainsTotal = nValueIn;
+    //auto fRemainsPool = fValueInPool;
 
     // Reveal outs destination type
     for (unsigned int i = 0; i < n_vout; i++)
     {
         vOutputsTypes[i] = PEG_DEST_OUT;
-
-        int nRequired;
-        txnouttype type;
-        vector<CTxDestination> addresses;
-        const CScript& scriptPubKey = tx.vout[i].scriptPubKey;
-        if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
-            for(const CTxDestination& addr : addresses) {
-                std::string str_addr = CBitcoinAddress(addr).ToString();
-                if (sInputAddresses.count(str_addr) >0) {
-                    vOutputsTypes[i] = PEG_DEST_SELF;
-                }
-            }
+        std::string sAddress = toAddress(tx.vout[i].scriptPubKey);
+        if (setInputAddresses.count(sAddress) >0) {
+            vOutputsTypes[i] = PEG_DEST_SELF;
         }
     }
 
     int64_t nValueOut = 0;
+    int64_t nCommonLiquidity = nLiquidityTotal;
 
-    // Calculation of liquidity outputs
-    // These are substracted from totals
+    // Calculation of outputs
     for (unsigned int i = 0; i < n_vout; i++)
     {
         int64_t nValue = tx.vout[i].nValue;
         nValueOut += nValue;
 
         auto fkey = uint320(tx.GetHash(), i);
+        auto & frOut = mapTestFractionsPool[fkey];
 
-        if (vOutputsTypes[i] == PEG_DEST_OUT) {
-            if (nLiquidityTotal == 0) {
-                mapTestFractionsPool[fkey] = CFractions(0, CFractions::VALUE);
-                continue;
+        string sNotary;
+        bool fNotary = false;
+        auto sAddress = toAddress(tx.vout[i].scriptPubKey, &fNotary, &sNotary);
+
+        if (fFreezeAll && poolFrozen.count(i)) {
+
+            if (poolFrozen[i].fractions.Total() >0) {
+                frOut = poolFrozen[i].fractions;
             }
+            else {
+                if (poolFrozen[i].fractions.nFlags & CFractions::FROZEN_V) {
+                    frOut = frCommonLiquidity.RatioPart(nValue, nCommonLiquidity, nSupply);
+                    frCommonLiquidity -= frOut;
+                    nCommonLiquidity -= nValue;
+                }
+                else if (poolFrozen[i].fractions.nFlags & CFractions::FROZEN_F) {
 
-            if (nValue > nLiquidityTotal) {
-                return false; // violate peg
-            }
-            auto fOut = fLiquidityPool.RatioPart(nValue, nLiquidityTotal, supply);
-            mapTestFractionsPool[fkey] = fOut;
-            fRemainsPool -= fOut;
-            nRemainsTotal -= nValue;
+                    vector<string> vAddresses;
+                    auto sFrozenAddress = poolFrozen[i].sAddress;
+                    vAddresses.push_back(sFrozenAddress); // make it first
+                    for(auto it = poolReserves.begin(); it != poolReserves.end(); it++) {
+                        if (it->first == sFrozenAddress) continue;
+                        vAddresses.push_back(it->first);
+                    }
 
-            if (fOut.Total() != tx.vout[i].nValue) {
-                return false; // output mismatch
+                    int64_t nValueLeft = nValue;
+                    for(const string & sAddress : vAddresses) {
+                        if (poolReserves.count(sAddress) == 0) continue;
+                        auto & frReserve = poolReserves[sAddress];
+                        int64_t nReserve = frReserve.Total();
+                        if (nReserve ==0) continue;
+                        int64_t nValueToTake = nValueLeft;
+                        if (nValueToTake > nReserve)
+                            nValueToTake = nReserve;
+
+                        auto frReservePart = frReserve.RatioPart(nValueToTake, nReserve, 0);
+                        frOut += frReservePart;
+                        frReserve -= frReservePart;
+                        nValueLeft -= nValueToTake;
+
+                        if (nValueLeft == 0) {
+                            break;
+                        }
+                    }
+
+                    if (nValueLeft > 0) {
+                        if (nValueLeft > nCommonLiquidity) {
+                            return false; // no liquidity left
+                        }
+                        auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
+                        frOut += frLiquidityPart;
+                        frCommonLiquidity -= frLiquidityPart;
+                        nCommonLiquidity -= nValueLeft;
+                        nValueLeft = 0;
+                    }
+                }
             }
         }
-    }
+        else {
+            if (!poolFrozen.count(i)) {
+                if (poolReserves.count(sAddress)) { // to reserve
+                    int64_t nValueLeft = nValue;
+                    int64_t nValueToTake = nValueLeft;
 
-    // Calculation of reserve outputs
-    // These are substracted from remains pool
-    for (unsigned int i = 0; i < n_vout; i++)
-    {
-        int64_t nValue = tx.vout[i].nValue;
-        auto fkey = uint320(tx.GetHash(), i);
+                    auto & frReserve = poolReserves[sAddress];
+                    int64_t nReserve = frReserve.Total();
+                    if (nReserve >0) {
+                        if (nValueToTake > nReserve)
+                            nValueToTake = nReserve;
 
-        if (vOutputsTypes[i] == PEG_DEST_SELF) {
-            if (nRemainsTotal == 0) {
-                mapTestFractionsPool[fkey] = CFractions(0, CFractions::VALUE);
-                continue;
+                        auto frReservePart = frReserve.RatioPart(nValueToTake, nReserve, 0);
+                        frOut += frReservePart;
+                        frReserve -= frReservePart;
+                        nValueLeft -= nValueToTake;
+                    }
+
+                    if (nValueLeft > 0) {
+                        if (nValueLeft > nCommonLiquidity) {
+                            return false; // no liquidity left
+                        }
+                        auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
+                        frOut += frLiquidityPart;
+                        frCommonLiquidity -= frLiquidityPart;
+                        nCommonLiquidity -= nValueLeft;
+                        nValueLeft = 0;
+                    }
+                }
+                else { // move liquidity out
+                    if (sAddress == sBurnAddress || fNotary) {
+
+                        vector<string> vAddresses;
+                        for(auto it = poolReserves.begin(); it != poolReserves.end(); it++) {
+                            vAddresses.push_back(it->first);
+                        }
+
+                        int64_t nValueLeft = nValue;
+                        for(const string & sAddress : vAddresses) {
+                            auto & frReserve = poolReserves[sAddress];
+                            int64_t nReserve = frReserve.Total();
+                            if (nReserve ==0) continue;
+                            int64_t nValueToTake = nValueLeft;
+                            if (nValueToTake > nReserve)
+                                nValueToTake = nReserve;
+
+                            auto frReservePart = frReserve.RatioPart(nValueToTake, nReserve, 0);
+                            frOut += frReservePart;
+                            frReserve -= frReservePart;
+                            nValueLeft -= nValueToTake;
+
+                            if (nValueLeft == 0) {
+                                break;
+                            }
+                        }
+
+                        if (nValueLeft > 0) {
+                            if (nValueLeft > nCommonLiquidity) {
+                                return false; // no liquidity left
+                            }
+                            auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
+                            frOut += frLiquidityPart;
+                            frCommonLiquidity -= frLiquidityPart;
+                            nCommonLiquidity -= nValueLeft;
+                            nValueLeft = 0;
+                        }
+                    }
+                    else {
+                        int64_t nValueLeft = nValue;
+                        if (nValueLeft > nCommonLiquidity) {
+                            return false; // no liquidity left
+                        }
+                        auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
+                        frOut += frLiquidityPart;
+                        frCommonLiquidity -= frLiquidityPart;
+                        nCommonLiquidity -= nValueLeft;
+                        nValueLeft = 0;
+                    }
+                }
             }
-
-            if (nValue > nRemainsTotal) {
-                return false; // violate peg
-            }
-
-            auto fOut = fRemainsPool.RatioPart(nValue, nRemainsTotal, 0);
-            mapTestFractionsPool[fkey] = fOut;
-
-            if (fOut.Total() != tx.vout[i].nValue) {
-                return false; // output mismatch
+            else {
+                frOut = poolFrozen[i].fractions;
             }
         }
-    }
-
-    // Calculation of fees
-    // These are substracted from remains pool
-    {
-        if (nRemainsTotal == 0) {
-            return false; // no remains for fee?
-        }
-        int64_t nValueFee = nValueIn - nValueOut;
-        if (nValueFee > nRemainsTotal) {
-            return false; // violate peg
-        }
-        auto fFee = fRemainsPool.RatioPart(nValueFee, nRemainsTotal, 0);
-        feesFractions += fFee;
     }
 
     return true;

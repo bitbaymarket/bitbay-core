@@ -1,3 +1,6 @@
+// Copyright (c) 2018 yshurik
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "blockchainmodel.h"
 #include "guiutil.h"
@@ -28,7 +31,7 @@ public:
 BlockchainModel::BlockchainModel(QObject *parent) :
     QAbstractItemModel(parent),priv(new BlockchainModelPriv)
 {
-    priv->columns << tr("Height") << tr("Hash") << tr("Votes") 
+    priv->columns << tr("Height") << tr("Hash") << tr("Votes")
                   << tr("Peg") << tr("PegWOK") << tr("PegAOK");
     priv->cache.setMaxCost(100000);
 }
@@ -38,7 +41,7 @@ BlockchainModel::~BlockchainModel()
     delete priv;
 }
 
-void BlockchainModel::setNumBlocks(int h) 
+void BlockchainModel::setNumBlocks(int h)
 {
     beginInsertRows(QModelIndex(), 0, h-priv->height-1);
     priv->height = h;
@@ -50,11 +53,11 @@ bool BlockchainModel::getItem(int h) const
     if (priv->cache.contains(h)) {
         return true;
     }
-    
+
     int h1 = qMax(0, h-200);
     int h2 = qMin(h+200, priv->height);
     int h2_point = (h2/100+1)*100;
-    
+
     LOCK(cs_main);
     uint256 start_hash = hashBestChain;
     if (priv->cachePoints.contains(h2_point)) {
@@ -68,19 +71,19 @@ bool BlockchainModel::getItem(int h) const
         }
         pblockindex = pblockindex->pprev;
     }
-    
+
     while(pblockindex && pblockindex->nHeight <=h2) {
         uint256 bhash = pblockindex->GetBlockHash();
-        auto obj = new BlockIndexCacheObj{bhash, 
-                pblockindex->nPegSupplyIndex, 
-                pblockindex->nPegVotesInflate, 
-                pblockindex->nPegVotesDeflate, 
+        auto obj = new BlockIndexCacheObj{bhash,
+                pblockindex->nPegSupplyIndex,
+                pblockindex->nPegVotesInflate,
+                pblockindex->nPegVotesDeflate,
                 pblockindex->nPegVotesNochange,
                 pblockindex->nFlags};
         priv->cache.insert(pblockindex->nHeight, obj);
         pblockindex = pblockindex->pnext;
     }
-    
+
     return true;
 }
 
@@ -111,7 +114,7 @@ QVariant BlockchainModel::data(const QModelIndex &index, int role) const
             return QVariant();
         }
         auto obj = priv->cache.object(h);
-        
+
         switch(index.column())
         {
         case Height: {
@@ -172,7 +175,7 @@ bool BlockchainModel::setData(const QModelIndex &index, const QVariant &value, i
 {
     Q_UNUSED(value);
     Q_UNUSED(role);
-    
+
     if(!index.isValid())
         return false;
 

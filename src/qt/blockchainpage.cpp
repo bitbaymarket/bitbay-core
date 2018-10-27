@@ -1,3 +1,7 @@
+// Copyright (c) 2018 yshurik
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #include "blockchainpage.h"
 #include "ui_blockchainpage.h"
 #include "ui_fractionsdialog.h"
@@ -13,6 +17,7 @@
 #include "qwt/qwt_plot_curve.h"
 #include "qwt/qwt_plot_barchart.h"
 
+#include <QTime>
 #include <QPainter>
 #include <QClipboard>
 
@@ -465,6 +470,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Type",txtype})));
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Peg Supply Index",QString::number(pblockindex->nPegSupplyIndex)})));
 
+    QTime timeFetchInputs = QTime::currentTime();
     MapPrevTx mapInputs;
     MapPrevFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
@@ -474,12 +480,13 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     vector<int> vOutputsTypes;
     bool fInvalid = false;
     tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid);
+    int msecsFetchInputs = timeFetchInputs.msecsTo(QTime::currentTime());
 
     int64_t nReserveIn = 0;
     int64_t nLiquidityIn = 0;
     for(auto const & inputFractionItem : mapInputsFractions) {
-        inputFractionItem.second.Reserve(pblockindex->nPegSupplyIndex, &nReserveIn);
-        inputFractionItem.second.Liquidity(pblockindex->nPegSupplyIndex, &nLiquidityIn);
+        inputFractionItem.second.LowPart(pblockindex->nPegSupplyIndex, &nReserveIn);
+        inputFractionItem.second.HighPart(pblockindex->nPegSupplyIndex, &nLiquidityIn);
     }
 
     ui->txInputs->clear();
@@ -583,6 +590,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     bool peg_whitelisted = IsPegWhiteListed(tx, mapInputs);
     bool peg_ok = false;
 
+    QTime timePegChecks = QTime::currentTime();
     if (tx.IsCoinStake()) {
         uint64_t nCoinAge = 0;
         if (!tx.GetCoinAge(txdb, pblockindex->pprev, nCoinAge)) {
@@ -604,6 +612,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
                                                feesFractions,
                                                vOutputsTypes);
     }
+    int msecsPegChecks = timePegChecks.msecsTo(QTime::currentTime());
 
     CTxIndex txindex;
     txdb.ReadTxIndex(hash, txindex);
@@ -711,6 +720,8 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
                 })
     );
     ui->txValues->addTopLevelItem(twiPegChecks);
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Peg Checks Time",QString::number(msecsPegChecks)+" msecs"})));
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Fetch Inputs Time",QString::number(msecsFetchInputs)+" msecs"})));
 
     if (!tx.IsCoinBase() && !tx.IsCoinStake() && nValueOut < nValueIn) {
         QStringList row;

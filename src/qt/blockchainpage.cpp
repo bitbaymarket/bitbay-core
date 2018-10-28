@@ -762,8 +762,8 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     );
     ui->txValues->addTopLevelItem(twiPegChecks);
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Peg Checks Time",QString::number(msecsPegChecks)+" msecs"})));
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Fetch Inputs Time",QString::number(msecsFetchInputs)+" msecs"})));
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Signatures Checks Time",QString::number(msecsSigsChecks)+" msecs"})));
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Fetch Inputs Time",QString::number(msecsFetchInputs)+" msecs (can be cached)"})));
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Mandatory Signatures Checks",QString::number(msecsSigsChecks)+" msecs"})));
 
     if (!tx.IsCoinBase() && !tx.IsCoinStake() && nValueOut < nValueIn) {
         QStringList row;
@@ -850,9 +850,14 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)
     //if (f_max == 0)
     //    return; // zero-value fractions
 
-    qreal xs[1200];
-    qreal ys[1200];
-    QVector<qreal> bs;
+    qreal xs_reserve[1200];
+    qreal ys_reserve[1200];
+    QVector<qreal> bs_reserve;
+
+    qreal xs_liquidity[1200];
+    qreal ys_liquidity[1200];
+    QVector<qreal> bs_liquidity;
+
     for (int i=0; i<PEG_SIZE; i++) {
         QStringList row;
         row << QString::number(i) << displayValue(fractions_std.f[i]); // << QString::number(fdelta[i]) << QString::number(fd.f[i]);
@@ -860,15 +865,29 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)
         row_item->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         row_item->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         ui.fractions->addTopLevelItem(row_item);
-        xs[i] = i;
-        ys[i] = qreal(fractions_std.f[i]);
-        bs.push_back(qreal(fractions_std.f[i]));
+        xs_reserve[i] = i;
+        ys_reserve[i] = i < supply ? qreal(fractions_std.f[i]) : 0;
+        bs_reserve.push_back(qreal(i < supply ? qreal(fractions_std.f[i]) : 0));
+
+        xs_liquidity[i] = i;
+        ys_liquidity[i] = i >= supply ? qreal(fractions_std.f[i]) : 0;
+        bs_liquidity.push_back(qreal(i >= supply ? qreal(fractions_std.f[i]) : 0));
     }
 
-    auto curve = new QwtPlotBarChart;
-    //curve->setSamples(xs, ys, 1200);
-    curve->setSamples(bs);
-    curve->attach(fplot);
+    //auto curve_reserve = new QwtPlotBarChart;
+    auto curve_reserve = new QwtPlotCurve;
+    curve_reserve->setBrush(QColor("#c06a15"));
+    curve_reserve->setSamples(xs_reserve, ys_reserve, 1200);
+    //curve_reserve->setSamples(bs_reserve);
+    curve_reserve->attach(fplot);
+
+    //auto curve_liquidity = new QwtPlotBarChart;
+    auto curve_liquidity = new QwtPlotCurve;
+    curve_liquidity->setBrush(QColor("#2da5e0"));
+    curve_liquidity->setSamples(xs_liquidity, ys_liquidity, 1200);
+    //curve_liquidity->setSamples(bs_liquidity);
+    curve_liquidity->attach(fplot);
+
     fplot->replot();
 
     dlg->setWindowTitle(txhash+" "+tr("fractions"));

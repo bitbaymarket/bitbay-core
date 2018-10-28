@@ -987,21 +987,10 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)
     ui.reserveLabel->setText(tr("Reserve: %1").arg(displayValue(fractions.Low(supply))));
     ui.liquidityLabel->setText(tr("Liquidity: %1").arg(displayValue(fractions.High(supply))));
 
-    int64_t f_max = 0;
-    for (int i=0; i<PEG_SIZE; i++) {
-        auto f = fractions_std.f[i];
-        if (f > f_max) f_max = f;
-    }
-    //if (f_max == 0)
-    //    return; // zero-value fractions
-
-    qreal xs_reserve[1200];
-    qreal ys_reserve[1200];
-    QVector<qreal> bs_reserve;
-
-    qreal xs_liquidity[1200];
-    qreal ys_liquidity[1200];
-    QVector<qreal> bs_liquidity;
+    qreal xs_reserve[2400];
+    qreal ys_reserve[2400];
+    qreal xs_liquidity[2400];
+    qreal ys_liquidity[2400];
 
     for (int i=0; i<PEG_SIZE; i++) {
         QStringList row;
@@ -1010,27 +999,30 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)
         row_item->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         row_item->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         ui.fractions->addTopLevelItem(row_item);
-        xs_reserve[i] = i;
-        ys_reserve[i] = i < supply ? qreal(fractions_std.f[i]) : 0;
-        bs_reserve.push_back(qreal(i < supply ? qreal(fractions_std.f[i]) : 0));
 
-        xs_liquidity[i] = i;
-        ys_liquidity[i] = i >= supply ? qreal(fractions_std.f[i]) : 0;
-        bs_liquidity.push_back(qreal(i >= supply ? qreal(fractions_std.f[i]) : 0));
+        xs_reserve[i*2] = i;
+        ys_reserve[i*2] = i < supply ? qreal(fractions_std.f[i]) : 0;
+        xs_reserve[i*2+1] = i+1;
+        ys_reserve[i*2+1] = ys_reserve[i*2];
+
+        xs_liquidity[i*2] = i;
+        ys_liquidity[i*2] = i >= supply ? qreal(fractions_std.f[i]) : 0;
+        xs_liquidity[i*2+1] = i+1;
+        ys_liquidity[i*2+1] = ys_liquidity[i*2];
     }
 
-    //auto curve_reserve = new QwtPlotBarChart;
     auto curve_reserve = new QwtPlotCurve;
     curve_reserve->setBrush(QColor("#c06a15"));
-    curve_reserve->setSamples(xs_reserve, ys_reserve, 1200);
-    //curve_reserve->setSamples(bs_reserve);
+    curve_reserve->setSamples(xs_reserve, ys_reserve, supply*2);
+    curve_reserve->setRenderHint(QwtPlotItem::RenderAntialiased);
     curve_reserve->attach(fplot);
 
-    //auto curve_liquidity = new QwtPlotBarChart;
     auto curve_liquidity = new QwtPlotCurve;
     curve_liquidity->setBrush(QColor("#2da5e0"));
-    curve_liquidity->setSamples(xs_liquidity, ys_liquidity, 1200);
-    //curve_liquidity->setSamples(bs_liquidity);
+    curve_liquidity->setSamples(xs_liquidity+supply*2,
+                                ys_liquidity+supply*2,
+                                1200-supply*2);
+    curve_liquidity->setRenderHint(QwtPlotItem::RenderAntialiased);
     curve_liquidity->attach(fplot);
 
     fplot->replot();

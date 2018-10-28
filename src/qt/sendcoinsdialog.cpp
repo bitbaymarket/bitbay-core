@@ -35,21 +35,13 @@ SendCoinsDialog::SendCoinsDialog(QWidget *parent) :
     ui->sendButton->setIcon(QIcon());
 #endif
 
-#if QT_VERSION >= 0x040700
-    /* Do not move this to the XML file, Qt before 4.7 will choke on it */
-    ui->lineEditCoinControlChange->setPlaceholderText(tr("Enter a BitBay address:"));
-#endif
-
     addEntry();
 
     connect(ui->addButton, SIGNAL(clicked()), this, SLOT(addEntry()));
     connect(ui->clearButton, SIGNAL(clicked()), this, SLOT(clear()));
 
     // Coin Control
-    ui->lineEditCoinControlChange->setFont(GUIUtil::bitcoinAddressFont());
     connect(ui->pushButtonCoinControl, SIGNAL(clicked()), this, SLOT(coinControlButtonClicked()));
-    connect(ui->checkBoxCoinControlChange, SIGNAL(stateChanged(int)), this, SLOT(coinControlChangeChecked(int)));
-    connect(ui->lineEditCoinControlChange, SIGNAL(textEdited(const QString &)), this, SLOT(coinControlChangeEdited(const QString &)));
 
     // Coin Control: clipboard actions
     QAction *clipboardQuantityAction = new QAction(tr("Copy quantity"), this);
@@ -428,59 +420,6 @@ void SendCoinsDialog::coinControlButtonClicked()
     dlg.setModel(model);
     dlg.exec();
     coinControlUpdateLabels();
-}
-
-// Coin Control: checkbox custom change address
-void SendCoinsDialog::coinControlChangeChecked(int state)
-{
-    if (model)
-    {
-        if (state == Qt::Checked)
-            CoinControlDialog::coinControl->destChange = CBitcoinAddress(ui->lineEditCoinControlChange->text().toStdString()).Get();
-        else
-            CoinControlDialog::coinControl->destChange = CNoDestination();
-    }
-
-    ui->lineEditCoinControlChange->setEnabled((state == Qt::Checked));
-    ui->labelCoinControlChangeLabel->setEnabled((state == Qt::Checked));
-}
-
-// Coin Control: custom change address changed
-void SendCoinsDialog::coinControlChangeEdited(const QString & text)
-{
-    if (model)
-    {
-        CoinControlDialog::coinControl->destChange = CBitcoinAddress(text.toStdString()).Get();
-
-        // label for the change address
-        ui->labelCoinControlChangeLabel->setStyleSheet("QLabel{color:black;}");
-        if (text.isEmpty())
-            ui->labelCoinControlChangeLabel->setText("");
-        else if (!CBitcoinAddress(text.toStdString()).IsValid())
-        {
-            ui->labelCoinControlChangeLabel->setStyleSheet("QLabel{color:red;}");
-            ui->labelCoinControlChangeLabel->setText(tr("WARNING: Invalid BitBay address"));
-        }
-        else
-        {
-            QString associatedLabel = model->getAddressTableModel()->labelForAddress(text);
-            if (!associatedLabel.isEmpty())
-                ui->labelCoinControlChangeLabel->setText(associatedLabel);
-            else
-            {
-                CPubKey pubkey;
-                CKeyID keyid;
-                CBitcoinAddress(text.toStdString()).GetKeyID(keyid);
-                if (model->getPubKey(keyid, pubkey))
-                    ui->labelCoinControlChangeLabel->setText(tr("(no label)"));
-                else
-                {
-                    ui->labelCoinControlChangeLabel->setStyleSheet("QLabel{color:red;}");
-                    ui->labelCoinControlChangeLabel->setText(tr("WARNING: unknown change address"));
-                }
-            }
-        }
-    }
 }
 
 // Coin Control: update labels

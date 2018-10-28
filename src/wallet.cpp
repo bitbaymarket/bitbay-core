@@ -1751,12 +1751,14 @@ bool CWallet::CreateTransaction(const vector<pair<CScript, int64_t> >& vecSend, 
                     // change transaction isn't always pay-to-bitcoin-address
                     CScript scriptChange;
 
+                    // TODO: peg: change to be sent back to input addresses
+                    // TODO: peg: as logic of working with reserves
                     // coin control: send change to custom address
-                    if (coinControl && !boost::get<CNoDestination>(&coinControl->destChange))
-                        scriptChange.SetDestination(coinControl->destChange);
+                    //if (coinControl && !boost::get<CNoDestination>(&coinControl->destChange))
+                    //    scriptChange.SetDestination(coinControl->destChange);
 
                     // no coin control: send change to newly generated address
-                    else
+                    // else
                     {
                         // Note: We use a new key here to keep it from being obvious which side is the change.
                         //  The drawback is that by not reusing a previous key, the change may be lost if a
@@ -1917,7 +1919,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
         for (unsigned int n=0; n<min(nSearchInterval,(int64_t)nMaxStakeSearchInterval) && !fKernelFound && pindexPrev == pindexBest; n++)
         {
             boost::this_thread::interruption_point();
-            // Search backward in time from the given txNew timestamp 
+            // Search backward in time from the given txNew timestamp
             // Search nSearchInterval seconds back up to nMaxStakeSearchInterval
             COutPoint prevoutStake = COutPoint(pcoin.first->GetHash(), pcoin.second);
             int64_t nBlockTime;
@@ -2039,7 +2041,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
     // The stake split is disabled for peg codes, dzimbeck:
     // The reason of split was to get consecutive stakes in a 200 block period
     // But no reason to have it for wallets with the balance less than 100K coins
-    // Otherwise the probability is extremely low and there is no reason to split as 
+    // Otherwise the probability is extremely low and there is no reason to split as
     // it only bloats the wallet
     // if (nCredit >= GetStakeSplitThreshold())
     //    txNew.vout.push_back(CTxOut(0, txNew.vout[1].scriptPubKey)); //split stake

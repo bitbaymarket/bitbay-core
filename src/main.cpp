@@ -859,14 +859,14 @@ int CTxIndex::GetDepthInMainChain() const
     return 1 + nBestHeight - pindex->nHeight;
 }
 
-int CTxIndex::GetHeightInMainChain(uint* vtxidx, uint256 txhash, uint256* blockhash) const
+int CTxIndex::GetHeightInMainChain(unsigned int* vtxidx, uint256 txhash, uint256* blockhash) const
 {
     // Read block header
     CBlock block;
     if (!block.ReadFromDisk(pos.nFile, pos.nBlockPos, vtxidx != nullptr))
         return 0;
     if (vtxidx) {
-        for(uint i=0; i<block.vtx.size(); i++) {
+        for(unsigned int i=0; i<block.vtx.size(); i++) {
             if (block.vtx[i].GetHash() == txhash)
                 *vtxidx = i;
         }

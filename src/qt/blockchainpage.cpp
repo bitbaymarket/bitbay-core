@@ -26,6 +26,12 @@
 #include <string>
 #include <vector>
 
+#include "json/json_spirit_utils.h"
+#include "json/json_spirit_writer_template.h"
+extern json_spirit::Object blockToJSON(const CBlock& block,
+                                       const CBlockIndex* blockindex,
+                                       bool fPrintTransactionDetail);
+
 BlockchainPage::BlockchainPage(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::BlockchainPage)
@@ -218,7 +224,22 @@ void BlockchainPage::openChainMenu(const QPoint & pos)
             mi.data(BlockchainModel::HeightRole).toString()
         );
     });
-    m.addAction(tr("Copy Block Info"));
+    a = m.addAction(tr("Copy Block Info"));
+    connect(a, &QAction::triggered, [&] {
+        auto shash = mi.data(BlockchainModel::HashStringRole).toString();
+        uint256 hash(shash.toStdString());
+
+        CBlock block;
+        auto pblockindex = mapBlockIndex[hash];
+        block.ReadFromDisk(pblockindex, true);
+
+        json_spirit::Value result = blockToJSON(block, pblockindex, false);
+        string str = json_spirit::write_string(result, true);
+
+        QApplication::clipboard()->setText(
+            QString::fromStdString(str)
+        );
+    });
     m.exec(ui->blockchainView->viewport()->mapToGlobal(pos));
 }
 

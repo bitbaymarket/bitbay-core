@@ -43,6 +43,8 @@ private slots:
     void updateCurrentBlockIndex();
     void scrollToCurrentBlockIndex();
     void openChainMenu(const QPoint &);
+    void openBlockMenu(const QPoint &);
+    void openTxMenu(const QPoint &);
 
 private:
     Ui::BlockchainPage *ui;

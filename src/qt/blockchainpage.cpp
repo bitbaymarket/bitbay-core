@@ -52,9 +52,12 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     connect(ui->buttonTx, SIGNAL(clicked()), this, SLOT(showTxPage()));
 
     ui->blockchainView->setContextMenuPolicy(Qt::CustomContextMenu);
+    ui->blockValues->setContextMenuPolicy(Qt::CustomContextMenu);
 
     connect(ui->blockchainView, SIGNAL(customContextMenuRequested(const QPoint &)),
             this, SLOT(openChainMenu(const QPoint &)));
+    connect(ui->blockValues, SIGNAL(customContextMenuRequested(const QPoint &)),
+            this, SLOT(openBlockMenu(const QPoint &)));
 
     connect(ui->blockchainView, SIGNAL(activated(const QModelIndex &)),
             this, SLOT(openBlock(const QModelIndex &)));
@@ -297,6 +300,34 @@ void BlockchainPage::openBlock(uint256 hash)
         ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({stx,thash})));
         idx++;
     }
+}
+
+void BlockchainPage::openBlockMenu(const QPoint & pos)
+{
+    QModelIndex mi = ui->blockValues->indexAt(pos);
+    if (!mi.isValid()) return;
+    auto model = mi.model();
+    if (!model) return;
+
+    QMenu m;
+
+    auto a = m.addAction(tr("Copy Block Info"));
+    connect(a, &QAction::triggered, [&] {
+//        auto shash = mi.data(BlockchainModel::HashStringRole).toString();
+//        uint256 hash(shash.toStdString());
+//
+//        CBlock block;
+//        auto pblockindex = mapBlockIndex[hash];
+//        block.ReadFromDisk(pblockindex, true);
+//
+//        json_spirit::Value result = blockToJSON(block, pblockindex, false);
+//        string str = json_spirit::write_string(result, true);
+//
+//        QApplication::clipboard()->setText(
+//            QString::fromStdString(str)
+//        );
+    });
+    m.exec(ui->blockValues->viewport()->mapToGlobal(pos));
 }
 
 static QString scriptToAddress(const CScript& scriptPubKey, bool show_alias =true) {
@@ -800,6 +831,34 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         outputFees->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         ui->txOutputs->addTopLevelItem(outputFees);
     }
+}
+
+void BlockchainPage::openTxMenu(const QPoint & pos)
+{
+//    QModelIndex mi = ui->blockValues->indexAt(pos);
+//    if (!mi.isValid()) return;
+//    auto model = mi.model();
+//    if (!model) return;
+
+//    QMenu m;
+
+//    auto a = m.addAction(tr("Copy Block Info"));
+//    connect(a, &QAction::triggered, [&] {
+//        auto shash = mi.data(BlockchainModel::HashStringRole).toString();
+//        uint256 hash(shash.toStdString());
+
+//        CBlock block;
+//        auto pblockindex = mapBlockIndex[hash];
+//        block.ReadFromDisk(pblockindex, true);
+
+//        json_spirit::Value result = blockToJSON(block, pblockindex, false);
+//        string str = json_spirit::write_string(result, true);
+
+//        QApplication::clipboard()->setText(
+//            QString::fromStdString(str)
+//        );
+//    });
+//    m.exec(ui->blockValues->viewport()->mapToGlobal(pos));
 }
 
 void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)

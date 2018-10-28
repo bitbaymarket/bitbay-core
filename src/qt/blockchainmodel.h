@@ -33,6 +33,8 @@ public:
     };
     enum Roles {
         HashRole = Qt::UserRole+1000,
+        HeightRole,
+        HashStringRole,
         TxNumRole,
         OutNumRole,
         FractionsRole,

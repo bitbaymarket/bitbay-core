@@ -18,8 +18,10 @@
 #include "qwt/qwt_plot_barchart.h"
 
 #include <QTime>
+#include <QMenu>
 #include <QPainter>
 #include <QClipboard>
+#include <QApplication>
 
 #include <string>
 #include <vector>
@@ -43,7 +45,12 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     connect(ui->buttonBlock, SIGNAL(clicked()), this, SLOT(showBlockPage()));
     connect(ui->buttonTx, SIGNAL(clicked()), this, SLOT(showTxPage()));
 
-    connect(ui->blockchainView, SIGNAL(doubleClicked(const QModelIndex &)),
+    ui->blockchainView->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    connect(ui->blockchainView, SIGNAL(customContextMenuRequested(const QPoint &)),
+            this, SLOT(openChainMenu(const QPoint &)));
+
+    connect(ui->blockchainView, SIGNAL(activated(const QModelIndex &)),
             this, SLOT(openBlock(const QModelIndex &)));
     connect(ui->blockValues, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
             this, SLOT(openTx(QTreeWidgetItem*,int)));
@@ -188,6 +195,31 @@ void BlockchainPage::updateCurrentBlockIndex()
 void BlockchainPage::scrollToCurrentBlockIndex()
 {
     ui->blockchainView->scrollTo(currentBlockIndex, QAbstractItemView::PositionAtCenter);
+}
+
+void BlockchainPage::openChainMenu(const QPoint & pos)
+{
+    QModelIndex mi = ui->blockchainView->indexAt(pos);
+    if (!mi.isValid()) return;
+
+    QMenu m;
+    auto a = m.addAction(tr("Open Block"));
+    connect(a, &QAction::triggered, [&] { openBlock(mi); });
+    m.addSeparator();
+    a = m.addAction(tr("Copy Block Hash"));
+    connect(a, &QAction::triggered, [&] {
+        QApplication::clipboard()->setText(
+            mi.data(BlockchainModel::HashStringRole).toString()
+        );
+    });
+    a = m.addAction(tr("Copy Block Height"));
+    connect(a, &QAction::triggered, [&] {
+        QApplication::clipboard()->setText(
+            mi.data(BlockchainModel::HeightRole).toString()
+        );
+    });
+    m.addAction(tr("Copy Block Info"));
+    m.exec(ui->blockchainView->viewport()->mapToGlobal(pos));
 }
 
 void BlockchainPage::openBlock(const QModelIndex & mi)
@@ -614,6 +646,15 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     }
     int msecsPegChecks = timePegChecks.msecsTo(QTime::currentTime());
 
+    QTime timeSigsChecks = QTime::currentTime();
+    for (unsigned int i = 0; i < tx.vin.size(); i++)
+    {
+        COutPoint prevout = tx.vin[i].prevout;
+        CTransaction& txPrev = mapInputs[prevout.hash].second;
+        VerifySignature(txPrev, tx, i, MANDATORY_SCRIPT_VERIFY_FLAGS, 0);
+    }
+    int msecsSigsChecks = timeSigsChecks.msecsTo(QTime::currentTime());
+
     CTxIndex txindex;
     txdb.ReadTxIndex(hash, txindex);
 
@@ -722,6 +763,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     ui->txValues->addTopLevelItem(twiPegChecks);
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Peg Checks Time",QString::number(msecsPegChecks)+" msecs"})));
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Fetch Inputs Time",QString::number(msecsFetchInputs)+" msecs"})));
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Signatures Checks Time",QString::number(msecsSigsChecks)+" msecs"})));
 
     if (!tx.IsCoinBase() && !tx.IsCoinStake() && nValueOut < nValueIn) {
         QStringList row;

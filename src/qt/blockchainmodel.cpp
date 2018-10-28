@@ -168,6 +168,21 @@ QVariant BlockchainModel::data(const QModelIndex &index, int role) const
         v.setValue(obj->hash);
         return v;
     }
+    else if (role == HashStringRole)
+    {
+        int h = priv->height-index.row();
+        getItem(h);
+        if (!priv->cache.contains(h)) {
+            return QVariant();
+        }
+        auto obj = priv->cache.object(h);
+        return QString::fromStdString(obj->hash.ToString());
+    }
+    else if (role == HeightRole)
+    {
+        int h = priv->height-index.row();
+        return h;
+    }
     return QVariant();
 }
 

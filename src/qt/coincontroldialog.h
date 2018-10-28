@@ -53,6 +53,8 @@ private:
     {
         COLUMN_CHECKBOX,
         COLUMN_AMOUNT,
+        COLUMN_LIQUIDITY,
+        COLUMN_RESERVE,
         COLUMN_LABEL,
         COLUMN_ADDRESS,
         COLUMN_DATE,

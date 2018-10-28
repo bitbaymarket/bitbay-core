@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1000</width>
-    <height>500</height>
+    <width>1285</width>
+    <height>618</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -409,7 +409,7 @@
       <bool>false</bool>
      </property>
      <property name="columnCount">
-      <number>11</number>
+      <number>13</number>
      </property>
      <attribute name="headerShowSortIndicator" stdset="0">
       <bool>true</bool>
@@ -425,6 +425,16 @@
      <column>
       <property name="text">
        <string>Amount</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Liquidity</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Reserves</string>
       </property>
      </column>
      <column>

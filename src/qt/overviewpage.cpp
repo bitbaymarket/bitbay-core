@@ -9,6 +9,12 @@
 #include "transactionfilterproxy.h"
 #include "guiutil.h"
 #include "guiconstants.h"
+#include "peg.h"
+
+#include "qwt/qwt_plot.h"
+#include "qwt/qwt_plot_curve.h"
+#include "qwt/qwt_plot_barchart.h"
+#include "qwt/qwt_scale_widget.h"
 
 #include <QAbstractItemDelegate>
 #include <QPainter>
@@ -124,7 +130,7 @@ OverviewPage::OverviewPage(QWidget *parent) :
 #else
     QFont hfont("Roboto Black", 15, QFont::Bold);
 #endif
-    
+
     ui->labelWallet->setFont(hfont);
     ui->labelRecent->setFont(hfont);
 
@@ -173,6 +179,64 @@ OverviewPage::OverviewPage(QWidget *parent) :
 
     // start with displaying the "out of sync" warnings
     showOutOfSyncWarning(true);
+
+    // temp, show fractions
+    {
+        QwtPlot * fplot = new QwtPlot;
+        QVBoxLayout *fvbox = new QVBoxLayout;
+        fvbox->setMargin(0);
+        fvbox->addWidget(fplot);
+        ui->widgetFractions->setLayout(fvbox);
+
+        auto supply = 40; // temp
+        auto fractions = CFractions(100*100000000, CFractions::STD);
+        auto fractions_std = fractions.Std();
+
+        int64_t f_max = 0;
+        for (int i=0; i<PEG_SIZE; i++) {
+            auto f = fractions_std.f[i];
+            if (f > f_max) f_max = f;
+        }
+        //if (f_max == 0)
+        //    return; // zero-value fractions
+
+        qreal xs_reserve[1200];
+        qreal ys_reserve[1200];
+        QVector<qreal> bs_reserve;
+
+        qreal xs_liquidity[1200];
+        qreal ys_liquidity[1200];
+        QVector<qreal> bs_liquidity;
+
+        for (int i=0; i<PEG_SIZE; i++) {
+            xs_reserve[i] = i;
+            ys_reserve[i] = i < supply ? qreal(fractions_std.f[i]) : 0;
+            bs_reserve.push_back(qreal(i < supply ? qreal(fractions_std.f[i]) : 0));
+
+            xs_liquidity[i] = i;
+            ys_liquidity[i] = i >= supply ? qreal(fractions_std.f[i]) : 0;
+            bs_liquidity.push_back(qreal(i >= supply ? qreal(fractions_std.f[i]) : 0));
+        }
+
+        //auto curve_reserve = new QwtPlotBarChart;
+        auto curve_reserve = new QwtPlotCurve;
+        curve_reserve->setBrush(QColor("#c06a15"));
+        curve_reserve->setSamples(xs_reserve, ys_reserve, 1200);
+        //curve_reserve->setSamples(bs_reserve);
+        curve_reserve->attach(fplot);
+
+        //auto curve_liquidity = new QwtPlotBarChart;
+        auto curve_liquidity = new QwtPlotCurve;
+        curve_liquidity->setBrush(QColor("#2da5e0"));
+        curve_liquidity->setSamples(xs_liquidity, ys_liquidity, 1200);
+        //curve_liquidity->setSamples(bs_liquidity);
+        curve_liquidity->attach(fplot);
+
+        fplot->enableAxis(0, false);
+        fplot->enableAxis(1, false);
+        fplot->enableAxis(2, false);
+        fplot->replot();
+    }
 }
 
 void OverviewPage::handleTransactionClicked(const QModelIndex &index)

@@ -35,6 +35,27 @@ CoinControlDialog::CoinControlDialog(QWidget *parent) :
     ui->setupUi(this);
     GUIUtil::SetBitBayFonts(this);
 
+    QFont font = GUIUtil::bitcoinAddressFont();
+    qreal pt = font.pointSizeF()*0.8;
+    if (pt != .0) {
+        font.setPointSizeF(pt);
+    } else {
+        int px = font.pixelSize()*8/10;
+        font.setPixelSize(px);
+    }
+    ui->treeWidget->setFont(font);
+
+    font = ui->treeWidget->header()->font();
+    pt = font.pointSizeF()*0.9;
+    if (pt != .0) {
+        font.setPointSizeF(pt);
+    } else {
+        int px = font.pixelSize()*9/10;
+        font.setPixelSize(px);
+    }
+    font.setBold(true);
+    ui->treeWidget->header()->setFont(font);
+
     // context menu actions
     QAction *copyAddressAction = new QAction(tr("Copy address"), this);
     QAction *copyLabelAction = new QAction(tr("Copy label"), this);
@@ -108,10 +129,12 @@ CoinControlDialog::CoinControlDialog(QWidget *parent) :
     connect(ui->pushButtonSelectAll, SIGNAL(clicked()), this, SLOT(buttonSelectAllClicked()));
 
     ui->treeWidget->setColumnWidth(COLUMN_CHECKBOX, 84);
-    ui->treeWidget->setColumnWidth(COLUMN_AMOUNT, 100);
+    ui->treeWidget->setColumnWidth(COLUMN_AMOUNT, 180);
+    ui->treeWidget->setColumnWidth(COLUMN_LIQUIDITY, 180);
+    ui->treeWidget->setColumnWidth(COLUMN_RESERVE, 180);
     ui->treeWidget->setColumnWidth(COLUMN_LABEL, 170);
     ui->treeWidget->setColumnWidth(COLUMN_ADDRESS, 290);
-    ui->treeWidget->setColumnWidth(COLUMN_DATE, 110);
+    ui->treeWidget->setColumnWidth(COLUMN_DATE, 130);
     ui->treeWidget->setColumnWidth(COLUMN_CONFIRMATIONS, 100);
     ui->treeWidget->setColumnWidth(COLUMN_PRIORITY, 100);
     ui->treeWidget->setColumnHidden(COLUMN_TXHASH, true);         // store transacton hash in this column, but dont show it
@@ -656,7 +679,8 @@ void CoinControlDialog::updateView()
             }
 
             // amount
-            itemOutput->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, out.tx->vout[out.i].nValue));
+            itemOutput->setData(COLUMN_AMOUNT, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+            itemOutput->setText(COLUMN_AMOUNT, BitcoinUnits::formatR(nDisplayUnit, out.tx->vout[out.i].nValue));
             itemOutput->setText(COLUMN_AMOUNT_INT64, strPad(QString::number(out.tx->vout[out.i].nValue), 15, " ")); // padding so that sorting works correctly
 
             // date
@@ -698,7 +722,8 @@ void CoinControlDialog::updateView()
         {
             dPrioritySum = dPrioritySum / (nInputSum + 78);
             itemWalletAddress->setText(COLUMN_CHECKBOX, "(" + QString::number(nChildren) + ")");
-            itemWalletAddress->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, nSum));
+            itemWalletAddress->setData(COLUMN_AMOUNT, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+            itemWalletAddress->setText(COLUMN_AMOUNT, BitcoinUnits::formatR(nDisplayUnit, nSum));
             itemWalletAddress->setText(COLUMN_AMOUNT_INT64, strPad(QString::number(nSum), 15, " "));
             itemWalletAddress->setText(COLUMN_PRIORITY, CoinControlDialog::getPriorityLabel(dPrioritySum));
             itemWalletAddress->setText(COLUMN_PRIORITY_INT64, strPad(QString::number((int64_t)dPrioritySum), 20, " "));

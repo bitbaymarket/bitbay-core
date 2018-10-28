@@ -125,6 +125,39 @@ QString BitcoinUnits::format(int unit, qint64 n, bool fPlus)
     return quotient_str + QString(".") + remainder_str;
 }
 
+QString BitcoinUnits::formatR(int unit, qint64 n, bool fPlus)
+{
+    // Note: not using straight sprintf here because we do NOT want
+    // localized number formatting.
+    if(!valid(unit))
+        return QString(); // Refuse to format invalid unit
+    qint64 coin = factor(unit);
+    int num_decimals = decimals(unit);
+    qint64 n_abs = (n > 0 ? n : -n);
+    qint64 quotient = n_abs / coin;
+    qint64 remainder = n_abs % coin;
+    QString quotient_str = QString::number(quotient);
+    QString remainder_str = QString::number(remainder).rightJustified(num_decimals, '0');
+
+    QString quotient_formatted_str;
+    int q_len = quotient_str.length();
+    int q_cms = q_len / 3;
+    for (int i=0; i<q_cms+1 ;i++) {
+        QString digits3 = quotient_str.mid(q_len-(i+1)*3, 3);
+        if (!quotient_formatted_str.isEmpty() && !digits3.isEmpty())
+            quotient_formatted_str.prepend(",");
+        quotient_formatted_str.prepend(digits3);
+    }
+    if (!quotient_formatted_str.isEmpty())
+        quotient_str = quotient_formatted_str;
+
+    if (n < 0)
+        quotient_str.insert(0, '-');
+    else if (fPlus && n > 0)
+        quotient_str.insert(0, '+');
+    return quotient_str + QString(".") + remainder_str;
+}
+
 QString BitcoinUnits::formatWithUnit(int unit, qint64 amount, bool plussign)
 {
     return format(unit, amount, plussign) + QString(" ") + name(unit);

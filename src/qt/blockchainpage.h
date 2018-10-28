@@ -13,6 +13,8 @@ namespace Ui {
     class BlockchainPage;
 }
 
+class QTreeView;
+class QTreeWidget;
 class QModelIndex;
 class QTreeWidgetItem;
 class BlockchainModel;
@@ -65,6 +67,30 @@ public:
     void paint(QPainter *painter,
                const QStyleOptionViewItem &option,
                const QModelIndex &index) const override;
+};
+
+class BlockchainPageChainEvents : public QObject
+{
+    Q_OBJECT
+    QTreeView* treeWidget;
+public:
+    BlockchainPageChainEvents(QTreeView* w, QObject* parent)
+        :QObject(parent), treeWidget(w) {}
+    ~BlockchainPageChainEvents() override {}
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override;
+};
+
+class BlockchainPageBlockEvents : public QObject
+{
+    Q_OBJECT
+    QTreeWidget* treeWidget;
+public:
+    BlockchainPageBlockEvents(QTreeWidget* w, QObject* parent)
+        :QObject(parent), treeWidget(w) {}
+    ~BlockchainPageBlockEvents() override {}
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override;
 };
 
 #endif // INFOPAGE_H

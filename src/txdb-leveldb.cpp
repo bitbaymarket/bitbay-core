@@ -666,6 +666,7 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     map<uint256, CTxIndex> mapUnused;
                     map<uint320, CFractions> mapQueuedFractionsChanges;
                     vector<int> vOutputsTypes;
+                    string sPegFailCause;
                     bool fInvalid = false;
                     tx.FetchInputs(*this, pegdb, mapUnused, mapQueuedFractionsChanges, false, false, mapInputs, mapInputsFractions, fInvalid);
 
@@ -673,7 +674,8 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                                                   mapInputs, mapInputsFractions,
                                                   mapUnused, mapQueuedFractionsChanges,
                                                   feesFractions,
-                                                  vOutputsTypes);
+                                                  vOutputsTypes,
+                                                  sPegFailCause);
 
                     // Write queued fractions changes
                     for (map<uint320, CFractions>::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
@@ -693,6 +695,7 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     map<uint256, CTxIndex> mapUnused;
                     map<uint320, CFractions> mapQueuedFractionsChanges;
                     vector<int> vOutputsTypes;
+                    string sPegFailCause;
                     bool fInvalid = false;
                     tx.FetchInputs(*this, pegdb, mapUnused, mapQueuedFractionsChanges, false, false, mapInputs, mapInputsFractions, fInvalid);
 
@@ -700,7 +703,8 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                                                   mapInputs, mapInputsFractions,
                                                   mapUnused, mapQueuedFractionsChanges,
                                                   feesFractions,
-                                                  vOutputsTypes);
+                                                  vOutputsTypes,
+                                                  sPegFailCause);
 
                     // Write queued fractions changes
                     for (map<uint320, CFractions>::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)

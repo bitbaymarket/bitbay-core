@@ -36,7 +36,7 @@ using namespace std;
 using namespace boost;
 
 int nPegStartHeight = 1837000;
-int nPegMaxSupplyIndex = 1199;
+int nPegMaxSupplyIndex = 1198;
 static set<string> vPegWhitelist;
 
 static string sBurnAddress =
@@ -713,14 +713,17 @@ bool CalculateTransactionFractions(const CTransaction & tx,
                                    map<uint256, CTxIndex>& mapTestPool,
                                    map<uint320, CFractions>& mapTestFractionsPool,
                                    CFractions& feesFractions,
-                                   std::vector<int>& vOutputsTypes)
+                                   std::vector<int>& vOutputsTypes,
+                                   std::string& fail_cause)
 {
     size_t n_vin = tx.vin.size();
     size_t n_vout = tx.vout.size();
     vOutputsTypes.resize(n_vout);
 
-    if (!IsPegWhiteListed(tx, inputs))
+    if (!IsPegWhiteListed(tx, inputs)) {
+        fail_cause = "P01: Not whitelisted";
         return true;
+    }
 
     int64_t nValueIn = 0;
     int64_t nReservesTotal =0;
@@ -744,21 +747,25 @@ bool CalculateTransactionFractions(const CTransaction & tx,
         const COutPoint & prevout = tx.vin[i].prevout;
         CTransaction& txPrev = inputs[prevout.hash].second;
         if (prevout.n >= txPrev.vout.size()) {
-            return false; // out of range
+            fail_cause = "P02: Refered output out of range";
+            return false;
         }
 
-        nValueIn += txPrev.vout[prevout.n].nValue;
+        int64_t nValue = txPrev.vout[prevout.n].nValue;
+        nValueIn += nValue;
         auto sAddress = toAddress(txPrev.vout[prevout.n].scriptPubKey);
         setInputAddresses.insert(sAddress);
 
         auto fkey = uint320(prevout.hash, prevout.n);
         if (fInputs.find(fkey) == fInputs.end()) {
-            return false; // no input fractions loaded
+            fail_cause = "P03: No input fractions found";
+            return false;
         }
 
         auto frInp = fInputs[fkey].Std();
         if (frInp.Total() != txPrev.vout[prevout.n].nValue) {
-            return false; // input value mismatch
+            fail_cause = "P04: Input fraction total mismatches value";
+            return false;
         }
 
         int64_t nReserveIn = 0;
@@ -807,7 +814,8 @@ bool CalculateTransactionFractions(const CTransaction & tx,
                     nFrozenIndex = strtol(sOutputDef.c_str(), &pEnd, 0);
                     bool fValidIndex = !(pEnd == sOutputDef.c_str()) && nFrozenIndex >= 0 && size_t(nFrozenIndex) < n_vout;
                     if (!fValidIndex) {
-                        return false; // not convertible to output index
+                        fail_cause = "P05: Freeze notary: not convertible to output index";
+                        return false;
                     }
                 }
                 else if (sOutputArgs.size() == 2) {
@@ -818,64 +826,74 @@ bool CalculateTransactionFractions(const CTransaction & tx,
                     int nSplitArg1 = int(strtol(sSplitArg1, &pEnd, 0));
                     bool fValidIndex1 = !(pEnd == sSplitArg1) && nSplitArg1 >= 0 && size_t(nSplitArg1) < n_vout;
                     if (!fValidIndex1) {
-                        return false; // not convertible to output index or out of range
+                        fail_cause = "P06: Freeze notary: index1 not convertible to output index";
+                        return false;
                     }
                     int nSplitArg2 = int(strtol(sSplitArg2, &pEnd, 0));
                     bool fValidIndex2 = !(pEnd == sSplitArg2) && nSplitArg2 >= 0 && size_t(nSplitArg2) < n_vout;
                     if (!fValidIndex2) {
-                        return false; // not convertible to output index or out of range
+                        fail_cause = "P07: Freeze notary: index2 not convertible to output index";
+                        return false;
                     }
                     nFrozenIndex = nSplitArg1;
                 }
                 else { // more than two: todo when py ready
+                    fail_cause = "P08: Freeze notary: more than two refs (todo)";
                     return false;
                 }
                 if (nFrozenIndex == i) {
-                    return false; // refer to itself
+                    fail_cause = "P09: Freeze notary: output refers itself";
+                    return false;
+                }
+                if (nFrozenIndex <0) {
+                    fail_cause = "P10: Freeze notary: output refers negative";
+                    return false;
                 }
 
-                int64_t nNotaryOut = tx.vout[i].nValue;
+                //int64_t nFrozenValueInp = nValue;
+                int64_t nFrozenValueOut = tx.vout[nFrozenIndex].nValue;
 
                 auto & frozenTxOut = poolFrozen[nFrozenIndex];
-                frozenTxOut.nValue = nNotaryOut;
+                frozenTxOut.nValue = nFrozenValueOut;
                 frozenTxOut.sAddress = sAddress;
                 if (fNotaryF) frozenTxOut.fractions.nFlags |= CFractions::FROZEN_F;
                 if (fNotaryV) frozenTxOut.fractions.nFlags |= CFractions::FROZEN_V;
 
                 bool fSharedFreeze = false;
-                if (fNotaryF && nReserveIn < nNotaryOut) {
+                if (fNotaryF && nReserveIn < nFrozenValueOut) {
                     fFreezeAll = true;
                     fSharedFreeze = true;
                 }
-                else if (fNotaryV && nLiquidityIn < nNotaryOut) {
+                else if (fNotaryV && nLiquidityIn < nFrozenValueOut) {
                     fFreezeAll = true;
                     fSharedFreeze = true;
                 }
-                else if (fNotaryL && nLiquidityIn < nNotaryOut) {
-                    return false; // not enough liquidity
+                else if (fNotaryL && nLiquidityIn < nFrozenValueOut) {
+                    fail_cause = "P11: Freeze notary: not enough liquidity";
+                    return false;
                 }
 
                 // deductions if not shared freeze
                 if (!fSharedFreeze) {
                     if (fNotaryF) {
-                        frozenTxOut.fractions = frReserve.RatioPart(nNotaryOut, nReserveIn, 0);
+                        frozenTxOut.fractions = frReserve.RatioPart(nFrozenValueOut, nReserveIn, 0);
                         frozenTxOut.fractions.nFlags |= CFractions::FROZEN_F;
                         frInp -= frozenTxOut.fractions;
                         frReserve -= frozenTxOut.fractions;
-                        nReserveIn -= nNotaryOut;
+                        nReserveIn -= nFrozenValueOut;
                     }
                     else if (fNotaryV) {
-                        frozenTxOut.fractions = frLiquidity.RatioPart(nNotaryOut, nLiquidityIn, nSupply);
+                        frozenTxOut.fractions = frLiquidity.RatioPart(nFrozenValueOut, nLiquidityIn, nSupply);
                         frozenTxOut.fractions.nFlags |= CFractions::FROZEN_V;
                         frInp -= frozenTxOut.fractions;
                         frLiquidity -= frozenTxOut.fractions;
-                        nLiquidityIn -= nNotaryOut;
+                        nLiquidityIn -= nFrozenValueOut;
                     }
                     else if (fNotaryL) {
-                        frozenTxOut.fractions = frLiquidity.RatioPart(nNotaryOut, nLiquidityIn, nSupply);
+                        frozenTxOut.fractions = frLiquidity.RatioPart(nFrozenValueOut, nLiquidityIn, nSupply);
                         frInp -= frozenTxOut.fractions;
                         frLiquidity -= frozenTxOut.fractions;
-                        nLiquidityIn -= nNotaryOut;
+                        nLiquidityIn -= nFrozenValueOut;
                     }
                 }
             }
@@ -889,9 +907,6 @@ bool CalculateTransactionFractions(const CTransaction & tx,
     for(const auto & item : poolLiquidity) {
         frCommonLiquidity += item.second;
     }
-
-    //auto nRemainsTotal = nValueIn;
-    //auto fRemainsPool = fValueInPool;
 
     // Reveal outs destination type
     for (unsigned int i = 0; i < n_vout; i++)
@@ -962,7 +977,8 @@ bool CalculateTransactionFractions(const CTransaction & tx,
 
                     if (nValueLeft > 0) {
                         if (nValueLeft > nCommonLiquidity) {
-                            return false; // no liquidity left
+                            fail_cause = "P12: No liquidity left";
+                            return false;
                         }
                         auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
                         frOut += frLiquidityPart;
@@ -993,7 +1009,8 @@ bool CalculateTransactionFractions(const CTransaction & tx,
 
                     if (nValueLeft > 0) {
                         if (nValueLeft > nCommonLiquidity) {
-                            return false; // no liquidity left
+                            fail_cause = "P13: No liquidity left";
+                            return false;
                         }
                         auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
                         frOut += frLiquidityPart;
@@ -1031,7 +1048,8 @@ bool CalculateTransactionFractions(const CTransaction & tx,
 
                         if (nValueLeft > 0) {
                             if (nValueLeft > nCommonLiquidity) {
-                                return false; // no liquidity left
+                                fail_cause = "P14: No liquidity left";
+                                return false;
                             }
                             auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
                             frOut += frLiquidityPart;
@@ -1043,7 +1061,8 @@ bool CalculateTransactionFractions(const CTransaction & tx,
                     else {
                         int64_t nValueLeft = nValue;
                         if (nValueLeft > nCommonLiquidity) {
-                            return false; // no liquidity left
+                            fail_cause = "P15: No liquidity left";
+                            return false;
                         }
                         auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
                         frOut += frLiquidityPart;
@@ -1070,14 +1089,17 @@ bool CalculateStakingFractions(const CTransaction & tx,
                                std::map<uint320, CFractions>& mapTestFractionsPool,
                                const CFractions& feesFractions,
                                int64_t nCalculatedStakeRewardWithoutFees,
-                               std::vector<int>& vOutputsTypes)
+                               std::vector<int>& vOutputsTypes,
+                               std::string& fail_cause)
 {
     size_t n_vin = tx.vin.size();
     size_t n_vout = tx.vout.size();
     vOutputsTypes.resize(n_vout);
 
-    if (!IsPegWhiteListed(tx, inputs))
+    if (!IsPegWhiteListed(tx, inputs)) {
+        fail_cause = "Not whitelisted";
         return true;
+    }
 
     // calculate pools
     int64_t nValueIn = 0;
@@ -1089,6 +1111,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
 
         auto fkey = uint320(prevout.hash, prevout.n);
         if (fInputs.find(fkey) == fInputs.end()) {
+            fail_cause = "No input fractions found";
             return false;
         }
 
@@ -1098,11 +1121,13 @@ bool CalculateStakingFractions(const CTransaction & tx,
 
         CTransaction& txPrev = inputs[prevout.hash].second;
         if (prevout.n >= txPrev.vout.size()) {
+            fail_cause = "Refered output out of range";
             return false;
         }
 
         if (fInp.Total() != txPrev.vout[prevout.n].nValue) {
-            return false; // input mismatch
+            fail_cause = "Input fraction total mismatches value";
+            return false;
         }
 
         nValueIn += txPrev.vout[prevout.n].nValue;
@@ -1124,14 +1149,16 @@ bool CalculateStakingFractions(const CTransaction & tx,
         auto fkey = uint320(tx.GetHash(), i);
 
         if (nValue > nValueOut) {
-            return false; // violate peg
+            fail_cause = "Output value greated than expected";
+            return false;
         }
 
         auto fOut = fValueOutPool.RatioPart(nValue, nValueOut, 0);
         mapTestFractionsPool[fkey] = fOut;
 
         if (fOut.Total() != tx.vout[i].nValue) {
-            return false; // output mismatch
+            fail_cause = "Output fraction total mismatches value";
+            return false;
         }
     }
 

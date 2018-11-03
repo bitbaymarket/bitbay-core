@@ -565,6 +565,7 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
     MapPrevFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
     map<uint320, CFractions> mapFractionsUnused;
+    string sPegFailCause;
 
     for (CTransaction & tx : block.vtx) {
 
@@ -594,7 +595,8 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
                                                     mapInputs, mapInputsFractions,
                                                     mapUnused, mapFractionsUnused,
                                                     feesFractions,
-                                                    vOutputsTypes);
+                                                    vOutputsTypes,
+                                                    sPegFailCause);
 
         if (!peg_ok)
             return false;
@@ -643,6 +645,8 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Type",txtype})));
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Peg Supply Index",QString::number(pblockindex->nPegSupplyIndex)})));
 
+    // logic
+
     QTime timeFetchInputs = QTime::currentTime();
     MapPrevTx mapInputs;
     MapPrevFractions mapInputsFractions;
@@ -651,6 +655,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     CFractions feesFractions(0, CFractions::STD);
     int64_t nFeesValue = 0;
     vector<int> vOutputsTypes;
+    string sPegFailCause;
     bool fInvalid = false;
     tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid);
     int msecsFetchInputs = timeFetchInputs.msecsTo(QTime::currentTime());
@@ -661,6 +666,46 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         inputFractionItem.second.LowPart(pblockindex->nPegSupplyIndex, &nReserveIn);
         inputFractionItem.second.HighPart(pblockindex->nPegSupplyIndex, &nLiquidityIn);
     }
+
+    bool peg_whitelisted = IsPegWhiteListed(tx, mapInputs);
+    bool peg_ok = false;
+
+    QTime timePegChecks = QTime::currentTime();
+    if (tx.IsCoinStake()) {
+        uint64_t nCoinAge = 0;
+        if (!tx.GetCoinAge(txdb, pblockindex->pprev, nCoinAge)) {
+            //something went wrong
+        }
+        int64_t nCalculatedStakeRewardWithoutFees = GetProofOfStakeReward(pblockindex->pprev, nCoinAge, 0 /*fees*/);
+
+        peg_ok = CalculateStakingFractions(tx, pblockindex,
+                                           mapInputs, mapInputsFractions,
+                                           mapUnused, mapFractionsUnused,
+                                           feesFractions,
+                                           nCalculatedStakeRewardWithoutFees,
+                                           vOutputsTypes,
+                                           sPegFailCause);
+    }
+    else {
+        peg_ok = CalculateTransactionFractions(tx, pblockindex,
+                                               mapInputs, mapInputsFractions,
+                                               mapUnused, mapFractionsUnused,
+                                               feesFractions,
+                                               vOutputsTypes,
+                                               sPegFailCause);
+    }
+    int msecsPegChecks = timePegChecks.msecsTo(QTime::currentTime());
+
+    QTime timeSigsChecks = QTime::currentTime();
+    for (unsigned int i = 0; i < tx.vin.size(); i++)
+    {
+        COutPoint prevout = tx.vin[i].prevout;
+        CTransaction& txPrev = mapInputs[prevout.hash].second;
+        VerifySignature(txPrev, tx, i, MANDATORY_SCRIPT_VERIFY_FLAGS, 0);
+    }
+    int msecsSigsChecks = timeSigsChecks.msecsTo(QTime::currentTime());
+
+    // gui
 
     ui->txInputs->clear();
     size_t n_vin = tx.vin.size();
@@ -759,42 +804,6 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         inputFees->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         ui->txInputs->addTopLevelItem(inputFees);
     }
-
-    bool peg_whitelisted = IsPegWhiteListed(tx, mapInputs);
-    bool peg_ok = false;
-
-    QTime timePegChecks = QTime::currentTime();
-    if (tx.IsCoinStake()) {
-        uint64_t nCoinAge = 0;
-        if (!tx.GetCoinAge(txdb, pblockindex->pprev, nCoinAge)) {
-            //something went wrong
-        }
-        int64_t nCalculatedStakeRewardWithoutFees = GetProofOfStakeReward(pblockindex->pprev, nCoinAge, 0 /*fees*/);
-
-        peg_ok = CalculateStakingFractions(tx, pblockindex,
-                                           mapInputs, mapInputsFractions,
-                                           mapUnused, mapFractionsUnused,
-                                           feesFractions,
-                                           nCalculatedStakeRewardWithoutFees,
-                                           vOutputsTypes);
-    }
-    else {
-        peg_ok = CalculateTransactionFractions(tx, pblockindex,
-                                               mapInputs, mapInputsFractions,
-                                               mapUnused, mapFractionsUnused,
-                                               feesFractions,
-                                               vOutputsTypes);
-    }
-    int msecsPegChecks = timePegChecks.msecsTo(QTime::currentTime());
-
-    QTime timeSigsChecks = QTime::currentTime();
-    for (unsigned int i = 0; i < tx.vin.size(); i++)
-    {
-        COutPoint prevout = tx.vin[i].prevout;
-        CTransaction& txPrev = mapInputs[prevout.hash].second;
-        VerifySignature(txPrev, tx, i, MANDATORY_SCRIPT_VERIFY_FLAGS, 0);
-    }
-    int msecsSigsChecks = timeSigsChecks.msecsTo(QTime::currentTime());
 
     CTxIndex txindex;
     txdb.ReadTxIndex(hash, txindex);
@@ -897,7 +906,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
                 QStringList({
                     "Peg Checks",
                     peg_whitelisted
-                        ? peg_ok ? "OK" : "FAIL"
+                        ? peg_ok ? "OK" : "FAIL ("+QString::fromStdString(sPegFailCause)+")"
                         : "Not Whitelisted"
                 })
     );

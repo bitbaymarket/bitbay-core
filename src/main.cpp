@@ -1392,12 +1392,14 @@ bool CTransaction::ConnectInputs(CTxDB& txdb,
     }
     // Calculation of fractions is considered less expensive than
     // signatures checks. For now it reports only about peg violations
+    string sPegFailCause;
     vector<int> vOutputsTypes;
     CalculateTransactionFractions(*this, pindexBlock,
                                   inputs, finputs,
                                   mapTestPool, mapTestFractionsPool,
                                   feesFractions,
-                                  vOutputsTypes);
+                                  vOutputsTypes,
+                                  sPegFailCause);
 
     // The first loop above does all the inexpensive checks.
     // Only if ALL inputs pass do we perform expensive ECDSA signature checks.

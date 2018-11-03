@@ -202,6 +202,8 @@ public:
     void ReacceptWalletTransactions();
     void ResendWalletTransactions(bool fForce = false);
     int64_t GetBalance() const;
+    int64_t GetReserves() const;
+    int64_t GetLiquidity() const;
     int64_t GetUnconfirmedBalance() const;
     int64_t GetImmatureBalance() const;
     int64_t GetStake() const;

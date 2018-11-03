@@ -1078,6 +1078,38 @@ int64_t CWallet::GetBalance() const
     return nTotal;
 }
 
+int64_t CWallet::GetReserves() const
+{
+    int64_t nTotal = 0;
+    {
+        LOCK2(cs_main, cs_wallet);
+        for (map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
+        {
+            const CWalletTx* pcoin = &(*it).second;
+            if (pcoin->IsTrusted())
+                nTotal += 0;//pcoin->GetAvailableCredit();
+        }
+    }
+
+    return nTotal;
+}
+
+int64_t CWallet::GetLiquidity() const
+{
+    int64_t nTotal = 0;
+    {
+        LOCK2(cs_main, cs_wallet);
+        for (map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
+        {
+            const CWalletTx* pcoin = &(*it).second;
+            if (pcoin->IsTrusted())
+                nTotal += pcoin->GetAvailableCredit();
+        }
+    }
+
+    return nTotal;
+}
+
 int64_t CWallet::GetUnconfirmedBalance() const
 {
     int64_t nTotal = 0;

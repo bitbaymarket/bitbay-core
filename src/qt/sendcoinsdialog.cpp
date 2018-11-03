@@ -87,8 +87,10 @@ void SendCoinsDialog::setModel(WalletModel *model)
             }
         }
 
-        setBalance(model->getBalance(), model->getStake(), model->getUnconfirmedBalance(), model->getImmatureBalance());
-        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64, qint64)), this, SLOT(setBalance(qint64, qint64, qint64, qint64)));
+        setBalance(model->getBalance(), model->getReserves(), model->getLiquidity(),
+                   model->getStake(), model->getUnconfirmedBalance(), model->getImmatureBalance());
+        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64, qint64, qint64, qint64)),
+                this, SLOT(setBalance(qint64, qint64, qint64, qint64, qint64, qint64)));
         connect(model->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
 
         // Coin Control
@@ -339,7 +341,8 @@ bool SendCoinsDialog::handleURI(const QString &uri)
     return false;
 }
 
-void SendCoinsDialog::setBalance(qint64 balance, qint64 stake, qint64 unconfirmedBalance, qint64 immatureBalance)
+void SendCoinsDialog::setBalance(qint64 balance, qint64 reserves, qint64 liquidity,
+                                 qint64 stake, qint64 unconfirmedBalance, qint64 immatureBalance)
 {
     Q_UNUSED(stake);
     Q_UNUSED(unconfirmedBalance);
@@ -348,12 +351,14 @@ void SendCoinsDialog::setBalance(qint64 balance, qint64 stake, qint64 unconfirme
     if(model && model->getOptionsModel())
     {
         ui->labelBalance->setText(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), balance));
+        ui->labelReserves->setText(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), reserves));
+        ui->labelLiquidity->setText(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), liquidity));
     }
 }
 
 void SendCoinsDialog::updateDisplayUnit()
 {
-    setBalance(model->getBalance(), 0, 0, 0);
+    setBalance(model->getBalance(), model->getReserves(), model->getLiquidity(), 0, 0, 0);
 }
 
 // Coin Control: copy label "Quantity" to clipboard

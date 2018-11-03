@@ -16,7 +16,8 @@
 WalletModel::WalletModel(CWallet *wallet, OptionsModel *optionsModel, QObject *parent) :
     QObject(parent), wallet(wallet), optionsModel(optionsModel), addressTableModel(0),
     transactionTableModel(0),
-    cachedBalance(0), cachedStake(0), cachedUnconfirmedBalance(0), cachedImmatureBalance(0),
+    cachedBalance(0), cachedReserves(0), cachedLiquidity(0),
+    cachedStake(0), cachedUnconfirmedBalance(0), cachedImmatureBalance(0),
     cachedEncryptionStatus(Unencrypted),
     cachedNumBlocks(0)
 {
@@ -53,6 +54,40 @@ qint64 WalletModel::getBalance(const CCoinControl *coinControl) const
     }
 
     return wallet->GetBalance();
+}
+
+qint64 WalletModel::getReserves(const CCoinControl *coinControl) const
+{
+    if (coinControl)
+    {
+        qint64 nBalance = 0;
+        std::vector<COutput> vCoins;
+        wallet->AvailableCoins(vCoins, true, coinControl);
+        BOOST_FOREACH(const COutput& out, vCoins)
+            if(out.fSpendable)
+                nBalance += 0; //out.tx->vout[out.i].nValue;
+
+        return nBalance;
+    }
+
+    return wallet->GetReserves();
+}
+
+qint64 WalletModel::getLiquidity(const CCoinControl *coinControl) const
+{
+    if (coinControl)
+    {
+        qint64 nBalance = 0;
+        std::vector<COutput> vCoins;
+        wallet->AvailableCoins(vCoins, true, coinControl);
+        BOOST_FOREACH(const COutput& out, vCoins)
+            if(out.fSpendable)
+                nBalance += out.tx->vout[out.i].nValue;
+
+        return nBalance;
+    }
+
+    return wallet->GetLiquidity();
 }
 
 qint64 WalletModel::getUnconfirmedBalance() const
@@ -106,17 +141,23 @@ void WalletModel::pollBalanceChanged()
 void WalletModel::checkBalanceChanged()
 {
     qint64 newBalance = getBalance();
+    qint64 newReserves = getReserves();
+    qint64 newLiquidity = getLiquidity();
     qint64 newStake = getStake();
     qint64 newUnconfirmedBalance = getUnconfirmedBalance();
     qint64 newImmatureBalance = getImmatureBalance();
 
-    if(cachedBalance != newBalance || cachedStake != newStake || cachedUnconfirmedBalance != newUnconfirmedBalance || cachedImmatureBalance != newImmatureBalance)
+    if(cachedBalance != newBalance || cachedReserves != newReserves || cachedLiquidity != newLiquidity ||
+            cachedStake != newStake || cachedUnconfirmedBalance != newUnconfirmedBalance || cachedImmatureBalance != newImmatureBalance)
     {
         cachedBalance = newBalance;
+        cachedReserves = newReserves;
+        cachedLiquidity = newLiquidity;
         cachedStake = newStake;
         cachedUnconfirmedBalance = newUnconfirmedBalance;
         cachedImmatureBalance = newImmatureBalance;
-        emit balanceChanged(newBalance, newStake, newUnconfirmedBalance, newImmatureBalance);
+        emit balanceChanged(newBalance, newReserves, newLiquidity,
+                            newStake, newUnconfirmedBalance, newImmatureBalance);
     }
 }
 
@@ -369,7 +410,7 @@ void WalletModel::unsubscribeFromCoreSignals()
 WalletModel::UnlockContext WalletModel::requestUnlock()
 {
     bool was_locked = getEncryptionStatus() == Locked;
-    
+
     if ((!was_locked) && fWalletUnlockStakingOnly)
     {
        setWalletLocked(true);
@@ -411,7 +452,7 @@ void WalletModel::UnlockContext::CopyFrom(const UnlockContext& rhs)
 
 bool WalletModel::getPubKey(const CKeyID &address, CPubKey& vchPubKeyOut) const
 {
-    return wallet->GetPubKey(address, vchPubKeyOut);   
+    return wallet->GetPubKey(address, vchPubKeyOut);
 }
 
 // returns a list of COutputs from COutPoints
@@ -428,7 +469,7 @@ void WalletModel::getOutputs(const std::vector<COutPoint>& vOutpoints, std::vect
     }
 }
 
-// AvailableCoins + LockedCoins grouped by wallet address (put change in one group with wallet address) 
+// AvailableCoins + LockedCoins grouped by wallet address (put change in one group with wallet address)
 void WalletModel::listCoins(std::map<QString, std::vector<COutput> >& mapCoins) const
 {
     std::vector<COutput> vCoins;

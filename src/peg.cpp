@@ -712,15 +712,54 @@ bool IsPegWhiteListed(const CTransaction & tx,
     return false;
 }
 
-bool CalculateTransactionFractions(const CTransaction & tx,
-                                   const CBlockIndex* pindexBlock,
-                                   MapPrevTx & inputs,
-                                   MapPrevFractions& fInputs,
-                                   map<uint256, CTxIndex>& mapTestPool,
-                                   map<uint320, CFractions>& mapTestFractionsPool,
-                                   CFractions& feesFractions,
-                                   std::vector<int>& vOutputsTypes,
-                                   std::string& fail_cause)
+bool CalculateFractions(CTxDB& txdb,
+                        const CTransaction & tx,
+                        const CBlockIndex* pindexBlock,
+                        MapPrevTx & mapInputs,
+                        MapPrevFractions& mapInputsFractions,
+                        map<uint256, CTxIndex>& mapTestPool,
+                        map<uint320, CFractions>& mapTestFractionsPool,
+                        CFractions& feesFractions,
+                        std::vector<int>& vOutputsTypes,
+                        std::string& sPegFailCause)
+{
+    bool peg_ok = false;
+    if (tx.IsCoinStake()) {
+        uint64_t nCoinAge = 0;
+        if (!tx.GetCoinAge(txdb, pindexBlock->pprev, nCoinAge)) {
+            //something went wrong
+            return false;
+        }
+        int64_t nCalculatedStakeRewardWithoutFees = GetProofOfStakeReward(pindexBlock->pprev, nCoinAge, 0 /*fees*/);
+
+        peg_ok = CalculateStakingFractions(tx, pindexBlock,
+                                           mapInputs, mapInputsFractions,
+                                           mapTestPool, mapTestFractionsPool,
+                                           feesFractions,
+                                           nCalculatedStakeRewardWithoutFees,
+                                           vOutputsTypes,
+                                           sPegFailCause);
+    }
+    else {
+        peg_ok = CalculateStandardFractions(tx, pindexBlock,
+                                            mapInputs, mapInputsFractions,
+                                            mapTestPool, mapTestFractionsPool,
+                                            feesFractions,
+                                            vOutputsTypes,
+                                            sPegFailCause);
+    }
+    return peg_ok;
+}
+
+bool CalculateStandardFractions(const CTransaction & tx,
+                                const CBlockIndex* pindexBlock,
+                                MapPrevTx & inputs,
+                                MapPrevFractions& fInputs,
+                                map<uint256, CTxIndex>& mapTestPool,
+                                map<uint320, CFractions>& mapTestFractionsPool,
+                                CFractions& feesFractions,
+                                std::vector<int>& vOutputsTypes,
+                                std::string& fail_cause)
 {
     size_t n_vin = tx.vin.size();
     size_t n_vout = tx.vout.size();
@@ -1082,6 +1121,12 @@ bool CalculateTransactionFractions(const CTransaction & tx,
                 frOut = poolFrozen[i].fractions;
             }
         }
+    }
+
+    // when finished all outputs, poolReserves frCommonLiquidity are fees
+    feesFractions += frCommonLiquidity;
+    for(const auto & item : poolReserves) {
+        feesFractions += item.second;
     }
 
     return true;

@@ -102,15 +102,26 @@ bool CalculateBlockPegVotes(const CBlock & cblock,
 
 bool IsPegWhiteListed(const CTransaction & tx, MapPrevTx & inputs);
 
-bool CalculateTransactionFractions(const CTransaction & tx,
-                                   const CBlockIndex* pindexBlock,
-                                   MapPrevTx & inputs,
-                                   MapPrevFractions& finputs,
-                                   std::map<uint256, CTxIndex>& mapTestPool,
-                                   std::map<uint320, CFractions>& mapTestFractionsPool,
-                                   CFractions& feesFractions,
-                                   std::vector<int>& vOutputsTypes,
-                                   std::string& fail_cause);
+bool CalculateFractions(CTxDB& txdb,
+                        const CTransaction & tx,
+                        const CBlockIndex* pindexBlock,
+                        MapPrevTx & inputs,
+                        MapPrevFractions& finputs,
+                        std::map<uint256, CTxIndex>& mapTestPool,
+                        std::map<uint320, CFractions>& mapTestFractionsPool,
+                        CFractions& feesFractions,
+                        std::vector<int>& vOutputsTypes,
+                        std::string& sPegFailCause);
+
+bool CalculateStandardFractions(const CTransaction & tx,
+                                const CBlockIndex* pindexBlock,
+                                MapPrevTx & inputs,
+                                MapPrevFractions& finputs,
+                                std::map<uint256, CTxIndex>& mapTestPool,
+                                std::map<uint320, CFractions>& mapTestFractionsPool,
+                                CFractions& feesFractions,
+                                std::vector<int>& vOutputsTypes,
+                                std::string& sPegFailCause);
 
 bool CalculateStakingFractions(const CTransaction & tx,
                                const CBlockIndex* pindexBlock,
@@ -121,7 +132,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
                                const CFractions& feesFractions,
                                int64_t nCalculatedStakeRewardWithoutFees,
                                std::vector<int>& vOutputsTypes,
-                               std::string& fail_cause);
+                               std::string& sPegFailCause);
 
 #define PegFail(...) PegReport(__VA_ARGS__)
 #define PegReportf(...) PegReport(__VA_ARGS__)

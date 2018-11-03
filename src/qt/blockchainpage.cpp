@@ -599,12 +599,12 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
             continue;
         }
 
-        bool peg_ok = CalculateTransactionFractions(tx, pblockindex,
-                                                    mapInputs, mapInputsFractions,
-                                                    mapUnused, mapFractionsUnused,
-                                                    feesFractions,
-                                                    vOutputsTypes,
-                                                    sPegFailCause);
+        bool peg_ok = CalculateStandardFractions(tx, pblockindex,
+                                                 mapInputs, mapInputsFractions,
+                                                 mapUnused, mapFractionsUnused,
+                                                 feesFractions,
+                                                 vOutputsTypes,
+                                                 sPegFailCause);
 
         if (!peg_ok)
             return false;
@@ -695,12 +695,12 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
                                            sPegFailCause);
     }
     else {
-        peg_ok = CalculateTransactionFractions(tx, pblockindex,
-                                               mapInputs, mapInputsFractions,
-                                               mapUnused, mapFractionsUnused,
-                                               feesFractions,
-                                               vOutputsTypes,
-                                               sPegFailCause);
+        peg_ok = CalculateStandardFractions(tx, pblockindex,
+                                            mapInputs, mapInputsFractions,
+                                            mapUnused, mapFractionsUnused,
+                                            feesFractions,
+                                            vOutputsTypes,
+                                            sPegFailCause);
     }
     int msecsPegChecks = timePegChecks.msecsTo(QTime::currentTime());
 

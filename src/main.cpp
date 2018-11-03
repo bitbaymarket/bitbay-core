@@ -1390,16 +1390,22 @@ bool CTransaction::ConnectInputs(CTxDB& txdb,
             return DoS(100, error("ConnectInputs() : txin values out of range"));
 
     }
+
     // Calculation of fractions is considered less expensive than
     // signatures checks. For now it reports only about peg violations
-    string sPegFailCause;
-    vector<int> vOutputsTypes;
-    CalculateTransactionFractions(*this, pindexBlock,
-                                  inputs, finputs,
-                                  mapTestPool, mapTestFractionsPool,
-                                  feesFractions,
-                                  vOutputsTypes,
-                                  sPegFailCause);
+    if (!IsCoinStake()) {
+        string sPegFailCause;
+        vector<int> vOutputsTypes;
+        bool peg_ok = CalculateStandardFractions(*this, pindexBlock,
+                                                 inputs, finputs,
+                                                 mapTestPool, mapTestFractionsPool,
+                                                 feesFractions,
+                                                 vOutputsTypes,
+                                                 sPegFailCause);
+        if (!peg_ok) {
+            // nothing todo now
+        }
+    }
 
     // The first loop above does all the inexpensive checks.
     // Only if ALL inputs pass do we perform expensive ECDSA signature checks.

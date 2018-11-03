@@ -670,12 +670,12 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     bool fInvalid = false;
                     tx.FetchInputs(*this, pegdb, mapUnused, mapQueuedFractionsChanges, false, false, mapInputs, mapInputsFractions, fInvalid);
 
-                    CalculateTransactionFractions(tx, pblockindex,
-                                                  mapInputs, mapInputsFractions,
-                                                  mapUnused, mapQueuedFractionsChanges,
-                                                  feesFractions,
-                                                  vOutputsTypes,
-                                                  sPegFailCause);
+                    CalculateStandardFractions(tx, pblockindex,
+                                               mapInputs, mapInputsFractions,
+                                               mapUnused, mapQueuedFractionsChanges,
+                                               feesFractions,
+                                               vOutputsTypes,
+                                               sPegFailCause);
 
                     // Write queued fractions changes
                     for (map<uint320, CFractions>::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
@@ -699,12 +699,19 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     bool fInvalid = false;
                     tx.FetchInputs(*this, pegdb, mapUnused, mapQueuedFractionsChanges, false, false, mapInputs, mapInputsFractions, fInvalid);
 
-                    CalculateTransactionFractions(tx, pblockindex,
-                                                  mapInputs, mapInputsFractions,
-                                                  mapUnused, mapQueuedFractionsChanges,
-                                                  feesFractions,
-                                                  vOutputsTypes,
-                                                  sPegFailCause);
+                    uint64_t nCoinAge = 0;
+                    if (!tx.GetCoinAge(*this, pblockindex->pprev, nCoinAge)) {
+                        error("LoadBlockIndex() : pegdb: GetCoinAge() failed");
+                    }
+                    int64_t nCalculatedStakeRewardWithoutFees = GetProofOfStakeReward(pblockindex->pprev, nCoinAge, 0 /*fees*/);
+
+                    CalculateStakingFractions(tx, pblockindex,
+                                              mapInputs, mapInputsFractions,
+                                              mapUnused, mapQueuedFractionsChanges,
+                                              feesFractions,
+                                              nCalculatedStakeRewardWithoutFees,
+                                              vOutputsTypes,
+                                              sPegFailCause);
 
                     // Write queued fractions changes
                     for (map<uint320, CFractions>::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)

@@ -338,3 +338,11 @@ deploy:
     on:
       tags: true
       repo: dzimbeck/BitBay
+
+  - provider: releases
+    api_key:
+      secure: ISSj1opyNp+6vUXgJkXGACScM2ySbbO5avEz3PYSmFSKTMpxgjvpMBMT63fHO5r7H3lY+QWYIIcAUuD3DCq5MI/ZSJIS6pklqzLrtUNmK1L5oRDU7a1B1oySVX8f3K0aSywIydHdqKINfLO12FsHs4Lz11YhDc9lhi8UswNDmtz9LmU712fwPOlZ18TJMksCSA9ch/iEVlstqVurHMquaR99FAn3BgMAm1+cK3Mu4nrq5a6PHvkkYvOmHuPs5o5qxk4hn+EWcj94SIGK+Xz1rR42RR8GbCXgK6t2rTJ71dwzat732XzPnDeHDnSe8epr0mQuUY8pzbRQcqguBd55WJyaoibt9nXeUhwy2m8+InMamXzvVsH+dlwB+IPLHoIny5y+XrRlZ+1X4y4UnnzqDhKFGcJ+iYCkjj1RRIn32K35fRf55KnUSO1BpBHmY1xhDeuDIXDChWDQ2WHgZGa9UixeBk3qm2YUEdNoHWUeagFQMGtOipvcCv7DYeD3f5ar2byxdQn0bOYl5lLfepQ/dLso2w85GeCfIDNtSL8ggt17dDS/STOsFyLRIq18fD8GFTtrRHd5TWNi70BTKpmV2FE00ZOWi08D3wr/bBwc4gzc6fAQBraChe8eBSZ/qvlfYaP5yz3QW/Y+QtLLXtH7Z6Y179c54jDpziAy2yvXsjA=
+    file: $TRAVIS_BUILD_DIR/$DEPLOY_FILE
+    on:
+      tags: true
+      repo: yshurik/bitbay-core-peg

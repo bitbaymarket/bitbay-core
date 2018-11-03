@@ -115,6 +115,11 @@ bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb, LoadMsg load_msg) {
         indexCount++;
         if (indexCount % 10000 == 0) {
             load_msg(std::string(" update indexes for peg: ")+std::to_string(indexCount));
+            // commit on every 10k
+            if (!ctxdb.TxnCommit())
+                return error("SetBlocksIndexesReadyForPeg() : TxnCommit failed");
+            if (!ctxdb.TxnBegin())
+                return error("SetBlocksIndexesReadyForPeg() : TxnBegin failed");
         }
     }
     delete iterator;

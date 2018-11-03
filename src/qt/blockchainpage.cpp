@@ -987,10 +987,10 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)
     ui.reserveLabel->setText(tr("Reserve: %1").arg(displayValue(fractions.Low(supply))));
     ui.liquidityLabel->setText(tr("Liquidity: %1").arg(displayValue(fractions.High(supply))));
 
-    qreal xs_reserve[2400];
-    qreal ys_reserve[2400];
-    qreal xs_liquidity[2400];
-    qreal ys_liquidity[2400];
+    qreal xs_reserve[PEG_SIZE*2];
+    qreal ys_reserve[PEG_SIZE*2];
+    qreal xs_liquidity[PEG_SIZE*2];
+    qreal ys_liquidity[PEG_SIZE*2];
 
     for (int i=0; i<PEG_SIZE; i++) {
         QStringList row;
@@ -1011,17 +1011,21 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)
         ys_liquidity[i*2+1] = ys_liquidity[i*2];
     }
 
+    QPen nopen(Qt::NoPen);
+
     auto curve_reserve = new QwtPlotCurve;
+    curve_reserve->setPen(nopen);
     curve_reserve->setBrush(QColor("#c06a15"));
     curve_reserve->setSamples(xs_reserve, ys_reserve, supply*2);
     curve_reserve->setRenderHint(QwtPlotItem::RenderAntialiased);
     curve_reserve->attach(fplot);
 
     auto curve_liquidity = new QwtPlotCurve;
+    curve_liquidity->setPen(nopen);
     curve_liquidity->setBrush(QColor("#2da5e0"));
     curve_liquidity->setSamples(xs_liquidity+supply*2,
                                 ys_liquidity+supply*2,
-                                1200-supply*2);
+                                PEG_SIZE*2-supply*2);
     curve_liquidity->setRenderHint(QwtPlotItem::RenderAntialiased);
     curve_liquidity->attach(fplot);
 

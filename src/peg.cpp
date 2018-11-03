@@ -442,6 +442,7 @@ bool CFractions::Unpack(CDataStream& inp)
         inp.read(ser, PEG_SIZE*sizeof(int64_t));
         nFlags = nSerFlags | STD;
     }
+    nFlags &= SER_MASK;
     return true;
 }
 

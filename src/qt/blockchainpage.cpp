@@ -19,6 +19,7 @@
 
 #include <QTime>
 #include <QMenu>
+#include <QDebug>
 #include <QPainter>
 #include <QKeyEvent>
 #include <QClipboard>
@@ -1042,6 +1043,11 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)
     ui.fractions->header()->resizeSection(0 /*n*/, 50);
     ui.fractions->header()->resizeSection(1 /*value*/, 160);
 
+    ui.fractions->setContextMenuPolicy(Qt::CustomContextMenu);
+    //ui.fractions->installEventFilter(new FractionsDialogEvents(ui.fractions, this));
+    connect(ui.fractions, SIGNAL(customContextMenuRequested(const QPoint &)),
+            this, SLOT(openFractionsMenu(const QPoint &)));
+
     auto txhash = item->data(4, BlockchainModel::HashRole).toString();
     auto supply = item->data(4, BlockchainModel::PegSupplyRole).toInt();
     auto vfractions = item->data(4, BlockchainModel::FractionsRole);
@@ -1108,6 +1114,59 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)
 
     dlg->setWindowTitle(txhash+" "+tr("fractions"));
     dlg->show();
+}
+
+void BlockchainPage::openFractionsMenu(const QPoint & pos)
+{
+    QTreeWidget * table = dynamic_cast<QTreeWidget *>(sender());
+    if (!table) return;
+    QModelIndex mi = table->indexAt(pos);
+    if (!mi.isValid()) return;
+    auto model = mi.model();
+    if (!model) return;
+
+    QMenu m;
+
+    auto a = m.addAction(tr("Copy Value"));
+    connect(a, &QAction::triggered, [&] {
+        QModelIndex mi2 = model->index(mi.row(), 1 /*value column*/);
+        QApplication::clipboard()->setText(
+            mi2.data(Qt::DisplayRole).toString()
+        );
+    });
+    a = m.addAction(tr("Copy All Rows"));
+    connect(a, &QAction::triggered, [&] {
+        QString text;
+        for(int r=0; r<model->rowCount(); r++) {
+            for(int c=0; c<model->columnCount(); c++) {
+                if (c>0) text += "\t";
+                QModelIndex mi2 = model->index(r, c);
+                text += mi2.data(Qt::DisplayRole).toString();
+            }
+            text += "\n";
+        }
+        QApplication::clipboard()->setText(text);
+    });
+    m.exec(table->viewport()->mapToGlobal(pos));
+}
+
+bool FractionsDialogEvents::eventFilter(QObject *obj, QEvent *event)
+{
+    if (event->type() == QEvent::KeyRelease) {
+        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+        if (keyEvent->matches(QKeySequence::Copy)) {
+            QModelIndex mi = treeWidget->currentIndex();
+            if (!mi.isValid()) return true;
+            auto model = mi.model();
+            if (!model) return true;
+            QModelIndex mi2 = model->index(mi.row(), 1 /*value column*/);
+            QApplication::clipboard()->setText(
+                mi2.data(Qt::DisplayRole).toString()
+            );
+            return true;
+        }
+    }
+    return QObject::eventFilter(obj, event);
 }
 
 // delegate to draw fractions

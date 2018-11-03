@@ -40,6 +40,7 @@ private slots:
     void openTx(uint256 blockhash, uint txidx);
     void openTxFromInput();
     void openFractions(QTreeWidgetItem*,int);
+    void openFractionsMenu(const QPoint &);
     void jumpToBlock();
     void openBlockFromInput();
     void updateCurrentBlockIndex();
@@ -101,6 +102,18 @@ public:
     BlockchainPageTxEvents(QTreeWidget* w, QObject* parent)
         :QObject(parent), treeWidget(w) {}
     ~BlockchainPageTxEvents() override {}
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override;
+};
+
+class FractionsDialogEvents : public QObject
+{
+    Q_OBJECT
+    QTreeWidget* treeWidget;
+public:
+    FractionsDialogEvents(QTreeWidget* w, QObject* parent)
+        :QObject(parent), treeWidget(w) {}
+    ~FractionsDialogEvents() override {}
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
 };

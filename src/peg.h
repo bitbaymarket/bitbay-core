@@ -46,6 +46,7 @@ public:
         FROZEN_V    = (1 << 4)
     };
     enum {
+        SER_MASK    = 0xffff,
         SER_VALUE   = (1 << 16),
         SER_ZDELTA  = (1 << 17),
         SER_RAW     = (1 << 18)

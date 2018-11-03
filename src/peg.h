@@ -86,6 +86,7 @@ struct FrozenTxOut {
     CFractions fractions;
 };
 
+bool ReadWhitelistInfo();
 bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb,
                                  LoadMsg load_msg);
 bool CalculateVotesForPeg(CTxDB & ctxdb,

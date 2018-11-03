@@ -2587,6 +2587,9 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
     //
     CTxDB txdb("cr+");
     {
+        if (!ReadWhitelistInfo())
+            return error("LoadBlockIndex() : peg Whitelist read failed");
+
         // ensure pegdb is created
         int nPegStartHeightStored = 0;
         {

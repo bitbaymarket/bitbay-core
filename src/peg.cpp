@@ -6,6 +6,7 @@
 #include <set>
 #include <cstdint>
 #include <type_traits>
+#include <fstream>
 
 #include <boost/version.hpp>
 #include <boost/filesystem.hpp>
@@ -36,32 +37,44 @@ using namespace boost;
 
 int nPegStartHeight = 1837000;
 int nPegMaxSupplyIndex = 1199;
-
-static set<string> vPegWhitelist = {
-    "bbiUkiqFUsTciMsBdnYETgE2DMg4k3fMdP",
-    "bFFE6UMxmVqFDfsAXS4XH52DGUuTKrDtp8",
-    "bEQUsGaa2ZVW4au3gSsVADhEhFYJr3gCkT",
-    "bZXmqJqPJ9fyLyCPKAYEaKJqGwBA6jaQHR",
-    "bMkmLGdNxbr4wpbZUr1k67Tdq5yYLE9jV2",
-    "bNfFbrFau9upJ69VQrmSV3EsDwShKpb2pw",
-    "bHGcVEP6piBNTnLoeyW5s18AAPbT2K8XJC",
-    "bXnG4VTHFyy7Xt7sUJmKuWVerm7T4gKWSj",
-    "bXxHTFPRXD5JbFzxcypMkrBCN9HNULsvfG",
-    "bHkh3qrEhyJ7wnMvgzLzhrghLaX3WPpLEX",
-    "bT73XQJSMhpwHnFDuC2vvUbXBGNvRk37L5",
-    "bSbxMhBN2u9EmTeugpu7EQT2DAwikym64K",
-    "bEnDRACm7n3pPJQhfEJ1kC2zT59fMxTeDh",
-    "bQMxcnPpuga2TdxTVFr7wSCaUb7hVpfnpN",
-    "bPoxnznczDN5GcryGLZ7bGpFFJtsE3RHww",
-    "bLbk2cj78mUDpKvJF7xyVtVoYd1AX7PaRd",
-    "bVuGpma6c8Yz5mUxswtHcZk1fQt36q1zvA",
-    "bJvjfxvBQ3sc5Gj8sTQ6vLbAMsg6CfVVcz"
-};
+static set<string> vPegWhitelist;
 
 static string sBurnAddress =
     "bJnV8J5v74MGctMyVSVPfGu1mGQ9nMTiB3";
 
 extern leveldb::DB *txdb; // global pointer for LevelDB object instance
+
+bool ReadWhitelistInfo() {
+    filesystem::path whitelistfile = GetDataDir() / "pegwhitelist.dat";
+    ifstream infile(whitelistfile.string());
+    if (!infile.is_open())
+        return false;
+    bool fHasPegStart = false;
+    bool fHasAddresses = false;;
+    string line;
+    while (getline(infile, line)) {
+        boost::trim(line);
+        if (line.length()==34) {
+            vPegWhitelist.insert(line);
+            fHasAddresses = true;
+        }
+        if (boost::starts_with(line, "#")) {
+            char * pEnd = nullptr;
+            auto sPegStartHeight = line.c_str()+1;
+            nPegStartHeight = int(strtol(sPegStartHeight, &pEnd, 0));
+            bool fValidInt = !(pEnd == sPegStartHeight) && nPegStartHeight > 0;
+            if (!fValidInt) {
+                return false; // not convertible to block number
+            }
+            fHasPegStart = true;
+        }
+    }
+
+    if (!fHasAddresses || !fHasPegStart)
+        return false;
+
+    return true;
+}
 
 bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb, LoadMsg load_msg) {
     if (!ctxdb.TxnBegin())

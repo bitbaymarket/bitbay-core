@@ -423,7 +423,10 @@ bool BlockchainPageBlockEvents::eventFilter(QObject *obj, QEvent *event)
     return QObject::eventFilter(obj, event);
 }
 
-static QString scriptToAddress(const CScript& scriptPubKey, bool show_alias =true) {
+static QString scriptToAddress(const CScript& scriptPubKey,
+                               bool& is_notary,
+                               bool show_alias =true) {
+    is_notary = false;
     int nRequired;
     txnouttype type;
     vector<CTxDestination> addresses;
@@ -460,6 +463,7 @@ static QString scriptToAddress(const CScript& scriptPubKey, bool show_alias =tru
         return QString();
 
     if (opcode1 == OP_RETURN && script1.size()>1) {
+        is_notary = true;
         QString left_bytes;
         unsigned long len_bytes = script1[1];
         if (len_bytes > script1.size()-2)
@@ -737,7 +741,8 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         if (mapInputs.find(prevout.hash) != mapInputs.end()) {
             CTransaction& txPrev = mapInputs[prevout.hash].second;
             if (prevout.n < txPrev.vout.size()) {
-                auto addr = scriptToAddress(txPrev.vout[prevout.n].scriptPubKey);
+                bool is_notary = false;
+                auto addr = scriptToAddress(txPrev.vout[prevout.n].scriptPubKey, is_notary);
                 if (addr.isEmpty())
                     row << "N/A"; // address, 2
                 else {
@@ -796,7 +801,9 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         QVariant vfractions;
         vfractions.setValue(CFractions(nCalculatedStakeReward, CFractions::STD));
         inputMined->setData(4, BlockchainModel::FractionsRole, vfractions);
-        inputMined->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
+        inputMined->setData(4, BlockchainModel::PegSupplyRole, peg_whitelisted
+                            ? pblockindex->nPegSupplyIndex
+                            : 0);
         inputMined->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         ui->txInputs->addTopLevelItem(inputMined);
 
@@ -814,7 +821,9 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         auto inputFees = new QTreeWidgetItem(rowFees);
         vfractions.setValue(feesFractions);
         inputFees->setData(4, BlockchainModel::FractionsRole, vfractions);
-        inputFees->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
+        inputFees->setData(4, BlockchainModel::PegSupplyRole, peg_whitelisted
+                           ? pblockindex->nPegSupplyIndex
+                           : 0);
         inputFees->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         ui->txInputs->addTopLevelItem(inputFees);
     }
@@ -860,10 +869,17 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
                 }
             }
         }
-        if (!hasSpend)
-            row << ""; // 1, spend
 
-        auto addr = scriptToAddress(tx.vout[i].scriptPubKey);
+        bool is_notary = false;
+        auto addr = scriptToAddress(tx.vout[i].scriptPubKey, is_notary);
+
+        if (!hasSpend) {
+            if (is_notary) {
+                row << "Notary/Burn"; // 1, spend
+            }
+            else row << ""; // 1, spend
+        }
+
         if (addr.isEmpty())
             row << "N/A"; // 2, address
         else row << addr;

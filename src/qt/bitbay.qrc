@@ -50,6 +50,8 @@
         <file alias="staking_on">res/icons/staking_on.png</file>
         <file alias="spinbox_up_arrow">res/icons/spinbox_up_arrow.png</file>
         <file alias="spinbox_down_arrow">res/icons/spinbox_down_arrow.png</file>
+        <file alias="change">res/icons/change.png</file>
+        <file alias="frost">res/icons/frost.png</file>
     </qresource>
     <qresource prefix="/icons/black">
         <file alias="connect_0">res/icons/black/connect0_16.png</file>

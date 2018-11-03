@@ -6,7 +6,9 @@
 #define INFOPAGE_H
 
 #include <QDialog>
+#include <QPixmap>
 #include <QItemDelegate>
+#include <QStyledItemDelegate>
 #include "bignum.h"
 
 namespace Ui {
@@ -54,6 +56,20 @@ private:
     BlockchainModel *model;
     QPersistentModelIndex currentBlockIndex;
     uint256 currentBlock;
+    QPixmap pmChange;
+};
+
+class LeftSideIconItemDelegate : public QStyledItemDelegate
+{
+    Q_OBJECT
+
+public:
+    explicit LeftSideIconItemDelegate(QWidget *parent = nullptr);
+    ~LeftSideIconItemDelegate() override;
+
+    void paint(QPainter *painter,
+               const QStyleOptionViewItem &option,
+               const QModelIndex &index) const override;
 };
 
 class FractionsItemDelegate : public QItemDelegate
@@ -63,7 +79,6 @@ class FractionsItemDelegate : public QItemDelegate
 public:
     explicit FractionsItemDelegate(QWidget *parent = nullptr);
     ~FractionsItemDelegate() override;
-
 
     void paint(QPainter *painter,
                const QStyleOptionViewItem &option,

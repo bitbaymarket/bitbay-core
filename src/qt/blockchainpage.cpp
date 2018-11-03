@@ -134,11 +134,15 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     ui->txInputs->header()->resizeSection(3 /*value*/, 180);
     ui->txOutputs->header()->resizeSection(3 /*value*/, 180);
 
-    auto txInpDelegate = new FractionsItemDelegate(ui->txInputs);
-    ui->txInputs->setItemDelegateForColumn(4 /*frac*/, txInpDelegate);
+    auto txInpValueDelegate = new LeftSideIconItemDelegate(ui->txInputs);
+    auto txOutValueDelegate = new LeftSideIconItemDelegate(ui->txOutputs);
+    ui->txInputs->setItemDelegateForColumn(3 /*value*/, txInpValueDelegate);
+    ui->txOutputs->setItemDelegateForColumn(3 /*value*/, txOutValueDelegate);
 
-    auto txOutDelegate = new FractionsItemDelegate(ui->txOutputs);
-    ui->txOutputs->setItemDelegateForColumn(4 /*frac*/, txOutDelegate);
+    auto txInpFractionsDelegate = new FractionsItemDelegate(ui->txInputs);
+    auto txOutFractionsDelegate = new FractionsItemDelegate(ui->txOutputs);
+    ui->txInputs->setItemDelegateForColumn(4 /*frac*/, txInpFractionsDelegate);
+    ui->txOutputs->setItemDelegateForColumn(4 /*frac*/, txOutFractionsDelegate);
 
     connect(ui->lineJumpToBlock, SIGNAL(returnPressed()),
             this, SLOT(jumpToBlock()));
@@ -146,6 +150,9 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
             this, SLOT(openBlockFromInput()));
     connect(ui->lineTx, SIGNAL(returnPressed()),
             this, SLOT(openTxFromInput()));
+
+    pmChange = QPixmap(":/icons/change");
+    pmChange = pmChange.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 }
 
 BlockchainPage::~BlockchainPage()
@@ -709,6 +716,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     // gui
 
     ui->txInputs->clear();
+    QSet<QString> sAddresses;
     size_t n_vin = tx.vin.size();
     if (tx.IsCoinBase()) n_vin = 0;
     int64_t nValueIn = 0;
@@ -732,7 +740,10 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
                 auto addr = scriptToAddress(txPrev.vout[prevout.n].scriptPubKey);
                 if (addr.isEmpty())
                     row << "N/A"; // address, 2
-                else row << addr;
+                else {
+                    row << addr;
+                    sAddresses.insert(addr);
+                }
 
                 nValueIn += txPrev.vout[prevout.n].nValue;
                 row << displayValue(txPrev.vout[prevout.n].nValue);
@@ -874,6 +885,9 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
             output->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
         }
         output->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        if (sAddresses.contains(addr)) {
+            output->setData(3, Qt::DecorationPropertyRole, pmChange);
+        }
         ui->txOutputs->addTopLevelItem(output);
 
         if (vOutputsTypes[i] == PEG_DEST_OUT) {
@@ -1167,6 +1181,30 @@ bool FractionsDialogEvents::eventFilter(QObject *obj, QEvent *event)
         }
     }
     return QObject::eventFilter(obj, event);
+}
+
+// delegate to draw icon on left side
+
+LeftSideIconItemDelegate::LeftSideIconItemDelegate(QWidget *parent) :
+    QStyledItemDelegate(parent) {}
+LeftSideIconItemDelegate::~LeftSideIconItemDelegate() {}
+
+void LeftSideIconItemDelegate::paint(QPainter* p,
+                                  const QStyleOptionViewItem& o,
+                                  const QModelIndex& index) const
+{
+    QStyledItemDelegate::paint(p, o, index);
+    auto icondata = index.data(Qt::DecorationPropertyRole);
+    if (!icondata.isValid()) return;
+    QPixmap pm = icondata.value<QPixmap>();
+    if (pm.isNull()) return;
+    QRect r = o.rect;
+    //int rside = r.height()-2;
+    QRect pmr = QRect(0,0, 16,16);
+    pmr.moveCenter(QPoint(r.left()+pmr.width()/2, r.center().y()));
+    p->setOpacity(0.5);
+    p->drawPixmap(pmr, pm);
+    p->setOpacity(1);
 }
 
 // delegate to draw fractions

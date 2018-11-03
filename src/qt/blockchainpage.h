@@ -93,4 +93,16 @@ protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
 };
 
+class BlockchainPageTxEvents : public QObject
+{
+    Q_OBJECT
+    QTreeWidget* treeWidget;
+public:
+    BlockchainPageTxEvents(QTreeWidget* w, QObject* parent)
+        :QObject(parent), treeWidget(w) {}
+    ~BlockchainPageTxEvents() override {}
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override;
+};
+
 #endif // INFOPAGE_H

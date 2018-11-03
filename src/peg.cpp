@@ -193,13 +193,13 @@ bool CalculateBlockPegIndex(const CBlock & cblock, CBlockIndex* pindex, CPegDB& 
         pindex->nPegSupplyIndex = pindex->pprev->nPegSupplyIndex;
         if (deflate > inflate && deflate > nochange) {
             pindex->nPegSupplyIndex++;
-//            if (deflate > 2*inflate_prev && deflate > 2*nochange_prev) pindex->nPegSupplyIndex++;
-//            if (deflate > 3*inflate_prev && deflate > 3*nochange_prev) pindex->nPegSupplyIndex++;
+            if (deflate > 2*inflate_prev && deflate > 2*nochange_prev) pindex->nPegSupplyIndex++;
+            if (deflate > 3*inflate_prev && deflate > 3*nochange_prev) pindex->nPegSupplyIndex++;
         }
         if (inflate > deflate && inflate > nochange) {
             pindex->nPegSupplyIndex--;
-//            if (inflate > 2*deflate_prev && inflate > 2*nochange_prev) pindex->nPegSupplyIndex--;
-//            if (inflate > 3*deflate_prev && inflate > 3*nochange_prev) pindex->nPegSupplyIndex--;
+            if (inflate > 2*deflate_prev && inflate > 2*nochange_prev) pindex->nPegSupplyIndex--;
+            if (inflate > 3*deflate_prev && inflate > 3*nochange_prev) pindex->nPegSupplyIndex--;
         }
 
         if (pindex->nPegSupplyIndex >= nPegMaxSupplyIndex)

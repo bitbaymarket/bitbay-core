@@ -771,7 +771,9 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
             vfractions.setValue(mapInputsFractions[fkey]);
             input->setData(4, BlockchainModel::HashRole, prev_input);
             input->setData(4, BlockchainModel::FractionsRole, vfractions);
-            input->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
+            input->setData(4, BlockchainModel::PegSupplyRole, peg_whitelisted
+                           ? pblockindex->nPegSupplyIndex
+                           : 0);
         }
         input->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         ui->txInputs->addTopLevelItem(input);
@@ -884,6 +886,13 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
             output->setData(4, BlockchainModel::FractionsRole, vFractions);
             output->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
         }
+        if (!peg_whitelisted) {
+            QVariant vFractions;
+            vFractions.setValue(CFractions(tx.vout[i].nValue, CFractions::STD));
+            output->setData(4, BlockchainModel::HashRole, titleSpend);
+            output->setData(4, BlockchainModel::FractionsRole, vFractions);
+            output->setData(4, BlockchainModel::PegSupplyRole, 0);
+        }
         output->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         if (sAddresses.contains(addr)) {
             output->setData(3, Qt::DecorationPropertyRole, pmChange);
@@ -911,11 +920,12 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
 
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Reserves",sReserveIn})));
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Liquidity",sLiquidityIn})));
-    auto twiOutLiquidity = new QTreeWidgetItem(QStringList({"Liquidity Move",sLiquidityOut}));
 
-    if (nLiquidityOut > nLiquidityIn)
-        twiOutLiquidity->setBackgroundColor(1, Qt::red);
-    ui->txValues->addTopLevelItem(twiOutLiquidity);
+//todo: review
+//    auto twiOutLiquidity = new QTreeWidgetItem(QStringList({"Liquidity Move",sLiquidityOut}));
+//    if (nLiquidityOut > nLiquidityIn)
+//        twiOutLiquidity->setBackgroundColor(1, Qt::red);
+//    ui->txValues->addTopLevelItem(twiOutLiquidity);
 
     auto twiPegChecks = new QTreeWidgetItem(
                 QStringList({
@@ -938,9 +948,15 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         row << displayValue(nValueIn - nValueOut);
         auto outputFees = new QTreeWidgetItem(row);
         QVariant vfractions;
-        vfractions.setValue(feesFractions);
-        outputFees->setData(4, BlockchainModel::FractionsRole, vfractions);
-        outputFees->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
+        if (peg_whitelisted) {
+            vfractions.setValue(feesFractions);
+            outputFees->setData(4, BlockchainModel::FractionsRole, vfractions);
+            outputFees->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
+        } else {
+            vfractions.setValue(CFractions(nValueIn - nValueOut, CFractions::STD));
+            outputFees->setData(4, BlockchainModel::FractionsRole, vfractions);
+            outputFees->setData(4, BlockchainModel::PegSupplyRole, 0);
+        }
         outputFees->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         ui->txOutputs->addTopLevelItem(outputFees);
     }

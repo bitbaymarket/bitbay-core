@@ -908,9 +908,9 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     frozenTxOut.sAddress = sAddress;
                     frozenTxOut.nFairWithdrawFromEscrowIndex1 = -1;
                     frozenTxOut.nFairWithdrawFromEscrowIndex2 = -1;
-                    if (fNotaryF) frozenTxOut.fractions.nFlags |= CFractions::FROZEN_F;
-                    if (fNotaryV) frozenTxOut.fractions.nFlags |= CFractions::FROZEN_V;
-                    if (fNotaryL) frozenTxOut.fractions.nFlags |= CFractions::FROZEN_L;
+                    if (fNotaryF) frozenTxOut.fractions.nFlags |= CFractions::NOTARY_F;
+                    if (fNotaryV) frozenTxOut.fractions.nFlags |= CFractions::NOTARY_V;
+                    if (fNotaryL) frozenTxOut.fractions.nFlags |= CFractions::NOTARY_L;
                     vFrozenIndexes.push_back(nFrozenIndex);
                     setFrozenIndexes.insert(nFrozenIndex);
                 }
@@ -953,21 +953,21 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     if (!fSharedFreeze) {
                         if (fNotaryF) {
                             frozenTxOut.fractions = frReserve.RatioPart(nFrozenValueOut, nReserveIn, 0);
-                            frozenTxOut.fractions.nFlags |= CFractions::FROZEN_F;
+                            frozenTxOut.fractions.nFlags |= CFractions::NOTARY_F;
                             frInp -= frozenTxOut.fractions;
                             frReserve -= frozenTxOut.fractions;
                             nReserveIn -= nFrozenValueOut;
                         }
                         else if (fNotaryV) {
                             frozenTxOut.fractions = frLiquidity.RatioPart(nFrozenValueOut, nLiquidityIn, nSupply);
-                            frozenTxOut.fractions.nFlags |= CFractions::FROZEN_V;
+                            frozenTxOut.fractions.nFlags |= CFractions::NOTARY_V;
                             frInp -= frozenTxOut.fractions;
                             frLiquidity -= frozenTxOut.fractions;
                             nLiquidityIn -= nFrozenValueOut;
                         }
                         else if (fNotaryL) {
                             frozenTxOut.fractions = frLiquidity.RatioPart(nFrozenValueOut, nLiquidityIn, nSupply);
-                            frozenTxOut.fractions.nFlags |= CFractions::FROZEN_L;
+                            frozenTxOut.fractions.nFlags |= CFractions::NOTARY_L;
                             frInp -= frozenTxOut.fractions;
                             frLiquidity -= frozenTxOut.fractions;
                             nLiquidityIn -= nFrozenValueOut;
@@ -1022,14 +1022,14 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 frOut = poolFrozen[i].fractions;
             }
             else {
-                if (poolFrozen[i].fractions.nFlags & CFractions::FROZEN_V) {
+                if (poolFrozen[i].fractions.nFlags & CFractions::NOTARY_V) {
                     frOut = frCommonLiquidity.RatioPart(nValue, nCommonLiquidity, nSupply);
-                    frOut.nFlags |= CFractions::FROZEN_V;
+                    frOut.nFlags |= CFractions::NOTARY_V;
                     frCommonLiquidity -= frOut;
                     nCommonLiquidity -= nValue;
                 }
-                else if (poolFrozen[i].fractions.nFlags & CFractions::FROZEN_F) {
-                    frOut.nFlags |= CFractions::FROZEN_F;
+                else if (poolFrozen[i].fractions.nFlags & CFractions::NOTARY_F) {
+                    frOut.nFlags |= CFractions::NOTARY_F;
 
                     vector<string> vAddresses;
                     auto sFrozenAddress = poolFrozen[i].sAddress;

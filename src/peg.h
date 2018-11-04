@@ -41,9 +41,9 @@ public:
     {
         VALUE       = (1 << 0),
         STD         = (1 << 1),
-        FROZEN_F    = (1 << 2),
-        FROZEN_L    = (1 << 3),
-        FROZEN_V    = (1 << 4)
+        NOTARY_F    = (1 << 2),
+        NOTARY_L    = (1 << 3),
+        NOTARY_V    = (1 << 4)
     };
     enum {
         SER_MASK    = 0xffff,

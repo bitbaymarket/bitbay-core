@@ -785,7 +785,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
             input->setData(4, BlockchainModel::PegSupplyRole, peg_whitelisted
                            ? pblockindex->nPegSupplyIndex
                            : 0);
-            if (mapInputsFractions[fkey].nFlags & CFractions::FROZEN_F) {
+            if (mapInputsFractions[fkey].nFlags & CFractions::NOTARY_F) {
                 input->setData(3, Qt::DecorationPropertyRole, pmFrozenF);
 
                 CTxIndex txindex;
@@ -804,12 +804,12 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
                     }
                 }
             }
-            else if (mapInputsFractions[fkey].nFlags & CFractions::FROZEN_V) {
+            else if (mapInputsFractions[fkey].nFlags & CFractions::NOTARY_V) {
                 input->setData(3, Qt::DecorationPropertyRole, pmFrozenV);
             }
-            else if (mapInputsFractions[fkey].nFlags & CFractions::FROZEN_L) {
-                input->setData(3, Qt::DecorationPropertyRole, pmFrozenL);
-            }
+//            else if (mapInputsFractions[fkey].nFlags & CFractions::FROZEN_L) {
+//                input->setData(3, Qt::DecorationPropertyRole, pmFrozenL);
+//            }
         }
         input->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         ui->txInputs->addTopLevelItem(input);
@@ -933,18 +933,18 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
             output->setData(4, BlockchainModel::HashRole, titleSpend);
             output->setData(4, BlockchainModel::FractionsRole, vFractions);
             output->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
-            if (mapFractionsUnused[fkey].nFlags & CFractions::FROZEN_F) {
+            if (mapFractionsUnused[fkey].nFlags & CFractions::NOTARY_F) {
                 output->setData(3, Qt::DecorationPropertyRole, pmFrozenF);
                 fIndicateFrozen = true;
             }
-            else if (mapFractionsUnused[fkey].nFlags & CFractions::FROZEN_V) {
+            else if (mapFractionsUnused[fkey].nFlags & CFractions::NOTARY_V) {
                 output->setData(3, Qt::DecorationPropertyRole, pmFrozenV);
                 fIndicateFrozen = true;
             }
-            else if (mapFractionsUnused[fkey].nFlags & CFractions::FROZEN_L) {
-                output->setData(3, Qt::DecorationPropertyRole, pmFrozenL);
-                fIndicateFrozen = true;
-            }
+//            else if (mapFractionsUnused[fkey].nFlags & CFractions::FROZEN_L) {
+//                output->setData(3, Qt::DecorationPropertyRole, pmFrozenL);
+//                fIndicateFrozen = true;
+//            }
         }
         if (!peg_whitelisted) {
             QVariant vFractions;

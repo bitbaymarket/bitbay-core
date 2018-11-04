@@ -1226,76 +1226,210 @@ bool CalculateStakingFractions(const CTransaction & tx,
                                const CFractions& feesFractions,
                                int64_t nCalculatedStakeRewardWithoutFees,
                                std::vector<int>& vOutputsTypes,
-                               std::string& fail_cause)
+                               std::string& sFailCause)
 {
     size_t n_vin = tx.vin.size();
     size_t n_vout = tx.vout.size();
     vOutputsTypes.resize(n_vout);
 
     if (!IsPegWhiteListed(tx, inputs)) {
-        fail_cause = "Not whitelisted";
+        sFailCause = "Not whitelisted";
         return true;
     }
 
-    // calculate pools
+    if (n_vin != 1) {
+        sFailCause = "More than one input";
+        return false;
+    }
+    
+    if (n_vout > 8) {
+        sFailCause = "More than 8 outputs";
+        return false;
+    }
+    
     int64_t nValueIn = 0;
-    CFractions fValueInPool(0, CFractions::STD);
+    int64_t nReservesTotal =0;
+    int64_t nLiquidityTotal =0;
 
+    map<string, CFractions> poolReserves;
+    map<string, CFractions> poolLiquidity;
+
+    int nSupply = pindexBlock->nPegSupplyIndex;
+    set<string> setInputAddresses;
+    
     for (unsigned int i = 0; i < n_vin; i++)
     {
         const COutPoint & prevout = tx.vin[i].prevout;
+        CTransaction& txPrev = inputs[prevout.hash].second;
+        if (prevout.n >= txPrev.vout.size()) {
+            sFailCause = "P02: Refered output out of range";
+            return false;
+        }
+
+        int64_t nValue = txPrev.vout[prevout.n].nValue;
+        nValueIn += nValue;
+        auto sAddress = toAddress(txPrev.vout[prevout.n].scriptPubKey);
+        setInputAddresses.insert(sAddress);
 
         auto fkey = uint320(prevout.hash, prevout.n);
         if (fInputs.find(fkey) == fInputs.end()) {
-            fail_cause = "No input fractions found";
+            sFailCause = "P03: No input fractions found";
             return false;
         }
 
-        auto fInp = fInputs[fkey].Std();
-
-        fValueInPool += fInp;
-
-        CTransaction& txPrev = inputs[prevout.hash].second;
-        if (prevout.n >= txPrev.vout.size()) {
-            fail_cause = "Refered output out of range";
+        auto frInp = fInputs[fkey].Std();
+        if (frInp.Total() != txPrev.vout[prevout.n].nValue) {
+            sFailCause = "P04: Input fraction total mismatches value";
             return false;
         }
 
-        if (fInp.Total() != txPrev.vout[prevout.n].nValue) {
-            fail_cause = "Input fraction total mismatches value";
-            return false;
-        }
+        int64_t nReserveIn = 0;
+        auto & frReserve = poolReserves[sAddress];
+        frReserve += frInp.LowPart(nSupply, &nReserveIn);
 
-        nValueIn += txPrev.vout[prevout.n].nValue;
+        int64_t nLiquidityIn = 0;
+        auto & frLiquidity = poolLiquidity[sAddress];
+        frLiquidity += frInp.HighPart(nSupply, &nLiquidityIn);
+
+        nReservesTotal += nReserveIn;
+        nLiquidityTotal += nLiquidityIn;
     }
 
-    auto fValueOutPool = fValueInPool;
+    CFractions frCommonLiquidity(0, CFractions::STD);
+    for(const auto & item : poolLiquidity) {
+        frCommonLiquidity += item.second;
+    }
+
     CFractions fStakeReward(nCalculatedStakeRewardWithoutFees, CFractions::STD);
-    fValueOutPool += fStakeReward;
-    fValueOutPool += feesFractions;
-
-    auto nValueOut = nValueIn;
-    nValueOut += nCalculatedStakeRewardWithoutFees;
-    nValueOut += feesFractions.Total();
-
-    // Calculation of outputs fractions just as ratio
+    frCommonLiquidity += fStakeReward;
+    frCommonLiquidity += feesFractions;
+    nLiquidityTotal += nCalculatedStakeRewardWithoutFees;
+    nLiquidityTotal += feesFractions.Total();
+    
+    // Reveal outs destination type
     for (unsigned int i = 0; i < n_vout; i++)
     {
+        vOutputsTypes[i] = PEG_DEST_OUT;
+        std::string sAddress = toAddress(tx.vout[i].scriptPubKey);
+        if (setInputAddresses.count(sAddress) >0) {
+            vOutputsTypes[i] = PEG_DEST_SELF;
+        }
+    }
+
+    int64_t nValueOut = 0;
+    int64_t nCommonLiquidity = nLiquidityTotal;
+
+    bool fFailedPegOut = false;
+    unsigned int nLatestPegOut = 0;
+
+    // Calculation of outputs
+    for (unsigned int i = 0; i < n_vout; i++)
+    {
+        nLatestPegOut = i;
         int64_t nValue = tx.vout[i].nValue;
+        nValueOut += nValue;
+
         auto fkey = uint320(tx.GetHash(), i);
+        auto & frOut = mapTestFractionsPool[fkey];
 
-        if (nValue > nValueOut) {
-            fail_cause = "Output value greated than expected";
-            return false;
+        string sNotary;
+        bool fNotary = false;
+        auto sAddress = toAddress(tx.vout[i].scriptPubKey, &fNotary, &sNotary);
+
+        if (poolReserves.count(sAddress)) { // to reserve
+            int64_t nValueLeft = nValue;
+            int64_t nValueToTake = nValueLeft;
+
+            auto & frReserve = poolReserves[sAddress];
+            int64_t nReserve = frReserve.Total();
+            if (nReserve >0) {
+                if (nValueToTake > nReserve)
+                    nValueToTake = nReserve;
+
+                auto frReservePart = frReserve.RatioPart(nValueToTake, nReserve, 0);
+                frOut += frReservePart;
+                frReserve -= frReservePart;
+                nValueLeft -= nValueToTake;
+            }
+
+            if (nValueLeft > 0) {
+                if (nValueLeft > nCommonLiquidity) {
+                    sFailCause = "P13: No liquidity left";
+                    fFailedPegOut = true;
+                    break;
+                }
+                auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
+                frOut += frLiquidityPart;
+                frCommonLiquidity -= frLiquidityPart;
+                nCommonLiquidity -= nValueLeft;
+                nValueLeft = 0;
+            }
         }
+        else { // move liquidity out
+            if (sAddress == sBurnAddress || fNotary) {
 
-        auto fOut = fValueOutPool.RatioPart(nValue, nValueOut, 0);
-        mapTestFractionsPool[fkey] = fOut;
+                vector<string> vAddresses;
+                for(auto it = poolReserves.begin(); it != poolReserves.end(); it++) {
+                    vAddresses.push_back(it->first);
+                }
 
-        if (fOut.Total() != tx.vout[i].nValue) {
-            fail_cause = "Output fraction total mismatches value";
-            return false;
+                int64_t nValueLeft = nValue;
+                for(const string & sAddress : vAddresses) {
+                    auto & frReserve = poolReserves[sAddress];
+                    int64_t nReserve = frReserve.Total();
+                    if (nReserve ==0) continue;
+                    int64_t nValueToTake = nValueLeft;
+                    if (nValueToTake > nReserve)
+                        nValueToTake = nReserve;
+
+                    auto frReservePart = frReserve.RatioPart(nValueToTake, nReserve, 0);
+                    frOut += frReservePart;
+                    frReserve -= frReservePart;
+                    nValueLeft -= nValueToTake;
+
+                    if (nValueLeft == 0) {
+                        break;
+                    }
+                }
+
+                if (nValueLeft > 0) {
+                    if (nValueLeft > nCommonLiquidity) {
+                        sFailCause = "P14: No liquidity left";
+                        fFailedPegOut = true;
+                        break;
+                    }
+                    auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
+                    frOut += frLiquidityPart;
+                    frCommonLiquidity -= frLiquidityPart;
+                    nCommonLiquidity -= nValueLeft;
+                    nValueLeft = 0;
+                }
+            }
+            else {
+                int64_t nValueLeft = nValue;
+                if (nValueLeft > nCommonLiquidity) {
+                    sFailCause = "P15: No liquidity left";
+                    fFailedPegOut = true;
+                    break;
+                }
+                auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
+                frOut += frLiquidityPart;
+                frCommonLiquidity -= frLiquidityPart;
+                nCommonLiquidity -= nValueLeft;
+                nValueLeft = 0;
+            }
         }
+    }
+
+    if (fFailedPegOut) {
+        // while the peg system is in the testing mode:
+        // for now remove failed fractions from pegdb
+        auto fkey = uint320(tx.GetHash(), nLatestPegOut);
+        if (mapTestFractionsPool.count(fkey)) {
+            auto it = mapTestFractionsPool.find(fkey);
+            mapTestFractionsPool.erase(it);
+        }
+        return false;
     }
 
     return true;

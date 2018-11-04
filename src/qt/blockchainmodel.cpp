@@ -18,6 +18,7 @@ struct BlockIndexCacheObj {
     int nPegVotesDeflate;
     int nPegVotesNochange;
     unsigned int nFlags;
+    QString date;
 };
 
 class BlockchainModelPriv {
@@ -32,7 +33,7 @@ BlockchainModel::BlockchainModel(QObject *parent) :
     QAbstractItemModel(parent),priv(new BlockchainModelPriv)
 {
     priv->columns << tr("Height") << tr("Hash") << tr("Votes")
-                  << tr("Peg") << tr("PegWOK") << tr("PegAOK");
+                  << tr("Peg") << tr("PegWOK") << tr("Date");
     priv->cache.setMaxCost(100000);
 }
 
@@ -79,7 +80,9 @@ bool BlockchainModel::getItem(int h) const
                 pblockindex->nPegVotesInflate,
                 pblockindex->nPegVotesDeflate,
                 pblockindex->nPegVotesNochange,
-                pblockindex->nFlags};
+                pblockindex->nFlags,
+                QString::fromStdString(DateTimeStrFormat(pblockindex->GetBlockTime()))
+        };
         priv->cache.insert(pblockindex->nHeight, obj);
         pblockindex = pblockindex->pnext;
     }
@@ -138,10 +141,8 @@ QVariant BlockchainModel::data(const QModelIndex &index, int role) const
                 return QVariant();
             return tr("%1").arg(obj->nFlags & CBlockIndex::BLOCK_PEG_WFAIL ? "FAIL" : "OK");
         }
-        case PegAOk: {
-            if (h < nPegStartHeight)
-                return QVariant();
-            return tr("%1").arg(obj->nFlags & CBlockIndex::BLOCK_PEG_AFAIL ? "FAIL" : "OK");
+        case Date: {
+            return obj->date;
         }}
     }
     else if (role == Qt::FontRole)

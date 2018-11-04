@@ -29,7 +29,7 @@ public:
         Votes,
         Peg,
         PegWOk,
-        PegAOk
+        Date        /**< Block date */
     };
     enum Roles {
         HashRole = Qt::UserRole+1000,

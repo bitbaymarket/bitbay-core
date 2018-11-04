@@ -787,6 +787,22 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
                            : 0);
             if (mapInputsFractions[fkey].nFlags & CFractions::FROZEN_F) {
                 input->setData(3, Qt::DecorationPropertyRole, pmFrozenF);
+
+                CTxIndex txindex;
+                txdb.ReadTxIndex(prevout.hash, txindex);
+                CBlock block;
+                if (block.ReadFromDisk(txindex.pos.nFile, txindex.pos.nBlockPos, false)) {
+                    // Find the block in the index
+                    uint256 bhash = block.GetHash();
+                    map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(bhash);
+                    if (mi != mapBlockIndex.end()) {
+                        CBlockIndex* pindex = (*mi).second;
+                        unsigned int nPrevTxTime = pindex->nTime;
+                        if ((nPrevTxTime+2592000) > tx.nLockTime) {
+                            input->setData(3, Qt::BackgroundColorRole, QColor(Qt::red));
+                        }
+                    }
+                }
             }
             else if (mapInputsFractions[fkey].nFlags & CFractions::FROZEN_V) {
                 input->setData(3, Qt::DecorationPropertyRole, pmFrozenV);

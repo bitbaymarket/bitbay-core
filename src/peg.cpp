@@ -999,9 +999,13 @@ bool CalculateStandardFractions(const CTransaction & tx,
     int64_t nValueOut = 0;
     int64_t nCommonLiquidity = nLiquidityTotal;
 
+    bool fFailedPegOut = false;
+    unsigned int nLatestPegOut = 0;
+
     // Calculation of outputs
     for (unsigned int i = 0; i < n_vout; i++)
     {
+        nLatestPegOut = i;
         int64_t nValue = tx.vout[i].nValue;
         nValueOut += nValue;
 
@@ -1045,7 +1049,8 @@ bool CalculateStandardFractions(const CTransaction & tx,
                                 size_t(nIndex1) >= n_vout || 
                                 size_t(nIndex2) >= n_vout) {
                                 sFailCause = "P09: Wrong refering output for fair withdraw from escrow";
-                                return false;
+                                fFailedPegOut = true;
+                                break;
                             }
                             // Making an fair withdraw of reserves funds from escrow.
                             // Takes proportionally less from input address to freeze into 
@@ -1088,7 +1093,8 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     if (nValueLeft > 0) {
                         if (nValueLeft > nCommonLiquidity) {
                             sFailCause = "P12: No liquidity left";
-                            return false;
+                            fFailedPegOut = true;
+                            break;
                         }
                         auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
                         frOut += frLiquidityPart;
@@ -1120,7 +1126,8 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     if (nValueLeft > 0) {
                         if (nValueLeft > nCommonLiquidity) {
                             sFailCause = "P13: No liquidity left";
-                            return false;
+                            fFailedPegOut = true;
+                            break;
                         }
                         auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
                         frOut += frLiquidityPart;
@@ -1159,7 +1166,8 @@ bool CalculateStandardFractions(const CTransaction & tx,
                         if (nValueLeft > 0) {
                             if (nValueLeft > nCommonLiquidity) {
                                 sFailCause = "P14: No liquidity left";
-                                return false;
+                                fFailedPegOut = true;
+                                break;
                             }
                             auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
                             frOut += frLiquidityPart;
@@ -1172,7 +1180,8 @@ bool CalculateStandardFractions(const CTransaction & tx,
                         int64_t nValueLeft = nValue;
                         if (nValueLeft > nCommonLiquidity) {
                             sFailCause = "P15: No liquidity left";
-                            return false;
+                            fFailedPegOut = true;
+                            break;
                         }
                         auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
                         frOut += frLiquidityPart;
@@ -1186,6 +1195,17 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 frOut = poolFrozen[i].fractions;
             }
         }
+    }
+
+    if (fFailedPegOut) {
+        // while the peg system is in the testing mode:
+        // for now remove failed fractions from pegdb
+        auto fkey = uint320(tx.GetHash(), nLatestPegOut);
+        if (mapTestFractionsPool.count(fkey)) {
+            auto it = mapTestFractionsPool.find(fkey);
+            mapTestFractionsPool.erase(it);
+        }
+        return false;
     }
 
     // when finished all outputs, poolReserves frCommonLiquidity are fees

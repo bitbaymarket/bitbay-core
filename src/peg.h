@@ -85,6 +85,8 @@ struct FrozenTxOut {
     int64_t nValue;
     std::string sAddress;
     CFractions fractions;
+    long nFairWithdrawFromEscrowIndex1;
+    long nFairWithdrawFromEscrowIndex2;
 };
 
 bool ReadWhitelistInfo();

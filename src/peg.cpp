@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <type_traits>
 #include <fstream>
+#include <utility>
+#include <algorithm> 
 
 #include <boost/version.hpp>
 #include <boost/filesystem.hpp>
@@ -555,12 +557,39 @@ CFractions CFractions::HighPart(int supply, int64_t* total) const
     return fliquidity;
 }
 
+static int64_t RatioPart(int64_t nValue,
+                         int64_t nPartValue,
+                         int64_t nTotalValue) {
+    if (nPartValue == 0 || nTotalValue == 0)
+        return 0;
+    
+    bool has_overflow = false;
+    if (std::is_same<int64_t,long>()) {
+        long m_test;
+        has_overflow = __builtin_smull_overflow(nValue, nPartValue, &m_test);
+    } else if (std::is_same<int64_t,long long>()) {
+        long long m_test;
+        has_overflow = __builtin_smulll_overflow(nValue, nPartValue, &m_test);
+    } else {
+        assert(0); // todo: compile error
+    }
+
+    if (has_overflow) {
+        multiprecision::uint128_t v128(nValue);
+        multiprecision::uint128_t part128(nPartValue);
+        multiprecision::uint128_t f128 = (v128*part128)/nTotalValue;
+        return f128.convert_to<int64_t>();
+    }
+    
+    return (nValue*nPartValue)/nTotalValue;
+}
+
 /** Take a part as ration part/total where part is also value (sum fraction)
  *  Returned fractions are also adjusted for part for rounding differences.
  */
 CFractions CFractions::RatioPart(int64_t nPartValue,
-                                       int64_t nTotalValue,
-                                       int adjust_from) {
+                                 int64_t nTotalValue,
+                                 int adjust_from) {
     ToStd();
     int64_t nPartValueSum = 0;
     CFractions fPart(0, CFractions::STD);
@@ -759,14 +788,14 @@ bool CalculateStandardFractions(const CTransaction & tx,
                                 map<uint320, CFractions>& mapTestFractionsPool,
                                 CFractions& feesFractions,
                                 std::vector<int>& vOutputsTypes,
-                                std::string& fail_cause)
+                                std::string& sFailCause)
 {
     size_t n_vin = tx.vin.size();
     size_t n_vout = tx.vout.size();
     vOutputsTypes.resize(n_vout);
 
     if (!IsPegWhiteListed(tx, inputs)) {
-        fail_cause = "P01: Not whitelisted";
+        sFailCause = "P01: Not whitelisted";
         return true;
     }
 
@@ -792,7 +821,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
         const COutPoint & prevout = tx.vin[i].prevout;
         CTransaction& txPrev = inputs[prevout.hash].second;
         if (prevout.n >= txPrev.vout.size()) {
-            fail_cause = "P02: Refered output out of range";
+            sFailCause = "P02: Refered output out of range";
             return false;
         }
 
@@ -803,13 +832,13 @@ bool CalculateStandardFractions(const CTransaction & tx,
 
         auto fkey = uint320(prevout.hash, prevout.n);
         if (fInputs.find(fkey) == fInputs.end()) {
-            fail_cause = "P03: No input fractions found";
+            sFailCause = "P03: No input fractions found";
             return false;
         }
 
         auto frInp = fInputs[fkey].Std();
         if (frInp.Total() != txPrev.vout[prevout.n].nValue) {
-            fail_cause = "P04: Input fraction total mismatches value";
+            sFailCause = "P04: Input fraction total mismatches value";
             return false;
         }
 
@@ -850,97 +879,99 @@ bool CalculateStandardFractions(const CTransaction & tx,
             bool fNotaryL = boost::starts_with(sNotary, "**L**");
 
             if (fNotary && (fNotaryF || fNotaryV || fNotaryL)) {
-                long nFrozenIndex = 0;
-                auto sOutputDef = sNotary.substr(5 /*length **F** */);
-                vector<string> sOutputArgs;
-                boost::split(sOutputArgs, sOutputDef, boost::is_any_of(":"));
-                if (sOutputArgs.size() == 1) {
-                    char * pEnd = nullptr;
-                    nFrozenIndex = strtol(sOutputDef.c_str(), &pEnd, 0);
-                    bool fValidIndex = !(pEnd == sOutputDef.c_str()) && nFrozenIndex >= 0 && size_t(nFrozenIndex) < n_vout;
-                    if (!fValidIndex) {
-                        fail_cause = "P05: Freeze notary: not convertible to output index";
-                        return false;
-                    }
-                }
-                else if (sOutputArgs.size() == 2) {
-                    char * pEnd = nullptr;
-                    auto sSplitArg1 = sOutputArgs.front().c_str();
-                    auto sSplitArg2 = sOutputArgs.back().c_str();
-
-                    int nSplitArg1 = int(strtol(sSplitArg1, &pEnd, 0));
-                    bool fValidIndex1 = !(pEnd == sSplitArg1) && nSplitArg1 >= 0 && size_t(nSplitArg1) < n_vout;
-                    if (!fValidIndex1) {
-                        fail_cause = "P06: Freeze notary: index1 not convertible to output index";
-                        return false;
-                    }
-                    int nSplitArg2 = int(strtol(sSplitArg2, &pEnd, 0));
-                    bool fValidIndex2 = !(pEnd == sSplitArg2) && nSplitArg2 >= 0 && size_t(nSplitArg2) < n_vout;
-                    if (!fValidIndex2) {
-                        fail_cause = "P07: Freeze notary: index2 not convertible to output index";
-                        return false;
-                    }
-                    nFrozenIndex = nSplitArg1;
-                }
-                else { // more than two: todo when py ready
-                    fail_cause = "P08: Freeze notary: more than two refs (todo)";
-                    return false;
-                }
-                if (nFrozenIndex == i) {
-                    fail_cause = "P09: Freeze notary: output refers itself";
-                    return false;
-                }
-                if (nFrozenIndex <0) {
-                    fail_cause = "P10: Freeze notary: output refers negative";
-                    return false;
-                }
-
-                //int64_t nFrozenValueInp = nValue;
-                int64_t nFrozenValueOut = tx.vout[nFrozenIndex].nValue;
-
-                auto & frozenTxOut = poolFrozen[nFrozenIndex];
-                frozenTxOut.nValue = nFrozenValueOut;
-                frozenTxOut.sAddress = sAddress;
-                if (fNotaryF) frozenTxOut.fractions.nFlags |= CFractions::FROZEN_F;
-                if (fNotaryV) frozenTxOut.fractions.nFlags |= CFractions::FROZEN_V;
-                if (fNotaryL) frozenTxOut.fractions.nFlags |= CFractions::FROZEN_L;
-
                 bool fSharedFreeze = false;
-                if (fNotaryF && nReserveIn < nFrozenValueOut) {
+                auto sOutputDef = sNotary.substr(5 /*length **F** */);
+                vector<long> vFrozenIndexes;
+                set<long> setFrozenIndexes;
+                vector<string> vOutputArgs;
+                boost::split(vOutputArgs, sOutputDef, boost::is_any_of(":"));
+                for(string sOutputArg : vOutputArgs) {
+                    char * pEnd = nullptr;
+                    long nFrozenIndex = strtol(sOutputArg.c_str(), &pEnd, 0);
+                    bool fValidIndex = !(pEnd == sOutputArg.c_str()) && nFrozenIndex >= 0 && size_t(nFrozenIndex) < n_vout;
+                    if (!fValidIndex) {
+                        sFailCause = "P05: Freeze notary: not convertible to output index";
+                        return false;
+                    }
+                    if (nFrozenIndex == i) {
+                        sFailCause = "P06: Freeze notary: output refers itself";
+                        return false;
+                    }
+                    if (setFrozenIndexes.count(nFrozenIndex)) {
+                        sFailCause = "P07: Freeze notary: output refered multiple times";
+                        return false;
+                    }
+                    
+                    int64_t nFrozenValueOut = tx.vout[size_t(nFrozenIndex)].nValue;
+                    auto & frozenTxOut = poolFrozen[nFrozenIndex];
+                    frozenTxOut.nValue = nFrozenValueOut;
+                    frozenTxOut.sAddress = sAddress;
+                    frozenTxOut.nFairWithdrawFromEscrowIndex1 = -1;
+                    frozenTxOut.nFairWithdrawFromEscrowIndex2 = -1;
+                    if (fNotaryF) frozenTxOut.fractions.nFlags |= CFractions::FROZEN_F;
+                    if (fNotaryV) frozenTxOut.fractions.nFlags |= CFractions::FROZEN_V;
+                    if (fNotaryL) frozenTxOut.fractions.nFlags |= CFractions::FROZEN_L;
+                    vFrozenIndexes.push_back(nFrozenIndex);
+                    setFrozenIndexes.insert(nFrozenIndex);
+                }
+                
+                if (vOutputArgs.size() > 1) {
                     fFreezeAll = true;
                     fSharedFreeze = true;
                 }
-                else if (fNotaryV && nLiquidityIn < nFrozenValueOut) {
-                    fFreezeAll = true;
-                    fSharedFreeze = true;
-                }
-                else if (fNotaryL && nLiquidityIn < nFrozenValueOut) {
-                    fail_cause = "P11: Freeze notary: not enough liquidity";
-                    return false;
-                }
-
-                // deductions if not shared freeze
-                if (!fSharedFreeze) {
-                    if (fNotaryF) {
-                        frozenTxOut.fractions = frReserve.RatioPart(nFrozenValueOut, nReserveIn, 0);
-                        frozenTxOut.fractions.nFlags |= CFractions::FROZEN_F;
-                        frInp -= frozenTxOut.fractions;
-                        frReserve -= frozenTxOut.fractions;
-                        nReserveIn -= nFrozenValueOut;
+                if (vFrozenIndexes.size() == 2) {
+                    long nFrozenIndex1 = vFrozenIndexes.front();
+                    long nFrozenIndex2 = vFrozenIndexes.back();
+                    if (nFrozenIndex1 > nFrozenIndex2) {
+                        swap(nFrozenIndex1, nFrozenIndex2);
                     }
-                    else if (fNotaryV) {
-                        frozenTxOut.fractions = frLiquidity.RatioPart(nFrozenValueOut, nLiquidityIn, nSupply);
-                        frozenTxOut.fractions.nFlags |= CFractions::FROZEN_V;
-                        frInp -= frozenTxOut.fractions;
-                        frLiquidity -= frozenTxOut.fractions;
-                        nLiquidityIn -= nFrozenValueOut;
+                    auto & frozenTxOut = poolFrozen[nFrozenIndex1];
+                    frozenTxOut.nFairWithdrawFromEscrowIndex1 = nFrozenIndex1;
+                    frozenTxOut.nFairWithdrawFromEscrowIndex2 = nFrozenIndex2;
+                }
+                
+                if (vFrozenIndexes.size() == 1) {
+                    long nFrozenIndex = vFrozenIndexes.front();
+                
+                    int64_t nFrozenValueOut = tx.vout[size_t(nFrozenIndex)].nValue;
+                    auto & frozenTxOut = poolFrozen[nFrozenIndex];
+                    
+                    if (fNotaryF && nReserveIn < nFrozenValueOut) {
+                        fFreezeAll = true;
+                        fSharedFreeze = true;
                     }
-                    else if (fNotaryL) {
-                        frozenTxOut.fractions = frLiquidity.RatioPart(nFrozenValueOut, nLiquidityIn, nSupply);
-                        frozenTxOut.fractions.nFlags |= CFractions::FROZEN_L;
-                        frInp -= frozenTxOut.fractions;
-                        frLiquidity -= frozenTxOut.fractions;
-                        nLiquidityIn -= nFrozenValueOut;
+                    else if (fNotaryV && nLiquidityIn < nFrozenValueOut) {
+                        fFreezeAll = true;
+                        fSharedFreeze = true;
+                    }
+                    else if (fNotaryL && nLiquidityIn < nFrozenValueOut) {
+                        sFailCause = "P08: Freeze notary: not enough liquidity";
+                        return false;
+                    }
+    
+                    // deductions if not shared freeze
+                    if (!fSharedFreeze) {
+                        if (fNotaryF) {
+                            frozenTxOut.fractions = frReserve.RatioPart(nFrozenValueOut, nReserveIn, 0);
+                            frozenTxOut.fractions.nFlags |= CFractions::FROZEN_F;
+                            frInp -= frozenTxOut.fractions;
+                            frReserve -= frozenTxOut.fractions;
+                            nReserveIn -= nFrozenValueOut;
+                        }
+                        else if (fNotaryV) {
+                            frozenTxOut.fractions = frLiquidity.RatioPart(nFrozenValueOut, nLiquidityIn, nSupply);
+                            frozenTxOut.fractions.nFlags |= CFractions::FROZEN_V;
+                            frInp -= frozenTxOut.fractions;
+                            frLiquidity -= frozenTxOut.fractions;
+                            nLiquidityIn -= nFrozenValueOut;
+                        }
+                        else if (fNotaryL) {
+                            frozenTxOut.fractions = frLiquidity.RatioPart(nFrozenValueOut, nLiquidityIn, nSupply);
+                            frozenTxOut.fractions.nFlags |= CFractions::FROZEN_L;
+                            frInp -= frozenTxOut.fractions;
+                            frLiquidity -= frozenTxOut.fractions;
+                            nLiquidityIn -= nFrozenValueOut;
+                        }
                     }
                 }
             }
@@ -1005,12 +1036,41 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     }
 
                     int64_t nValueLeft = nValue;
+                    int64_t nValueToTakeReserves = nValueLeft;
+                    if (poolFrozen[i].nFairWithdrawFromEscrowIndex1 == i) {
+                        if (poolFrozen.size()==2) {
+                            long nIndex1 = poolFrozen[i].nFairWithdrawFromEscrowIndex1;
+                            long nIndex2 = poolFrozen[i].nFairWithdrawFromEscrowIndex2;
+                            if (nIndex1 <0 || nIndex2 <0 || 
+                                size_t(nIndex1) >= n_vout || 
+                                size_t(nIndex2) >= n_vout) {
+                                sFailCause = "P09: Wrong refering output for fair withdraw from escrow";
+                                return false;
+                            }
+                            // Making an fair withdraw of reserves funds from escrow.
+                            // Takes proportionally less from input address to freeze into 
+                            // first output - to leave fair amount of reserve for second.
+                            int64_t nValue1 = poolFrozen[nIndex1].nValue;
+                            int64_t nValue2 = poolFrozen[nIndex2].nValue;
+                            if (poolReserves.count(sFrozenAddress) > 0) {
+                                auto & frReserve = poolReserves[sFrozenAddress];
+                                int64_t nReserve = frReserve.Total();
+                                if (nReserve <= (nValue1+nValue2) && (nValue1+nValue2)>0) {
+                                    int64_t nScaledValue1 = RatioPart(nReserve, nValue1, nValue1+nValue2);
+                                    int64_t nScaledValue2 = RatioPart(nReserve, nValue2, nValue1+nValue2);
+                                    int64_t nRemain = nReserve - nScaledValue1 - nScaledValue2;
+                                    nValueToTakeReserves = nScaledValue1+nRemain;
+                                }
+                            }
+                        }
+                    }
+                    
                     for(const string & sAddress : vAddresses) {
                         if (poolReserves.count(sAddress) == 0) continue;
                         auto & frReserve = poolReserves[sAddress];
                         int64_t nReserve = frReserve.Total();
                         if (nReserve ==0) continue;
-                        int64_t nValueToTake = nValueLeft;
+                        int64_t nValueToTake = nValueToTakeReserves;
                         if (nValueToTake > nReserve)
                             nValueToTake = nReserve;
 
@@ -1018,15 +1078,16 @@ bool CalculateStandardFractions(const CTransaction & tx,
                         frOut += frReservePart;
                         frReserve -= frReservePart;
                         nValueLeft -= nValueToTake;
+                        nValueToTakeReserves -= nValueToTake;
 
-                        if (nValueLeft == 0) {
+                        if (nValueToTakeReserves == 0) {
                             break;
                         }
                     }
 
                     if (nValueLeft > 0) {
                         if (nValueLeft > nCommonLiquidity) {
-                            fail_cause = "P12: No liquidity left";
+                            sFailCause = "P12: No liquidity left";
                             return false;
                         }
                         auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
@@ -1058,7 +1119,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
 
                     if (nValueLeft > 0) {
                         if (nValueLeft > nCommonLiquidity) {
-                            fail_cause = "P13: No liquidity left";
+                            sFailCause = "P13: No liquidity left";
                             return false;
                         }
                         auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
@@ -1097,7 +1158,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
 
                         if (nValueLeft > 0) {
                             if (nValueLeft > nCommonLiquidity) {
-                                fail_cause = "P14: No liquidity left";
+                                sFailCause = "P14: No liquidity left";
                                 return false;
                             }
                             auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
@@ -1110,7 +1171,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     else {
                         int64_t nValueLeft = nValue;
                         if (nValueLeft > nCommonLiquidity) {
-                            fail_cause = "P15: No liquidity left";
+                            sFailCause = "P15: No liquidity left";
                             return false;
                         }
                         auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);

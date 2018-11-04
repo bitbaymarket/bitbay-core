@@ -785,6 +785,15 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
             input->setData(4, BlockchainModel::PegSupplyRole, peg_whitelisted
                            ? pblockindex->nPegSupplyIndex
                            : 0);
+            if (mapInputsFractions[fkey].nFlags & CFractions::FROZEN_F) {
+                input->setData(3, Qt::DecorationPropertyRole, pmFrozenF);
+            }
+            else if (mapInputsFractions[fkey].nFlags & CFractions::FROZEN_V) {
+                input->setData(3, Qt::DecorationPropertyRole, pmFrozenV);
+            }
+            else if (mapInputsFractions[fkey].nFlags & CFractions::FROZEN_L) {
+                input->setData(3, Qt::DecorationPropertyRole, pmFrozenL);
+            }
         }
         input->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         ui->txInputs->addTopLevelItem(input);

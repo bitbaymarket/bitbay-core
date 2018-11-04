@@ -52,6 +52,8 @@
         <file alias="spinbox_down_arrow">res/icons/spinbox_down_arrow.png</file>
         <file alias="change">res/icons/change.png</file>
         <file alias="frost">res/icons/frost.png</file>
+        <file alias="frostr">res/icons/frostr.png</file>
+        <file alias="frostl">res/icons/frostl.png</file>
     </qresource>
     <qresource prefix="/icons/black">
         <file alias="connect_0">res/icons/black/connect0_16.png</file>

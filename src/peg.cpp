@@ -903,6 +903,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 frozenTxOut.sAddress = sAddress;
                 if (fNotaryF) frozenTxOut.fractions.nFlags |= CFractions::FROZEN_F;
                 if (fNotaryV) frozenTxOut.fractions.nFlags |= CFractions::FROZEN_V;
+                if (fNotaryL) frozenTxOut.fractions.nFlags |= CFractions::FROZEN_L;
 
                 bool fSharedFreeze = false;
                 if (fNotaryF && nReserveIn < nFrozenValueOut) {
@@ -936,6 +937,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     }
                     else if (fNotaryL) {
                         frozenTxOut.fractions = frLiquidity.RatioPart(nFrozenValueOut, nLiquidityIn, nSupply);
+                        frozenTxOut.fractions.nFlags |= CFractions::FROZEN_L;
                         frInp -= frozenTxOut.fractions;
                         frLiquidity -= frozenTxOut.fractions;
                         nLiquidityIn -= nFrozenValueOut;
@@ -987,10 +989,12 @@ bool CalculateStandardFractions(const CTransaction & tx,
             else {
                 if (poolFrozen[i].fractions.nFlags & CFractions::FROZEN_V) {
                     frOut = frCommonLiquidity.RatioPart(nValue, nCommonLiquidity, nSupply);
+                    frOut.nFlags |= CFractions::FROZEN_V;
                     frCommonLiquidity -= frOut;
                     nCommonLiquidity -= nValue;
                 }
                 else if (poolFrozen[i].fractions.nFlags & CFractions::FROZEN_F) {
+                    frOut.nFlags |= CFractions::FROZEN_F;
 
                     vector<string> vAddresses;
                     auto sFrozenAddress = poolFrozen[i].sAddress;
@@ -1035,7 +1039,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
             }
         }
         else {
-            if (!poolFrozen.count(i)) {
+            if (!poolFrozen.count(i)) { // not frozen
                 if (poolReserves.count(sAddress)) { // to reserve
                     int64_t nValueLeft = nValue;
                     int64_t nValueToTake = nValueLeft;
@@ -1117,7 +1121,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     }
                 }
             }
-            else {
+            else { // frozen, but no fFreezeAll
                 frOut = poolFrozen[i].fractions;
             }
         }

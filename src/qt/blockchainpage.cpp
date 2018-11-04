@@ -153,6 +153,12 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
 
     pmChange = QPixmap(":/icons/change");
     pmChange = pmChange.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    pmFrozenF = QPixmap(":/icons/frost");
+    pmFrozenF = pmFrozenF.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    pmFrozenV = QPixmap(":/icons/frostr");
+    pmFrozenV = pmFrozenV.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    pmFrozenL = QPixmap(":/icons/frostl");
+    pmFrozenL = pmFrozenL.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 }
 
 BlockchainPage::~BlockchainPage()
@@ -887,6 +893,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         nValueOut += tx.vout[i].nValue;
         row << displayValue(tx.vout[i].nValue); // 3, value
 
+        bool fIndicateFrozen = false;
         auto output = new QTreeWidgetItem(row);
         if (hasSpend) {
             QVariant vhash;
@@ -901,6 +908,18 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
             output->setData(4, BlockchainModel::HashRole, titleSpend);
             output->setData(4, BlockchainModel::FractionsRole, vFractions);
             output->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
+            if (mapFractionsUnused[fkey].nFlags & CFractions::FROZEN_F) {
+                output->setData(3, Qt::DecorationPropertyRole, pmFrozenF);
+                fIndicateFrozen = true;
+            }
+            else if (mapFractionsUnused[fkey].nFlags & CFractions::FROZEN_V) {
+                output->setData(3, Qt::DecorationPropertyRole, pmFrozenV);
+                fIndicateFrozen = true;
+            }
+            else if (mapFractionsUnused[fkey].nFlags & CFractions::FROZEN_L) {
+                output->setData(3, Qt::DecorationPropertyRole, pmFrozenL);
+                fIndicateFrozen = true;
+            }
         }
         if (!peg_whitelisted) {
             QVariant vFractions;
@@ -910,7 +929,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
             output->setData(4, BlockchainModel::PegSupplyRole, 0);
         }
         output->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        if (sAddresses.contains(addr)) {
+        if (!fIndicateFrozen && sAddresses.contains(addr)) {
             output->setData(3, Qt::DecorationPropertyRole, pmChange);
         }
         ui->txOutputs->addTopLevelItem(output);
@@ -1234,9 +1253,9 @@ void LeftSideIconItemDelegate::paint(QPainter* p,
     //int rside = r.height()-2;
     QRect pmr = QRect(0,0, 16,16);
     pmr.moveCenter(QPoint(r.left()+pmr.width()/2, r.center().y()));
-    p->setOpacity(0.5);
+    //p->setOpacity(0.5);
     p->drawPixmap(pmr, pm);
-    p->setOpacity(1);
+    //p->setOpacity(1);
 }
 
 // delegate to draw fractions

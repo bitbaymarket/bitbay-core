@@ -194,8 +194,8 @@ public:
 
     void MarkDirty();
     bool AddToWallet(const CWalletTx& wtxIn);
-    void SyncTransaction(const CTransaction& tx, const CBlock* pblock, bool fConnect = true);
-    bool AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pblock, bool fUpdate);
+    void SyncTransaction(const CTransaction& tx, const CBlock* pblock, bool fConnect, const MapOutputFractions&);
+    bool AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pblock, bool fUpdate, const MapOutputFractions&);
     void EraseFromWallet(const uint256 &hash);
     void WalletUpdateSpent(const CTransaction& prevout, bool fBlock = false);
     int ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate = false);
@@ -243,6 +243,7 @@ public:
             throw std::runtime_error("CWallet::GetCredit() : value out of range");
         return (IsMine(txout) ? txout.nValue : 0);
     }
+    int64_t GetReserve(uint256 txhash, long nOut, const CTxOut& txout) const;
     bool IsChange(const CTxOut& txout) const;
     int64_t GetChange(const CTxOut& txout) const
     {
@@ -410,16 +411,19 @@ public:
     char fFromMe;
     std::string strFromAccount;
     std::vector<char> vfSpent; // which outputs are already spent
+    std::vector<CFractions> vOutFractions;
     int64_t nOrderPos;  // position in ordered transaction list
 
     // memory only
     mutable bool fDebitCached;
     mutable bool fCreditCached;
     mutable bool fAvailableCreditCached;
+    mutable bool fAvailableReserveCached;
     mutable bool fChangeCached;
     mutable int64_t nDebitCached;
     mutable int64_t nCreditCached;
     mutable int64_t nAvailableCreditCached;
+    mutable int64_t nAvailableReserveCached;
     mutable int64_t nChangeCached;
 
     CWalletTx()
@@ -457,10 +461,12 @@ public:
         fDebitCached = false;
         fCreditCached = false;
         fAvailableCreditCached = false;
+        fAvailableReserveCached = false;
         fChangeCached = false;
         nDebitCached = 0;
         nCreditCached = 0;
         nAvailableCreditCached = 0;
+        nAvailableReserveCached = 0;
         nChangeCached = 0;
         nOrderPos = -1;
     }
@@ -537,6 +543,7 @@ public:
                 vfSpent[i] = true;
                 fReturn = true;
                 fAvailableCreditCached = false;
+                fAvailableReserveCached = false;
             }
         }
         return fReturn;
@@ -547,6 +554,7 @@ public:
     {
         fCreditCached = false;
         fAvailableCreditCached = false;
+        fAvailableReserveCached = false;
         fDebitCached = false;
         fChangeCached = false;
     }
@@ -566,6 +574,7 @@ public:
         {
             vfSpent[nOut] = true;
             fAvailableCreditCached = false;
+            fAvailableReserveCached = false;
         }
     }
 
@@ -578,6 +587,7 @@ public:
         {
             vfSpent[nOut] = false;
             fAvailableCreditCached = false;
+            fAvailableReserveCached = false;
         }
     }
 
@@ -640,7 +650,32 @@ public:
         fAvailableCreditCached = true;
         return nCredit;
     }
+    
+    int64_t GetAvailableReserve(bool fUseCache=true) const
+    {
+        // Must wait until coinbase is safely deep enough in the chain before valuing it
+        if ((IsCoinBase() || IsCoinStake()) && GetBlocksToMaturity() > 0)
+            return 0;
 
+        if (fUseCache && fAvailableReserveCached)
+            return nAvailableReserveCached;
+
+        int64_t nReserve = 0;
+        for (unsigned int i = 0; i < vout.size(); i++)
+        {
+            if (!IsSpent(i))
+            {
+                const CTxOut &txout = vout[i];
+                nReserve += pwallet->GetReserve(GetHash(), i, txout);
+                if (!MoneyRange(nReserve))
+                    throw std::runtime_error("CWalletTx::GetAvailableReserve() : value out of range");
+            }
+        }
+
+        nAvailableReserveCached = nReserve;
+        fAvailableReserveCached = true;
+        return nReserve;
+    }
 
     int64_t GetChange() const
     {

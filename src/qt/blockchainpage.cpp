@@ -580,9 +580,9 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
                                    int64_t& nFeesValue)
 {
     MapPrevTx mapInputs;
-    MapPrevFractions mapInputsFractions;
+    MapInputFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
-    map<uint320, CFractions> mapFractionsUnused;
+    MapOutputFractions mapFractionsUnused;
     string sPegFailCause;
 
     for (CTransaction & tx : block.vtx) {
@@ -667,9 +667,9 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
 
     QTime timeFetchInputs = QTime::currentTime();
     MapPrevTx mapInputs;
-    MapPrevFractions mapInputsFractions;
+    MapInputFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
-    map<uint320, CFractions> mapFractionsUnused;
+    MapOutputFractions mapFractionsUnused;
     CFractions feesFractions(0, CFractions::STD);
     int64_t nFeesValue = 0;
     vector<int> vOutputsTypes;

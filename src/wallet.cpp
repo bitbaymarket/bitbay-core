@@ -583,7 +583,10 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn)
 // Add a transaction to the wallet, or update it.
 // pblock is optional, but should be provided if the transaction is known to be in a block.
 // If fUpdate is true, existing transactions will be updated.
-bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pblock, bool fUpdate)
+bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, 
+                                       const CBlock* pblock, 
+                                       bool fUpdate,
+                                       const MapOutputFractions& mapOutputFractions)
 {
     uint256 hash = tx.GetHash();
     {
@@ -604,7 +607,10 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pbl
     return false;
 }
 
-void CWallet::SyncTransaction(const CTransaction& tx, const CBlock* pblock, bool fConnect) {
+void CWallet::SyncTransaction(const CTransaction& tx, 
+                              const CBlock* pblock, 
+                              bool fConnect,
+                              const MapOutputFractions& mapOutputFractions) {
     if (!fConnect)
     {
         // wallets need to refund inputs when disconnecting coinstake
@@ -616,7 +622,7 @@ void CWallet::SyncTransaction(const CTransaction& tx, const CBlock* pblock, bool
         return;
     }
 
-    AddToWalletIfInvolvingMe(tx, pblock, true);
+    AddToWalletIfInvolvingMe(tx, pblock, true, mapOutputFractions);
 }
 
 void CWallet::EraseFromWallet(const uint256 &hash)
@@ -661,6 +667,18 @@ int64_t CWallet::GetDebit(const CTxIn &txin) const
         }
     }
     return 0;
+}
+
+int64_t CWallet::GetReserve(uint256 txhash, long nOut, const CTxOut& txout) const
+{
+    if (!MoneyRange(txout.nValue))
+        throw std::runtime_error("CWallet::GetReserve() : value out of range");
+    if (!IsMine(txout))
+        return 0;
+    
+    auto fkey = uint320(txhash, nOut);
+    
+    return txout.nValue;
 }
 
 bool CWallet::IsChange(const CTxOut& txout) const
@@ -905,10 +923,12 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             }
 
             CBlock block;
+            //TODO:PEG read fractions from disk
+            MapOutputFractions mapOutputFractions;
             block.ReadFromDisk(pindex, true);
             BOOST_FOREACH(CTransaction& tx, block.vtx)
             {
-                if (AddToWalletIfInvolvingMe(tx, &block, fUpdate))
+                if (AddToWalletIfInvolvingMe(tx, &block, fUpdate, mapOutputFractions))
                     ret++;
             }
             pindex = pindex->pnext;

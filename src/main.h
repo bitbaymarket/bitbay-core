@@ -123,7 +123,10 @@ void UnregisterWallet(CWalletInterface* pwalletIn);
 /** Unregister all wallets from core */
 void UnregisterAllWallets();
 /** Push an updated transaction to all registered wallets */
-void SyncWithWallets(const CTransaction& tx, const CBlock* pblock = NULL, bool fConnect = true);
+void SyncWithWallets(const CTransaction& tx, 
+                     const CBlock* pblock, 
+                     bool fConnect,
+                     MapOutputFractions& mapQueuedFractionsChanges);
 /** Ask wallets to resend their transactions */
 void ResendWalletTransactions(bool fForce = false);
 
@@ -398,10 +401,10 @@ public:
     bool FetchInputs(CTxDB& txdb,
                      CPegDB& pegdb,
                      const std::map<uint256, CTxIndex>& mapTestPool,
-                     const std::map<uint320, CFractions>& mapTestFractionsPool,
+                     const MapOutputFractions& mapTestFractionsPool,
                      bool fBlock, bool fMiner,
                      MapPrevTx& inputsRet,
-                     MapPrevFractions& finputsRet,
+                     MapInputFractions& finputsRet,
                      bool& fInvalid);
 
     /** Sanity check previous transactions, then, if all checks succeed,
@@ -417,9 +420,9 @@ public:
      */
     bool ConnectInputs(CTxDB& txdb,
                        MapPrevTx inputs,
-                       MapPrevFractions& finputs,
+                       MapInputFractions& finputs,
                        std::map<uint256, CTxIndex>& mapTestPool,
-                       std::map<uint320, CFractions>& mapTestFractionsPool,
+                       MapOutputFractions& mapTestFractionsPool,
                        CFractions& feesFractions,
                        const CDiskTxPos& posThisTx,
                        const CBlockIndex* pindexBlock,
@@ -1398,7 +1401,10 @@ public:
 
 class CWalletInterface {
 protected:
-    virtual void SyncTransaction(const CTransaction &tx, const CBlock *pblock, bool fConnect) =0;
+    virtual void SyncTransaction(const CTransaction &tx, 
+                                 const CBlock *pblock, 
+                                 bool fConnect, 
+                                 const MapOutputFractions&) =0;
     virtual void EraseFromWallet(const uint256 &hash) =0;
     virtual void SetBestChain(const CBlockLocator &locator) =0;
     virtual void UpdatedTransaction(const uint256 &hash) =0;

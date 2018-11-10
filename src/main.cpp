@@ -92,7 +92,7 @@ const string strMessageMagic = "BitBay Signed Message:\n";
 namespace {
 struct CMainSignals {
     // Notifies listeners of updated transaction data (passing hash, transaction, and optionally the block it is found in.
-    boost::signals2::signal<void (const CTransaction &, const CBlock *, bool)> SyncTransaction;
+    boost::signals2::signal<void (const CTransaction &, const CBlock *, bool, MapOutputFractions& mapOutputFractions)> SyncTransaction;
     // Notifies listeners of an erased transaction (currently disabled, requires transaction replacement).
     boost::signals2::signal<void (const uint256 &)> EraseTransaction;
     // Notifies listeners of an updated transaction without new data (for now: a coinbase potentially becoming visible).
@@ -107,7 +107,7 @@ struct CMainSignals {
 }
 
 void RegisterWallet(CWalletInterface* pwalletIn) {
-    g_signals.SyncTransaction.connect(boost::bind(&CWalletInterface::SyncTransaction, pwalletIn, _1, _2, _3));
+    g_signals.SyncTransaction.connect(boost::bind(&CWalletInterface::SyncTransaction, pwalletIn, _1, _2, _3, _4));
     g_signals.EraseTransaction.connect(boost::bind(&CWalletInterface::EraseFromWallet, pwalletIn, _1));
     g_signals.UpdatedTransaction.connect(boost::bind(&CWalletInterface::UpdatedTransaction, pwalletIn, _1));
     g_signals.SetBestChain.connect(boost::bind(&CWalletInterface::SetBestChain, pwalletIn, _1));
@@ -121,7 +121,7 @@ void UnregisterWallet(CWalletInterface* pwalletIn) {
     g_signals.SetBestChain.disconnect(boost::bind(&CWalletInterface::SetBestChain, pwalletIn, _1));
     g_signals.UpdatedTransaction.disconnect(boost::bind(&CWalletInterface::UpdatedTransaction, pwalletIn, _1));
     g_signals.EraseTransaction.disconnect(boost::bind(&CWalletInterface::EraseFromWallet, pwalletIn, _1));
-    g_signals.SyncTransaction.disconnect(boost::bind(&CWalletInterface::SyncTransaction, pwalletIn, _1, _2, _3));
+    g_signals.SyncTransaction.disconnect(boost::bind(&CWalletInterface::SyncTransaction, pwalletIn, _1, _2, _3, _4));
 }
 
 void UnregisterAllWallets() {
@@ -133,8 +133,11 @@ void UnregisterAllWallets() {
     g_signals.SyncTransaction.disconnect_all_slots();
 }
 
-void SyncWithWallets(const CTransaction &tx, const CBlock *pblock, bool fConnect) {
-    g_signals.SyncTransaction(tx, pblock, fConnect);
+void SyncWithWallets(const CTransaction &tx, 
+                     const CBlock *pblock, 
+                     bool fConnect, 
+                     MapOutputFractions& mapQueuedFractionsChanges) {
+    g_signals.SyncTransaction(tx, pblock, fConnect, mapQueuedFractionsChanges);
 }
 
 void ResendWalletTransactions(bool fForce) {
@@ -649,6 +652,12 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
     }
     }
 
+    MapPrevTx mapInputs;
+    MapInputFractions mapInputsFractions;
+    map<uint256, CTxIndex> mapUnused;
+    MapOutputFractions mapOutputsFractions;
+    CFractions feesFractions;
+    
     {
         CTxDB txdb("r");
         CPegDB pegdb("r");
@@ -657,13 +666,8 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
         if (txdb.ContainsTx(hash))
             return false;
 
-        MapPrevTx mapInputs;
-        MapPrevFractions mapInputsFractions;
-        map<uint256, CTxIndex> mapUnused;
-        map<uint320, CFractions> mapFractionsUnused;
-        CFractions feesFractions;
         bool fInvalid = false;
-        if (!tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid))
+        if (!tx.FetchInputs(txdb, pegdb, mapUnused, mapOutputsFractions, false, false, mapInputs, mapInputsFractions, fInvalid))
         {
             if (fInvalid)
                 return error("AcceptToMemoryPool : FetchInputs found invalid tx %s", hash.ToString());
@@ -725,7 +729,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
         if (!tx.ConnectInputs(txdb,
                               mapInputs, mapInputsFractions,
-                              mapUnused, mapFractionsUnused,
+                              mapUnused, mapOutputsFractions,
                               feesFractions,
                               CDiskTxPos(1,1,1), pindexBest, false, false,
                               STANDARD_SCRIPT_VERIFY_FLAGS))
@@ -744,7 +748,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
         // can be exploited as a DoS attack.
         if (!tx.ConnectInputs(txdb,
                               mapInputs, mapInputsFractions,
-                              mapUnused, mapFractionsUnused,
+                              mapUnused, mapOutputsFractions,
                               feesFractions,
                               CDiskTxPos(1,1,1), pindexBest, false, false,
                               MANDATORY_SCRIPT_VERIFY_FLAGS))
@@ -756,7 +760,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
     // Store transaction in memory
     pool.addUnchecked(hash, tx);
 
-    SyncWithWallets(tx, NULL);
+    SyncWithWallets(tx, NULL, true, mapOutputsFractions);
 
     LogPrint("mempool", "AcceptToMemoryPool : accepted %s (poolsz %u)\n",
            hash.ToString(),
@@ -1203,10 +1207,10 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb)
 bool CTransaction::FetchInputs(CTxDB& txdb,
                                CPegDB& pegdb,
                                const map<uint256, CTxIndex>& mapTestPool,
-                               const map<uint320, CFractions>& mapTestFractionsPool,
+                               const MapOutputFractions& mapTestFractionsPool,
                                bool fBlock, bool fMiner,
                                MapPrevTx& inputsRet,
-                               MapPrevFractions& finputsRet,
+                               MapInputFractions& finputsRet,
                                bool& fInvalid)
 {
     // FetchInputs can return false either because we just haven't seen some inputs
@@ -1337,9 +1341,9 @@ int64_t CTransaction::GetValueIn(const MapPrevTx& inputs) const
 
 bool CTransaction::ConnectInputs(CTxDB& txdb,
                                  MapPrevTx inputs,
-                                 MapPrevFractions& finputs,
+                                 MapInputFractions& finputs,
                                  map<uint256, CTxIndex>& mapTestPool,
-                                 map<uint320, CFractions>& mapTestFractionsPool,
+                                 MapOutputFractions& mapTestFractionsPool,
                                  CFractions& feesFractions,
                                  const CDiskTxPos& posThisTx,
                                  const CBlockIndex* pindexBlock,
@@ -1506,8 +1510,9 @@ bool CBlock::DisconnectBlock(CTxDB& txdb, CBlockIndex* pindex)
     }
 
     // ppcoin: clean up wallet after disconnecting coinstake
+    MapOutputFractions mapFractionsSkip;
     BOOST_FOREACH(CTransaction& tx, vtx)
-        SyncWithWallets(tx, this, false);
+        SyncWithWallets(tx, this, false, mapFractionsSkip);
 
     return true;
 }
@@ -1542,7 +1547,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     CalculateBlockPegIndex(*this, pindex, pegdb);
 
     map<uint256, CTxIndex> mapQueuedChanges;
-    map<uint320, CFractions> mapQueuedFractionsChanges;
+    MapOutputFractions mapQueuedFractionsChanges;
     CFractions feesFractions;
     int64_t nFees = 0;
     int64_t nValueIn = 0;
@@ -1581,7 +1586,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
             nTxPos += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
 
         MapPrevTx mapInputs;
-        MapPrevFractions mapInputsFractions;
+        MapInputFractions mapInputsFractions;
         if (tx.IsCoinBase())
             nValueOut += tx.GetValueOut();
         else
@@ -1663,7 +1668,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     }
 
     // Write queued fractions changes
-    for (map<uint320, CFractions>::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
+    for (MapOutputFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
     {
         if (!pegdb.Write((*mi).first, (*mi).second))
             return error("ConnectBlock() : pegdb Write failed");
@@ -1681,7 +1686,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
 
     // Watch for transactions paying to me
     BOOST_FOREACH(CTransaction& tx, vtx)
-        SyncWithWallets(tx, this);
+        SyncWithWallets(tx, this, true, mapQueuedFractionsChanges);
 
     return true;
 }

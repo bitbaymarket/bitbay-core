@@ -394,11 +394,11 @@ Value signrawtransaction(const Array& params, bool fHelp)
     {
         CTransaction tempTx;
         MapPrevTx mapPrevTx;
-        MapPrevFractions mapInputsFractions;
+        MapInputFractions mapInputsFractions;
         CTxDB txdb("r");
         CPegDB pegdb("r");
         map<uint256, CTxIndex> unused;
-        map<uint320, CFractions> fractionsUnused;
+        MapOutputFractions fractionsUnused;
         bool fInvalid;
 
         // FetchInputs aborts on failure, so we go one at a time.

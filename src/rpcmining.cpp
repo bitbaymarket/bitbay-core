@@ -586,9 +586,9 @@ Value getblocktemplate(const Array& params, bool fHelp)
         entry.push_back(Pair("hash", txHash.GetHex()));
 
         MapPrevTx mapInputs;
-        MapPrevFractions mapInputsFractions;
+        MapInputFractions mapInputsFractions;
         map<uint256, CTxIndex> mapUnused;
-        map<uint320, CFractions> mapFractionsUnused;
+        MapOutputFractions mapFractionsUnused;
         bool fInvalid = false;
         if (tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid))
         {

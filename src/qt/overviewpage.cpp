@@ -111,6 +111,8 @@ OverviewPage::OverviewPage(QWidget *parent) :
     clientModel(0),
     walletModel(0),
     currentBalance(-1),
+    currentReserve(-1),
+    currentLiquidity(-1),
     currentStake(0),
     currentUnconfirmedBalance(-1),
     currentImmatureBalance(-1),
@@ -154,6 +156,8 @@ OverviewPage::OverviewPage(QWidget *parent) :
     ui->w_recent->setStyleSheet(white1);
 
     ui->labelBalanceText        ->setStyleSheet(white2);
+    ui->labelReserveText        ->setStyleSheet(white2);
+    ui->labelLiquidityText      ->setStyleSheet(white2);
     ui->labelStakeText          ->setStyleSheet(white2);
     ui->labelUnconfirmedText    ->setStyleSheet(white2);
     ui->labelImmatureText       ->setStyleSheet(white2);
@@ -167,6 +171,8 @@ OverviewPage::OverviewPage(QWidget *parent) :
     ui->labelTotalText          ->setStyleSheet(white1);
 
     ui->labelBalance            ->setStyleSheet(white1);
+    ui->labelReserve            ->setStyleSheet(white1);
+    ui->labelLiquidity          ->setStyleSheet(white1);
     ui->labelStake              ->setStyleSheet(white1);
     ui->labelUnconfirmed        ->setStyleSheet(white1);
     ui->labelImmature           ->setStyleSheet(white1);
@@ -247,14 +253,19 @@ OverviewPage::~OverviewPage()
     delete ui;
 }
 
-void OverviewPage::setBalance(qint64 balance, qint64 stake, qint64 unconfirmedBalance, qint64 immatureBalance)
+void OverviewPage::setBalance(qint64 balance, qint64 reserve, qint64 liquidity, 
+                              qint64 stake, qint64 unconfirmedBalance, qint64 immatureBalance)
 {
     int unit = walletModel->getOptionsModel()->getDisplayUnit();
     currentBalance = balance;
+    currentReserve = reserve;
+    currentLiquidity = liquidity;
     currentStake = stake;
     currentUnconfirmedBalance = unconfirmedBalance;
     currentImmatureBalance = immatureBalance;
     ui->labelBalance->setText(BitcoinUnits::formatWithUnitForLabel(unit, balance));
+    ui->labelReserve->setText(BitcoinUnits::formatWithUnitForLabel(unit, reserve));
+    ui->labelLiquidity->setText(BitcoinUnits::formatWithUnitForLabel(unit, liquidity));
     ui->labelStake->setText(BitcoinUnits::formatWithUnitForLabel(unit, stake));
     ui->labelUnconfirmed->setText(BitcoinUnits::formatWithUnitForLabel(unit, unconfirmedBalance));
     ui->labelImmature->setText(BitcoinUnits::formatWithUnitForLabel(unit, immatureBalance));
@@ -296,8 +307,9 @@ void OverviewPage::setWalletModel(WalletModel *model)
         ui->listTransactions->setModelColumn(TransactionTableModel::ToAddress);
 
         // Keep up to date with wallet
-        setBalance(model->getBalance(), model->getStake(), model->getUnconfirmedBalance(), model->getImmatureBalance());
-        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64, qint64)), this, SLOT(setBalance(qint64, qint64, qint64, qint64)));
+        setBalance(model->getBalance(), model->getReserves(), model->getLiquidity(),
+                   model->getStake(), model->getUnconfirmedBalance(), model->getImmatureBalance());
+        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64, qint64, qint64, qint64)), this, SLOT(setBalance(qint64, qint64, qint64, qint64)));
 
         connect(model->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
     }
@@ -311,7 +323,8 @@ void OverviewPage::updateDisplayUnit()
     if(walletModel && walletModel->getOptionsModel())
     {
         if(currentBalance != -1)
-            setBalance(currentBalance, walletModel->getStake(), currentUnconfirmedBalance, currentImmatureBalance);
+            setBalance(currentBalance, currentReserve, currentLiquidity,
+                       walletModel->getStake(), currentUnconfirmedBalance, currentImmatureBalance);
 
         // Update txdelegate->unit with the current unit
         txdelegate->unit = walletModel->getOptionsModel()->getDisplayUnit();

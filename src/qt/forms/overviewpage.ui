@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>573</width>
-    <height>358</height>
+    <height>528</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -138,7 +138,33 @@
             <property name="verticalSpacing">
              <number>1</number>
             </property>
-            <item row="4" column="0">
+            <item row="5" column="0">
+             <widget class="QLabel" name="labelImmatureText">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>28</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Immature</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="labelLiquidityText">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>28</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Liquidity</string>
+              </property>
+             </widget>
+            </item>
+            <item row="6" column="0">
              <spacer name="verticalSpacer_2">
               <property name="orientation">
                <enum>Qt::Vertical</enum>
@@ -154,7 +180,7 @@
               </property>
              </spacer>
             </item>
-            <item row="2" column="1">
+            <item row="4" column="1">
              <widget class="QLabel" name="labelUnconfirmed">
               <property name="cursor">
                <cursorShape>IBeamCursor</cursorShape>
@@ -173,7 +199,7 @@
               </property>
              </widget>
             </item>
-            <item row="2" column="0">
+            <item row="4" column="0">
              <widget class="QLabel" name="labelUnconfirmedText">
               <property name="minimumSize">
                <size>
@@ -186,7 +212,7 @@
               </property>
              </widget>
             </item>
-            <item row="1" column="1">
+            <item row="3" column="1">
              <widget class="QLabel" name="labelStake">
               <property name="cursor">
                <cursorShape>IBeamCursor</cursorShape>
@@ -205,7 +231,7 @@
               </property>
              </widget>
             </item>
-            <item row="1" column="0">
+            <item row="3" column="0">
              <widget class="QLabel" name="labelStakeText">
               <property name="minimumSize">
                <size>
@@ -231,42 +257,7 @@
               </property>
              </widget>
             </item>
-            <item row="3" column="1">
-             <widget class="QLabel" name="labelImmature">
-              <property name="toolTip">
-               <string>Mined balance that has not yet matured</string>
-              </property>
-              <property name="text">
-               <string notr="true">0 BAY</string>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-              </property>
-              <property name="textInteractionFlags">
-               <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
-              </property>
-             </widget>
-            </item>
-            <item row="5" column="0">
-             <widget class="QLabel" name="labelTotalText">
-              <property name="minimumSize">
-               <size>
-                <width>0</width>
-                <height>28</height>
-               </size>
-              </property>
-              <property name="font">
-               <font>
-                <weight>75</weight>
-                <bold>true</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>TOTAL</string>
-              </property>
-             </widget>
-            </item>
-            <item row="5" column="1">
+            <item row="7" column="1">
              <widget class="QLabel" name="labelTotal">
               <property name="cursor">
                <cursorShape>IBeamCursor</cursorShape>
@@ -304,8 +295,43 @@
               </property>
              </widget>
             </item>
-            <item row="3" column="0">
-             <widget class="QLabel" name="labelImmatureText">
+            <item row="5" column="1">
+             <widget class="QLabel" name="labelImmature">
+              <property name="toolTip">
+               <string>Mined balance that has not yet matured</string>
+              </property>
+              <property name="text">
+               <string notr="true">0 BAY</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+              <property name="textInteractionFlags">
+               <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
+              </property>
+             </widget>
+            </item>
+            <item row="7" column="0">
+             <widget class="QLabel" name="labelTotalText">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>28</height>
+               </size>
+              </property>
+              <property name="font">
+               <font>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>TOTAL</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="labelReserveText">
               <property name="minimumSize">
                <size>
                 <width>0</width>
@@ -313,7 +339,45 @@
                </size>
               </property>
               <property name="text">
-               <string>Immature</string>
+               <string>Reserve</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLabel" name="labelLiquidity">
+              <property name="cursor">
+               <cursorShape>IBeamCursor</cursorShape>
+              </property>
+              <property name="toolTip">
+               <string>Your current liquidity balance</string>
+              </property>
+              <property name="text">
+               <string>0 BAY</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+              <property name="textInteractionFlags">
+               <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QLabel" name="labelReserve">
+              <property name="cursor">
+               <cursorShape>IBeamCursor</cursorShape>
+              </property>
+              <property name="toolTip">
+               <string>Your current reserve balance</string>
+              </property>
+              <property name="text">
+               <string>0 BAY</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+              <property name="textInteractionFlags">
+               <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
               </property>
              </widget>
             </item>

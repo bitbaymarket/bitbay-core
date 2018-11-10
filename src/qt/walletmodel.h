@@ -64,7 +64,7 @@ public:
     TransactionTableModel *getTransactionTableModel();
 
     qint64 getBalance(const CCoinControl *coinControl=NULL) const;
-    qint64 getReserves(const CCoinControl *coinControl=NULL) const;
+    qint64 getReserve(const CCoinControl *coinControl=NULL) const;
     qint64 getLiquidity(const CCoinControl *coinControl=NULL) const;
     qint64 getStake() const;
     qint64 getUnconfirmedBalance() const;
@@ -122,10 +122,6 @@ public:
     bool getPubKey(const CKeyID &address, CPubKey& vchPubKeyOut) const;
     void getOutputs(const std::vector<COutPoint>& vOutpoints, std::vector<COutput>& vOutputs);
     void listCoins(std::map<QString, std::vector<COutput> >& mapCoins) const;
-    bool isLockedCoin(uint256 hash, unsigned int n) const;
-    void lockCoin(COutPoint& output);
-    void unlockCoin(COutPoint& output);
-    void listLockedCoins(std::vector<COutPoint>& vOutpts);
 
 private:
     CWallet *wallet;
@@ -140,7 +136,7 @@ private:
 
     // Cache some values to be able to detect changes
     qint64 cachedBalance;
-    qint64 cachedReserves;
+    qint64 cachedReserve;
     qint64 cachedLiquidity;
     qint64 cachedStake;
     qint64 cachedUnconfirmedBalance;

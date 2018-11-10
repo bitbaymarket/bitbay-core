@@ -87,7 +87,7 @@ void SendCoinsDialog::setModel(WalletModel *model)
             }
         }
 
-        setBalance(model->getBalance(), model->getReserves(), model->getLiquidity(),
+        setBalance(model->getBalance(), model->getReserve(), model->getLiquidity(),
                    model->getStake(), model->getUnconfirmedBalance(), model->getImmatureBalance());
         connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64, qint64, qint64, qint64)),
                 this, SLOT(setBalance(qint64, qint64, qint64, qint64, qint64, qint64)));
@@ -358,7 +358,7 @@ void SendCoinsDialog::setBalance(qint64 balance, qint64 reserves, qint64 liquidi
 
 void SendCoinsDialog::updateDisplayUnit()
 {
-    setBalance(model->getBalance(), model->getReserves(), model->getLiquidity(), 0, 0, 0);
+    setBalance(model->getBalance(), model->getReserve(), model->getLiquidity(), 0, 0, 0);
 }
 
 // Coin Control: copy label "Quantity" to clipboard

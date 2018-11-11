@@ -679,8 +679,10 @@ void CoinControlDialog::updateView()
             }
 
             // amount
+            int64_t nReserve = out.tx->vOutFractions[out.i].Low(model->getPegSupplyIndex());
             itemOutput->setData(COLUMN_AMOUNT, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
             itemOutput->setText(COLUMN_AMOUNT, BitcoinUnits::formatR(nDisplayUnit, out.tx->vout[out.i].nValue));
+            itemOutput->setText(COLUMN_RESERVE, BitcoinUnits::formatR(nDisplayUnit, nReserve));
             itemOutput->setText(COLUMN_AMOUNT_INT64, strPad(QString::number(out.tx->vout[out.i].nValue), 15, " ")); // padding so that sorting works correctly
 
             // date

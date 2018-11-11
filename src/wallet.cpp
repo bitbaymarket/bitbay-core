@@ -688,6 +688,17 @@ int64_t CWallet::GetDebit(const CTxIn &txin) const
     return 0;
 }
 
+int CWallet::GetPegSupplyIndex() const
+{
+    if (nLastHashBestChain != hashBestChain) {
+        LOCK(cs_main);
+        auto pblockindex = mapBlockIndex[hashBestChain];
+        nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
+        nLastHashBestChain = hashBestChain;
+    }
+    return nLastPegSupplyIndex;
+}
+
 int64_t CWallet::GetReserve(uint256 txhash, long n, const CTxOut& txout) const
 {
     if (!MoneyRange(txout.nValue))

@@ -63,6 +63,7 @@ public:
     AddressTableModel *getAddressTableModel();
     TransactionTableModel *getTransactionTableModel();
 
+    int getPegSupplyIndex() const;
     qint64 getBalance(const CCoinControl *coinControl=NULL) const;
     qint64 getReserve(const CCoinControl *coinControl=NULL) const;
     qint64 getLiquidity(const CCoinControl *coinControl=NULL) const;

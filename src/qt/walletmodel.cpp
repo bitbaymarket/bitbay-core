@@ -50,9 +50,11 @@ qint64 WalletModel::getBalance(const CCoinControl *coinControl) const
         qint64 nBalance = 0;
         std::vector<COutput> vCoins;
         wallet->AvailableCoins(vCoins, true, coinControl);
-        BOOST_FOREACH(const COutput& out, vCoins)
-            if(out.fSpendable)
+        for(const COutput& out : vCoins) {
+            if(out.fSpendable) {
                 nBalance += out.tx->vout[out.i].nValue;
+            }
+        }
 
         return nBalance;
     }
@@ -64,16 +66,16 @@ qint64 WalletModel::getReserve(const CCoinControl *coinControl) const
 {
     if (coinControl)
     {
-        qint64 nBalance = 0;
+        qint64 nReserve = 0;
         std::vector<COutput> vCoins;
         wallet->AvailableCoins(vCoins, true, coinControl);
         for(const COutput& out : vCoins) {
             if(out.fSpendable) {
-                nBalance += out.tx->vOutFractions[out.i].Low(getPegSupplyIndex());
+                nReserve += out.tx->vOutFractions[out.i].Low(getPegSupplyIndex());
             }
         }
 
-        return nBalance;
+        return nReserve;
     }
 
     return wallet->GetReserve();
@@ -83,14 +85,14 @@ qint64 WalletModel::getLiquidity(const CCoinControl *coinControl) const
 {
     if (coinControl)
     {
-        qint64 nBalance = 0;
+        qint64 nLiquidity = 0;
         std::vector<COutput> vCoins;
         wallet->AvailableCoins(vCoins, true, coinControl);
         BOOST_FOREACH(const COutput& out, vCoins)
             if(out.fSpendable)
-                nBalance += out.tx->vout[out.i].nValue;
+                nLiquidity += out.tx->vout[out.i].nValue;
 
-        return nBalance;
+        return nLiquidity;
     }
 
     return wallet->GetLiquidity();
@@ -243,7 +245,7 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(const QList<SendCoinsRecipie
         return DuplicateAddress;
     }
 
-    qint64 nBalance = getBalance(coinControl);
+    qint64 nBalance = getLiquidity(coinControl);
 
     if(total > nBalance)
     {

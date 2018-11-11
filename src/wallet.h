@@ -29,6 +29,7 @@ extern bool fConfChange;
 
 class CAccountingEntry;
 class CCoinControl;
+class CSelectedCoin;
 class CWalletTx;
 class CReserveKey;
 class COutput;
@@ -79,7 +80,7 @@ class CWallet : public CCryptoKeyStore, public CWalletInterface
 {
 private:
     bool SelectCoinsForStaking(int64_t nTargetValue, unsigned int nSpendTime, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, int64_t& nValueRet) const;
-    bool SelectCoins(int64_t nTargetValue, unsigned int nSpendTime, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, int64_t& nValueRet, const CCoinControl *coinControl=NULL) const;
+    bool SelectCoins(int64_t nTargetValue, unsigned int nSpendTime, std::set<CSelectedCoin>& setCoinsRet, int64_t& nValueRet, const CCoinControl *coinControl=NULL) const;
 
     CWalletDB *pwalletdbEncryption;
 
@@ -148,8 +149,8 @@ public:
 
     void AvailableCoinsForStaking(std::vector<COutput>& vCoins, unsigned int nSpendTime) const;
     void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl=NULL) const;
-    bool SelectCoinsMinConf(int64_t nTargetValue, unsigned int nSpendTime, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, int64_t& nValueRet) const;
-    bool SelectCoinsMinConfByCoinAge(int64_t nTargetValue, unsigned int nSpendTime, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, int64_t& nValueRet) const;
+    bool SelectCoinsMinConf(int64_t nTargetValue, unsigned int nSpendTime, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins, std::set<CSelectedCoin>& setCoinsRet, int64_t& nValueRet) const;
+    bool SelectCoinsMinConfByCoinAge(int64_t nTargetValue, unsigned int nSpendTime, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins, std::set<CSelectedCoin>& setCoinsRet, int64_t& nValueRet) const;
 
     // keystore implementation
     // Generate a new key
@@ -860,6 +861,17 @@ public:
 };
 
 
+class CSelectedCoin
+{
+public:
+    const CWalletTx* tx;
+    unsigned int i;
+    int64_t nValue;
+    
+    friend bool operator<(const CSelectedCoin &a, const CSelectedCoin &b) { 
+        return a.tx < b.tx && a.i < b.i && a.nValue < b.nValue; 
+    }
+};
 
 
 /** Private key that includes an expiration date in case it never gets used. */

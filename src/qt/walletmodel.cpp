@@ -70,7 +70,7 @@ qint64 WalletModel::getReserve(const CCoinControl *coinControl) const
         return nBalance;
     }
 
-    return wallet->GetReserves();
+    return wallet->GetReserve();
 }
 
 qint64 WalletModel::getLiquidity(const CCoinControl *coinControl) const

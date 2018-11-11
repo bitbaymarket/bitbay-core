@@ -10,6 +10,7 @@
 #include "serialize.h"
 #include "sync.h"
 #include "wallet.h"
+#include "pegdb-leveldb.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/foreach.hpp>
@@ -326,7 +327,7 @@ public:
 
 bool
 ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
-             CWalletScanState &wss, string& strType, string& strErr)
+             CWalletScanState &wss, string& strType, string& strErr, CPegDB& pegdb)
 {
     try {
         // Unserialize
@@ -345,8 +346,16 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssKey >> hash;
             CWalletTx& wtx = pwallet->mapWallet[hash];
             ssValue >> wtx;
-            if (wtx.CheckTransaction() && (wtx.GetHash() == hash))
+            if (wtx.CheckTransaction() && (wtx.GetHash() == hash)) {
+                wtx.vOutFractions.resize(wtx.vout.size());
+                for(size_t i=0; i < wtx.vout.size(); i++) {
+                    auto fkey = uint320(hash, i);
+                    CFractions& fractions = wtx.vOutFractions.at(i);
+                    fractions = CFractions(wtx.vout[i].nValue, CFractions::STD);
+                    pegdb.Read(fkey, fractions);
+                }
                 wtx.BindWallet(pwallet);
+            }
             else
             {
                 pwallet->mapWallet.erase(hash);
@@ -602,6 +611,8 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
             return DB_CORRUPT;
         }
 
+        CPegDB pegdb("r");
+        
         while (true)
         {
             // Read next record
@@ -618,7 +629,7 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
 
             // Try to be tolerant of single corrupt records:
             string strType, strErr;
-            if (!ReadKeyValue(pwallet, ssKey, ssValue, wss, strType, strErr))
+            if (!ReadKeyValue(pwallet, ssKey, ssValue, wss, strType, strErr, pegdb))
             {
                 // losing keys is considered a catastrophic error, anything else
                 // we assume the user can live with:
@@ -831,6 +842,8 @@ bool CWalletDB::Recover(CDBEnv& dbenv, std::string filename, bool fOnlyKeys)
     CWallet dummyWallet;
     CWalletScanState wss;
 
+    CPegDB pegdb("r");
+    
     DbTxn* ptxn = dbenv.TxnBegin();
     BOOST_FOREACH(CDBEnv::KeyValPair& row, salvagedData)
     {
@@ -840,7 +853,7 @@ bool CWalletDB::Recover(CDBEnv& dbenv, std::string filename, bool fOnlyKeys)
             CDataStream ssValue(row.second, SER_DISK, CLIENT_VERSION);
             string strType, strErr;
             bool fReadOK = ReadKeyValue(&dummyWallet, ssKey, ssValue,
-                                        wss, strType, strErr);
+                                        wss, strType, strErr, pegdb);
             if (!IsKeyType(strType))
                 continue;
             if (!fReadOK)

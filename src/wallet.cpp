@@ -236,6 +236,14 @@ void CWallet::SetBestChain(const CBlockLocator& loc)
 {
     CWalletDB walletdb(strWalletFile);
     walletdb.WriteBestBlock(loc);
+    {
+        LOCK(cs_main);
+        CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
+        if (pblockindex && pblockindex->nPegSupplyIndex != nLastPegSupplyIndex) {
+            nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
+            MarkDirty();
+        }
+    }
 }
 
 bool CWallet::SetMinVersion(enum WalletFeature nVersion, CWalletDB* pwalletdbIn, bool fExplicit)
@@ -596,6 +604,17 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx,
         if (fExisted || IsMine(tx) || IsFromMe(tx))
         {
             CWalletTx wtx(this,tx);
+            uint256 txhash = wtx.GetHash();
+            wtx.vOutFractions.resize(wtx.vout.size());
+            for(size_t i=0; i < wtx.vout.size(); i++) {
+                CFractions& fractions = wtx.vOutFractions.at(i);
+                auto fkey = uint320(txhash, i);
+                if (mapOutputFractions.find(fkey) == mapOutputFractions.end()) {
+                    fractions = CFractions(wtx.vout[i].nValue, CFractions::STD);
+                } else {
+                    fractions = mapOutputFractions.at(fkey);
+                }
+            }
             // Get merkle branch if transaction was found in a block
             if (pblock)
                 wtx.SetMerkleBranch(pblock);
@@ -669,16 +688,64 @@ int64_t CWallet::GetDebit(const CTxIn &txin) const
     return 0;
 }
 
-int64_t CWallet::GetReserve(uint256 txhash, long nOut, const CTxOut& txout) const
+int64_t CWallet::GetReserve(uint256 txhash, long n, const CTxOut& txout) const
 {
     if (!MoneyRange(txout.nValue))
         throw std::runtime_error("CWallet::GetReserve() : value out of range");
     if (!IsMine(txout))
         return 0;
     
-    auto fkey = uint320(txhash, nOut);
+    {
+        LOCK(cs_wallet);
+        if (nLastHashBestChain != hashBestChain) {
+            LOCK(cs_main);
+            auto pblockindex = mapBlockIndex[hashBestChain];
+            nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
+            nLastHashBestChain = hashBestChain;
+        }
+        map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(txhash);
+        if (mi != mapWallet.end())
+        {
+            const CWalletTx& wtx = (*mi).second;
+            if (0<=n && n < wtx.vOutFractions.size()) {
+                int64_t nReserve = 0;
+                wtx.vOutFractions[n].LowPart(nLastPegSupplyIndex, &nReserve);
+                return nReserve;
+            }
+        }
+    }
     
-    return txout.nValue;
+    return 0;
+}
+
+int64_t CWallet::GetLiquidity(uint256 txhash, long n, const CTxOut& txout) const
+{
+    if (!MoneyRange(txout.nValue))
+        throw std::runtime_error("CWallet::GetLiquidity() : value out of range");
+    if (!IsMine(txout))
+        return 0;
+    
+    {
+        LOCK(cs_wallet);
+        if (nLastHashBestChain != hashBestChain) {
+            LOCK(cs_main);
+            auto pblockindex = mapBlockIndex[hashBestChain];
+            nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
+            nLastHashBestChain = hashBestChain;
+        }
+        map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(txhash);
+        if (mi != mapWallet.end())
+        {
+            const CWalletTx& wtx = (*mi).second;
+            if (0<=n && n < wtx.vOutFractions.size()) {
+                int64_t nLiquidity = 0;
+                wtx.vOutFractions[n].HighPart(nLastPegSupplyIndex, &nLiquidity);
+                return nLiquidity;
+            }
+        }
+    }
+    
+    return 0;
 }
 
 bool CWallet::IsChange(const CTxOut& txout) const
@@ -1098,7 +1165,7 @@ int64_t CWallet::GetBalance() const
     return nTotal;
 }
 
-int64_t CWallet::GetReserves() const
+int64_t CWallet::GetReserve() const
 {
     int64_t nTotal = 0;
     {
@@ -1107,7 +1174,7 @@ int64_t CWallet::GetReserves() const
         {
             const CWalletTx* pcoin = &(*it).second;
             if (pcoin->IsTrusted())
-                nTotal += 0;//pcoin->GetAvailableCredit();
+                nTotal += pcoin->GetAvailableReserve();
         }
     }
 
@@ -1123,7 +1190,7 @@ int64_t CWallet::GetLiquidity() const
         {
             const CWalletTx* pcoin = &(*it).second;
             if (pcoin->IsTrusted())
-                nTotal += pcoin->GetAvailableCredit();
+                nTotal += pcoin->GetAvailableLiquidity();
         }
     }
 

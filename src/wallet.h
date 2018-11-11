@@ -138,6 +138,8 @@ public:
 
     CPubKey vchDefaultKey;
     int64_t nTimeFirstKey;
+    mutable uint256 nLastHashBestChain;
+    mutable int nLastPegSupplyIndex = 0;
 
     // check whether we are allowed to upgrade (or already support) to the named feature
     bool CanSupportFeature(enum WalletFeature wf) { AssertLockHeld(cs_wallet); return nWalletMaxVersion >= wf; }
@@ -202,7 +204,7 @@ public:
     void ReacceptWalletTransactions();
     void ResendWalletTransactions(bool fForce = false);
     int64_t GetBalance() const;
-    int64_t GetReserves() const;
+    int64_t GetReserve() const;
     int64_t GetLiquidity() const;
     int64_t GetUnconfirmedBalance() const;
     int64_t GetImmatureBalance() const;
@@ -244,6 +246,7 @@ public:
         return (IsMine(txout) ? txout.nValue : 0);
     }
     int64_t GetReserve(uint256 txhash, long nOut, const CTxOut& txout) const;
+    int64_t GetLiquidity(uint256 txhash, long nOut, const CTxOut& txout) const;
     bool IsChange(const CTxOut& txout) const;
     int64_t GetChange(const CTxOut& txout) const
     {
@@ -419,11 +422,13 @@ public:
     mutable bool fCreditCached;
     mutable bool fAvailableCreditCached;
     mutable bool fAvailableReserveCached;
+    mutable bool fAvailableLiquidityCached;
     mutable bool fChangeCached;
     mutable int64_t nDebitCached;
     mutable int64_t nCreditCached;
     mutable int64_t nAvailableCreditCached;
     mutable int64_t nAvailableReserveCached;
+    mutable int64_t nAvailableLiquidityCached;
     mutable int64_t nChangeCached;
 
     CWalletTx()
@@ -462,6 +467,7 @@ public:
         fCreditCached = false;
         fAvailableCreditCached = false;
         fAvailableReserveCached = false;
+        fAvailableLiquidityCached = false;
         fChangeCached = false;
         nDebitCached = 0;
         nCreditCached = 0;
@@ -544,6 +550,7 @@ public:
                 fReturn = true;
                 fAvailableCreditCached = false;
                 fAvailableReserveCached = false;
+                fAvailableLiquidityCached = false;
             }
         }
         return fReturn;
@@ -555,6 +562,7 @@ public:
         fCreditCached = false;
         fAvailableCreditCached = false;
         fAvailableReserveCached = false;
+        fAvailableLiquidityCached = false;
         fDebitCached = false;
         fChangeCached = false;
     }
@@ -575,6 +583,7 @@ public:
             vfSpent[nOut] = true;
             fAvailableCreditCached = false;
             fAvailableReserveCached = false;
+            fAvailableLiquidityCached = false;
         }
     }
 
@@ -588,6 +597,7 @@ public:
             vfSpent[nOut] = false;
             fAvailableCreditCached = false;
             fAvailableReserveCached = false;
+            fAvailableLiquidityCached = false;
         }
     }
 
@@ -675,6 +685,32 @@ public:
         nAvailableReserveCached = nReserve;
         fAvailableReserveCached = true;
         return nReserve;
+    }
+    
+    int64_t GetAvailableLiquidity(bool fUseCache=true) const
+    {
+        // Must wait until coinbase is safely deep enough in the chain before valuing it
+        if ((IsCoinBase() || IsCoinStake()) && GetBlocksToMaturity() > 0)
+            return 0;
+
+        if (fUseCache && fAvailableLiquidityCached)
+            return nAvailableLiquidityCached;
+
+        int64_t nLiquidity = 0;
+        for (unsigned int i = 0; i < vout.size(); i++)
+        {
+            if (!IsSpent(i))
+            {
+                const CTxOut &txout = vout[i];
+                nLiquidity += pwallet->GetLiquidity(GetHash(), i, txout);
+                if (!MoneyRange(nLiquidity))
+                    throw std::runtime_error("CWalletTx::GetAvailableReserve() : value out of range");
+            }
+        }
+
+        nAvailableLiquidityCached = nLiquidity;
+        fAvailableLiquidityCached = true;
+        return nLiquidity;
     }
 
     int64_t GetChange() const

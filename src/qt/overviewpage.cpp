@@ -157,7 +157,6 @@ OverviewPage::OverviewPage(QWidget *parent) :
 
     ui->labelBalanceText        ->setStyleSheet(white2);
     ui->labelReserveText        ->setStyleSheet(white2);
-    ui->labelLiquidityText      ->setStyleSheet(white2);
     ui->labelStakeText          ->setStyleSheet(white2);
     ui->labelUnconfirmedText    ->setStyleSheet(white2);
     ui->labelImmatureText       ->setStyleSheet(white2);
@@ -172,7 +171,6 @@ OverviewPage::OverviewPage(QWidget *parent) :
 
     ui->labelBalance            ->setStyleSheet(white1);
     ui->labelReserve            ->setStyleSheet(white1);
-    ui->labelLiquidity          ->setStyleSheet(white1);
     ui->labelStake              ->setStyleSheet(white1);
     ui->labelUnconfirmed        ->setStyleSheet(white1);
     ui->labelImmature           ->setStyleSheet(white1);
@@ -263,9 +261,8 @@ void OverviewPage::setBalance(qint64 balance, qint64 reserve, qint64 liquidity,
     currentStake = stake;
     currentUnconfirmedBalance = unconfirmedBalance;
     currentImmatureBalance = immatureBalance;
-    ui->labelBalance->setText(BitcoinUnits::formatWithUnitForLabel(unit, balance));
     ui->labelReserve->setText(BitcoinUnits::formatWithUnitForLabel(unit, reserve));
-    ui->labelLiquidity->setText(BitcoinUnits::formatWithUnitForLabel(unit, liquidity));
+    ui->labelBalance->setText(BitcoinUnits::formatWithUnitForLabel(unit, liquidity));
     ui->labelStake->setText(BitcoinUnits::formatWithUnitForLabel(unit, stake));
     ui->labelUnconfirmed->setText(BitcoinUnits::formatWithUnitForLabel(unit, unconfirmedBalance));
     ui->labelImmature->setText(BitcoinUnits::formatWithUnitForLabel(unit, immatureBalance));

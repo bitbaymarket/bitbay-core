@@ -10,6 +10,10 @@
 #include "coincontrol.h"
 #include "guiutil.h"
 
+#include "metatypes.h" // for fractions delegate
+#include "blockchainpage.h" // for fractions delegate
+#include "blockchainmodel.h" // for fractions delegate
+
 #include <QApplication>
 #include <QCheckBox>
 #include <QClipboard>
@@ -132,6 +136,7 @@ CoinControlDialog::CoinControlDialog(QWidget *parent) :
     ui->treeWidget->setColumnWidth(COLUMN_AMOUNT, 180);
     ui->treeWidget->setColumnWidth(COLUMN_LIQUIDITY, 180);
     ui->treeWidget->setColumnWidth(COLUMN_RESERVE, 180);
+    ui->treeWidget->setColumnWidth(COLUMN_FRACTIONS, 80);
     ui->treeWidget->setColumnWidth(COLUMN_LABEL, 170);
     ui->treeWidget->setColumnWidth(COLUMN_ADDRESS, 290);
     ui->treeWidget->setColumnWidth(COLUMN_DATE, 130);
@@ -139,11 +144,16 @@ CoinControlDialog::CoinControlDialog(QWidget *parent) :
     ui->treeWidget->setColumnWidth(COLUMN_PRIORITY, 100);
     ui->treeWidget->setColumnHidden(COLUMN_TXHASH, true);         // store transacton hash in this column, but dont show it
     ui->treeWidget->setColumnHidden(COLUMN_VOUT_INDEX, true);     // store vout index in this column, but dont show it
+    ui->treeWidget->setColumnHidden(COLUMN_AMOUNT, true);         // dont show it, as there are liquidity and reserves
     ui->treeWidget->setColumnHidden(COLUMN_AMOUNT_INT64, true);   // store amount int64_t in this column, but dont show it
     ui->treeWidget->setColumnHidden(COLUMN_PRIORITY_INT64, true); // store priority int64_t in this column, but dont show it
 
     // default view is sorted by amount desc
     sortView(COLUMN_AMOUNT_INT64, Qt::DescendingOrder);
+    
+    // fractions views
+    auto txOutFractionsDelegate = new FractionsItemDelegate(ui->treeWidget);
+    ui->treeWidget->setItemDelegateForColumn(COLUMN_FRACTIONS, txOutFractionsDelegate);
 }
 
 CoinControlDialog::~CoinControlDialog()
@@ -631,6 +641,7 @@ void CoinControlDialog::updateView()
         int64_t nSum = 0;
         int64_t nSumReserve = 0;
         int64_t nSumLiquidity = 0;
+        CFractions sumFractions(0, CFractions::STD);
         double dPrioritySum = 0;
         int nChildren = 0;
         int nInputSum = 0;
@@ -681,11 +692,16 @@ void CoinControlDialog::updateView()
             }
 
             // amount
+            sumFractions += out.tx->vOutFractions[out.i];
             int64_t nReserve = out.tx->vOutFractions[out.i].Low(model->getPegSupplyIndex());
             int64_t nLiquidity = out.tx->vOutFractions[out.i].High(model->getPegSupplyIndex());
             nSumReserve += nReserve;
             nSumLiquidity += nLiquidity;
             
+            QVariant vfractions;
+            vfractions.setValue(out.tx->vOutFractions[out.i]);
+            itemOutput->setData(COLUMN_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
+            itemOutput->setData(COLUMN_FRACTIONS, BlockchainModel::PegSupplyRole, model->getPegSupplyIndex());
             itemOutput->setData(COLUMN_AMOUNT, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
             itemOutput->setText(COLUMN_AMOUNT, BitcoinUnits::formatR(nDisplayUnit, out.tx->vout[out.i].nValue));
             itemOutput->setData(COLUMN_RESERVE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
@@ -693,7 +709,7 @@ void CoinControlDialog::updateView()
             itemOutput->setData(COLUMN_LIQUIDITY, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
             itemOutput->setText(COLUMN_LIQUIDITY, BitcoinUnits::formatR(nDisplayUnit, nLiquidity));
             itemOutput->setText(COLUMN_AMOUNT_INT64, strPad(QString::number(out.tx->vout[out.i].nValue), 15, " ")); // padding so that sorting works correctly
-
+            
             // date
             itemOutput->setText(COLUMN_DATE, QDateTime::fromTime_t(out.tx->GetTxTime()).toUTC().toString("yy-MM-dd hh:mm"));
 
@@ -731,6 +747,10 @@ void CoinControlDialog::updateView()
         // amount
         if (treeMode)
         {
+            QVariant vfractions;
+            vfractions.setValue(sumFractions);
+            itemWalletAddress->setData(COLUMN_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
+            itemWalletAddress->setData(COLUMN_FRACTIONS, BlockchainModel::PegSupplyRole, model->getPegSupplyIndex());
             dPrioritySum = dPrioritySum / (nInputSum + 78);
             itemWalletAddress->setText(COLUMN_CHECKBOX, "(" + QString::number(nChildren) + ")");
             itemWalletAddress->setData(COLUMN_AMOUNT, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));

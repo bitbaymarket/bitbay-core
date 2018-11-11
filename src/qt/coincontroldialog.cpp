@@ -491,10 +491,11 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog)
         nQuantity++;
 
         // Amount
-        nAmount += out.tx->vout[out.i].nValue;
+        int64_t nValue = out.tx->vOutFractions[out.i].High(model->getPegSupplyIndex());
+        nAmount += nValue;
 
         // Priority
-        dPriorityInputs += (double)out.tx->vout[out.i].nValue * (out.nDepth+1);
+        dPriorityInputs += (double)nValue * (out.nDepth+1);
 
         // Bytes
         CTxDestination address;
@@ -503,7 +504,8 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog)
             CPubKey pubkey;
             CKeyID *keyid = boost::get< CKeyID >(&address);
             if (keyid && model->getPubKey(*keyid, pubkey))
-                nBytesInputs += (pubkey.IsCompressed() ? 148 : 180);
+                //for tx with peg, multiply by 2 to have output to itself
+                nBytesInputs += (pubkey.IsCompressed() ? 148 : 180) * 2;
             else
                 nBytesInputs += 148; // in all error cases, simply assume 148 here
         }

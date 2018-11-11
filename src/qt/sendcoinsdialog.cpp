@@ -108,10 +108,11 @@ void SendCoinsDialog::setModel(WalletModel *model)
             }
         }
 
-        setBalance(model->getBalance(), model->getReserve(), model->getLiquidity(),
+        setBalance(model->getBalance(), 
+                   model->getReserve(), model->getLiquidity(), model->getFrozen(),
                    model->getStake(), model->getUnconfirmedBalance(), model->getImmatureBalance());
-        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64, qint64, qint64, qint64)),
-                this, SLOT(setBalance(qint64, qint64, qint64, qint64, qint64, qint64)));
+        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64, qint64, qint64, qint64, qint64)),
+                this, SLOT(setBalance(qint64, qint64, qint64, qint64, qint64, qint64, qint64)));
         connect(model->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
 
         // Coin Control
@@ -362,7 +363,8 @@ bool SendCoinsDialog::handleURI(const QString &uri)
     return false;
 }
 
-void SendCoinsDialog::setBalance(qint64 balance, qint64 reserves, qint64 liquidity,
+void SendCoinsDialog::setBalance(qint64 balance, 
+                                 qint64 reserves, qint64 liquidity, qint64 frozen,
                                  qint64 stake, qint64 unconfirmedBalance, qint64 immatureBalance)
 {
     Q_UNUSED(stake);
@@ -379,7 +381,7 @@ void SendCoinsDialog::setBalance(qint64 balance, qint64 reserves, qint64 liquidi
 
 void SendCoinsDialog::updateDisplayUnit()
 {
-    setBalance(model->getBalance(), model->getReserve(), model->getLiquidity(), 0, 0, 0);
+    setBalance(model->getBalance(), model->getReserve(), model->getLiquidity(), model->getFrozen(), 0, 0, 0);
 }
 
 // Coin Control: copy label "Quantity" to clipboard

@@ -29,7 +29,8 @@ public:
     void showOutOfSyncWarning(bool fShow);
 
 public slots:
-    void setBalance(qint64 balance, qint64 reserves, qint64 liquidity,
+    void setBalance(qint64 balance, 
+                    qint64 reserves, qint64 liquidity, qint64 frozen, 
                     qint64 stake, qint64 unconfirmedBalance, qint64 immatureBalance);
 
 signals:
@@ -42,6 +43,7 @@ private:
     qint64 currentBalance;
     qint64 currentReserve;
     qint64 currentLiquidity;
+    qint64 currentFrozen;
     qint64 currentStake;
     qint64 currentUnconfirmedBalance;
     qint64 currentImmatureBalance;

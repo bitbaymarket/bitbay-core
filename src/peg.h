@@ -31,7 +31,9 @@ enum
     PEG_RATE        = 100,
     PEG_SIZE        = 1200,
     PEG_DEST_OUT    = 1,
-    PEG_DEST_SELF   = 2
+    PEG_DEST_SELF   = 2,
+    PEG_FROZEN_TIME = 2592000,
+    PEG_VFROZEN_TIME= 2592000*4
 };
 
 class CFractions {

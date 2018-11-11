@@ -67,6 +67,7 @@ public:
     qint64 getBalance(const CCoinControl *coinControl=NULL) const;
     qint64 getReserve(const CCoinControl *coinControl=NULL) const;
     qint64 getLiquidity(const CCoinControl *coinControl=NULL) const;
+    qint64 getFrozen(const CCoinControl *coinControl=NULL) const;
     qint64 getStake() const;
     qint64 getUnconfirmedBalance() const;
     qint64 getImmatureBalance() const;
@@ -139,6 +140,7 @@ private:
     qint64 cachedBalance;
     qint64 cachedReserve;
     qint64 cachedLiquidity;
+    qint64 cachedFrozen;
     qint64 cachedStake;
     qint64 cachedUnconfirmedBalance;
     qint64 cachedImmatureBalance;
@@ -164,7 +166,9 @@ public slots:
 
 signals:
     // Signal that balance in wallet changed
-    void balanceChanged(qint64 balance, qint64 reserves, qint64 liquidity, qint64 stake, qint64 unconfirmedBalance, qint64 immatureBalance);
+    void balanceChanged(qint64 balance, 
+                        qint64 reserves, qint64 liquidity, qint64 frozen,
+                        qint64 stake, qint64 unconfirmedBalance, qint64 immatureBalance);
 
     // Encryption status of wallet changed
     void encryptionStatusChanged(int status);

@@ -241,6 +241,8 @@ void CWallet::SetBestChain(const CBlockLocator& loc)
         CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
         if (pblockindex && pblockindex->nPegSupplyIndex != nLastPegSupplyIndex) {
             nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
+            nLastVFrozenTime = pblockindex->nTime - PEG_VFROZEN_TIME;
+            nLastFrozenTime = pblockindex->nTime - PEG_FROZEN_TIME;
             MarkDirty();
         }
     }
@@ -694,9 +696,46 @@ int CWallet::GetPegSupplyIndex() const
         LOCK(cs_main);
         auto pblockindex = mapBlockIndex[hashBestChain];
         nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
+        nLastVFrozenTime = pblockindex->nTime - PEG_VFROZEN_TIME;
+        nLastFrozenTime = pblockindex->nTime - PEG_FROZEN_TIME;
         nLastHashBestChain = hashBestChain;
     }
     return nLastPegSupplyIndex;
+}
+
+int64_t CWallet::GetFrozen(uint256 txhash, long n, const CTxOut& txout) const
+{
+    if (!MoneyRange(txout.nValue))
+        throw std::runtime_error("CWallet::GetReserve() : value out of range");
+    if (!IsMine(txout))
+        return 0;
+    
+    {
+        LOCK(cs_wallet);
+        if (nLastHashBestChain != hashBestChain) {
+            LOCK(cs_main);
+            auto pblockindex = mapBlockIndex[hashBestChain];
+            nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
+            nLastVFrozenTime = pblockindex->nTime - PEG_VFROZEN_TIME;
+            nLastFrozenTime = pblockindex->nTime - PEG_FROZEN_TIME;
+            nLastHashBestChain = hashBestChain;
+        }
+        map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(txhash);
+        if (mi != mapWallet.end())
+        {
+            const CWalletTx& wtx = (*mi).second;
+            if (0<=n && n < wtx.vOutFractions.size()) {
+                bool fF = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_F;
+                bool fV = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_V;
+                fF &= wtx.nTime >= nLastFrozenTime;
+                fV &= wtx.nTime >= nLastVFrozenTime;
+                if (fF || fV)
+                    return wtx.vout[n].nValue;
+            }
+        }
+    }
+    
+    return 0;
 }
 
 int64_t CWallet::GetReserve(uint256 txhash, long n, const CTxOut& txout) const
@@ -712,6 +751,8 @@ int64_t CWallet::GetReserve(uint256 txhash, long n, const CTxOut& txout) const
             LOCK(cs_main);
             auto pblockindex = mapBlockIndex[hashBestChain];
             nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
+            nLastVFrozenTime = pblockindex->nTime - PEG_VFROZEN_TIME;
+            nLastFrozenTime = pblockindex->nTime - PEG_FROZEN_TIME;
             nLastHashBestChain = hashBestChain;
         }
         map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(txhash);
@@ -719,6 +760,13 @@ int64_t CWallet::GetReserve(uint256 txhash, long n, const CTxOut& txout) const
         {
             const CWalletTx& wtx = (*mi).second;
             if (0<=n && n < wtx.vOutFractions.size()) {
+                bool fF = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_F;
+                bool fV = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_V;
+                fF &= wtx.nTime >= nLastFrozenTime;
+                fV &= wtx.nTime >= nLastVFrozenTime;
+                if (fF || fV)
+                    return 0;
+                
                 int64_t nReserve = 0;
                 wtx.vOutFractions[n].LowPart(nLastPegSupplyIndex, &nReserve);
                 return nReserve;
@@ -742,6 +790,8 @@ int64_t CWallet::GetLiquidity(uint256 txhash, long n, const CTxOut& txout) const
             LOCK(cs_main);
             auto pblockindex = mapBlockIndex[hashBestChain];
             nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
+            nLastVFrozenTime = pblockindex->nTime - PEG_VFROZEN_TIME;
+            nLastFrozenTime = pblockindex->nTime - PEG_FROZEN_TIME;
             nLastHashBestChain = hashBestChain;
         }
         map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(txhash);
@@ -749,6 +799,13 @@ int64_t CWallet::GetLiquidity(uint256 txhash, long n, const CTxOut& txout) const
         {
             const CWalletTx& wtx = (*mi).second;
             if (0<=n && n < wtx.vOutFractions.size()) {
+                bool fF = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_F;
+                bool fV = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_V;
+                fF &= wtx.nTime >= nLastFrozenTime;
+                fV &= wtx.nTime >= nLastVFrozenTime;
+                if (fF || fV)
+                    return 0;
+                
                 int64_t nLiquidity = 0;
                 wtx.vOutFractions[n].HighPart(nLastPegSupplyIndex, &nLiquidity);
                 return nLiquidity;
@@ -1202,6 +1259,23 @@ int64_t CWallet::GetLiquidity() const
             const CWalletTx* pcoin = &(*it).second;
             if (pcoin->IsTrusted())
                 nTotal += pcoin->GetAvailableLiquidity();
+        }
+    }
+
+    return nTotal;
+}
+
+int64_t CWallet::GetFrozen() const
+{
+    int64_t nTotal = 0;
+    {
+        LOCK2(cs_main, cs_wallet);
+        for (map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
+        {
+            const CWalletTx* pcoin = &(*it).second;
+            if (pcoin->IsTrusted()) {
+                nTotal += pcoin->GetAvailableFrozen();
+            }
         }
     }
 

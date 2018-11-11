@@ -70,6 +70,27 @@ SendCoinsDialog::SendCoinsDialog(QWidget *parent) :
     ui->labelCoinControlChange->addAction(clipboardChangeAction);
 
     fNewRecipientAllowed = true;
+    
+    QString white1 = R"(
+        QWidget {
+            background-color: rgb(255,255,255);
+            padding-left: 10px;
+            padding-right:10px;
+        }
+    )";
+    QString white2 = R"(
+        QWidget {
+            color: rgb(102,102,102);
+            background-color: rgb(255,255,255);
+            padding-left: 10px;
+            padding-right:10px;
+        }
+    )";
+
+    ui->labelLiquidityText  ->setStyleSheet(white2);
+    ui->labelReservesText   ->setStyleSheet(white2);
+    ui->labelLiquidity      ->setStyleSheet(white1);
+    ui->labelReserves       ->setStyleSheet(white1);
 }
 
 void SendCoinsDialog::setModel(WalletModel *model)
@@ -350,9 +371,9 @@ void SendCoinsDialog::setBalance(qint64 balance, qint64 reserves, qint64 liquidi
 
     if(model && model->getOptionsModel())
     {
-        ui->labelBalance->setText(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), balance));
-        ui->labelReserves->setText(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), reserves));
-        ui->labelLiquidity->setText(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), liquidity));
+        //ui->labelBalance->setText(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), balance));
+        ui->labelReserves->setText(BitcoinUnits::formatWithUnitForLabel(model->getOptionsModel()->getDisplayUnit(), reserves));
+        ui->labelLiquidity->setText(BitcoinUnits::formatWithUnitForLabel(model->getOptionsModel()->getDisplayUnit(), liquidity));
     }
 }
 

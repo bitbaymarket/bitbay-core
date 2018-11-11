@@ -629,6 +629,8 @@ void CoinControlDialog::updateView()
         }
 
         int64_t nSum = 0;
+        int64_t nSumReserve = 0;
+        int64_t nSumLiquidity = 0;
         double dPrioritySum = 0;
         int nChildren = 0;
         int nInputSum = 0;
@@ -680,9 +682,16 @@ void CoinControlDialog::updateView()
 
             // amount
             int64_t nReserve = out.tx->vOutFractions[out.i].Low(model->getPegSupplyIndex());
+            int64_t nLiquidity = out.tx->vOutFractions[out.i].High(model->getPegSupplyIndex());
+            nSumReserve += nReserve;
+            nSumLiquidity += nLiquidity;
+            
             itemOutput->setData(COLUMN_AMOUNT, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
             itemOutput->setText(COLUMN_AMOUNT, BitcoinUnits::formatR(nDisplayUnit, out.tx->vout[out.i].nValue));
+            itemOutput->setData(COLUMN_RESERVE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
             itemOutput->setText(COLUMN_RESERVE, BitcoinUnits::formatR(nDisplayUnit, nReserve));
+            itemOutput->setData(COLUMN_LIQUIDITY, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+            itemOutput->setText(COLUMN_LIQUIDITY, BitcoinUnits::formatR(nDisplayUnit, nLiquidity));
             itemOutput->setText(COLUMN_AMOUNT_INT64, strPad(QString::number(out.tx->vout[out.i].nValue), 15, " ")); // padding so that sorting works correctly
 
             // date
@@ -726,6 +735,10 @@ void CoinControlDialog::updateView()
             itemWalletAddress->setText(COLUMN_CHECKBOX, "(" + QString::number(nChildren) + ")");
             itemWalletAddress->setData(COLUMN_AMOUNT, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
             itemWalletAddress->setText(COLUMN_AMOUNT, BitcoinUnits::formatR(nDisplayUnit, nSum));
+            itemWalletAddress->setText(COLUMN_RESERVE, BitcoinUnits::formatR(nDisplayUnit, nSumReserve));
+            itemWalletAddress->setData(COLUMN_RESERVE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+            itemWalletAddress->setText(COLUMN_LIQUIDITY, BitcoinUnits::formatR(nDisplayUnit, nSumLiquidity));
+            itemWalletAddress->setData(COLUMN_LIQUIDITY, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
             itemWalletAddress->setText(COLUMN_AMOUNT_INT64, strPad(QString::number(nSum), 15, " "));
             itemWalletAddress->setText(COLUMN_PRIORITY, CoinControlDialog::getPriorityLabel(dPrioritySum));
             itemWalletAddress->setText(COLUMN_PRIORITY_INT64, strPad(QString::number((int64_t)dPrioritySum), 20, " "));

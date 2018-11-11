@@ -195,6 +195,7 @@ OverviewPage::OverviewPage(QWidget *parent) :
         fvbox->setMargin(0);
         fvbox->addWidget(fplot);
         ui->widgetFractions->setLayout(fvbox);
+        ui->widgetFractions->setVisible(false);
 
         auto supply = 40; // temp
         auto fractions = CFractions(100*100000000, CFractions::STD);

@@ -1505,7 +1505,7 @@ bool CWallet::SelectCoinsMinConfByCoinAge(int64_t nTargetValue, unsigned int nSp
         if (output.first.nDepth < (pcoin->IsFromMe() ? nConfMine : nConfTheirs))
             continue;
 
-        int i = output.first.i;
+        unsigned int i = output.first.i;
 
         // Follow the timestamp rules
         if (pcoin->nTime > nSpendTime)
@@ -1790,7 +1790,7 @@ bool CWallet::SelectCoinsMinConf(int64_t nTargetValue, unsigned int nSpendTime, 
         if (output.nDepth < (pcoin->IsFromMe() ? nConfMine : nConfTheirs))
             continue;
 
-        int i = output.i;
+        unsigned int i = output.i;
 
         // Follow the timestamp rules
         if (pcoin->nTime > nSpendTime)
@@ -1920,7 +1920,8 @@ bool CWallet::SelectCoins(int64_t nTargetValue,
                 nValueTake = nValueLeft;
             }
             nValueLeft -= nValueTake;
-            CSelectedCoin selectedCoin = {out.tx, out.i, nValueTake};
+            unsigned int i = out.i;
+            CSelectedCoin selectedCoin = {out.tx, i, nValueTake};
             setCoinsRet.insert(selectedCoin);
         }
         return (nValueRet >= nTargetValue);

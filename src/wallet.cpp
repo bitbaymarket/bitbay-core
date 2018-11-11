@@ -1531,7 +1531,9 @@ bool CWallet::SelectCoinsMinConfByCoinAge(int64_t nTargetValue, unsigned int nSp
     {
         if (coinLowestLarger.second.tx == NULL)
             return false;
-        setCoinsRet.insert(coinLowestLarger.second);
+        CSelectedCoin selectedCoin = coinLowestLarger.second;
+        selectedCoin.nValue = nTargetValue;
+        setCoinsRet.insert(selectedCoin);
         nValueRet += coinLowestLarger.first.first;
         return true;
     }
@@ -1564,6 +1566,9 @@ bool CWallet::SelectCoinsMinConfByCoinAge(int64_t nTargetValue, unsigned int nSp
         return true;
     }
 
+    // trace what is left to correct last nValueTake
+    int64_t nValueLeft = nTargetValue;
+    
     size_t nBeginBundles = vValue.size();
     size_t nTotalCoinValues = vValue.size();
     size_t nBeginCoinValues = 0;
@@ -1610,13 +1615,32 @@ bool CWallet::SelectCoinsMinConfByCoinAge(int64_t nTargetValue, unsigned int nSp
                     const size_t nBundle = nBeginCoinValues - nBeginBundles;
                     for (vector<pair<pair<int64_t,int64_t>,CSelectedCoin> >::iterator it = vZeroValueBundles[nBundle]; it != vZeroValueBundles[nBundle + 1]; ++it)
                     {
-                        setCoinsRet.insert(it->second);
+                        CSelectedCoin selectedCoin = it->second;
+                        int64_t nValueTake = selectedCoin.nValue;
+                        if (nValueTake > nValueLeft) {
+                            nValueTake = nValueLeft;
+                            selectedCoin.nValue = nValueTake;
+                        }
+                        nValueLeft -= nValueTake;
+                        setCoinsRet.insert(selectedCoin);
                     }
                 }
                 else
                 {
-                    if (fDebug) cerr << "prepicking " << FormatMoney(vValue[nBeginCoinValues].first.first) << " normalized " << vValue[nBeginCoinValues].first.first / denom << " cost " << vValue[nBeginCoinValues].first.second << endl;
-                    setCoinsRet.insert(vValue[nBeginCoinValues].second);
+                    if (fDebug) cerr << "prepicking " 
+                                     << FormatMoney(vValue[nBeginCoinValues].first.first) 
+                                     << " normalized " 
+                                     << vValue[nBeginCoinValues].first.first / denom 
+                                     << " cost " 
+                                     << vValue[nBeginCoinValues].first.second << endl;
+                    CSelectedCoin selectedCoin = vValue[nBeginCoinValues].second;
+                    int64_t nValueTake = selectedCoin.nValue;
+                    if (nValueTake > nValueLeft) {
+                        nValueTake = nValueLeft;
+                        selectedCoin.nValue = nValueTake;
+                    }
+                    nValueLeft -= nValueTake;
+                    setCoinsRet.insert(selectedCoin);
                 }
                 nTotalValue -= vValue[nBeginCoinValues].first.first / denom;
                 nValueRet += vValue[nBeginCoinValues].first.first;
@@ -1624,8 +1648,8 @@ bool CWallet::SelectCoinsMinConfByCoinAge(int64_t nTargetValue, unsigned int nSp
             }
             if (nValueRet >= nTargetValue)
             {
-                    if (fDebug) cerr << "Done without dynprog: " << "requested " << FormatMoney(nTargetValue) << "\tnormalized " << nTargetValue/denom + (nTargetValue % denom != 0 ? 1 : 0) << "\tgot " << FormatMoney(nValueRet) << "\tcost " << costsum << endl;
-                    return true;
+                if (fDebug) cerr << "Done without dynprog: " << "requested " << FormatMoney(nTargetValue) << "\tnormalized " << nTargetValue/denom + (nTargetValue % denom != 0 ? 1 : 0) << "\tgot " << FormatMoney(nValueRet) << "\tcost " << costsum << endl;
+                return true;
             }
         }
     }
@@ -1690,13 +1714,27 @@ bool CWallet::SelectCoinsMinConfByCoinAge(int64_t nTargetValue, unsigned int nSp
                 const size_t nBundle = nValue - nBeginBundles;
                 for (vector<pair<pair<int64_t,int64_t>,CSelectedCoin> >::iterator it = vZeroValueBundles[nBundle]; it != vZeroValueBundles[nBundle + 1]; ++it)
                 {
-                    setCoinsRet.insert(it->second);
+                    CSelectedCoin selectedCoin = it->second;
+                    int64_t nValueTake = selectedCoin.nValue;
+                    if (nValueTake > nValueLeft) {
+                        nValueTake = nValueLeft;
+                        selectedCoin.nValue = nValueTake;
+                    }
+                    nValueLeft -= nValueTake;
+                    setCoinsRet.insert(selectedCoin);
                 }
             }
             else
             {
                 if (fDebug) cerr << "pick " << nValue << " value " << FormatMoney(vValue[nValue].first.first) << " normalized " << vValue[nValue].first.first / denom << " cost " << vValue[nValue].first.second << endl;
-                setCoinsRet.insert(vValue[nValue].second);
+                CSelectedCoin selectedCoin = vValue[nValue].second;
+                int64_t nValueTake = selectedCoin.nValue;
+                if (nValueTake > nValueLeft) {
+                    nValueTake = nValueLeft;
+                    selectedCoin.nValue = nValueTake;
+                }
+                nValueLeft -= nValueTake;
+                setCoinsRet.insert(selectedCoin);
             }
             nValueRet += vValue[nValue].first.first;
             costsum += vValue[nValue].first.second;
@@ -1709,8 +1747,15 @@ bool CWallet::SelectCoinsMinConfByCoinAge(int64_t nTargetValue, unsigned int nSp
         // We try to fulfill the request by adding these small coin outputs
         for (vector<pair<pair<int64_t,int64_t>,CSelectedCoin> >::iterator it = vZeroValueBundles.back(); it != vValue.end() && nValueRet < nTargetValue; ++it)
         {
-             setCoinsRet.insert(it->second);
-             nValueRet += it->first.first;
+            CSelectedCoin selectedCoin = it->second;
+            int64_t nValueTake = selectedCoin.nValue;
+            if (nValueTake > nValueLeft) {
+                nValueTake = nValueLeft;
+                selectedCoin.nValue = nValueTake;
+            }
+            nValueLeft -= nValueTake;
+            setCoinsRet.insert(selectedCoin);
+            nValueRet += it->first.first;
         }
     }
     if (fDebug) cerr << "requested " << FormatMoney(nTargetValue) << "\tnormalized " << nTargetValue/denom + (nTargetValue % denom != 0 ? 1 : 0) << "\tgot " << FormatMoney(nValueRet) << "\tcost " << costsum << endl;
@@ -1751,6 +1796,7 @@ bool CWallet::SelectCoinsMinConf(int64_t nTargetValue, unsigned int nSpendTime, 
         if (pcoin->nTime > nSpendTime)
             continue;
 
+        // take liquidity
         int64_t nValue = pcoin->vOutFractions[i].High(GetPegSupplyIndex());
         CSelectedCoin selectedCoin = {pcoin, i, nValue};
         pair<int64_t,CSelectedCoin> coin = make_pair(nValue,selectedCoin);
@@ -1786,7 +1832,9 @@ bool CWallet::SelectCoinsMinConf(int64_t nTargetValue, unsigned int nSpendTime, 
     {
         if (coinLowestLarger.second.tx == NULL)
             return false;
-        setCoinsRet.insert(coinLowestLarger.second);
+        CSelectedCoin selectedCoin = coinLowestLarger.second;
+        selectedCoin.nValue = nTargetValue; // take all from one input
+        setCoinsRet.insert(selectedCoin);
         nValueRet += coinLowestLarger.first;
         return true;
     }
@@ -1805,16 +1853,27 @@ bool CWallet::SelectCoinsMinConf(int64_t nTargetValue, unsigned int nSpendTime, 
     if (coinLowestLarger.second.tx &&
         ((nBest != nTargetValue && nBest < nTargetValue + CENT) || coinLowestLarger.first <= nBest))
     {
-        setCoinsRet.insert(coinLowestLarger.second);
+        CSelectedCoin selectedCoin = coinLowestLarger.second;
+        selectedCoin.nValue = nTargetValue; // take all from one input
+        setCoinsRet.insert(selectedCoin);
         nValueRet += coinLowestLarger.first;
     }
     else {
-        for (unsigned int i = 0; i < vValue.size(); i++)
+        int64_t nValueLeft = nTargetValue;
+        for (unsigned int i = 0; i < vValue.size(); i++) {
             if (vfBest[i])
             {
-                setCoinsRet.insert(vValue[i].second);
+                CSelectedCoin selectedCoin = vValue[i].second;
+                int64_t nValueTake = selectedCoin.nValue;
+                if (nValueTake > nValueLeft) {
+                    nValueTake = nValueLeft;
+                    selectedCoin.nValue = nValueTake;
+                }
+                nValueLeft -= nValueTake;
+                setCoinsRet.insert(selectedCoin);
                 nValueRet += vValue[i].first;
             }
+        }
 
         LogPrint("selectcoins", "SelectCoins() best subset: ");
         for (unsigned int i = 0; i < vValue.size(); i++)
@@ -1838,15 +1897,30 @@ bool CWallet::SelectCoins(int64_t nTargetValue,
     // coin control -> return all selected outputs (we want all selected to go into the transaction for sure)
     if (coinControl && coinControl->HasSelected())
     {
-        BOOST_FOREACH(const COutput& out, vCoins)
+        int64_t nValueLeft = nTargetValue;
+        for(const COutput& out : vCoins)
         {
             if(!out.fSpendable)
                 continue;
-            // now, for peg we just select liquidity part
-            // todo skip frozen
+            
+            // skip all frozen outputs
+            bool fF = out.tx->vOutFractions[out.i].nFlags & CFractions::NOTARY_F;
+            bool fV = out.tx->vOutFractions[out.i].nFlags & CFractions::NOTARY_V;
+            fF &= out.tx->nTime >= nLastFrozenTime;
+            fV &= out.tx->nTime >= nLastVFrozenTime;
+            if (fF || fV)
+                continue;
+
+            // take liquidity part
             int64_t nValue = out.tx->vOutFractions[out.i].High(GetPegSupplyIndex());
             nValueRet += nValue;
-            CSelectedCoin selectedCoin = {out.tx, out.i, nValue};
+            
+            int64_t nValueTake = nValue;
+            if (nValueTake > nValueLeft) {
+                nValueTake = nValueLeft;
+            }
+            nValueLeft -= nValueTake;
+            CSelectedCoin selectedCoin = {out.tx, out.i, nValueTake};
             setCoinsRet.insert(selectedCoin);
         }
         return (nValueRet >= nTargetValue);
@@ -1967,48 +2041,41 @@ bool CWallet::CreateTransaction(const vector<pair<CScript, int64_t> >& vecSend, 
                     dPriority += (double)nCredit * pcoin.tx->GetDepthInMainChain();
                 }
 
-                int64_t nChange = nValueIn - nValue - nFeeRet;
+                reservekey.ReturnKey();
 
-                if (nChange > 0)
-                {
-                    // Fill a vout to ourself
-                    // TODO: pass in scriptChange instead of reservekey so
-                    // change transaction isn't always pay-to-bitcoin-address
-                    CScript scriptChange;
-
-                    // TODO: peg: change to be sent back to input addresses
-                    // TODO: peg: as logic of working with reserves
-                    // coin control: send change to custom address
-                    //if (coinControl && !boost::get<CNoDestination>(&coinControl->destChange))
-                    //    scriptChange.SetDestination(coinControl->destChange);
-
-                    // no coin control: send change to newly generated address
-                    // else
-                    {
-                        // Note: We use a new key here to keep it from being obvious which side is the change.
-                        //  The drawback is that by not reusing a previous key, the change may be lost if a
-                        //  backup is restored, if the backup doesn't have the new private key for the change.
-                        //  If we reused the old key, it would be possible to add code to look for and
-                        //  rediscover unknown transactions that were written with keys of ours to recover
-                        //  post-backup change.
-
-                        // Reserve a new key pair from key pool
-                        CPubKey vchPubKey;
-                        bool ret;
-                        ret = reservekey.GetReservedKey(vchPubKey);
-                        assert(ret); // should never fail, as we just unlocked
-
-                        scriptChange.SetDestination(vchPubKey.GetID());
-                    }
-
-                    // Insert change txn at random position:
-                    vector<CTxOut>::iterator position = wtxNew.vout.begin()+GetRandInt(wtxNew.vout.size()+1);
-                    wtxNew.vout.insert(position, CTxOut(nChange, scriptChange));
+                // Collect return addresses
+                map<CTxDestination, int64_t> mapInputValuesAt;
+                map<CTxDestination, int64_t> mapTakeValuesAt;
+                for(const CSelectedCoin& coin : setCoins) {
+                    CTxDestination address;
+                    if(!ExtractDestination(coin.tx->vout[coin.i].scriptPubKey, address))
+                        continue;
+                    int64_t& nValueInputAt = mapInputValuesAt[address];
+                    nValueInputAt += coin.tx->vout[coin.i].nValue;
+                    int64_t& nValueTakeAt = mapTakeValuesAt[address];
+                    nValueTakeAt += coin.nValue;
                 }
-                else
-                    reservekey.ReturnKey();
-
+                
                 // Fill vout for returning reserves
+                int64_t nFeeLeft = nFeeRet;
+                for (auto const & addrAndValue : mapInputValuesAt)
+                {
+                    CScript scriptPubKey;
+                    scriptPubKey.SetDestination(addrAndValue.first);
+                    int64_t nValueInput = addrAndValue.second;
+                    int64_t nValueTake = mapTakeValuesAt[addrAndValue.first];
+                    int64_t nValueReturn = nValueInput - nValueTake;
+                    if (nValueReturn > nFeeLeft) {
+                        nValueReturn -= nFeeLeft;
+                        nFeeLeft = 0;
+                    }
+                    if (nValueReturn < nFeeLeft) {
+                        nFeeLeft -= nValueReturn;
+                        nValueReturn = 0;
+                    }
+                    if (nValueReturn == 0) continue;
+                    wtxNew.vout.push_back(CTxOut(nValueReturn, scriptPubKey));
+                }
                 
                 // Fill vin
                 //

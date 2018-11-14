@@ -639,7 +639,6 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     if (tx.IsCoinBase()) txtype = tr("CoinBase");
     if (tx.IsCoinStake()) txtype = tr("CoinStake");
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Type",txtype})));
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Peg Supply Index",QString::number(0)})));
 
     // logic
 

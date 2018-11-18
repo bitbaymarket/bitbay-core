@@ -858,6 +858,9 @@ public:
     {
         return strprintf("COutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), i, nDepth, FormatMoney(tx->vout[i].nValue));
     }
+    
+    bool IsFrozen(unsigned int nLastFrozenTime, 
+                  unsigned int nLastVFrozenTime) const;
 };
 
 
@@ -869,7 +872,10 @@ public:
     int64_t nValue;
     
     friend bool operator<(const CSelectedCoin &a, const CSelectedCoin &b) { 
-        return a.tx < b.tx && a.i < b.i && a.nValue < b.nValue; 
+        if (a.tx < b.tx) return true;
+        if (a.tx == b.tx && a.i < b.i) return true;
+        if (a.tx == b.tx && a.i == b.i && a.nValue < b.nValue) return true;
+        return false;
     }
 };
 

@@ -1513,6 +1513,8 @@ bool CWallet::SelectCoinsMinConfByCoinAge(int64_t nTargetValue, unsigned int nSp
 
         // Take liquidity only in calculations
         int64_t nValue = pcoin->vOutFractions[i].High(GetPegSupplyIndex());
+        if (nValue == 0) continue;
+        
         CSelectedCoin selectedCoin = {pcoin, i, nValue};
         pair<pair<int64_t,int64_t>,CSelectedCoin> coin = make_pair(make_pair(nValue,output.second),selectedCoin);
 
@@ -1798,6 +1800,8 @@ bool CWallet::SelectCoinsMinConf(int64_t nTargetValue, unsigned int nSpendTime, 
 
         // take liquidity
         int64_t nValue = pcoin->vOutFractions[i].High(GetPegSupplyIndex());
+        if (nValue == 0) continue;
+        
         CSelectedCoin selectedCoin = {pcoin, i, nValue};
         pair<int64_t,CSelectedCoin> coin = make_pair(nValue,selectedCoin);
 
@@ -1885,6 +1889,16 @@ bool CWallet::SelectCoinsMinConf(int64_t nTargetValue, unsigned int nSpendTime, 
     return true;
 }
 
+bool COutput::IsFrozen(unsigned int nLastFrozenTime, 
+                       unsigned int nLastVFrozenTime) const
+{
+    bool fF = tx->vOutFractions[i].nFlags & CFractions::NOTARY_F;
+    bool fV = tx->vOutFractions[i].nFlags & CFractions::NOTARY_V;
+    fF &= tx->nTime >= nLastFrozenTime;
+    fV &= tx->nTime >= nLastVFrozenTime;
+    return fF || fV;
+}
+
 bool CWallet::SelectCoins(int64_t nTargetValue, 
                           unsigned int nSpendTime, 
                           set<CSelectedCoin>& setCoinsRet, 
@@ -1904,11 +1918,7 @@ bool CWallet::SelectCoins(int64_t nTargetValue,
                 continue;
             
             // skip all frozen outputs
-            bool fF = out.tx->vOutFractions[out.i].nFlags & CFractions::NOTARY_F;
-            bool fV = out.tx->vOutFractions[out.i].nFlags & CFractions::NOTARY_V;
-            fF &= out.tx->nTime >= nLastFrozenTime;
-            fV &= out.tx->nTime >= nLastVFrozenTime;
-            if (fF || fV)
+            if (out.IsFrozen(nLastFrozenTime, nLastVFrozenTime))
                 continue;
 
             // take liquidity part

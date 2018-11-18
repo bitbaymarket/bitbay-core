@@ -8,6 +8,7 @@
 #include "kernel.h"
 #include "checkpoints.h"
 #include "txdb-leveldb.h"
+#include "pegdb-leveldb.h"
 
 using namespace json_spirit;
 using namespace std;
@@ -15,6 +16,7 @@ using namespace std;
 extern void TxToJSON(const CTransaction& tx, 
                      const uint256 hashBlock, 
                      const MapFractions&,
+                     int nSupply,
                      json_spirit::Object& entry);
 
 double GetDifficulty(const CBlockIndex* blockindex)
@@ -111,7 +113,7 @@ double GetPoSKernelPS()
     return result;
 }
 
-Object blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool fPrintTransactionDetail)
+Object blockToJSON(const CBlock& block, const CBlockIndex* blockindex, const MapFractions & mapFractions, bool fPrintTransactionDetail)
 {
     Object result;
     result.push_back(Pair("hash", block.GetHash().GetHex()));
@@ -151,10 +153,8 @@ Object blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool fPri
         if (fPrintTransactionDetail)
         {
             Object entry;
-            MapFractions mapFractions;
-
             entry.push_back(Pair("txid", tx.GetHash().GetHex()));
-            TxToJSON(tx, 0, mapFractions, entry);
+            TxToJSON(tx, 0, mapFractions, blockindex->nPegSupplyIndex, entry);
 
             txinfo.push_back(entry);
         }
@@ -287,16 +287,14 @@ Value getblock(const Array& params, bool fHelp)
 
     LOCK(cs_main);
 
-    //std::string strHash = params[0].get_str();
-    //uint256 hash(strHash);
     std::string strHash = params[0].get_str();
-	uint256 hash(uint256S(strHash));
+    uint256 hash(uint256S(strHash));
 
     int verbosity = 1;
     if (params.size() > 1) {
-            verbosity = params[1].get_bool() ? 1 : 0;
-    }else{
-	    verbosity = 0;	//Output RAW TX if second parameter is not set, useful for ElectrumX
+        verbosity = params[1].get_bool() ? 2 : 1;
+    } else {
+        verbosity = 0;	//Output RAW TX if second parameter is not set, useful for ElectrumX
     }
 
     if (mapBlockIndex.count(hash) == 0)
@@ -304,28 +302,43 @@ Value getblock(const Array& params, bool fHelp)
 
     CBlock block;
     CBlockIndex* pblockindex = mapBlockIndex[hash];
-	
-	if(!block.ReadFromDisk(pblockindex, true)){
+    
+    if(!block.ReadFromDisk(pblockindex, true)){
         // Block not found on disk. This could be because we have the block
         // header in our index but don't have the block (for example if a
         // non-whitelisted node sends us an unrequested long chain of valid
         // blocks, we add the headers to our index, but don't accept the
         // block).
-		throw JSONRPCError(RPC_MISC_ERROR, "Block not found on disk");
-	}
+        throw JSONRPCError(RPC_MISC_ERROR, "Block not found on disk");
+    }
+    
+    block.ReadFromDisk(pblockindex, true);
 
-	block.ReadFromDisk(pblockindex, true);
-	
+    MapFractions mapFractions;
+    bool fverbosity = params.size() > 1 ? params[1].get_bool() : false;
+    if (fverbosity) {
+        CPegDB pegdb("r");
+        for (const CTransaction & tx : block.vtx) {
+            for(size_t i=0; i<tx.vout.size(); i++) {
+                auto fkey = uint320(tx.GetHash(), i);
+                CFractions fractions(0, CFractions::VALUE);
+                pegdb.Read(fkey, fractions);
+                if (fractions.Total() == tx.vout[i].nValue) {
+                    mapFractions[fkey] = fractions;
+                }
+            }
+        }
+    }
+    
     if (verbosity <= 0)
     {
         CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
         ssBlock << block;
         std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
-		//strHex.insert(0, "testar ");
         return strHex;
     }
 
-	return blockToJSON(block, pblockindex, params.size() > 1 ? params[1].get_bool() : false);
+	return blockToJSON(block, pblockindex, mapFractions, fverbosity);
 }
 
 Value getblockbynumber(const Array& params, bool fHelp)
@@ -340,6 +353,8 @@ Value getblockbynumber(const Array& params, bool fHelp)
     if (nHeight < 0 || nHeight > nBestHeight)
         throw runtime_error("Block number out of range.");
 
+    LOCK(cs_main);
+    
     CBlock block;
     CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
     while (pblockindex->nHeight > nHeight)
@@ -350,7 +365,23 @@ Value getblockbynumber(const Array& params, bool fHelp)
     pblockindex = mapBlockIndex[hash];
     block.ReadFromDisk(pblockindex, true);
 
-    return blockToJSON(block, pblockindex, params.size() > 1 ? params[1].get_bool() : false);
+    MapFractions mapFractions;
+    bool fverbosity = params.size() > 1 ? params[1].get_bool() : false;
+    if (fverbosity) {
+        CPegDB pegdb("r");
+        for (const CTransaction & tx : block.vtx) {
+            for(size_t i=0; i<tx.vout.size(); i++) {
+                auto fkey = uint320(tx.GetHash(), i);
+                CFractions fractions(0, CFractions::VALUE);
+                pegdb.Read(fkey, fractions);
+                if (fractions.Total() == tx.vout[i].nValue) {
+                    mapFractions[fkey] = fractions;
+                }
+            }
+        }
+    }
+    
+    return blockToJSON(block, pblockindex, mapFractions, fverbosity);
 }
 
 // ppcoin: get information of sync-checkpoint
@@ -414,7 +445,7 @@ Value gettxout(const Array& params, bool fHelp)
         cout << "gettxout fail, txdb.ReadTxIndex" << endl;
         return Value::null;
     }
-    if (0 <= n && n < txindex.vSpent.size()) {
+    if (0 <= n && n < long(txindex.vSpent.size())) {
         CDiskTxPos pos = txindex.vSpent[n];
         if (!pos.IsNull()) {
             // this vout is spent in next transaction

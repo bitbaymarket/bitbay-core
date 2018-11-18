@@ -32,10 +32,12 @@
 #include "json/json_spirit_writer_template.h"
 extern json_spirit::Object blockToJSON(const CBlock& block,
                                        const CBlockIndex* blockindex,
+                                       const MapFractions &, 
                                        bool fPrintTransactionDetail);
 extern void TxToJSON(const CTransaction& tx,
                      const uint256 hashBlock, 
                      const MapFractions&,
+                     int nSupply,
                      json_spirit::Object& entry);
 
 BlockchainPage::BlockchainPage(QWidget *parent) :
@@ -269,7 +271,24 @@ void BlockchainPage::openChainMenu(const QPoint & pos)
         auto pblockindex = mapBlockIndex[hash];
         block.ReadFromDisk(pblockindex, true);
 
-        json_spirit::Value result = blockToJSON(block, pblockindex, false);
+        // todo (extended)
+        MapFractions mapFractions;
+        {
+            LOCK(cs_main);
+            CPegDB pegdb("r");
+            for (const CTransaction & tx : block.vtx) {
+                for(int i=0; i<tx.vout.size(); i++) {
+                    auto fkey = uint320(tx.GetHash(), i);
+                    CFractions fractions(0, CFractions::VALUE);
+                    pegdb.Read(fkey, fractions);
+                    if (fractions.Total() == tx.vout[i].nValue) {
+                        mapFractions[fkey] = fractions;
+                    }
+                }
+            }
+        }
+        
+        json_spirit::Value result = blockToJSON(block, pblockindex, mapFractions, false);
         string str = json_spirit::write_string(result, true);
 
         QApplication::clipboard()->setText(
@@ -295,7 +314,23 @@ bool BlockchainPageChainEvents::eventFilter(QObject *obj, QEvent *event)
             auto pblockindex = mapBlockIndex[hash];
             block.ReadFromDisk(pblockindex, true);
 
-            json_spirit::Value result = blockToJSON(block, pblockindex, false);
+            MapFractions mapFractions;
+            {
+                LOCK(cs_main);
+                CPegDB pegdb("r");
+                for (const CTransaction & tx : block.vtx) {
+                    for(int i=0; i<tx.vout.size(); i++) {
+                        auto fkey = uint320(tx.GetHash(), i);
+                        CFractions fractions(0, CFractions::VALUE);
+                        pegdb.Read(fkey, fractions);
+                        if (fractions.Total() == tx.vout[i].nValue) {
+                            mapFractions[fkey] = fractions;
+                        }
+                    }
+                }
+            }
+            
+            json_spirit::Value result = blockToJSON(block, pblockindex, mapFractions, false);
             string str = json_spirit::write_string(result, true);
 
             QApplication::clipboard()->setText(
@@ -407,7 +442,23 @@ void BlockchainPage::openBlockMenu(const QPoint & pos)
         auto pblockindex = mapBlockIndex[hash];
         block.ReadFromDisk(pblockindex, true);
 
-        json_spirit::Value result = blockToJSON(block, pblockindex, false);
+        MapFractions mapFractions;
+        {
+            LOCK(cs_main);
+            CPegDB pegdb("r");
+            for (const CTransaction & tx : block.vtx) {
+                for(int i=0; i<tx.vout.size(); i++) {
+                    auto fkey = uint320(tx.GetHash(), i);
+                    CFractions fractions(0, CFractions::VALUE);
+                    pegdb.Read(fkey, fractions);
+                    if (fractions.Total() == tx.vout[i].nValue) {
+                        mapFractions[fkey] = fractions;
+                    }
+                }
+            }
+        }
+        
+        json_spirit::Value result = blockToJSON(block, pblockindex, mapFractions, false);
         string str = json_spirit::write_string(result, true);
 
         QApplication::clipboard()->setText(
@@ -1130,6 +1181,7 @@ void BlockchainPage::openTxMenu(const QPoint & pos)
         if (!GetTransaction(hash, tx, hashBlock))
             return;
 
+        int nSupply = -1;
         MapFractions mapFractions;
         {
             LOCK(cs_main);
@@ -1142,10 +1194,16 @@ void BlockchainPage::openTxMenu(const QPoint & pos)
                     mapFractions[fkey] = fractions;
                 }
             }
+            
+            map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
+            if (mi != mapBlockIndex.end() && (*mi).second) {
+                CBlockIndex* pindex = (*mi).second;
+                nSupply = pindex->nPegSupplyIndex;
+            }
         }
         
         json_spirit::Object result;
-        TxToJSON(tx, hashBlock, mapFractions, result);
+        TxToJSON(tx, hashBlock, mapFractions, nSupply, result);
         json_spirit::Value vresult = result;
         string str = json_spirit::write_string(vresult, true);
 

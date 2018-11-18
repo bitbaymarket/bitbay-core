@@ -50,6 +50,7 @@ void ScriptPubKeyToJSON(const CScript& scriptPubKey, Object& out, bool fIncludeH
 void TxToJSON(const CTransaction& tx, 
               const uint256 hashBlock,
               const MapFractions& mapFractions, 
+              int nSupply,
               Object& entry)
 {
     entry.push_back(Pair("txid", tx.GetHash().GetHex()));
@@ -81,18 +82,13 @@ void TxToJSON(const CTransaction& tx,
         const CTxOut& txout = tx.vout[i];
         Object out;
         out.push_back(Pair("value", ValueFromAmount(txout.nValue)));
-        if (hashBlock != 0) {
-            map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
-            if (mi != mapBlockIndex.end() && (*mi).second) {
-                CBlockIndex* pindex = (*mi).second;
-                auto fkey = uint320(tx.GetHash(), i);
-                if (mapFractions.find(fkey) != mapFractions.end()) {
-                    const CFractions & fractions = mapFractions.at(fkey);
-                    if (fractions.Total() == txout.nValue) {
-                        int nSupply = pindex->nPegSupplyIndex;
-                        out.push_back(Pair("reserve", ValueFromAmount(fractions.Low(nSupply))));
-                        out.push_back(Pair("liquidity", ValueFromAmount(fractions.High(nSupply))));
-                    }
+        if (nSupply >= 0) {
+            auto fkey = uint320(tx.GetHash(), i);
+            if (mapFractions.find(fkey) != mapFractions.end()) {
+                const CFractions & fractions = mapFractions.at(fkey);
+                if (fractions.Total() == txout.nValue) {
+                    out.push_back(Pair("reserve", ValueFromAmount(fractions.Low(nSupply))));
+                    out.push_back(Pair("liquidity", ValueFromAmount(fractions.High(nSupply))));
                 }
             }
         }
@@ -155,7 +151,7 @@ Value getrawtransaction(const Array& params, bool fHelp)
     Object result;
     MapFractions mapFractions;
     result.push_back(Pair("hex", strHex));
-    TxToJSON(tx, hashBlock, mapFractions, result);
+    TxToJSON(tx, hashBlock, mapFractions, -1, result);
     return result;
 }
 
@@ -336,7 +332,7 @@ Value decoderawtransaction(const Array& params, bool fHelp)
     Object result;
     MapFractions mapFractions;
     
-    TxToJSON(tx, 0, mapFractions, result);
+    TxToJSON(tx, 0, mapFractions, -1, result);
 
     return result;
 }

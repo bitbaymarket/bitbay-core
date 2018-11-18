@@ -22,6 +22,7 @@ static CCriticalSection cs_nWalletUnlockTime;
 extern void TxToJSON(const CTransaction& tx, 
                      const uint256 hashBlock, 
                      const MapFractions&,
+                     int nSupply,
                      json_spirit::Object& entry);
 
 static void accountingDeprecationCheck()
@@ -1252,7 +1253,7 @@ Value gettransaction(const Array& params, bool fHelp)
     {
         const CWalletTx& wtx = pwalletMain->mapWallet[hash];
 
-        TxToJSON(wtx, 0, mapFractions, entry);
+        TxToJSON(wtx, 0, mapFractions, -1, entry);
 
         int64_t nCredit = wtx.GetCredit();
         int64_t nDebit = wtx.GetDebit();
@@ -1275,7 +1276,7 @@ Value gettransaction(const Array& params, bool fHelp)
         uint256 hashBlock = 0;
         if (GetTransaction(hash, tx, hashBlock))
         {
-            TxToJSON(tx, 0, mapFractions, entry);
+            TxToJSON(tx, 0, mapFractions, -1, entry);
             if (hashBlock == 0)
                 entry.push_back(Pair("confirmations", 0));
             else

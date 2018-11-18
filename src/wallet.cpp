@@ -1945,7 +1945,10 @@ bool CWallet::SelectCoins(int64_t nTargetValue,
 }
 
 // Select some coins without random shuffle or best subset approximation
-bool CWallet::SelectCoinsForStaking(int64_t nTargetValue, unsigned int nSpendTime, set<pair<const CWalletTx*,unsigned int> >& setCoinsRet, int64_t& nValueRet) const
+bool CWallet::SelectCoinsForStaking(int64_t nTargetValue, 
+                                    unsigned int nSpendTime, 
+                                    set<pair<const CWalletTx*,unsigned int> >& setCoinsRet, 
+                                    int64_t& nValueRet) const
 {
     vector<COutput> vCoins;
     AvailableCoinsForStaking(vCoins, nSpendTime);
@@ -2184,7 +2187,12 @@ uint64_t CWallet::GetStakeWeight() const
     return nWeight;
 }
 
-bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int64_t nSearchInterval, int64_t nFees, CTransaction& txNew, CKey& key)
+bool CWallet::CreateCoinStake(const CKeyStore& keystore, 
+                              unsigned int nBits, 
+                              int64_t nSearchInterval, 
+                              int64_t nFees, 
+                              CTransaction& txNew, 
+                              CKey& key)
 {
     CBlockIndex* pindexPrev = pindexBest;
     CBigNum bnTargetPerCoinDay;
@@ -2296,40 +2304,41 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
     if (nCredit == 0 || nCredit > nBalance - nReserveBalance)
         return false;
 
-    BOOST_FOREACH(PAIRTYPE(const CWalletTx*, unsigned int) pcoin, setCoins)
-    {
-        // Attempt to add more inputs
-        // Only add coins of the same key/address as kernel
-        if (txNew.vout.size() == 2 && ((pcoin.first->vout[pcoin.second].scriptPubKey == scriptPubKeyKernel || pcoin.first->vout[pcoin.second].scriptPubKey == txNew.vout[1].scriptPubKey))
-            && pcoin.first->GetHash() != txNew.vin[0].prevout.hash)
-        {
-            int64_t nTimeWeight = GetWeight((int64_t)pcoin.first->nTime, (int64_t)txNew.nTime);
+    // no combine for peg system
+//    BOOST_FOREACH(PAIRTYPE(const CWalletTx*, unsigned int) pcoin, setCoins)
+//    {
+//        // Attempt to add more inputs
+//        // Only add coins of the same key/address as kernel
+//        if (txNew.vout.size() == 2 && ((pcoin.first->vout[pcoin.second].scriptPubKey == scriptPubKeyKernel || pcoin.first->vout[pcoin.second].scriptPubKey == txNew.vout[1].scriptPubKey))
+//            && pcoin.first->GetHash() != txNew.vin[0].prevout.hash)
+//        {
+//            int64_t nTimeWeight = GetWeight((int64_t)pcoin.first->nTime, (int64_t)txNew.nTime);
 
-            // Stop adding more inputs if already too many inputs
-            if (txNew.vin.size() >= 100)
-                break;
-            // Stop adding inputs if reached reserve limit
-            if (nCredit + pcoin.first->vout[pcoin.second].nValue > nBalance - nReserveBalance)
-                break;
-            // Do not add additional significant input
-            if (pcoin.first->vout[pcoin.second].nValue >= GetStakeCombineThreshold())
-                continue;
-            // Do not add input that is still too young
-            if (IsProtocolV3(txNew.nTime))
-            {
-                // properly handled by selection function
-            }
-            else
-            {
-                if (nTimeWeight < nStakeMinAge)
-                    continue;
-            }
+//            // Stop adding more inputs if already too many inputs
+//            if (txNew.vin.size() >= 100)
+//                break;
+//            // Stop adding inputs if reached reserve limit
+//            if (nCredit + pcoin.first->vout[pcoin.second].nValue > nBalance - nReserveBalance)
+//                break;
+//            // Do not add additional significant input
+//            if (pcoin.first->vout[pcoin.second].nValue >= GetStakeCombineThreshold())
+//                continue;
+//            // Do not add input that is still too young
+//            if (IsProtocolV3(txNew.nTime))
+//            {
+//                // properly handled by selection function
+//            }
+//            else
+//            {
+//                if (nTimeWeight < nStakeMinAge)
+//                    continue;
+//            }
 
-            txNew.vin.push_back(CTxIn(pcoin.first->GetHash(), pcoin.second));
-            nCredit += pcoin.first->vout[pcoin.second].nValue;
-            vwtxPrev.push_back(pcoin.first);
-        }
-    }
+//            txNew.vin.push_back(CTxIn(pcoin.first->GetHash(), pcoin.second));
+//            nCredit += pcoin.first->vout[pcoin.second].nValue;
+//            vwtxPrev.push_back(pcoin.first);
+//        }
+//    }
 
     // Calculate coin age reward
     {
@@ -2338,7 +2347,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
         if (!txNew.GetCoinAge(txdb, pindexPrev, nCoinAge))
             return error("CreateCoinStake : failed to calculate coin age");
 
-        int64_t nReward = GetProofOfStakeReward(pindexPrev, nCoinAge, nFees);
+        int64_t nReward = GetProofOfStakeReward(pindexPrev, nCoinAge, nFees, txNew.vin);
         if (nReward <= 0)
             return false;
 

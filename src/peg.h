@@ -39,6 +39,7 @@ enum
 class CFractions {
 public:
     uint32_t nFlags;
+    uint64_t nLockTime = 0;
     enum
     {
         VALUE       = (1 << 0),

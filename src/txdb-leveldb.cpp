@@ -703,7 +703,7 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     if (!tx.GetCoinAge(*this, pblockindex->pprev, nCoinAge)) {
                         error("LoadBlockIndex() : pegdb: GetCoinAge() failed");
                     }
-                    int64_t nCalculatedStakeRewardWithoutFees = GetProofOfStakeReward(pblockindex->pprev, nCoinAge, 0 /*fees*/);
+                    int64_t nCalculatedStakeRewardWithoutFees = GetProofOfStakeReward(pblockindex->pprev, nCoinAge, 0 /*fees*/, tx.vin);
 
                     CalculateStakingFractions(tx, pblockindex,
                                               mapInputs, mapInputsFractions,

@@ -346,6 +346,7 @@ CFractions::CFractions(int64_t value, uint32_t flags)
 }
 CFractions::CFractions(const CFractions & o)
     :nFlags(o.nFlags)
+    ,nLockTime(o.nLockTime)
 {
     for(int i=0; i< PEG_SIZE; i++) {
         f[i] = o.f[i];
@@ -383,6 +384,7 @@ bool CFractions::Pack(CDataStream& out, unsigned long* report_len) const
     if (nFlags & VALUE) {
         if (report_len) *report_len = sizeof(int64_t);
         out << uint32_t(nFlags | SER_VALUE);
+        out << nLockTime;
         out << f[0];
     } else {
         int64_t deltas[PEG_SIZE];
@@ -397,6 +399,7 @@ bool CFractions::Pack(CDataStream& out, unsigned long* report_len) const
         if (res == Z_OK) {
             if (report_len) *report_len = zlen;
             out << uint32_t(nFlags | SER_ZDELTA);
+            out << nLockTime;
             auto ser = reinterpret_cast<const char *>(zout);
             out << zlen;
             out.write(ser, zlen);
@@ -404,6 +407,7 @@ bool CFractions::Pack(CDataStream& out, unsigned long* report_len) const
         else {
             if (report_len) *report_len = PEG_SIZE*sizeof(int64_t);
             out << uint32_t(nFlags | SER_RAW);
+            out << nLockTime;
             auto ser = reinterpret_cast<const char *>(f);
             out.write(ser, PEG_SIZE*sizeof(int64_t));
         }
@@ -415,6 +419,7 @@ bool CFractions::Unpack(CDataStream& inp)
 {
     uint32_t nSerFlags = 0;
     inp >> nSerFlags;
+    inp >> nLockTime;
     if (nSerFlags & SER_VALUE) {
         nFlags = nSerFlags | VALUE;
         inp >> f[0];
@@ -830,7 +835,7 @@ bool CalculateFractions(CTxDB& txdb,
             //something went wrong
             return false;
         }
-        int64_t nCalculatedStakeRewardWithoutFees = GetProofOfStakeReward(pindexBlock->pprev, nCoinAge, 0 /*fees*/);
+        int64_t nCalculatedStakeRewardWithoutFees = GetProofOfStakeReward(pindexBlock->pprev, nCoinAge, 0 /*fees*/, tx.vin);
 
         peg_ok = CalculateStakingFractions(tx, pindexBlock,
                                            mapInputs, mapInputsFractions,

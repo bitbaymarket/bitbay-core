@@ -694,13 +694,14 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         if (!tx.GetCoinAge(txdb, pblockindex->pprev, nCoinAge)) {
             //something went wrong
         }
-        int64_t nCalculatedStakeRewardWithoutFees = GetProofOfStakeReward(pblockindex->pprev, nCoinAge, 0 /*fees*/);
+        int64_t nStakeRewardWithoutFees = GetProofOfStakeReward(
+                    pblockindex->pprev, nCoinAge, 0 /*fees*/, tx.vin);
 
         peg_ok = CalculateStakingFractions(tx, pblockindex,
                                            mapInputs, mapInputsFractions,
                                            mapUnused, mapFractionsUnused,
                                            feesFractions,
-                                           nCalculatedStakeRewardWithoutFees,
+                                           nStakeRewardWithoutFees,
                                            vOutputsTypes,
                                            sPegFailCause);
     }
@@ -820,7 +821,8 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         if (!tx.GetCoinAge(txdb, pblockindex->pprev, nCoinAge)) {
             //something went wrong
         }
-        int64_t nCalculatedStakeReward = GetProofOfStakeReward(pblockindex->pprev, nCoinAge, 0 /*fees*/);
+        int64_t nCalculatedStakeReward = GetProofOfStakeReward(
+                    pblockindex->pprev, nCoinAge, 0 /*fees*/, tx.vin);
 
         QStringList rowMined;
         rowMined << "Mined"; // idx, 0

@@ -1030,16 +1030,25 @@ int64_t GetProofOfWorkReward(int64_t nFees)
 }
 
 // miner's coin stake reward
-int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev, int64_t nCoinAge, int64_t nFees)
+int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev, int64_t nCoinAge, int64_t nFees, const std::vector<CTxIn>& vin)
 {
     int64_t nSubsidy;
-    if (IsProtocolV3(pindexPrev->nTime))
-        if (IsProtocolVS(pindexPrev->nTime))
-            nSubsidy = COIN * 20;
-        else
+    if (IsProtocolV3(pindexPrev->nTime)) {
+        if (IsProtocolVS(pindexPrev->nTime)) {
+            if (IsProtocolVP(pindexPrev->nHeight)) {
+                nSubsidy = COIN * 20;
+            }
+            else {
+                nSubsidy = COIN * 20;
+            }
+        }
+        else {
             nSubsidy = COIN * 3 / 2;
-    else
+        }
+    }
+    else {
         nSubsidy = nCoinAge * COIN_YEAR_REWARD * 33 / (365 * 33 + 8);
+    }
 
     LogPrint("creation", "GetProofOfStakeReward(): create=%s nCoinAge=%d\n", FormatMoney(nSubsidy), nCoinAge);
 
@@ -1642,7 +1651,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         if (!vtx[1].GetCoinAge(txdb, pindex->pprev, nCoinAge))
             return error("ConnectBlock() : %s unable to get coin age for coinstake", vtx[1].GetHash().ToString());
 
-        int64_t nCalculatedStakeReward = GetProofOfStakeReward(pindex->pprev, nCoinAge, nFees);
+        int64_t nCalculatedStakeReward = GetProofOfStakeReward(pindex->pprev, nCoinAge, nFees, vtx[1].vin);
 
         if (nStakeReward > nCalculatedStakeReward)
             return DoS(100, error("ConnectBlock() : coinstake pays too much(actual=%d vs calculated=%d)", nStakeReward, nCalculatedStakeReward));

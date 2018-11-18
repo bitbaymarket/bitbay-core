@@ -835,7 +835,19 @@ bool CalculateFractions(CTxDB& txdb,
             //something went wrong
             return false;
         }
-        int64_t nCalculatedStakeRewardWithoutFees = GetProofOfStakeReward(pindexBlock->pprev, nCoinAge, 0 /*fees*/, tx.vin);
+        if (tx.vin.size() == 0) {
+            sPegFailCause = "No inputs for stake";
+            return false;
+        }
+        const COutPoint & prevout = tx.vin.front().prevout;
+        auto fkey = uint320(prevout.hash, prevout.n);
+        if (mapInputsFractions.find(fkey) == mapInputsFractions.end()) {
+            sPegFailCause = "No input fraction";
+            return false;
+        }
+        int64_t nDemoSubsidy = 0;
+        int64_t nCalculatedStakeRewardWithoutFees = GetProofOfStakeReward(
+                    pindexBlock->pprev, nCoinAge, 0 /*fees*/, mapInputsFractions[fkey], nDemoSubsidy);
 
         peg_ok = CalculateStakingFractions(tx, pindexBlock,
                                            mapInputs, mapInputsFractions,

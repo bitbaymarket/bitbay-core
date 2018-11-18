@@ -699,17 +699,33 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     bool fInvalid = false;
                     tx.FetchInputs(*this, pegdb, mapUnused, mapQueuedFractionsChanges, false, false, mapInputs, mapInputsFractions, fInvalid);
 
+                    size_t n_vin = tx.vin.size();
+                    if (n_vin != 1) {
+                        return error("LoadBlockIndex() : pegdb failed: more than one input in stake");
+                    }
+                    
                     uint64_t nCoinAge = 0;
                     if (!tx.GetCoinAge(*this, pblockindex->pprev, nCoinAge)) {
-                        error("LoadBlockIndex() : pegdb: GetCoinAge() failed");
+                        return error("LoadBlockIndex() : pegdb: GetCoinAge() failed");
                     }
-                    int64_t nCalculatedStakeRewardWithoutFees = GetProofOfStakeReward(pblockindex->pprev, nCoinAge, 0 /*fees*/, tx.vin);
+                    
+                    const COutPoint & prevout = tx.vin[0].prevout;
+                    auto fkey = uint320(prevout.hash, prevout.n);
+                    if (mapInputsFractions.find(fkey) == mapInputsFractions.end()) {
+                        return error("LoadBlockIndex() : pegdb failed: no input fractions found");
+                    }
+                    
+                    int64_t nDemoSubsidy = 0;
+                    int64_t nStakeRewardWithoutFees = GetProofOfStakeReward(
+                                pblockindex->pprev, nCoinAge, 0 /*fees*/, 
+                                mapInputsFractions[fkey],
+                                nDemoSubsidy);
 
                     CalculateStakingFractions(tx, pblockindex,
                                               mapInputs, mapInputsFractions,
                                               mapUnused, mapQueuedFractionsChanges,
                                               feesFractions,
-                                              nCalculatedStakeRewardWithoutFees,
+                                              nStakeRewardWithoutFees,
                                               vOutputsTypes,
                                               sPegFailCause);
 

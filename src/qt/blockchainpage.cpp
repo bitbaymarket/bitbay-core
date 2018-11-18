@@ -694,8 +694,17 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         if (!tx.GetCoinAge(txdb, pblockindex->pprev, nCoinAge)) {
             //something went wrong
         }
+        CFractions inpStake(0, CFractions::STD);
+        if (tx.vin.size() > 0) {
+            const COutPoint & prevout = tx.vin.front().prevout;
+            auto fkey = uint320(prevout.hash, prevout.n);
+            if (mapInputsFractions.find(fkey) != mapInputsFractions.end()) {
+                inpStake = mapInputsFractions[fkey];
+            }
+        }
+        int64_t nDemoSubsidy = 0;
         int64_t nStakeRewardWithoutFees = GetProofOfStakeReward(
-                    pblockindex->pprev, nCoinAge, 0 /*fees*/, tx.vin);
+                    pblockindex->pprev, nCoinAge, 0 /*fees*/, inpStake, nDemoSubsidy);
 
         peg_ok = CalculateStakingFractions(tx, pblockindex,
                                            mapInputs, mapInputsFractions,
@@ -821,8 +830,17 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         if (!tx.GetCoinAge(txdb, pblockindex->pprev, nCoinAge)) {
             //something went wrong
         }
+        CFractions inpStake(0, CFractions::STD);
+        if (tx.vin.size() > 0) {
+            const COutPoint & prevout = tx.vin.front().prevout;
+            auto fkey = uint320(prevout.hash, prevout.n);
+            if (mapInputsFractions.find(fkey) != mapInputsFractions.end()) {
+                inpStake = mapInputsFractions[fkey];
+            }
+        }
+        int64_t nDemoSubsidy = 0;
         int64_t nCalculatedStakeReward = GetProofOfStakeReward(
-                    pblockindex->pprev, nCoinAge, 0 /*fees*/, tx.vin);
+                    pblockindex->pprev, nCoinAge, 0 /*fees*/, inpStake, nDemoSubsidy);
 
         QStringList rowMined;
         rowMined << "Mined"; // idx, 0
@@ -840,6 +858,22 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         inputMined->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         ui->txInputs->addTopLevelItem(inputMined);
 
+        QStringList rowMinedDemo;
+        rowMinedDemo << "MinedPeg"; // idx, 0
+        rowMinedDemo << "";      // tx, 1
+        rowMinedDemo << "N/A";   // address, 2
+        rowMinedDemo << displayValue(nDemoSubsidy);
+        
+        auto inputMinedDemo = new QTreeWidgetItem(rowMinedDemo);
+        //QVariant vfractions;
+        vfractions.setValue(CFractions(nDemoSubsidy, CFractions::STD));
+        inputMinedDemo->setData(4, BlockchainModel::FractionsRole, vfractions);
+        inputMinedDemo->setData(4, BlockchainModel::PegSupplyRole, peg_whitelisted
+                            ? pblockindex->nPegSupplyIndex
+                            : 0);
+        inputMinedDemo->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        ui->txInputs->addTopLevelItem(inputMinedDemo);
+        
         // need to collect all fees fractions from all tx in the block
         if (!calculateFeesFractions(pblockindex, block, feesFractions, nFeesValue)) {
             // peg violation?

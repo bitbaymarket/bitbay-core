@@ -73,7 +73,25 @@ Value getstakesubsidy(const Array& params, bool fHelp)
     if (!tx.GetCoinAge(txdb, pindexBest, nCoinAge))
         throw JSONRPCError(RPC_MISC_ERROR, "GetCoinAge failed");
 
-    return (uint64_t)GetProofOfStakeReward(pindexBest, nCoinAge, 0, tx.vin);
+    CTxIndex txindex;
+    CTransaction txPrev;
+    const COutPoint & prevout = tx.vin.front().prevout;
+    if (!txdb.ReadTxIndex(prevout.hash, txindex))
+        throw JSONRPCError(RPC_MISC_ERROR, "ReadTxIndex prev tx failed");
+    if (!txPrev.ReadFromDisk(txindex.pos))
+        throw JSONRPCError(RPC_MISC_ERROR, "ReadFromDisk prev tx failed");
+    
+    CPegDB pegdb("r");
+    auto fkey = uint320(prevout.hash, prevout.n);
+    CFractions fractions(txPrev.vout[prevout.n].nValue, CFractions::VALUE);
+    if (!pegdb.Read(fkey, fractions)) {
+        //todo:peg
+        //PegError("FetchInputs() : %s pegdb.Read/Unpack prev tx fractions %s failed", GetHash().ToString(),  prevout.hash.ToString());
+        //return DoS?
+    }
+    
+    int64_t nDemoSubsidy = 0;
+    return (uint64_t)GetProofOfStakeReward(pindexBest, nCoinAge, 0, fractions, nDemoSubsidy);
 }
 
 Value getmininginfo(const Array& params, bool fHelp)

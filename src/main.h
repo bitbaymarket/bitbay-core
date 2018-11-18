@@ -1112,6 +1112,8 @@ public:
         }
         nFlags = flags;
     }
+    
+    int GetNextPegSupplyIndex() const;
 
     unsigned int GetStakeEntropyBit() const
     {

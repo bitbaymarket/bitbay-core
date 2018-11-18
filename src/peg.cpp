@@ -155,7 +155,7 @@ bool CalculateVotesForPeg(CTxDB & ctxdb, CPegDB& pegdb, LoadMsg load_msg) {
 
         // calc votes per block
         block.ReadFromDisk(pblockindex, true);
-        CalculateBlockPegIndex(block, pblockindex, pegdb);
+        CalculateBlockPegIndex(pblockindex);
         CalculateBlockPegVotes(block, pblockindex, pegdb);
         ctxdb.WriteBlockIndex(CDiskBlockIndex(pblockindex));
 
@@ -171,54 +171,67 @@ bool CalculateVotesForPeg(CTxDB & ctxdb, CPegDB& pegdb, LoadMsg load_msg) {
     return true;
 }
 
-bool CalculateBlockPegIndex(const CBlock & cblock, CBlockIndex* pindex, CPegDB& pegdb)
+bool CalculateBlockPegIndex(CBlockIndex* pindex)
 {
-    if (!cblock.IsProofOfStake() || pindex->nHeight < nPegStartHeight) {
+    if (!pindex->pprev) {
         pindex->nPegSupplyIndex =0;
         return true;
     }
-
-    if (pindex->nHeight % PEG_INTERVAL == 0) {
-        // back to 2 intervals and -1 to count voice of back-third interval, as votes sum at PEG_INTERVAL-1
-        auto usevotesindex = pindex;
-        while (usevotesindex->nHeight > (pindex->nHeight - PEG_INTERVAL*2 -1))
-            usevotesindex = usevotesindex->pprev;
-
-        // back to 3 intervals and -1 for votes calculations of 2x and 3x
-        auto prevvotesindex = pindex;
-        while (prevvotesindex->nHeight > (pindex->nHeight - PEG_INTERVAL*3 -1))
-            prevvotesindex = prevvotesindex->pprev;
-
-        int inflate = usevotesindex->nPegVotesInflate;
-        int deflate = usevotesindex->nPegVotesDeflate;
-        int nochange = usevotesindex->nPegVotesNochange;
-
-        int inflate_prev = prevvotesindex->nPegVotesInflate;
-        int deflate_prev = prevvotesindex->nPegVotesDeflate;
-        int nochange_prev = prevvotesindex->nPegVotesNochange;
-
-        pindex->nPegSupplyIndex = pindex->pprev->nPegSupplyIndex;
-        if (deflate > inflate && deflate > nochange) {
-            pindex->nPegSupplyIndex++;
-            if (deflate > 2*inflate_prev && deflate > 2*nochange_prev) pindex->nPegSupplyIndex++;
-            if (deflate > 3*inflate_prev && deflate > 3*nochange_prev) pindex->nPegSupplyIndex++;
-        }
-        if (inflate > deflate && inflate > nochange) {
-            pindex->nPegSupplyIndex--;
-            if (inflate > 2*deflate_prev && inflate > 2*nochange_prev) pindex->nPegSupplyIndex--;
-            if (inflate > 3*deflate_prev && inflate > 3*nochange_prev) pindex->nPegSupplyIndex--;
-        }
-
-        if (pindex->nPegSupplyIndex >= nPegMaxSupplyIndex)
-            pindex->nPegSupplyIndex = pindex->pprev->nPegSupplyIndex;
-        else if (pindex->nPegSupplyIndex <0)
-            pindex->nPegSupplyIndex = 0;
-    }
-    else if (pindex->pprev) {
-        pindex->nPegSupplyIndex = pindex->pprev->nPegSupplyIndex;
-    }
-
+    
+    pindex->nPegSupplyIndex = pindex->pprev->GetNextPegSupplyIndex();
     return true;
+}
+
+int CBlockIndex::GetNextPegSupplyIndex() const
+{
+    int nNextHeight = nHeight+1;
+    
+    if (nNextHeight < nPegStartHeight) {
+        return 0;
+    }
+    if (nNextHeight % PEG_INTERVAL != 0) {
+        return nPegSupplyIndex;
+    }
+
+    // back to 2 intervals and -1 to count voice of back-third interval, as votes sum at PEG_INTERVAL-1
+    auto usevotesindex = this;
+    while (usevotesindex->nHeight > (nNextHeight - PEG_INTERVAL*2 -1))
+        usevotesindex = usevotesindex->pprev;
+
+    // back to 3 intervals and -1 for votes calculations of 2x and 3x
+    auto prevvotesindex = this;
+    while (prevvotesindex->nHeight > (nNextHeight - PEG_INTERVAL*3 -1))
+        prevvotesindex = prevvotesindex->pprev;
+
+    int inflate = usevotesindex->nPegVotesInflate;
+    int deflate = usevotesindex->nPegVotesDeflate;
+    int nochange = usevotesindex->nPegVotesNochange;
+
+    int inflate_prev = prevvotesindex->nPegVotesInflate;
+    int deflate_prev = prevvotesindex->nPegVotesDeflate;
+    int nochange_prev = prevvotesindex->nPegVotesNochange;
+
+    int nNextPegSupplyIndex = nPegSupplyIndex;
+
+    if (deflate > inflate && deflate > nochange) {
+        nNextPegSupplyIndex++;
+        if (deflate > 2*inflate_prev && deflate > 2*nochange_prev) nNextPegSupplyIndex++;
+        if (deflate > 3*inflate_prev && deflate > 3*nochange_prev) nNextPegSupplyIndex++;
+    }
+    if (inflate > deflate && inflate > nochange) {
+        nNextPegSupplyIndex--;
+        if (inflate > 2*deflate_prev && inflate > 2*nochange_prev) nNextPegSupplyIndex--;
+        if (inflate > 3*deflate_prev && inflate > 3*nochange_prev) nNextPegSupplyIndex--;
+    }
+
+    // over max
+    if (nNextPegSupplyIndex >= nPegMaxSupplyIndex)
+        nNextPegSupplyIndex = nPegSupplyIndex;
+    // less min
+    else if (nNextPegSupplyIndex <0)
+        nNextPegSupplyIndex = 0;
+    
+    return nNextPegSupplyIndex;
 }
 
 bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& pegdb)

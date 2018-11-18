@@ -1044,8 +1044,8 @@ int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev, int64_t nCoinAge, i
                     nDemoSubsidy = COIN * 20;
                 }
                 else {
-                    int64_t reserve = inp.Low(pindexPrev->nPegSupplyIndex);
-                    int64_t liquidity = inp.High(pindexPrev->nPegSupplyIndex);
+                    int64_t reserve = inp.Low(pindexPrev->GetNextPegSupplyIndex());
+                    int64_t liquidity = inp.High(pindexPrev->GetNextPegSupplyIndex());
                     if (liquidity < reserve) {
                         nDemoSubsidy = COIN * 10;
                     } else {
@@ -1571,7 +1571,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         nTxPos = pindex->nBlockPos + ::GetSerializeSize(CBlock(), SER_DISK, CLIENT_VERSION) - (2 * GetSizeOfCompactSize(0)) + GetSizeOfCompactSize(vtx.size());
 
     // bitbay: prepare peg supply index information
-    CalculateBlockPegIndex(*this, pindex, pegdb);
+    CalculateBlockPegIndex(pindex);
 
     map<uint256, CTxIndex> mapQueuedChanges;
     MapFractions mapQueuedFractionsChanges;

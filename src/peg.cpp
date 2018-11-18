@@ -866,7 +866,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
     vOutputsTypes.resize(n_vout);
 
     if (!IsPegWhiteListed(tx, inputs)) {
-        sFailCause = "P01: Not whitelisted";
+        sFailCause = "PI01: Not whitelisted";
         return true;
     }
 
@@ -892,7 +892,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
         const COutPoint & prevout = tx.vin[i].prevout;
         CTransaction& txPrev = inputs[prevout.hash].second;
         if (prevout.n >= txPrev.vout.size()) {
-            sFailCause = "P02: Refered output out of range";
+            sFailCause = "PI02: Refered output out of range";
             return false;
         }
 
@@ -903,16 +903,32 @@ bool CalculateStandardFractions(const CTransaction & tx,
 
         auto fkey = uint320(prevout.hash, prevout.n);
         if (fInputs.find(fkey) == fInputs.end()) {
-            sFailCause = "P03: No input fractions found";
+            sFailCause = "PI03: No input fractions found";
             return false;
         }
 
         auto frInp = fInputs[fkey].Std();
         if (frInp.Total() != txPrev.vout[prevout.n].nValue) {
-            sFailCause = "P04: Input fraction total mismatches value";
+            sFailCause = "PI04: Input fraction total mismatches value";
             return false;
         }
+        
+        if (frInp.nFlags & CFractions::NOTARY_F) {
+            unsigned int nPrevTxTime = pindexBlock->nTime;
+            if ((nPrevTxTime+PEG_FROZEN_TIME) > tx.nLockTime) {
+                sFailCause = "PI05: Frozen input used before time expired";
+                return false;
+            }
+        }
 
+        if (frInp.nFlags & CFractions::NOTARY_V) {
+            unsigned int nPrevTxTime = pindexBlock->nTime;
+            if ((nPrevTxTime+PEG_VFROZEN_TIME) > tx.nLockTime) {
+                sFailCause = "PI06: Voluntary frozen input used before time expired";
+                return false;
+            }
+        }
+        
         int64_t nReserveIn = 0;
         auto & frReserve = poolReserves[sAddress];
         frReserve += frInp.LowPart(nSupply, &nReserveIn);
@@ -961,15 +977,15 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     long nFrozenIndex = strtol(sOutputArg.c_str(), &pEnd, 0);
                     bool fValidIndex = !(pEnd == sOutputArg.c_str()) && nFrozenIndex >= 0 && size_t(nFrozenIndex) < n_vout;
                     if (!fValidIndex) {
-                        sFailCause = "P05: Freeze notary: not convertible to output index";
+                        sFailCause = "PI07: Freeze notary: not convertible to output index";
                         return false;
                     }
                     if (nFrozenIndex == i) {
-                        sFailCause = "P06: Freeze notary: output refers itself";
+                        sFailCause = "PI08: Freeze notary: output refers itself";
                         return false;
                     }
                     if (setFrozenIndexes.count(nFrozenIndex)) {
-                        sFailCause = "P07: Freeze notary: output refered multiple times";
+                        sFailCause = "PI09: Freeze notary: output refered multiple times";
                         return false;
                     }
                     
@@ -1016,7 +1032,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                         fSharedFreeze = true;
                     }
                     else if (fNotaryL && nLiquidityIn < nFrozenValueOut) {
-                        sFailCause = "P08: Freeze notary: not enough liquidity";
+                        sFailCause = "PI10: Freeze notary: not enough liquidity";
                         return false;
                     }
     

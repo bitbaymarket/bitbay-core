@@ -14,6 +14,7 @@
 #include "sendcoinsdialog.h"
 #include "signmessagepage.h"
 #include "verifymessagepage.h"
+#include "stakingpage.h"
 #include "blockchainpage.h"
 #include "blockchainmodel.h"
 #include "optionsdialog.h"
@@ -126,6 +127,8 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
 
     verifyMessagePage = new VerifyMessagePage(this);
 
+    stakingPage = new StakingPage(this);
+    
     infoPage = new BlockchainPage(this);
     
     centralStackedWidget = new QStackedWidget(this);
@@ -136,6 +139,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     centralStackedWidget->addWidget(sendCoinsPage);
     centralStackedWidget->addWidget(signMessagePage);
     centralStackedWidget->addWidget(verifyMessagePage);
+    centralStackedWidget->addWidget(stakingPage);
     centralStackedWidget->addWidget(infoPage);
 
     QWidget * leftPanel = new QWidget();
@@ -310,6 +314,18 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabsGroup->addButton(tabVerify);
     leftPanelLayout->addWidget(tabVerify);
 
+    tabStaking = new QToolButton();
+    tabStaking->setFixedSize(160,50);
+    tabStaking->setText(tr("STAKING"));
+    tabStaking->setCheckable(true);
+    tabStaking->setAutoRaise(true);
+    tabStaking->setFont(font);
+    tabStaking->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    tabStaking->setIcon(QIcon(":/icons/mining"));
+    tabStaking->setIconSize(QSize(16,16));
+    tabsGroup->addButton(tabStaking);
+    leftPanelLayout->addWidget(tabStaking);
+    
     tabInfo = new QToolButton();
     tabInfo->setFixedSize(160,50);
     tabInfo->setText(tr("BLOCKCHAIN"));
@@ -336,6 +352,8 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     connect(tabSign, SIGNAL(clicked()), this, SLOT(gotoSignMessagePage()));
     connect(tabVerify, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
     connect(tabVerify, SIGNAL(clicked()), this, SLOT(gotoVerifyMessagePage()));
+    connect(tabStaking, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
+    connect(tabStaking, SIGNAL(clicked()), this, SLOT(gotoStakingPage()));
     connect(tabInfo, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
     connect(tabInfo, SIGNAL(clicked()), this, SLOT(gotoInfoPage()));
 
@@ -1047,6 +1065,14 @@ void BitcoinGUI::gotoSignMessagePage()
 void BitcoinGUI::gotoVerifyMessagePage()
 {
     centralStackedWidget->setCurrentWidget(verifyMessagePage);
+
+    exportAction->setEnabled(false);
+    disconnect(exportAction, SIGNAL(triggered()), 0, 0);
+}
+
+void BitcoinGUI::gotoStakingPage()
+{
+    centralStackedWidget->setCurrentWidget(stakingPage);
 
     exportAction->setEnabled(false);
     disconnect(exportAction, SIGNAL(triggered()), 0, 0);

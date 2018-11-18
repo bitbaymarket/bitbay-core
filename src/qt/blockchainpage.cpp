@@ -1264,6 +1264,7 @@ void BlockchainPage::openInpMenu(const QPoint & pos)
         }
         QApplication::clipboard()->setText(text);
     });
+    m.addSeparator();
     a = m.addAction(tr("Copy Address"));
     connect(a, &QAction::triggered, [&] {
         QModelIndex mi2 = model->index(mi.row(), COL_INP_ADDR);
@@ -1345,6 +1346,7 @@ void BlockchainPage::openOutMenu(const QPoint & pos)
         }
         QApplication::clipboard()->setText(text);
     });
+    m.addSeparator();
     a = m.addAction(tr("Copy Address"));
     connect(a, &QAction::triggered, [&] {
         QModelIndex mi2 = model->index(mi.row(), COL_OUT_ADDR);

@@ -15,6 +15,7 @@ class AddressBookPage;
 class SendCoinsDialog;
 class SignMessagePage;
 class VerifyMessagePage;
+class StakingPage;
 class BlockchainPage;
 class SignVerifyMessageDialog;
 class Notificator;
@@ -69,6 +70,7 @@ private:
     SendCoinsDialog *sendCoinsPage;
     SignMessagePage *signMessagePage;
     VerifyMessagePage *verifyMessagePage;
+    StakingPage *stakingPage;
     BlockchainPage *infoPage;
 
     QLabel *lastBlockLabel;
@@ -108,6 +110,7 @@ private:
     QToolButton * tabAddresses = nullptr;
     QToolButton * tabSign = nullptr;
     QToolButton * tabVerify = nullptr;
+    QToolButton * tabStaking = nullptr;
     QToolButton * tabInfo = nullptr;
 
     QSystemTrayIcon *trayIcon;
@@ -179,6 +182,8 @@ private slots:
     void gotoSignMessagePage();
     /** Switch to verify message page */
     void gotoVerifyMessagePage();
+    /** Switch to info page */
+    void gotoStakingPage();
     /** Switch to info page */
     void gotoInfoPage();
 

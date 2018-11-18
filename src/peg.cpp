@@ -1311,8 +1311,15 @@ bool CalculateStandardFractions(const CTransaction & tx,
         }
         return false;
     }
+    
+    // now all outputs are ready, place them as inputs for next tx in the list
+    for (unsigned int i = 0; i < n_vout; i++)
+    {
+        auto fkey = uint320(tx.GetHash(), i);
+        mapInputsFractions[fkey] = mapTestFractionsPool[fkey];
+    }
 
-    // when finished all outputs, poolReserves frCommonLiquidity are fees
+    // when finished all outputs, poolReserves and frCommonLiquidity are fees
     feesFractions += frCommonLiquidity;
     for(const auto & item : poolReserves) {
         feesFractions += item.second;

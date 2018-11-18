@@ -1264,6 +1264,33 @@ void BlockchainPage::openInpMenu(const QPoint & pos)
         }
         QApplication::clipboard()->setText(text);
     });
+    a = m.addAction(tr("Copy Address"));
+    connect(a, &QAction::triggered, [&] {
+        QModelIndex mi2 = model->index(mi.row(), COL_INP_ADDR);
+        QApplication::clipboard()->setText(
+            mi2.data(Qt::DisplayRole).toString()
+        );
+    });
+    a = m.addAction(tr("Copy Input Hash"));
+    connect(a, &QAction::triggered, [&] {
+        QString text = "None";
+        QModelIndex mi2 = model->index(mi.row(), COL_INP_TX);
+        QVariant vhash = mi2.data(BlockchainModel::HashRole);
+        if (vhash.isValid()) {
+            uint256 hash = vhash.value<uint256>();
+            int n = mi2.data(BlockchainModel::OutNumRole).toInt();
+            text = QString::fromStdString(hash.ToString());
+            text += ":"+QString::number(n);
+        }
+        QApplication::clipboard()->setText(text);
+    });
+//    a = m.addAction(tr("Copy Input Height"));
+//    connect(a, &QAction::triggered, [&] {
+//        QModelIndex mi2 = model->index(mi.row(), COL_INP_TX);
+//        QApplication::clipboard()->setText(
+//            mi2.data(Qt::DisplayRole).toString()
+//        );
+//    });
     
     m.exec(ui->txInputs->viewport()->mapToGlobal(pos));
 }
@@ -1315,6 +1342,26 @@ void BlockchainPage::openOutMenu(const QPoint & pos)
                 int64_t nLiquidity = fractions.High(nSupply);
                 text = QString::number(nLiquidity);
             }
+        }
+        QApplication::clipboard()->setText(text);
+    });
+    a = m.addAction(tr("Copy Address"));
+    connect(a, &QAction::triggered, [&] {
+        QModelIndex mi2 = model->index(mi.row(), COL_OUT_ADDR);
+        QApplication::clipboard()->setText(
+            mi2.data(Qt::DisplayRole).toString()
+        );
+    });
+    a = m.addAction(tr("Copy Spent Hash"));
+    connect(a, &QAction::triggered, [&] {
+        QString text = "None";
+        QModelIndex mi2 = model->index(mi.row(), COL_OUT_TX);
+        QVariant vhash = mi2.data(BlockchainModel::HashRole);
+        if (vhash.isValid()) {
+            uint256 hash = vhash.value<uint256>();
+            int n = mi2.data(BlockchainModel::OutNumRole).toInt();
+            text = QString::fromStdString(hash.ToString());
+            text += ":"+QString::number(n);
         }
         QApplication::clipboard()->setText(text);
     });

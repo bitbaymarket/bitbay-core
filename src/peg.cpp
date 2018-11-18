@@ -870,8 +870,8 @@ bool CalculateFractions(CTxDB& txdb,
 
 bool CalculateStandardFractions(const CTransaction & tx,
                                 const CBlockIndex* pindexBlock,
-                                MapPrevTx & inputs,
-                                MapInputFractions& fInputs,
+                                MapPrevTx & mapInputs,
+                                MapInputFractions& mapInputsFractions,
                                 map<uint256, CTxIndex>& mapTestPool,
                                 MapOutputFractions& mapTestFractionsPool,
                                 CFractions& feesFractions,
@@ -882,7 +882,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
     size_t n_vout = tx.vout.size();
     vOutputsTypes.resize(n_vout);
 
-    if (!IsPegWhiteListed(tx, inputs)) {
+    if (!IsPegWhiteListed(tx, mapInputs)) {
         sFailCause = "PI01: Not whitelisted";
         return true;
     }
@@ -907,7 +907,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
     for (unsigned int i = 0; i < n_vin; i++)
     {
         const COutPoint & prevout = tx.vin[i].prevout;
-        CTransaction& txPrev = inputs[prevout.hash].second;
+        CTransaction& txPrev = mapInputs[prevout.hash].second;
         if (prevout.n >= txPrev.vout.size()) {
             sFailCause = "PI02: Refered output out of range";
             return false;
@@ -919,12 +919,12 @@ bool CalculateStandardFractions(const CTransaction & tx,
         setInputAddresses.insert(sAddress);
 
         auto fkey = uint320(prevout.hash, prevout.n);
-        if (fInputs.find(fkey) == fInputs.end()) {
+        if (mapInputsFractions.find(fkey) == mapInputsFractions.end()) {
             sFailCause = "PI03: No input fractions found";
             return false;
         }
 
-        auto frInp = fInputs[fkey].Std();
+        auto frInp = mapInputsFractions[fkey].Std();
         if (frInp.Total() != txPrev.vout[prevout.n].nValue) {
             sFailCause = "PI04: Input fraction total mismatches value";
             return false;

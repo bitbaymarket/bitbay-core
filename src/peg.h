@@ -70,6 +70,10 @@ public:
     CFractions& operator+=(const CFractions& b);
     CFractions& operator-=(const CFractions& b);
 
+    int64_t MoveRatioPartTo(int64_t nPartValue,
+                            int adjust_from,
+                            CFractions& b);
+    
     void ToDeltas(int64_t* deltas) const;
     void FromDeltas(const int64_t* deltas);
 

@@ -537,24 +537,24 @@ CFractions CFractions::LowPart(int supply, int64_t* total) const
     if ((nFlags & STD) == 0) {
         return Std().LowPart(supply, total);
     }
-    CFractions freserve(0, CFractions::STD);
+    CFractions frLowPart(0, CFractions::STD);
     for(int i=0; i<supply; i++) {
         if (total) *total += f[i];
-        freserve.f[i] += f[i];
+        frLowPart.f[i] += f[i];
     }
-    return freserve;
+    return frLowPart;
 }
 CFractions CFractions::HighPart(int supply, int64_t* total) const
 {
     if ((nFlags & STD) == 0) {
         return Std().HighPart(supply, total);
     }
-    CFractions fliquidity(0, CFractions::STD);
+    CFractions frHighPart(0, CFractions::STD);
     for(int i=supply; i<PEG_SIZE; i++) {
         if (total) *total += f[i];
-        fliquidity.f[i] += f[i];
+        frHighPart.f[i] += f[i];
     }
-    return fliquidity;
+    return frHighPart;
 }
 
 static int64_t RatioPart(int64_t nValue,
@@ -596,6 +596,8 @@ CFractions CFractions::RatioPart(int64_t nPartValue,
 
     if (nPartValue == 0 && nTotalValue == 0)
         return fPart;
+    if (nPartValue == 0)
+        return fPart;
 
     for(int i=0; i<PEG_SIZE; i++) {
         int64_t v = f[i];
@@ -627,6 +629,75 @@ CFractions CFractions::RatioPart(int64_t nPartValue,
         fPart.f[adjust_from + ((i-nPartValueSum) % (PEG_SIZE-adjust_from))]++;
     }
     return fPart;
+}
+
+/** Take a part as ration part/total where part is also value (sum fraction)
+ *  Add taken part into destination fractions. Adjusted from adjust_from.
+ *  Returns not completed amount (if source("this") has no enough)
+ */
+int64_t CFractions::MoveRatioPartTo(int64_t nValueToMove,
+                                    int adjust_from,
+                                    CFractions& b) 
+{
+    int64_t nTotalValue = Total();
+    int64_t nPartValue = nValueToMove;
+
+    if (nTotalValue == 0)
+        return nValueToMove;
+    if (nValueToMove == 0)
+        return 0;
+    
+    if ((nFlags & STD) == 0)
+        ToStd();
+    if ((b.nFlags & STD) == 0)
+        b.ToStd();
+    
+    if (nPartValue >= nTotalValue) {
+        nPartValue = nTotalValue;
+        b += *this; // move all
+        for(int i=0; i<PEG_SIZE; i++) f[i] = 0; // taken all
+        return nValueToMove - nPartValue;
+    }
+    
+    int64_t nPartValueSum = 0;
+    for(int i=0; i<PEG_SIZE; i++) {
+        int64_t v = f[i];
+
+        bool has_overflow = false;
+        if (std::is_same<int64_t,long>()) {
+            long m_test;
+            has_overflow = __builtin_smull_overflow(v, nPartValue, &m_test);
+        } else if (std::is_same<int64_t,long long>()) {
+            long long m_test;
+            has_overflow = __builtin_smulll_overflow(v, nPartValue, &m_test);
+        } else {
+            assert(0); // todo: compile error
+        }
+
+        int64_t vp = 0;
+        
+        if (has_overflow) {
+            multiprecision::uint128_t v128(v);
+            multiprecision::uint128_t part128(nPartValue);
+            multiprecision::uint128_t f128 = (v128*part128)/nTotalValue;
+            vp = f128.convert_to<int64_t>();
+        }
+        else {
+            vp = (v*nPartValue)/nTotalValue;
+        }
+
+        nPartValueSum += vp;
+        b.f[i] += vp;
+        f[i] -= vp;
+    }
+    
+    for (int64_t i=nPartValueSum; i<nPartValue; i++) {
+        int idx = adjust_from + ((i-nPartValueSum) % (PEG_SIZE-adjust_from));
+        b.f[idx]++;
+        f[idx]--;
+    }
+    
+    return 0;
 }
 
 CFractions& CFractions::operator+=(const CFractions& b)
@@ -1338,19 +1409,8 @@ bool CalculateStakingFractions(const CTransaction & tx,
 
         if (poolReserves.count(sAddress)) { // to reserve
             int64_t nValueLeft = nValue;
-            int64_t nValueToTake = nValueLeft;
-
             auto & frReserve = poolReserves[sAddress];
-            int64_t nReserve = frReserve.Total();
-            if (nReserve >0) {
-                if (nValueToTake > nReserve)
-                    nValueToTake = nReserve;
-
-                auto frReservePart = frReserve.RatioPart(nValueToTake, nReserve, 0);
-                frOut += frReservePart;
-                frReserve -= frReservePart;
-                nValueLeft -= nValueToTake;
-            }
+            nValueLeft = frReserve.MoveRatioPartTo(nValueLeft, 0, frOut);
 
             if (nValueLeft > 0) {
                 if (nValueLeft > nCommonLiquidity) {
@@ -1358,11 +1418,8 @@ bool CalculateStakingFractions(const CTransaction & tx,
                     fFailedPegOut = true;
                     break;
                 }
-                auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
-                frOut += frLiquidityPart;
-                frCommonLiquidity -= frLiquidityPart;
+                frCommonLiquidity.MoveRatioPartTo(nValueLeft, nSupply, frOut);
                 nCommonLiquidity -= nValueLeft;
-                nValueLeft = 0;
             }
         }
         else { // move liquidity out
@@ -1376,17 +1433,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
                 int64_t nValueLeft = nValue;
                 for(const string & sAddress : vAddresses) {
                     auto & frReserve = poolReserves[sAddress];
-                    int64_t nReserve = frReserve.Total();
-                    if (nReserve ==0) continue;
-                    int64_t nValueToTake = nValueLeft;
-                    if (nValueToTake > nReserve)
-                        nValueToTake = nReserve;
-
-                    auto frReservePart = frReserve.RatioPart(nValueToTake, nReserve, 0);
-                    frOut += frReservePart;
-                    frReserve -= frReservePart;
-                    nValueLeft -= nValueToTake;
-
+                    nValueLeft = frReserve.MoveRatioPartTo(nValueLeft, 0, frOut);
                     if (nValueLeft == 0) {
                         break;
                     }
@@ -1398,32 +1445,26 @@ bool CalculateStakingFractions(const CTransaction & tx,
                         fFailedPegOut = true;
                         break;
                     }
-                    auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
-                    frOut += frLiquidityPart;
-                    frCommonLiquidity -= frLiquidityPart;
+                    frCommonLiquidity.MoveRatioPartTo(nValueLeft, nSupply, frOut);
                     nCommonLiquidity -= nValueLeft;
-                    nValueLeft = 0;
                 }
             }
             else {
-                int64_t nValueLeft = nValue;
-                if (nValueLeft > nCommonLiquidity) {
+                if (nValue > nCommonLiquidity) {
                     sFailCause = "P15: No liquidity left";
                     fFailedPegOut = true;
                     break;
                 }
-                auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
-                frOut += frLiquidityPart;
-                frCommonLiquidity -= frLiquidityPart;
-                nCommonLiquidity -= nValueLeft;
-                nValueLeft = 0;
+                frCommonLiquidity.MoveRatioPartTo(nValue, nSupply, frOut);
+                nCommonLiquidity -= nValue;
             }
         }
     }
 
     if (fFailedPegOut) {
         // while the peg system is in the testing mode:
-        // for now remove failed fractions from pegdb
+        // for now remove failed fractions from pool so they
+        // are not written to db
         auto fkey = uint320(tx.GetHash(), nLatestPegOut);
         if (mapTestFractionsPool.count(fkey)) {
             auto it = mapTestFractionsPool.find(fkey);

@@ -2,8 +2,8 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef INFOPAGE_H
-#define INFOPAGE_H
+#ifndef BLOCKCHAINPAGE_H
+#define BLOCKCHAINPAGE_H
 
 #include <QDialog>
 #include <QPixmap>
@@ -25,6 +25,21 @@ class BlockchainPage : public QDialog
 {
     Q_OBJECT
 
+    enum {
+        COL_INP_N = 0,
+        COL_INP_TX,
+        COL_INP_ADDR,
+        COL_INP_VALUE,
+        COL_INP_FRACTIONS
+    };
+    enum {
+        COL_OUT_N = 0,
+        COL_OUT_TX,
+        COL_OUT_ADDR,
+        COL_OUT_VALUE,
+        COL_OUT_FRACTIONS
+    };
+    
 public:
     explicit BlockchainPage(QWidget *parent = nullptr);
     ~BlockchainPage();
@@ -50,6 +65,8 @@ private slots:
     void openChainMenu(const QPoint &);
     void openBlockMenu(const QPoint &);
     void openTxMenu(const QPoint &);
+    void openInpMenu(const QPoint &);
+    void openOutMenu(const QPoint &);
 
 private:
     Ui::BlockchainPage *ui;
@@ -75,7 +92,7 @@ public:
                const QModelIndex &index) const override;
 };
 
-class FractionsItemDelegate : public QItemDelegate
+class FractionsItemDelegate : public QStyledItemDelegate
 {
     Q_OBJECT
 
@@ -136,4 +153,4 @@ protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
 };
 
-#endif // INFOPAGE_H
+#endif // BLOCKCHAINPAGE_H

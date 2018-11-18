@@ -59,6 +59,8 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     ui->blockchainView->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->blockValues->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->txValues->setContextMenuPolicy(Qt::CustomContextMenu);
+    ui->txInputs->setContextMenuPolicy(Qt::CustomContextMenu);
+    ui->txOutputs->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->blockchainView->installEventFilter(new BlockchainPageChainEvents(ui->blockchainView, this));
     ui->blockValues->installEventFilter(new BlockchainPageBlockEvents(ui->blockValues, this));
     ui->txValues->installEventFilter(new BlockchainPageTxEvents(ui->blockValues, this));
@@ -69,6 +71,10 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
             this, SLOT(openBlockMenu(const QPoint &)));
     connect(ui->txValues, SIGNAL(customContextMenuRequested(const QPoint &)),
             this, SLOT(openTxMenu(const QPoint &)));
+    connect(ui->txInputs, SIGNAL(customContextMenuRequested(const QPoint &)),
+            this, SLOT(openInpMenu(const QPoint &)));
+    connect(ui->txOutputs, SIGNAL(customContextMenuRequested(const QPoint &)),
+            this, SLOT(openOutMenu(const QPoint &)));
 
     connect(ui->blockchainView, SIGNAL(activated(const QModelIndex &)),
             this, SLOT(openBlock(const QModelIndex &)));
@@ -753,6 +759,7 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
 
         row << QString("%1:%2").arg(prev_txid).arg(prevout.n); // tx, 1
         auto prev_input = QString("%1:%2").arg(prev_thash).arg(prevout.n); // tx, 1
+        int64_t nValue = 0;
 
         if (mapInputs.find(prevout.hash) != mapInputs.end()) {
             CTransaction& txPrev = mapInputs[prevout.hash].second;
@@ -766,8 +773,9 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
                     sAddresses.insert(addr);
                 }
 
-                nValueIn += txPrev.vout[prevout.n].nValue;
-                row << displayValue(txPrev.vout[prevout.n].nValue);
+                nValue = txPrev.vout[prevout.n].nValue;
+                nValueIn += nValue;
+                row << displayValue(nValue);
             }
             else {
                 row << "N/A"; // address, 2
@@ -783,45 +791,27 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         {
             QVariant vhash;
             vhash.setValue(prevout.hash);
-            input->setData(1, BlockchainModel::HashRole, vhash);
-            input->setData(1, BlockchainModel::OutNumRole, prevout.n);
+            input->setData(COL_INP_TX, BlockchainModel::HashRole, vhash);
+            input->setData(COL_INP_TX, BlockchainModel::OutNumRole, prevout.n);
         }
         auto fkey = uint320(prevout.hash, prevout.n);
         if (mapInputsFractions.find(fkey) != mapInputsFractions.end()) {
             QVariant vfractions;
             vfractions.setValue(mapInputsFractions[fkey]);
-            input->setData(4, BlockchainModel::HashRole, prev_input);
-            input->setData(4, BlockchainModel::FractionsRole, vfractions);
-            input->setData(4, BlockchainModel::PegSupplyRole, peg_whitelisted
+            input->setData(COL_INP_FRACTIONS, BlockchainModel::HashRole, prev_input);
+            input->setData(COL_INP_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
+            input->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, peg_whitelisted
                            ? pblockindex->nPegSupplyIndex
                            : 0);
             if (mapInputsFractions[fkey].nFlags & CFractions::NOTARY_F) {
-                input->setData(3, Qt::DecorationPropertyRole, pmFrozenF);
-
-                CTxIndex txindex;
-                txdb.ReadTxIndex(prevout.hash, txindex);
-                CBlock block;
-                if (block.ReadFromDisk(txindex.pos.nFile, txindex.pos.nBlockPos, false)) {
-                    // Find the block in the index
-                    uint256 bhash = block.GetHash();
-                    map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(bhash);
-                    if (mi != mapBlockIndex.end()) {
-                        CBlockIndex* pindex = (*mi).second;
-                        unsigned int nPrevTxTime = pindex->nTime;
-                        if ((nPrevTxTime+2592000) > tx.nLockTime) {
-                            input->setData(3, Qt::BackgroundColorRole, QColor(Qt::red));
-                        }
-                    }
-                }
+                input->setData(COL_INP_VALUE, Qt::DecorationPropertyRole, pmFrozenF);
             }
             else if (mapInputsFractions[fkey].nFlags & CFractions::NOTARY_V) {
-                input->setData(3, Qt::DecorationPropertyRole, pmFrozenV);
+                input->setData(COL_INP_VALUE, Qt::DecorationPropertyRole, pmFrozenV);
             }
-//            else if (mapInputsFractions[fkey].nFlags & CFractions::FROZEN_L) {
-//                input->setData(3, Qt::DecorationPropertyRole, pmFrozenL);
-//            }
         }
-        input->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        input->setData(COL_INP_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        input->setData(COL_INP_VALUE, BlockchainModel::ValueForCopy, qlonglong(nValue));
         ui->txInputs->addTopLevelItem(input);
     }
 
@@ -839,39 +829,41 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
             }
         }
         int64_t nDemoSubsidy = 0;
-        int64_t nCalculatedStakeReward = GetProofOfStakeReward(
+        int64_t nStakeReward = GetProofOfStakeReward(
                     pblockindex->pprev, nCoinAge, 0 /*fees*/, inpStake, nDemoSubsidy);
 
         QStringList rowMined;
         rowMined << "Mined"; // idx, 0
         rowMined << "";      // tx, 1
         rowMined << "N/A";   // address, 2
-        rowMined << displayValue(nCalculatedStakeReward);
+        rowMined << displayValue(nStakeReward);
 
         auto inputMined = new QTreeWidgetItem(rowMined);
         QVariant vfractions;
-        vfractions.setValue(CFractions(nCalculatedStakeReward, CFractions::STD));
-        inputMined->setData(4, BlockchainModel::FractionsRole, vfractions);
-        inputMined->setData(4, BlockchainModel::PegSupplyRole, peg_whitelisted
+        vfractions.setValue(CFractions(nStakeReward, CFractions::STD));
+        inputMined->setData(COL_INP_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
+        inputMined->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, peg_whitelisted
                             ? pblockindex->nPegSupplyIndex
                             : 0);
-        inputMined->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        inputMined->setData(COL_INP_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        inputMined->setData(COL_INP_VALUE, BlockchainModel::ValueForCopy, qlonglong(nStakeReward));
         ui->txInputs->addTopLevelItem(inputMined);
 
         QStringList rowMinedDemo;
         rowMinedDemo << "MinedPeg"; // idx, 0
-        rowMinedDemo << "";      // tx, 1
-        rowMinedDemo << "N/A";   // address, 2
+        rowMinedDemo << "";         // tx, 1
+        rowMinedDemo << "N/A";      // address, 2
         rowMinedDemo << displayValue(nDemoSubsidy);
         
         auto inputMinedDemo = new QTreeWidgetItem(rowMinedDemo);
         //QVariant vfractions;
         vfractions.setValue(CFractions(nDemoSubsidy, CFractions::STD));
-        inputMinedDemo->setData(4, BlockchainModel::FractionsRole, vfractions);
-        inputMinedDemo->setData(4, BlockchainModel::PegSupplyRole, peg_whitelisted
+        inputMinedDemo->setData(COL_INP_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
+        inputMinedDemo->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, peg_whitelisted
                             ? pblockindex->nPegSupplyIndex
                             : 0);
-        inputMinedDemo->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        inputMinedDemo->setData(COL_INP_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        inputMinedDemo->setData(COL_INP_VALUE, BlockchainModel::ValueForCopy, qlonglong(nDemoSubsidy));
         ui->txInputs->addTopLevelItem(inputMinedDemo);
         
         // need to collect all fees fractions from all tx in the block
@@ -887,14 +879,41 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
 
         auto inputFees = new QTreeWidgetItem(rowFees);
         vfractions.setValue(feesFractions);
-        inputFees->setData(4, BlockchainModel::FractionsRole, vfractions);
-        inputFees->setData(4, BlockchainModel::PegSupplyRole, peg_whitelisted
+        inputFees->setData(COL_INP_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
+        inputFees->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, peg_whitelisted
                            ? pblockindex->nPegSupplyIndex
                            : 0);
-        inputFees->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        inputFees->setData(COL_INP_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        inputFees->setData(COL_INP_VALUE, BlockchainModel::ValueForCopy, qlonglong(nFeesValue));
         ui->txInputs->addTopLevelItem(inputFees);
     }
 
+    int nAlignInpHigh = 0;
+    for(int i=0; i< ui->txInputs->topLevelItemCount(); i++) {
+        auto input = ui->txInputs->topLevelItem(i);
+        auto nSupply = input->data(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole).toInt();
+        QVariant vfractions = input->data(COL_INP_FRACTIONS, BlockchainModel::FractionsRole);
+        if (!vfractions.isValid()) continue;
+        CFractions fractions = vfractions.value<CFractions>();
+        int64_t liquidity = fractions.High(nSupply);
+        QString text = displayValue(liquidity);
+        if (text.length() > nAlignInpHigh)
+            nAlignInpHigh = text.length();
+    }
+    for(int i=0; i< ui->txInputs->topLevelItemCount(); i++) {
+        auto input = ui->txInputs->topLevelItem(i);
+        int64_t nValue = input->data(COL_INP_VALUE, BlockchainModel::ValueForCopy).toLongLong();
+        auto nSupply = input->data(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole).toInt();
+        QVariant vfractions = input->data(COL_INP_FRACTIONS, BlockchainModel::FractionsRole);
+        if (!vfractions.isValid()) continue;
+        CFractions fractions = vfractions.value<CFractions>();
+        if (fractions.Total() != nValue) continue;
+        int64_t reserve = fractions.Low(nSupply);
+        int64_t liquidity = fractions.High(nSupply);
+        input->setData(COL_INP_FRACTIONS, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        input->setText(COL_INP_FRACTIONS, displayValue(reserve)+" / "+displayValueR(liquidity, nAlignInpHigh));
+    }
+    
     CTxIndex txindex;
     txdb.ReadTxIndex(hash, txindex);
 
@@ -902,7 +921,6 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     size_t n_vout = tx.vout.size();
     if (tx.IsCoinBase()) n_vout = 0;
     int64_t nValueOut = 0;
-    int64_t nLiquidityOut = 0;
     for (unsigned int i = 0; i < n_vout; i++)
     {
         QStringList row;
@@ -951,77 +969,63 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
             row << "N/A"; // 2, address
         else row << addr;
 
-        nValueOut += tx.vout[i].nValue;
-        row << displayValue(tx.vout[i].nValue); // 3, value
+        int64_t nValue = tx.vout[i].nValue;
+        nValueOut += nValue;
+        row << displayValue(nValue); // 3, value
 
         bool fIndicateFrozen = false;
         auto output = new QTreeWidgetItem(row);
         if (hasSpend) {
             QVariant vhash;
             vhash.setValue(next_hash);
-            output->setData(1, BlockchainModel::HashRole, vhash);
-            output->setData(1, BlockchainModel::OutNumRole, next_outnum);
+            output->setData(COL_OUT_TX, BlockchainModel::HashRole, vhash);
+            output->setData(COL_OUT_TX, BlockchainModel::OutNumRole, next_outnum);
         }
         auto fkey = uint320(hash, i);
         if (mapFractionsUnused.find(fkey) != mapFractionsUnused.end()) {
             QVariant vFractions;
             vFractions.setValue(mapFractionsUnused[fkey]);
-            output->setData(4, BlockchainModel::HashRole, titleSpend);
-            output->setData(4, BlockchainModel::FractionsRole, vFractions);
-            output->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
+            output->setData(COL_OUT_FRACTIONS, BlockchainModel::HashRole, titleSpend);
+            output->setData(COL_OUT_FRACTIONS, BlockchainModel::FractionsRole, vFractions);
+            output->setData(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
             if (mapFractionsUnused[fkey].nFlags & CFractions::NOTARY_F) {
-                output->setData(3, Qt::DecorationPropertyRole, pmFrozenF);
+                output->setData(COL_OUT_VALUE, Qt::DecorationPropertyRole, pmFrozenF);
                 fIndicateFrozen = true;
             }
             else if (mapFractionsUnused[fkey].nFlags & CFractions::NOTARY_V) {
-                output->setData(3, Qt::DecorationPropertyRole, pmFrozenV);
+                output->setData(COL_OUT_VALUE, Qt::DecorationPropertyRole, pmFrozenV);
                 fIndicateFrozen = true;
             }
-//            else if (mapFractionsUnused[fkey].nFlags & CFractions::FROZEN_L) {
-//                output->setData(3, Qt::DecorationPropertyRole, pmFrozenL);
-//                fIndicateFrozen = true;
-//            }
         }
         if (!peg_whitelisted) {
             QVariant vFractions;
             vFractions.setValue(CFractions(tx.vout[i].nValue, CFractions::STD));
-            output->setData(4, BlockchainModel::HashRole, titleSpend);
-            output->setData(4, BlockchainModel::FractionsRole, vFractions);
-            output->setData(4, BlockchainModel::PegSupplyRole, 0);
+            output->setData(COL_OUT_FRACTIONS, BlockchainModel::HashRole, titleSpend);
+            output->setData(COL_OUT_FRACTIONS, BlockchainModel::FractionsRole, vFractions);
+            output->setData(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyRole, 0);
         }
-        output->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        output->setData(COL_OUT_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        output->setData(COL_OUT_VALUE, BlockchainModel::ValueForCopy, qlonglong(nValue));
         if (!fIndicateFrozen && sAddresses.contains(addr)) {
-            output->setData(3, Qt::DecorationPropertyRole, pmChange);
+            output->setData(COL_OUT_VALUE, Qt::DecorationPropertyRole, pmChange);
         }
         ui->txOutputs->addTopLevelItem(output);
-
-        if (vOutputsTypes[i] == PEG_DEST_OUT) {
-            nLiquidityOut += tx.vout[i].nValue;
-        }
     }
 
     int nValueMaxLen = qMax(displayValue(nValueIn).length(),
                             qMax(displayValue(nValueOut).length(),
                                  qMax(displayValue(nReserveIn).length(),
-                                      qMax(displayValue(nLiquidityIn).length(),
-                                           displayValue(nLiquidityOut).length()))));
+                                      displayValue(nLiquidityIn).length())));
     auto sValueIn = displayValueR(nValueIn, nValueMaxLen);
     auto sValueOut = displayValueR(nValueOut, nValueMaxLen);
     auto sReserveIn = displayValueR(nReserveIn, nValueMaxLen);
     auto sLiquidityIn = displayValueR(nLiquidityIn, nValueMaxLen);
-    auto sLiquidityOut = displayValueR(nLiquidityOut, nValueMaxLen);
 
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Value In",sValueIn})));
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Value Out",sValueOut})));
 
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Reserves",sReserveIn})));
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Liquidity",sLiquidityIn})));
-
-//todo: review
-//    auto twiOutLiquidity = new QTreeWidgetItem(QStringList({"Liquidity Move",sLiquidityOut}));
-//    if (nLiquidityOut > nLiquidityIn)
-//        twiOutLiquidity->setBackgroundColor(1, Qt::red);
-//    ui->txValues->addTopLevelItem(twiOutLiquidity);
 
     auto twiPegChecks = new QTreeWidgetItem(
                 QStringList({
@@ -1046,16 +1050,44 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
         QVariant vfractions;
         if (peg_whitelisted) {
             vfractions.setValue(feesFractions);
-            outputFees->setData(4, BlockchainModel::FractionsRole, vfractions);
-            outputFees->setData(4, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
+            outputFees->setData(COL_OUT_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
+            outputFees->setData(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
         } else {
             vfractions.setValue(CFractions(nValueIn - nValueOut, CFractions::STD));
-            outputFees->setData(4, BlockchainModel::FractionsRole, vfractions);
-            outputFees->setData(4, BlockchainModel::PegSupplyRole, 0);
+            outputFees->setData(COL_OUT_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
+            outputFees->setData(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyRole, 0);
         }
-        outputFees->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        outputFees->setData(COL_OUT_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        outputFees->setData(COL_OUT_VALUE, BlockchainModel::ValueForCopy, qlonglong(nValueIn - nValueOut));
         ui->txOutputs->addTopLevelItem(outputFees);
     }
+    
+    int nAlignOutHigh = 0;
+    for(int i=0; i< ui->txOutputs->topLevelItemCount(); i++) {
+        auto output = ui->txOutputs->topLevelItem(i);
+        auto nSupply = output->data(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyRole).toInt();
+        QVariant vfractions = output->data(COL_OUT_FRACTIONS, BlockchainModel::FractionsRole);
+        if (!vfractions.isValid()) continue;
+        CFractions fractions = vfractions.value<CFractions>();
+        int64_t liquidity = fractions.High(nSupply);
+        QString text = displayValue(liquidity);
+        if (text.length() > nAlignOutHigh)
+            nAlignOutHigh = text.length();
+    }
+    for(int i=0; i< ui->txOutputs->topLevelItemCount(); i++) {
+        auto output = ui->txOutputs->topLevelItem(i);
+        int64_t nValue = output->data(COL_OUT_VALUE, BlockchainModel::ValueForCopy).toLongLong();
+        auto nSupply = output->data(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyRole).toInt();
+        QVariant vfractions = output->data(COL_OUT_FRACTIONS, BlockchainModel::FractionsRole);
+        if (!vfractions.isValid()) continue;
+        CFractions fractions = vfractions.value<CFractions>();
+        if (fractions.Total() != nValue) continue;
+        int64_t reserve = fractions.Low(nSupply);
+        int64_t liquidity = fractions.High(nSupply);
+        output->setData(COL_OUT_FRACTIONS, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        output->setText(COL_OUT_FRACTIONS, displayValue(reserve)+" / "+displayValueR(liquidity, nAlignOutHigh));
+    }
+    
 }
 
 void BlockchainPage::openTxMenu(const QPoint & pos)
@@ -1107,6 +1139,114 @@ void BlockchainPage::openTxMenu(const QPoint & pos)
         );
     });
     m.exec(ui->txValues->viewport()->mapToGlobal(pos));
+}
+
+void BlockchainPage::openInpMenu(const QPoint & pos)
+{
+    QModelIndex mi = ui->txInputs->indexAt(pos);
+    if (!mi.isValid()) return;
+    auto model = mi.model();
+    if (!model) return;
+    
+    QMenu m;
+
+    auto a = m.addAction(tr("Copy Value"));
+    connect(a, &QAction::triggered, [&] {
+        QModelIndex mi2 = model->index(mi.row(), COL_INP_VALUE);
+        QApplication::clipboard()->setText(
+            mi2.data(BlockchainModel::ValueForCopy).toString()
+        );
+    });
+    a = m.addAction(tr("Copy Reserve"));
+    connect(a, &QAction::triggered, [&] {
+        QString text = "None";
+        QModelIndex mi2 = model->index(mi.row(), COL_INP_VALUE);
+        int64_t nValue = mi2.data(BlockchainModel::ValueForCopy).toLongLong();
+        QModelIndex mi3 = model->index(mi.row(), COL_INP_FRACTIONS);
+        int nSupply = mi3.data(BlockchainModel::PegSupplyRole).toInt();
+        QVariant vfractions = mi3.data(BlockchainModel::FractionsRole);
+        if (vfractions.isValid()) {
+            CFractions fractions = vfractions.value<CFractions>();
+            if (fractions.Total() == nValue) {
+                int64_t nReserve = fractions.Low(nSupply);
+                text = QString::number(nReserve);
+            }
+        }
+        QApplication::clipboard()->setText(text);
+    });
+    a = m.addAction(tr("Copy Liquidity"));
+    connect(a, &QAction::triggered, [&] {
+        QString text = "None";
+        QModelIndex mi2 = model->index(mi.row(), COL_INP_VALUE);
+        int64_t nValue = mi2.data(BlockchainModel::ValueForCopy).toLongLong();
+        QModelIndex mi3 = model->index(mi.row(), COL_INP_FRACTIONS);
+        int nSupply = mi3.data(BlockchainModel::PegSupplyRole).toInt();
+        QVariant vfractions = mi3.data(BlockchainModel::FractionsRole);
+        if (vfractions.isValid()) {
+            CFractions fractions = vfractions.value<CFractions>();
+            if (fractions.Total() == nValue) {
+                int64_t nLiquidity = fractions.High(nSupply);
+                text = QString::number(nLiquidity);
+            }
+        }
+        QApplication::clipboard()->setText(text);
+    });
+    
+    m.exec(ui->txInputs->viewport()->mapToGlobal(pos));
+}
+
+void BlockchainPage::openOutMenu(const QPoint & pos)
+{
+    QModelIndex mi = ui->txOutputs->indexAt(pos);
+    if (!mi.isValid()) return;
+    auto model = mi.model();
+    if (!model) return;
+    
+    QMenu m;
+
+    auto a = m.addAction(tr("Copy Value"));
+    connect(a, &QAction::triggered, [&] {
+        QModelIndex mi2 = model->index(mi.row(), COL_OUT_VALUE);
+        QApplication::clipboard()->setText(
+            mi2.data(BlockchainModel::ValueForCopy).toString()
+        );
+    });
+    a = m.addAction(tr("Copy Reserve"));
+    connect(a, &QAction::triggered, [&] {
+        QString text = "None";
+        QModelIndex mi2 = model->index(mi.row(), COL_OUT_VALUE);
+        int64_t nValue = mi2.data(BlockchainModel::ValueForCopy).toLongLong();
+        QModelIndex mi3 = model->index(mi.row(), COL_OUT_FRACTIONS);
+        int nSupply = mi3.data(BlockchainModel::PegSupplyRole).toInt();
+        QVariant vfractions = mi3.data(BlockchainModel::FractionsRole);
+        if (vfractions.isValid()) {
+            CFractions fractions = vfractions.value<CFractions>();
+            if (fractions.Total() == nValue) {
+                int64_t nReserve = fractions.Low(nSupply);
+                text = QString::number(nReserve);
+            }
+        }
+        QApplication::clipboard()->setText(text);
+    });
+    a = m.addAction(tr("Copy Liquidity"));
+    connect(a, &QAction::triggered, [&] {
+        QString text = "None";
+        QModelIndex mi2 = model->index(mi.row(), COL_OUT_VALUE);
+        int64_t nValue = mi2.data(BlockchainModel::ValueForCopy).toLongLong();
+        QModelIndex mi3 = model->index(mi.row(), COL_OUT_FRACTIONS);
+        int nSupply = mi3.data(BlockchainModel::PegSupplyRole).toInt();
+        QVariant vfractions = mi3.data(BlockchainModel::FractionsRole);
+        if (vfractions.isValid()) {
+            CFractions fractions = vfractions.value<CFractions>();
+            if (fractions.Total() == nValue) {
+                int64_t nLiquidity = fractions.High(nSupply);
+                text = QString::number(nLiquidity);
+            }
+        }
+        QApplication::clipboard()->setText(text);
+    });
+    
+    m.exec(ui->txOutputs->viewport()->mapToGlobal(pos));
 }
 
 bool BlockchainPageTxEvents::eventFilter(QObject *obj, QEvent *event)
@@ -1322,7 +1462,7 @@ void LeftSideIconItemDelegate::paint(QPainter* p,
 // delegate to draw fractions
 
 FractionsItemDelegate::FractionsItemDelegate(QWidget *parent) :
-    QItemDelegate(parent)
+    QStyledItemDelegate(parent)
 {
 }
 
@@ -1334,6 +1474,8 @@ void FractionsItemDelegate::paint(QPainter* p,
                                   const QStyleOptionViewItem& o,
                                   const QModelIndex& index) const
 {
+    QStyledItemDelegate::paint(p, o, index);
+    
     auto vfractions = index.data(BlockchainModel::FractionsRole);
     auto fractions = vfractions.value<CFractions>();
     auto fractions_std = fractions.Std();

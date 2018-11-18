@@ -38,7 +38,8 @@ public:
         TxNumRole,
         OutNumRole,
         FractionsRole,
-        PegSupplyRole
+        PegSupplyRole,
+        ValueForCopy
     };
 
     /** @name Methods overridden from QAbstractItemModel

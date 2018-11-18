@@ -12,7 +12,10 @@
 using namespace json_spirit;
 using namespace std;
 
-extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, json_spirit::Object& entry);
+extern void TxToJSON(const CTransaction& tx, 
+                     const uint256 hashBlock, 
+                     const MapFractions&,
+                     json_spirit::Object& entry);
 
 double GetDifficulty(const CBlockIndex* blockindex)
 {
@@ -148,9 +151,10 @@ Object blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool fPri
         if (fPrintTransactionDetail)
         {
             Object entry;
+            MapFractions mapFractions;
 
             entry.push_back(Pair("txid", tx.GetHash().GetHex()));
-            TxToJSON(tx, 0, entry);
+            TxToJSON(tx, 0, mapFractions, entry);
 
             txinfo.push_back(entry);
         }
@@ -321,28 +325,7 @@ Value getblock(const Array& params, bool fHelp)
         return strHex;
     }
 
-    //return blockToJSON(block, pblockindex, verbosity >= 2);
 	return blockToJSON(block, pblockindex, params.size() > 1 ? params[1].get_bool() : false);
-}
-Value getblock_old(const Array& params, bool fHelp)
-{
-    if (fHelp || params.size() < 1 || params.size() > 2)
-        throw runtime_error(
-            "getblock <hash> [txinfo]\n"
-            "txinfo optional to print more detailed tx info\n"
-            "Returns details of a block with given block-hash.");
-
-    std::string strHash = params[0].get_str();
-    uint256 hash(strHash);
-
-    if (mapBlockIndex.count(hash) == 0)
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
-
-    CBlock block;
-    CBlockIndex* pblockindex = mapBlockIndex[hash];
-    block.ReadFromDisk(pblockindex, true);
-
-    return blockToJSON(block, pblockindex, params.size() > 1 ? params[1].get_bool() : false);
 }
 
 Value getblockbynumber(const Array& params, bool fHelp)

@@ -250,7 +250,7 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
 
         // Collect transactions into block
         map<uint256, CTxIndex> mapTestPool;
-        MapOutputFractions mapTestFractionsPool;
+        MapFractions mapTestFractionsPool;
         CFractions feesFractions;
         uint64_t nBlockSize = 1000;
         uint64_t nBlockTx = 0;
@@ -305,9 +305,9 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
             // Connecting shouldn't fail due to dependency on other memory pool transactions
             // because we're already processing them in order of dependency
             map<uint256, CTxIndex> mapTestPoolTmp(mapTestPool);
-            MapOutputFractions mapTestFractionsPoolTmp(mapTestFractionsPool);
+            MapFractions mapTestFractionsPoolTmp(mapTestFractionsPool);
             MapPrevTx mapInputs;
-            MapInputFractions mapInputsFractions;
+            MapFractions mapInputsFractions;
             bool fInvalid;
             if (!tx.FetchInputs(txdb, pegdb, mapTestPoolTmp, mapTestFractionsPoolTmp, false, true, mapInputs, mapInputsFractions, fInvalid))
                 continue;

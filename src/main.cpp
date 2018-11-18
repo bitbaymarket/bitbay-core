@@ -92,7 +92,7 @@ const string strMessageMagic = "BitBay Signed Message:\n";
 namespace {
 struct CMainSignals {
     // Notifies listeners of updated transaction data (passing hash, transaction, and optionally the block it is found in.
-    boost::signals2::signal<void (const CTransaction &, const CBlock *, bool, MapOutputFractions& mapOutputFractions)> SyncTransaction;
+    boost::signals2::signal<void (const CTransaction &, const CBlock *, bool, MapFractions& mapOutputFractions)> SyncTransaction;
     // Notifies listeners of an erased transaction (currently disabled, requires transaction replacement).
     boost::signals2::signal<void (const uint256 &)> EraseTransaction;
     // Notifies listeners of an updated transaction without new data (for now: a coinbase potentially becoming visible).
@@ -136,7 +136,7 @@ void UnregisterAllWallets() {
 void SyncWithWallets(const CTransaction &tx, 
                      const CBlock *pblock, 
                      bool fConnect, 
-                     MapOutputFractions& mapQueuedFractionsChanges) {
+                     MapFractions& mapQueuedFractionsChanges) {
     g_signals.SyncTransaction(tx, pblock, fConnect, mapQueuedFractionsChanges);
 }
 
@@ -653,9 +653,9 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
     }
 
     MapPrevTx mapInputs;
-    MapInputFractions mapInputsFractions;
+    MapFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
-    MapOutputFractions mapOutputsFractions;
+    MapFractions mapOutputsFractions;
     CFractions feesFractions;
     
     {
@@ -1234,10 +1234,10 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb)
 bool CTransaction::FetchInputs(CTxDB& txdb,
                                CPegDB& pegdb,
                                const map<uint256, CTxIndex>& mapTestPool,
-                               const MapOutputFractions& mapTestFractionsPool,
+                               const MapFractions& mapTestFractionsPool,
                                bool fBlock, bool fMiner,
                                MapPrevTx& inputsRet,
-                               MapInputFractions& finputsRet,
+                               MapFractions& finputsRet,
                                bool& fInvalid)
 {
     // FetchInputs can return false either because we just haven't seen some inputs
@@ -1368,9 +1368,9 @@ int64_t CTransaction::GetValueIn(const MapPrevTx& inputs) const
 
 bool CTransaction::ConnectInputs(CTxDB& txdb,
                                  MapPrevTx inputs,
-                                 MapInputFractions& finputs,
+                                 MapFractions& finputs,
                                  map<uint256, CTxIndex>& mapTestPool,
-                                 MapOutputFractions& mapTestFractionsPool,
+                                 MapFractions& mapTestFractionsPool,
                                  CFractions& feesFractions,
                                  const CDiskTxPos& posThisTx,
                                  const CBlockIndex* pindexBlock,
@@ -1537,7 +1537,7 @@ bool CBlock::DisconnectBlock(CTxDB& txdb, CBlockIndex* pindex)
     }
 
     // ppcoin: clean up wallet after disconnecting coinstake
-    MapOutputFractions mapFractionsSkip;
+    MapFractions mapFractionsSkip;
     BOOST_FOREACH(CTransaction& tx, vtx)
         SyncWithWallets(tx, this, false, mapFractionsSkip);
 
@@ -1574,7 +1574,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     CalculateBlockPegIndex(*this, pindex, pegdb);
 
     map<uint256, CTxIndex> mapQueuedChanges;
-    MapOutputFractions mapQueuedFractionsChanges;
+    MapFractions mapQueuedFractionsChanges;
     CFractions feesFractions;
     int64_t nFees = 0;
     int64_t nValueIn = 0;
@@ -1613,7 +1613,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
             nTxPos += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
 
         MapPrevTx mapInputs;
-        MapInputFractions mapInputsFractions;
+        MapFractions mapInputsFractions;
         if (tx.IsCoinBase())
             nValueOut += tx.GetValueOut();
         else
@@ -1674,7 +1674,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         
         bool fInvalid;
         MapPrevTx mapInputs;
-        MapInputFractions mapInputsFractions;
+        MapFractions mapInputsFractions;
         if (!vtx[1].FetchInputs(txdb, pegdb,
                                 mapQueuedChanges, mapQueuedFractionsChanges,
                                 true, false,
@@ -1714,7 +1714,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     }
 
     // Write queued fractions changes
-    for (MapOutputFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
+    for (MapFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
     {
         if (!pegdb.Write((*mi).first, (*mi).second))
             return error("ConnectBlock() : pegdb Write failed");

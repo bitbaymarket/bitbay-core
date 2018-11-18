@@ -19,7 +19,10 @@ using namespace json_spirit;
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
 
-extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, json_spirit::Object& entry);
+extern void TxToJSON(const CTransaction& tx, 
+                     const uint256 hashBlock, 
+                     const MapFractions&,
+                     json_spirit::Object& entry);
 
 static void accountingDeprecationCheck()
 {
@@ -1243,12 +1246,13 @@ Value gettransaction(const Array& params, bool fHelp)
     hash.SetHex(params[0].get_str());
 
     Object entry;
+    MapFractions mapFractions;
 
     if (pwalletMain->mapWallet.count(hash))
     {
         const CWalletTx& wtx = pwalletMain->mapWallet[hash];
 
-        TxToJSON(wtx, 0, entry);
+        TxToJSON(wtx, 0, mapFractions, entry);
 
         int64_t nCredit = wtx.GetCredit();
         int64_t nDebit = wtx.GetDebit();
@@ -1271,7 +1275,7 @@ Value gettransaction(const Array& params, bool fHelp)
         uint256 hashBlock = 0;
         if (GetTransaction(hash, tx, hashBlock))
         {
-            TxToJSON(tx, 0, entry);
+            TxToJSON(tx, 0, mapFractions, entry);
             if (hashBlock == 0)
                 entry.push_back(Pair("confirmations", 0));
             else

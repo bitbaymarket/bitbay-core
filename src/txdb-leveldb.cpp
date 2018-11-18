@@ -662,9 +662,9 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     if (tx.IsCoinStake()) continue;
 
                     MapPrevTx mapInputs;
-                    MapInputFractions mapInputsFractions;
+                    MapFractions mapInputsFractions;
                     map<uint256, CTxIndex> mapUnused;
-                    MapOutputFractions mapQueuedFractionsChanges;
+                    MapFractions mapQueuedFractionsChanges;
                     vector<int> vOutputsTypes;
                     string sPegFailCause;
                     bool fInvalid = false;
@@ -678,7 +678,7 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                                                sPegFailCause);
 
                     // Write queued fractions changes
-                    for (MapOutputFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
+                    for (MapFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
                     {
                         if (!pegdb.Write((*mi).first, (*mi).second))
                             return error("LoadBlockIndex() : pegdb Write failed");
@@ -691,9 +691,9 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     CTransaction& tx = block.vtx[1];
 
                     MapPrevTx mapInputs;
-                    MapInputFractions mapInputsFractions;
+                    MapFractions mapInputsFractions;
                     map<uint256, CTxIndex> mapUnused;
-                    MapOutputFractions mapQueuedFractionsChanges;
+                    MapFractions mapQueuedFractionsChanges;
                     vector<int> vOutputsTypes;
                     string sPegFailCause;
                     bool fInvalid = false;
@@ -734,7 +734,7 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                                               sPegFailCause);
 
                     // Write queued fractions changes
-                    for (MapOutputFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
+                    for (MapFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
                     {
                         if (!pegdb.Write((*mi).first, (*mi).second))
                             return error("LoadBlockIndex() : pegdb Write failed");

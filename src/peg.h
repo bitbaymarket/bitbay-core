@@ -86,8 +86,7 @@ private:
     void ToStd();
 };
 
-typedef std::map<uint320, CFractions> MapInputFractions;
-typedef std::map<uint320, CFractions> MapOutputFractions;
+typedef std::map<uint320, CFractions> MapFractions;
 
 struct FrozenTxOut {
     int64_t nValue;
@@ -116,9 +115,9 @@ bool CalculateFractions(CTxDB& txdb,
                         const CTransaction & tx,
                         const CBlockIndex* pindexBlock,
                         MapPrevTx & inputs,
-                        MapInputFractions& finputs,
+                        MapFractions& finputs,
                         std::map<uint256, CTxIndex>& mapTestPool,
-                        MapOutputFractions& mapTestFractionsPool,
+                        MapFractions& mapTestFractionsPool,
                         CFractions& feesFractions,
                         std::vector<int>& vOutputsTypes,
                         std::string& sPegFailCause);
@@ -126,9 +125,9 @@ bool CalculateFractions(CTxDB& txdb,
 bool CalculateStandardFractions(const CTransaction & tx,
                                 const CBlockIndex* pindexBlock,
                                 MapPrevTx & inputs,
-                                MapInputFractions& finputs,
+                                MapFractions& finputs,
                                 std::map<uint256, CTxIndex>& mapTestPool,
-                                MapOutputFractions& mapTestFractionsPool,
+                                MapFractions& mapTestFractionsPool,
                                 CFractions& feesFractions,
                                 std::vector<int>& vOutputsTypes,
                                 std::string& sPegFailCause);
@@ -136,9 +135,9 @@ bool CalculateStandardFractions(const CTransaction & tx,
 bool CalculateStakingFractions(const CTransaction & tx,
                                const CBlockIndex* pindexBlock,
                                MapPrevTx & inputs,
-                               MapInputFractions& finputs,
+                               MapFractions& finputs,
                                std::map<uint256, CTxIndex>& mapTestPool,
-                               MapOutputFractions& mapTestFractionsPool,
+                               MapFractions& mapTestFractionsPool,
                                const CFractions& feesFractions,
                                int64_t nCalculatedStakeRewardWithoutFees,
                                std::vector<int>& vOutputsTypes,

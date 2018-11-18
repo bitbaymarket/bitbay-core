@@ -199,8 +199,8 @@ public:
 
     void MarkDirty();
     bool AddToWallet(const CWalletTx& wtxIn);
-    void SyncTransaction(const CTransaction& tx, const CBlock* pblock, bool fConnect, const MapOutputFractions&);
-    bool AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pblock, bool fUpdate, const MapOutputFractions&);
+    void SyncTransaction(const CTransaction& tx, const CBlock* pblock, bool fConnect, const MapFractions&);
+    bool AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pblock, bool fUpdate, const MapFractions&);
     void EraseFromWallet(const uint256 &hash);
     void WalletUpdateSpent(const CTransaction& prevout, bool fBlock = false);
     int ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate = false);

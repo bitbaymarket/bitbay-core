@@ -601,7 +601,7 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn)
 bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, 
                                        const CBlock* pblock, 
                                        bool fUpdate,
-                                       const MapOutputFractions& mapOutputFractions)
+                                       const MapFractions& mapOutputFractions)
 {
     uint256 hash = tx.GetHash();
     {
@@ -636,7 +636,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx,
 void CWallet::SyncTransaction(const CTransaction& tx, 
                               const CBlock* pblock, 
                               bool fConnect,
-                              const MapOutputFractions& mapOutputFractions) {
+                              const MapFractions& mapOutputFractions) {
     if (!fConnect)
     {
         // wallets need to refund inputs when disconnecting coinstake
@@ -1064,7 +1064,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
 
             CBlock block;
             //TODO:PEG read fractions from disk
-            MapOutputFractions mapOutputFractions;
+            MapFractions mapOutputFractions;
             block.ReadFromDisk(pindex, true);
             BOOST_FOREACH(CTransaction& tx, block.vtx)
             {

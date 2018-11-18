@@ -126,7 +126,7 @@ void UnregisterAllWallets();
 void SyncWithWallets(const CTransaction& tx, 
                      const CBlock* pblock, 
                      bool fConnect,
-                     MapOutputFractions& mapQueuedFractionsChanges);
+                     MapFractions& mapQueuedFractionsChanges);
 /** Ask wallets to resend their transactions */
 void ResendWalletTransactions(bool fForce = false);
 
@@ -401,10 +401,10 @@ public:
     bool FetchInputs(CTxDB& txdb,
                      CPegDB& pegdb,
                      const std::map<uint256, CTxIndex>& mapTestPool,
-                     const MapOutputFractions& mapTestFractionsPool,
+                     const MapFractions& mapTestFractionsPool,
                      bool fBlock, bool fMiner,
                      MapPrevTx& inputsRet,
-                     MapInputFractions& finputsRet,
+                     MapFractions& finputsRet,
                      bool& fInvalid);
 
     /** Sanity check previous transactions, then, if all checks succeed,
@@ -420,9 +420,9 @@ public:
      */
     bool ConnectInputs(CTxDB& txdb,
                        MapPrevTx inputs,
-                       MapInputFractions& finputs,
+                       MapFractions& finputs,
                        std::map<uint256, CTxIndex>& mapTestPool,
-                       MapOutputFractions& mapTestFractionsPool,
+                       MapFractions& mapTestFractionsPool,
                        CFractions& feesFractions,
                        const CDiskTxPos& posThisTx,
                        const CBlockIndex* pindexBlock,
@@ -1404,7 +1404,7 @@ protected:
     virtual void SyncTransaction(const CTransaction &tx, 
                                  const CBlock *pblock, 
                                  bool fConnect, 
-                                 const MapOutputFractions&) =0;
+                                 const MapFractions&) =0;
     virtual void EraseFromWallet(const uint256 &hash) =0;
     virtual void SetBestChain(const CBlockLocator &locator) =0;
     virtual void UpdatedTransaction(const uint256 &hash) =0;

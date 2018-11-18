@@ -34,7 +34,8 @@ extern json_spirit::Object blockToJSON(const CBlock& block,
                                        const CBlockIndex* blockindex,
                                        bool fPrintTransactionDetail);
 extern void TxToJSON(const CTransaction& tx,
-                     const uint256 hashBlock,
+                     const uint256 hashBlock, 
+                     const MapFractions&,
                      json_spirit::Object& entry);
 
 BlockchainPage::BlockchainPage(QWidget *parent) :
@@ -586,9 +587,9 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
                                    int64_t& nFeesValue)
 {
     MapPrevTx mapInputs;
-    MapInputFractions mapInputsFractions;
+    MapFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
-    MapOutputFractions mapFractionsUnused;
+    MapFractions mapFractionsUnused;
     string sPegFailCause;
 
     for (CTransaction & tx : block.vtx) {
@@ -673,9 +674,9 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
 
     QTime timeFetchInputs = QTime::currentTime();
     MapPrevTx mapInputs;
-    MapInputFractions mapInputsFractions;
+    MapFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
-    MapOutputFractions mapFractionsUnused;
+    MapFractions mapFractionsUnused;
     CFractions feesFractions(0, CFractions::STD);
     int64_t nFeesValue = 0;
     vector<int> vOutputsTypes;
@@ -1129,8 +1130,22 @@ void BlockchainPage::openTxMenu(const QPoint & pos)
         if (!GetTransaction(hash, tx, hashBlock))
             return;
 
+        MapFractions mapFractions;
+        {
+            LOCK(cs_main);
+            CPegDB pegdb("r");
+            for(int i=0; i<tx.vout.size(); i++) {
+                auto fkey = uint320(tx.GetHash(), i);
+                CFractions fractions(0, CFractions::VALUE);
+                pegdb.Read(fkey, fractions);
+                if (fractions.Total() == tx.vout[i].nValue) {
+                    mapFractions[fkey] = fractions;
+                }
+            }
+        }
+        
         json_spirit::Object result;
-        TxToJSON(tx, hashBlock, result);
+        TxToJSON(tx, hashBlock, mapFractions, result);
         json_spirit::Value vresult = result;
         string str = json_spirit::write_string(vresult, true);
 

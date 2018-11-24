@@ -146,14 +146,29 @@ CoinControlDialog::CoinControlDialog(QWidget *parent) :
     ui->treeWidget->setColumnHidden(COLUMN_VOUT_INDEX, true);     // store vout index in this column, but dont show it
     ui->treeWidget->setColumnHidden(COLUMN_AMOUNT, true);         // dont show it, as there are liquidity and reserves
     ui->treeWidget->setColumnHidden(COLUMN_AMOUNT_INT64, true);   // store amount int64_t in this column, but dont show it
+    ui->treeWidget->setColumnHidden(COLUMN_RESERVE_INT64, true);  // store reserve int64_t in this column, but dont show it
+    ui->treeWidget->setColumnHidden(COLUMN_LIQUIDITY_INT64, true);// store liquidity int64_t in this column, but dont show it
     ui->treeWidget->setColumnHidden(COLUMN_PRIORITY_INT64, true); // store priority int64_t in this column, but dont show it
 
     // default view is sorted by amount desc
-    sortView(COLUMN_AMOUNT_INT64, Qt::DescendingOrder);
+    sortView(COLUMN_LIQUIDITY_INT64, Qt::DescendingOrder);
     
     // fractions views
     auto txOutFractionsDelegate = new FractionsItemDelegate(ui->treeWidget);
     ui->treeWidget->setItemDelegateForColumn(COLUMN_FRACTIONS, txOutFractionsDelegate);
+    auto reserveDelegate = new  LeftSideIconItemDelegate(ui->treeWidget);
+    ui->treeWidget->setItemDelegateForColumn(COLUMN_RESERVE, reserveDelegate);
+    auto liquidityDelegate = new  LeftSideIconItemDelegate(ui->treeWidget);
+    ui->treeWidget->setItemDelegateForColumn(COLUMN_LIQUIDITY, liquidityDelegate);
+    
+    pmChange = QPixmap(":/icons/change");
+    pmChange = pmChange.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    pmNotaryF = QPixmap(":/icons/frost");
+    pmNotaryF = pmNotaryF.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    pmNotaryV = QPixmap(":/icons/frostr");
+    pmNotaryV = pmNotaryV.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    pmNotaryL = QPixmap(":/icons/frostl");
+    pmNotaryL = pmNotaryL.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 }
 
 CoinControlDialog::~CoinControlDialog()
@@ -356,7 +371,24 @@ void CoinControlDialog::sortView(int column, Qt::SortOrder order)
     sortColumn = column;
     sortOrder = order;
     ui->treeWidget->sortItems(column, order);
-    ui->treeWidget->header()->setSortIndicator((sortColumn == COLUMN_AMOUNT_INT64 ? COLUMN_AMOUNT : (sortColumn == COLUMN_PRIORITY_INT64 ? COLUMN_PRIORITY : sortColumn)), sortOrder);
+    
+    int columnIndicator = COLUMN_LIQUIDITY_INT64;
+    if (sortColumn == COLUMN_AMOUNT_INT64) {
+        columnIndicator = COLUMN_AMOUNT;
+    }
+    else if (sortColumn == COLUMN_RESERVE_INT64) {
+        columnIndicator = COLUMN_RESERVE;
+    }    
+    else if (sortColumn == COLUMN_LIQUIDITY_INT64) {
+        columnIndicator = COLUMN_LIQUIDITY;
+    }    
+    else if (sortColumn == COLUMN_PRIORITY_INT64) {
+        columnIndicator = COLUMN_PRIORITY;
+    }
+    else {
+        columnIndicator = sortColumn;
+    }
+    ui->treeWidget->header()->setSortIndicator(columnIndicator, sortOrder);
 }
 
 // treeview: clicked on header
@@ -364,13 +396,35 @@ void CoinControlDialog::headerSectionClicked(int logicalIndex)
 {
     if (logicalIndex == COLUMN_CHECKBOX) // click on most left column -> do nothing
     {
-        ui->treeWidget->header()->setSortIndicator((sortColumn == COLUMN_AMOUNT_INT64 ? COLUMN_AMOUNT : (sortColumn == COLUMN_PRIORITY_INT64 ? COLUMN_PRIORITY : sortColumn)), sortOrder);
+        int columnIndicator = COLUMN_LIQUIDITY_INT64;
+        if (sortColumn == COLUMN_AMOUNT_INT64) {
+            columnIndicator = COLUMN_AMOUNT;
+        }
+        else if (sortColumn == COLUMN_RESERVE_INT64) {
+            columnIndicator = COLUMN_RESERVE;
+        }    
+        else if (sortColumn == COLUMN_LIQUIDITY_INT64) {
+            columnIndicator = COLUMN_LIQUIDITY;
+        }    
+        else if (sortColumn == COLUMN_PRIORITY_INT64) {
+            columnIndicator = COLUMN_PRIORITY;
+        }
+        else {
+            columnIndicator = sortColumn;
+        }
+        ui->treeWidget->header()->setSortIndicator(columnIndicator, sortOrder);
     }
     else
     {
         if (logicalIndex == COLUMN_AMOUNT) // sort by amount
             logicalIndex = COLUMN_AMOUNT_INT64;
 
+        if (logicalIndex == COLUMN_RESERVE) // sort by reserve
+            logicalIndex = COLUMN_RESERVE_INT64;
+
+        if (logicalIndex == COLUMN_LIQUIDITY) // sort by liquidity
+            logicalIndex = COLUMN_LIQUIDITY_INT64;
+        
         if (logicalIndex == COLUMN_PRIORITY) // sort by priority
             logicalIndex = COLUMN_PRIORITY_INT64;
 
@@ -379,7 +433,14 @@ void CoinControlDialog::headerSectionClicked(int logicalIndex)
         else
         {
             sortColumn = logicalIndex;
-            sortOrder = ((sortColumn == COLUMN_AMOUNT_INT64 || sortColumn == COLUMN_PRIORITY_INT64 || sortColumn == COLUMN_DATE || sortColumn == COLUMN_CONFIRMATIONS) ? Qt::DescendingOrder : Qt::AscendingOrder); // if amount,date,conf,priority then default => desc, else default => asc
+            sortOrder = ((sortColumn == COLUMN_AMOUNT_INT64 || 
+                          sortColumn == COLUMN_RESERVE_INT64 || 
+                          sortColumn == COLUMN_LIQUIDITY_INT64 || 
+                          sortColumn == COLUMN_PRIORITY_INT64 || 
+                          sortColumn == COLUMN_DATE || 
+                          sortColumn == COLUMN_CONFIRMATIONS) 
+                         ? Qt::DescendingOrder 
+                         : Qt::AscendingOrder); // if amount,date,conf,priority then default => desc, else default => asc
         }
 
         sortView(sortColumn, sortOrder);
@@ -708,6 +769,7 @@ void CoinControlDialog::updateView()
             sumFractions += out.tx->vOutFractions[out.i];
             int64_t nReserve = out.tx->vOutFractions[out.i].Low(model->getPegSupplyIndex());
             int64_t nLiquidity = out.tx->vOutFractions[out.i].High(model->getPegSupplyIndex());
+            uint32_t nFlags = out.tx->vOutFractions[out.i].nFlags;
             nSumReserve += nReserve;
             nSumLiquidity += nLiquidity;
             
@@ -722,6 +784,17 @@ void CoinControlDialog::updateView()
             itemOutput->setData(COLUMN_LIQUIDITY, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
             itemOutput->setText(COLUMN_LIQUIDITY, BitcoinUnits::formatR(nDisplayUnit, nLiquidity));
             itemOutput->setText(COLUMN_AMOUNT_INT64, strPad(QString::number(out.tx->vout[out.i].nValue), 15, " ")); // padding so that sorting works correctly
+            itemOutput->setText(COLUMN_RESERVE_INT64, strPad(QString::number(nReserve), 15, " ")); // padding so that sorting works correctly
+            itemOutput->setText(COLUMN_LIQUIDITY_INT64, strPad(QString::number(nLiquidity), 15, " ")); // padding so that sorting works correctly
+            
+            if (nFlags & CFractions::NOTARY_F) {
+                itemOutput->setData(COLUMN_RESERVE, Qt::DecorationPropertyRole, pmNotaryF);
+                itemOutput->setData(COLUMN_LIQUIDITY, Qt::DecorationPropertyRole, pmNotaryF);
+            }
+            else if (nFlags & CFractions::NOTARY_V) {
+                itemOutput->setData(COLUMN_RESERVE, Qt::DecorationPropertyRole, pmNotaryV);
+                itemOutput->setData(COLUMN_LIQUIDITY, Qt::DecorationPropertyRole, pmNotaryV);
+            }
             
             // date
             itemOutput->setText(COLUMN_DATE, QDateTime::fromTime_t(out.tx->GetTxTime()).toUTC().toString("yy-MM-dd hh:mm"));
@@ -772,8 +845,11 @@ void CoinControlDialog::updateView()
             itemWalletAddress->setData(COLUMN_RESERVE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
             itemWalletAddress->setText(COLUMN_LIQUIDITY, BitcoinUnits::formatR(nDisplayUnit, nSumLiquidity));
             itemWalletAddress->setData(COLUMN_LIQUIDITY, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-            itemWalletAddress->setText(COLUMN_AMOUNT_INT64, strPad(QString::number(nSum), 15, " "));
             itemWalletAddress->setText(COLUMN_PRIORITY, CoinControlDialog::getPriorityLabel(dPrioritySum));
+            
+            itemWalletAddress->setText(COLUMN_AMOUNT_INT64, strPad(QString::number(nSum), 15, " "));
+            itemWalletAddress->setText(COLUMN_RESERVE_INT64, strPad(QString::number(nSumReserve), 15, " "));
+            itemWalletAddress->setText(COLUMN_LIQUIDITY_INT64, strPad(QString::number(nSumLiquidity), 15, " "));
             itemWalletAddress->setText(COLUMN_PRIORITY_INT64, strPad(QString::number((int64_t)dPrioritySum), 20, " "));
         }
     }

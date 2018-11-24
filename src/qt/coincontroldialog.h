@@ -41,6 +41,10 @@ private:
     int sortColumn;
     Qt::SortOrder sortOrder;
     PegTxType txType;
+    QPixmap pmChange;
+    QPixmap pmNotaryF;
+    QPixmap pmNotaryV;
+    QPixmap pmNotaryL;
 
     QMenu *contextMenu;
     QTreeWidgetItem *contextMenuItem;
@@ -67,6 +71,8 @@ private:
         COLUMN_TXHASH,
         COLUMN_VOUT_INDEX,
         COLUMN_AMOUNT_INT64,
+        COLUMN_RESERVE_INT64,
+        COLUMN_LIQUIDITY_INT64,
         COLUMN_PRIORITY_INT64
     };
 

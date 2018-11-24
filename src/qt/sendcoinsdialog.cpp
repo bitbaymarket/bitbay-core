@@ -15,11 +15,14 @@
 #include "base58.h"
 #include "coincontrol.h"
 #include "coincontroldialog.h"
+#include "peg.h"
 
 #include <QMessageBox>
 #include <QTextDocument>
 #include <QScrollBar>
 #include <QClipboard>
+#include <QStandardItem>
+#include <QStandardItemModel>
 
 SendCoinsDialog::SendCoinsDialog(QWidget *parent) :
     QDialog(parent),
@@ -91,6 +94,22 @@ SendCoinsDialog::SendCoinsDialog(QWidget *parent) :
     ui->labelReservesText   ->setStyleSheet(white2);
     ui->labelLiquidity      ->setStyleSheet(white1);
     ui->labelReserves       ->setStyleSheet(white1);
+    
+    ui->comboBoxTxType->clear();
+    ui->comboBoxTxType->addItem(tr("Transfer spendable funds (liquidity)"), PEG_MAKETX_SEND_LIQUIDITY);
+//    ui->comboBoxTxType->addItem(tr("Transfer reserve and freeze them for 1 month"), PEG_MAKETX_SEND_RESERVE);
+//    ui->comboBoxTxType->addItem(tr("Freeze reserve for 1 month (such funds have 20 BAY staking reward)"), PEG_MAKETX_FREEZE_RESERVE);
+    ui->comboBoxTxType->addItem(tr("Freeze liquidity for 4 month (such funds have 40 BAY staking reward)"), PEG_MAKETX_FREEZE_LIQUIDITY);
+
+    //ui->comboBoxTxType->se
+    //temp
+//    {
+//        QStandardItemModel *model = qobject_cast<QStandardItemModel *>(ui->comboBoxTxType->model());
+//        QStandardItem *item1 = model->item(1);
+//        QStandardItem *item2 = model->item(2);
+//        item1->setFlags(item1->flags() & ~Qt::ItemIsEnabled);
+//        item2->setFlags(item2->flags() & ~Qt::ItemIsEnabled);
+//    }
 }
 
 void SendCoinsDialog::setModel(WalletModel *model)

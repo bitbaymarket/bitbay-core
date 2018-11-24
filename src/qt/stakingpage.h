@@ -17,6 +17,13 @@ class StakingPage : public QDialog
 public:
     explicit StakingPage(QWidget *parent = nullptr);
     ~StakingPage();
+    
+public slots:
+    void updateTimer();
+    
+private:
+    Ui::StakingPage *ui;
+    QTimer* pollTimer;
 };
 
 #endif // STAKINGPAGE_H

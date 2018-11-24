@@ -20,6 +20,13 @@ class SendCoinsDialog : public QDialog
 {
     Q_OBJECT
 
+    enum {
+        SEND_STD = 0,
+        SEND_RESERVE,
+        FREEZE_RESERVE,
+        FREEZE_LIQUIDITY,
+    };
+    
 public:
     explicit SendCoinsDialog(QWidget *parent = 0);
     ~SendCoinsDialog();

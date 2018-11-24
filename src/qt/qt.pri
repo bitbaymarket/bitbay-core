@@ -95,6 +95,7 @@ FORMS += \
     $$PWD/forms/addressbookpage.ui \
     $$PWD/forms/signmessagepage.ui \
     $$PWD/forms/verifymessagepage.ui \
+    $$PWD/forms/stakingpage.ui \
     $$PWD/forms/blockchainpage.ui \
     $$PWD/forms/aboutdialog.ui \
     $$PWD/forms/editaddressdialog.ui \

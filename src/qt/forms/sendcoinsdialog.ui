@@ -61,12 +61,12 @@
           </item>
           <item>
            <property name="text">
-            <string>Transfer reserves and freeze them for 1 month</string>
+            <string>Transfer reserve and freeze them for 1 month</string>
            </property>
           </item>
           <item>
            <property name="text">
-            <string>Freeze reserves for 1 month (such funds have 20 BAY staking reward)</string>
+            <string>Freeze reserve for 1 month (such funds have 20 BAY staking reward)</string>
            </property>
           </item>
           <item>

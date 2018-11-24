@@ -470,8 +470,11 @@ void SendCoinsDialog::coinControlFeatureChanged(bool checked)
 // Coin Control: button inputs -> show actual coin control dialog
 void SendCoinsDialog::coinControlButtonClicked()
 {
+    PegTxType txType = static_cast<PegTxType>(ui->comboBoxTxType->currentData().toInt());
+    
     CoinControlDialog dlg;
     dlg.setModel(model);
+    dlg.setTxType(txType);
     dlg.exec();
     coinControlUpdateLabels();
 }
@@ -493,8 +496,10 @@ void SendCoinsDialog::coinControlUpdateLabels()
 
     if (CoinControlDialog::coinControl->HasSelected())
     {
+        PegTxType txType = static_cast<PegTxType>(ui->comboBoxTxType->currentData().toInt());
+        
         // actual coin control calculation
-        CoinControlDialog::updateLabels(model, this);
+        CoinControlDialog::updateLabels(model, this, txType);
 
         // show coin control stats
         ui->labelCoinControlAutomaticallySelected->hide();

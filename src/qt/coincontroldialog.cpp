@@ -169,8 +169,13 @@ void CoinControlDialog::setModel(WalletModel *model)
     {
         updateView();
         //updateLabelLocked();
-        CoinControlDialog::updateLabels(model, this);
+        CoinControlDialog::updateLabels(model, this, txType);
     }
+}
+
+void CoinControlDialog::setTxType(PegTxType txType)
+{
+    this->txType = txType;
 }
 
 // helper function str_pad
@@ -206,7 +211,7 @@ void CoinControlDialog::buttonSelectAllClicked()
             if (ui->treeWidget->topLevelItem(i)->checkState(COLUMN_CHECKBOX) != state)
                 ui->treeWidget->topLevelItem(i)->setCheckState(COLUMN_CHECKBOX, state);
     ui->treeWidget->setEnabled(true);
-    CoinControlDialog::updateLabels(model, this);
+    CoinControlDialog::updateLabels(model, this, txType);
 }
 
 // context menu
@@ -411,7 +416,7 @@ void CoinControlDialog::viewItemChanged(QTreeWidgetItem* item, int column)
 
         // selection changed -> update labels
         if (ui->treeWidget->isEnabled()) // do not update on every click for (un)select all
-            CoinControlDialog::updateLabels(model, this);
+            CoinControlDialog::updateLabels(model, this, txType);
     }
 }
 
@@ -446,7 +451,7 @@ QString CoinControlDialog::getPriorityLabel(double dPriority)
     else ui->labelLocked->setVisible(false);
 }*/
 
-void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog)
+void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog, PegTxType txType)
 {
     if (!model) return;
 
@@ -491,7 +496,13 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog)
         nQuantity++;
 
         // Amount
-        int64_t nValue = out.tx->vOutFractions[out.i].High(model->getPegSupplyIndex());
+        int64_t nValue = 0;
+        if (txType == PEG_MAKETX_SEND_RESERVE ||
+            txType == PEG_MAKETX_FREEZE_RESERVE) {
+            nValue = out.tx->vOutFractions[out.i].Low(model->getPegSupplyIndex());
+        } else {
+            nValue = out.tx->vOutFractions[out.i].High(model->getPegSupplyIndex());
+        }
         nAmount += nValue;
 
         // Priority

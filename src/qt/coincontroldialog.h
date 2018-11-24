@@ -9,6 +9,7 @@
 #include <QPoint>
 #include <QString>
 #include <QTreeWidgetItem>
+#include "peg.h"
 
 namespace Ui {
     class CoinControlDialog;
@@ -25,9 +26,10 @@ public:
     ~CoinControlDialog();
 
     void setModel(WalletModel *model);
+    void setTxType(PegTxType);
 
     // static because also called from sendcoinsdialog
-    static void updateLabels(WalletModel*, QDialog*);
+    static void updateLabels(WalletModel*, QDialog*, PegTxType);
     static QString getPriorityLabel(double);
 
     static QList<qint64> payAmounts;
@@ -38,6 +40,7 @@ private:
     WalletModel *model;
     int sortColumn;
     Qt::SortOrder sortOrder;
+    PegTxType txType;
 
     QMenu *contextMenu;
     QTreeWidgetItem *contextMenuItem;

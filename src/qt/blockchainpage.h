@@ -74,9 +74,9 @@ private:
     QPersistentModelIndex currentBlockIndex;
     uint256 currentBlock;
     QPixmap pmChange;
-    QPixmap pmFrozenF;
-    QPixmap pmFrozenV;
-    QPixmap pmFrozenL;
+    QPixmap pmNotaryF;
+    QPixmap pmNotaryV;
+    QPixmap pmNotaryL;
 };
 
 class LeftSideIconItemDelegate : public QStyledItemDelegate

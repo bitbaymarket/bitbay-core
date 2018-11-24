@@ -703,10 +703,6 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     if (n_vin < 1) {
                         return error((std::string("LoadBlockIndex() : pegdb failed: less than one input in stake: ")+std::to_string(pblockindex->nHeight)).c_str());
                     }
-//peg:todo: only one input
-//                    if (n_vin != 1) {
-//                        return error((std::string("LoadBlockIndex() : pegdb failed: more than one input in stake: ")+std::to_string(pblockindex->nHeight)).c_str());
-//                    }
                     
                     uint64_t nCoinAge = 0;
                     if (!tx.GetCoinAge(*this, pblockindex->pprev, nCoinAge)) {

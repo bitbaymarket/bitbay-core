@@ -827,7 +827,8 @@ bool IsPegWhiteListed(const CTransaction & tx,
         if (vPegWhitelist.count(sAddress))
             return true;
     }
-    return false;
+    //return false;
+    return true;
 }
 
 bool CalculateFractions(CTxDB& txdb,
@@ -944,16 +945,14 @@ bool CalculateStandardFractions(const CTransaction & tx,
         }
         
         if (frInp.nFlags & CFractions::NOTARY_F) {
-            unsigned int nPrevTxTime = pindexBlock->nTime;
-            if ((nPrevTxTime+PEG_FROZEN_TIME) > tx.nLockTime) {
+            if (frInp.nLockTime > tx.nTime) {
                 sFailCause = "PI05: Frozen input used before time expired";
                 return false;
             }
         }
 
         if (frInp.nFlags & CFractions::NOTARY_V) {
-            unsigned int nPrevTxTime = pindexBlock->nTime;
-            if ((nPrevTxTime+PEG_VFROZEN_TIME) > tx.nLockTime) {
+            if (frInp.nLockTime > tx.nTime) {
                 sFailCause = "PI06: Voluntary frozen input used before time expired";
                 return false;
             }
@@ -1142,11 +1141,13 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 if (poolFrozen[i].fractions.nFlags & CFractions::NOTARY_V) {
                     frOut = frCommonLiquidity.RatioPart(nValue, nCommonLiquidity, nSupply);
                     frOut.nFlags |= CFractions::NOTARY_V;
+                    frOut.nLockTime = pindexBlock->nTime + PEG_VFROZEN_TIME;
                     frCommonLiquidity -= frOut;
                     nCommonLiquidity -= nValue;
                 }
                 else if (poolFrozen[i].fractions.nFlags & CFractions::NOTARY_F) {
                     frOut.nFlags |= CFractions::NOTARY_F;
+                    frOut.nLockTime = pindexBlock->nTime + PEG_FROZEN_TIME;
 
                     vector<string> vAddresses;
                     auto sFrozenAddress = poolFrozen[i].sAddress;

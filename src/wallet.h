@@ -141,16 +141,15 @@ public:
     int64_t nTimeFirstKey;
     mutable uint256 nLastHashBestChain;
     mutable int nLastPegSupplyIndex = 0;
-    mutable unsigned int nLastFrozenTime = 0;
-    mutable unsigned int nLastVFrozenTime = 0;
+    mutable unsigned int nLastBlockTime = 0;
 
     // check whether we are allowed to upgrade (or already support) to the named feature
     bool CanSupportFeature(enum WalletFeature wf) { AssertLockHeld(cs_wallet); return nWalletMaxVersion >= wf; }
 
     void AvailableCoinsForStaking(std::vector<COutput>& vCoins, unsigned int nSpendTime) const;
     void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl=NULL) const;
-    bool SelectCoinsMinConf(int64_t nTargetValue, unsigned int nSpendTime, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins, std::set<CSelectedCoin>& setCoinsRet, int64_t& nValueRet) const;
-    bool SelectCoinsMinConfByCoinAge(int64_t nTargetValue, unsigned int nSpendTime, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins, std::set<CSelectedCoin>& setCoinsRet, int64_t& nValueRet) const;
+    bool SelectCoinsMinConf(PegTxType txType, int64_t nTargetValue, unsigned int nSpendTime, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins, std::set<CSelectedCoin>& setCoinsRet, int64_t& nValueRet) const;
+    bool SelectCoinsMinConfByCoinAge(PegTxType txType, int64_t nTargetValue, unsigned int nSpendTime, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins, std::set<CSelectedCoin>& setCoinsRet, int64_t& nValueRet) const;
 
     // keystore implementation
     // Generate a new key
@@ -859,8 +858,7 @@ public:
         return strprintf("COutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), i, nDepth, FormatMoney(tx->vout[i].nValue));
     }
     
-    bool IsFrozen(unsigned int nLastFrozenTime, 
-                  unsigned int nLastVFrozenTime) const;
+    bool IsFrozen(unsigned int nLastBlockTime) const;
 };
 
 

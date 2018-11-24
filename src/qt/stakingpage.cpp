@@ -39,6 +39,7 @@ StakingPage::StakingPage(QWidget *parent) :
 #endif
 
     ui->labelTitle->setFont(hfont);
+    setStyleSheet("QRadioButton { background: none; }");
     
     pollTimer = new QTimer(this);
     pollTimer->setInterval(30*1000);

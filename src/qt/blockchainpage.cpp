@@ -162,12 +162,12 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
 
     pmChange = QPixmap(":/icons/change");
     pmChange = pmChange.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    pmFrozenF = QPixmap(":/icons/frost");
-    pmFrozenF = pmFrozenF.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    pmFrozenV = QPixmap(":/icons/frostr");
-    pmFrozenV = pmFrozenV.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    pmFrozenL = QPixmap(":/icons/frostl");
-    pmFrozenL = pmFrozenL.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    pmNotaryF = QPixmap(":/icons/frost");
+    pmNotaryF = pmNotaryF.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    pmNotaryV = QPixmap(":/icons/frostr");
+    pmNotaryV = pmNotaryV.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    pmNotaryL = QPixmap(":/icons/frostl");
+    pmNotaryL = pmNotaryL.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 }
 
 BlockchainPage::~BlockchainPage()
@@ -856,10 +856,10 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
                            ? pblockindex->nPegSupplyIndex
                            : 0);
             if (mapInputsFractions[fkey].nFlags & CFractions::NOTARY_F) {
-                input->setData(COL_INP_VALUE, Qt::DecorationPropertyRole, pmFrozenF);
+                input->setData(COL_INP_VALUE, Qt::DecorationPropertyRole, pmNotaryF);
             }
             else if (mapInputsFractions[fkey].nFlags & CFractions::NOTARY_V) {
-                input->setData(COL_INP_VALUE, Qt::DecorationPropertyRole, pmFrozenV);
+                input->setData(COL_INP_VALUE, Qt::DecorationPropertyRole, pmNotaryV);
             }
         }
         input->setData(COL_INP_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
@@ -1041,11 +1041,11 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
             output->setData(COL_OUT_FRACTIONS, BlockchainModel::FractionsRole, vFractions);
             output->setData(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
             if (mapFractionsUnused[fkey].nFlags & CFractions::NOTARY_F) {
-                output->setData(COL_OUT_VALUE, Qt::DecorationPropertyRole, pmFrozenF);
+                output->setData(COL_OUT_VALUE, Qt::DecorationPropertyRole, pmNotaryF);
                 fIndicateFrozen = true;
             }
             else if (mapFractionsUnused[fkey].nFlags & CFractions::NOTARY_V) {
-                output->setData(COL_OUT_VALUE, Qt::DecorationPropertyRole, pmFrozenV);
+                output->setData(COL_OUT_VALUE, Qt::DecorationPropertyRole, pmNotaryV);
                 fIndicateFrozen = true;
             }
         }

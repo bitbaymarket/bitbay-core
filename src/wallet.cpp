@@ -246,8 +246,7 @@ void CWallet::SetBestChain(const CBlockLocator& loc)
         CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
         if (pblockindex && pblockindex->nPegSupplyIndex != nLastPegSupplyIndex) {
             nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
-            nLastVFrozenTime = pblockindex->nTime - PEG_VFROZEN_TIME;
-            nLastFrozenTime = pblockindex->nTime - PEG_FROZEN_TIME;
+            nLastBlockTime = pblockindex->nTime;
             MarkDirty();
         }
     }
@@ -701,8 +700,7 @@ int CWallet::GetPegSupplyIndex() const
         LOCK(cs_main);
         auto pblockindex = mapBlockIndex[hashBestChain];
         nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
-        nLastVFrozenTime = pblockindex->nTime - PEG_VFROZEN_TIME;
-        nLastFrozenTime = pblockindex->nTime - PEG_FROZEN_TIME;
+        nLastBlockTime = pblockindex->nTime;
         nLastHashBestChain = hashBestChain;
     }
     return nLastPegSupplyIndex;
@@ -721,8 +719,7 @@ int64_t CWallet::GetFrozen(uint256 txhash, long n, const CTxOut& txout) const
             LOCK(cs_main);
             auto pblockindex = mapBlockIndex[hashBestChain];
             nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
-            nLastVFrozenTime = pblockindex->nTime - PEG_VFROZEN_TIME;
-            nLastFrozenTime = pblockindex->nTime - PEG_FROZEN_TIME;
+            nLastBlockTime = pblockindex->nTime;
             nLastHashBestChain = hashBestChain;
         }
         map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(txhash);
@@ -732,8 +729,8 @@ int64_t CWallet::GetFrozen(uint256 txhash, long n, const CTxOut& txout) const
             if (0<=n && size_t(n) < wtx.vOutFractions.size()) {
                 bool fF = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_F;
                 bool fV = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_V;
-                fF &= wtx.nTime >= nLastFrozenTime;
-                fV &= wtx.nTime >= nLastVFrozenTime;
+                fF &= wtx.vOutFractions[n].nLockTime >= nLastBlockTime;
+                fV &= wtx.vOutFractions[n].nLockTime >= nLastBlockTime;
                 if (fF || fV)
                     return wtx.vout[n].nValue;
             }
@@ -756,8 +753,7 @@ int64_t CWallet::GetReserve(uint256 txhash, long n, const CTxOut& txout) const
             LOCK(cs_main);
             auto pblockindex = mapBlockIndex[hashBestChain];
             nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
-            nLastVFrozenTime = pblockindex->nTime - PEG_VFROZEN_TIME;
-            nLastFrozenTime = pblockindex->nTime - PEG_FROZEN_TIME;
+            nLastBlockTime = pblockindex->nTime;
             nLastHashBestChain = hashBestChain;
         }
         map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(txhash);
@@ -767,8 +763,8 @@ int64_t CWallet::GetReserve(uint256 txhash, long n, const CTxOut& txout) const
             if (0<=n && size_t(n) < wtx.vOutFractions.size()) {
                 bool fF = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_F;
                 bool fV = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_V;
-                fF &= wtx.nTime >= nLastFrozenTime;
-                fV &= wtx.nTime >= nLastVFrozenTime;
+                fF &= wtx.vOutFractions[n].nLockTime >= nLastBlockTime;
+                fV &= wtx.vOutFractions[n].nLockTime >= nLastBlockTime;
                 if (fF || fV)
                     return 0;
                 
@@ -795,8 +791,7 @@ int64_t CWallet::GetLiquidity(uint256 txhash, long n, const CTxOut& txout) const
             LOCK(cs_main);
             auto pblockindex = mapBlockIndex[hashBestChain];
             nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
-            nLastVFrozenTime = pblockindex->nTime - PEG_VFROZEN_TIME;
-            nLastFrozenTime = pblockindex->nTime - PEG_FROZEN_TIME;
+            nLastBlockTime = pblockindex->nTime;
             nLastHashBestChain = hashBestChain;
         }
         map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(txhash);
@@ -806,8 +801,8 @@ int64_t CWallet::GetLiquidity(uint256 txhash, long n, const CTxOut& txout) const
             if (0<=n && size_t(n) < wtx.vOutFractions.size()) {
                 bool fF = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_F;
                 bool fV = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_V;
-                fF &= wtx.nTime >= nLastFrozenTime;
-                fV &= wtx.nTime >= nLastVFrozenTime;
+                fF &= wtx.vOutFractions[n].nLockTime >= nLastBlockTime;
+                fV &= wtx.vOutFractions[n].nLockTime >= nLastBlockTime;
                 if (fF || fV)
                     return 0;
                 
@@ -1473,7 +1468,11 @@ struct LargerOrEqualThanThreshold
     bool operator()(pair<pair<int64_t,int64_t>,pair<const CWalletTx*,unsigned int> > const &v) const { return v.first.first >= threshold; }
 };
 
-bool CWallet::SelectCoinsMinConfByCoinAge(int64_t nTargetValue, unsigned int nSpendTime, int nConfMine, int nConfTheirs, 
+bool CWallet::SelectCoinsMinConfByCoinAge(PegTxType txType,
+                                          int64_t nTargetValue, 
+                                          unsigned int nSpendTime, 
+                                          int nConfMine, 
+                                          int nConfTheirs, 
                                           std::vector<COutput> vCoins, 
                                           set<CSelectedCoin>& setCoinsRet, 
                                           int64_t& nValueRet) const
@@ -1511,8 +1510,14 @@ bool CWallet::SelectCoinsMinConfByCoinAge(int64_t nTargetValue, unsigned int nSp
         if (pcoin->nTime > nSpendTime)
             continue;
 
-        // Take liquidity only in calculations
-        int64_t nValue = pcoin->vOutFractions[i].High(GetPegSupplyIndex());
+        // Take liquidity or reserves
+        int64_t nValue = 0;
+        if (txType == PEG_MAKETX_SEND_RESERVE ||
+            txType == PEG_MAKETX_FREEZE_RESERVE) {
+            nValue = pcoin->vOutFractions[i].Low(GetPegSupplyIndex());
+        } else {
+            nValue = pcoin->vOutFractions[i].High(GetPegSupplyIndex());
+        }
         if (nValue == 0) continue;
         
         CSelectedCoin selectedCoin = {pcoin, i, nValue};
@@ -1765,7 +1770,11 @@ bool CWallet::SelectCoinsMinConfByCoinAge(int64_t nTargetValue, unsigned int nSp
     return true;
 }
 
-bool CWallet::SelectCoinsMinConf(int64_t nTargetValue, unsigned int nSpendTime, int nConfMine, int nConfTheirs, 
+bool CWallet::SelectCoinsMinConf(PegTxType txType,
+                                 int64_t nTargetValue, 
+                                 unsigned int nSpendTime, 
+                                 int nConfMine, 
+                                 int nConfTheirs, 
                                  vector<COutput> vCoins, 
                                  set<CSelectedCoin>& setCoinsRet, 
                                  int64_t& nValueRet) const
@@ -1798,8 +1807,14 @@ bool CWallet::SelectCoinsMinConf(int64_t nTargetValue, unsigned int nSpendTime, 
         if (pcoin->nTime > nSpendTime)
             continue;
 
-        // take liquidity
-        int64_t nValue = pcoin->vOutFractions[i].High(GetPegSupplyIndex());
+        // take liquidity or reserves
+        int64_t nValue = 0;
+        if (txType == PEG_MAKETX_SEND_RESERVE ||
+            txType == PEG_MAKETX_FREEZE_RESERVE) {
+            nValue = pcoin->vOutFractions[i].Low(GetPegSupplyIndex());
+        } else {
+            nValue = pcoin->vOutFractions[i].High(GetPegSupplyIndex());
+        }
         if (nValue == 0) continue;
         
         CSelectedCoin selectedCoin = {pcoin, i, nValue};
@@ -1889,13 +1904,12 @@ bool CWallet::SelectCoinsMinConf(int64_t nTargetValue, unsigned int nSpendTime, 
     return true;
 }
 
-bool COutput::IsFrozen(unsigned int nLastFrozenTime, 
-                       unsigned int nLastVFrozenTime) const
+bool COutput::IsFrozen(unsigned int nLastBlockTime) const
 {
     bool fF = tx->vOutFractions[i].nFlags & CFractions::NOTARY_F;
     bool fV = tx->vOutFractions[i].nFlags & CFractions::NOTARY_V;
-    fF &= tx->nTime >= nLastFrozenTime;
-    fV &= tx->nTime >= nLastVFrozenTime;
+    fF &= tx->vOutFractions[i].nLockTime >= nLastBlockTime;
+    fV &= tx->vOutFractions[i].nLockTime >= nLastBlockTime;
     return fF || fV;
 }
 
@@ -1919,7 +1933,7 @@ bool CWallet::SelectCoins(PegTxType txType,
                 continue;
             
             // skip all frozen outputs
-            if (out.IsFrozen(nLastFrozenTime, nLastVFrozenTime))
+            if (out.IsFrozen(nLastBlockTime))
                 continue;
 
             // take liquidity or reserve part
@@ -1944,11 +1958,11 @@ bool CWallet::SelectCoins(PegTxType txType,
         return (nValueRet >= nTargetValue);
     }
 
-    boost::function<bool (const CWallet*, int64_t, unsigned int, int, int, std::vector<COutput>, std::set<CSelectedCoin>&, int64_t&)> f = fMinimizeCoinAge ? &CWallet::SelectCoinsMinConfByCoinAge : &CWallet::SelectCoinsMinConf;
+    boost::function<bool (const CWallet*, PegTxType, int64_t, unsigned int, int, int, std::vector<COutput>, std::set<CSelectedCoin>&, int64_t&)> f = fMinimizeCoinAge ? &CWallet::SelectCoinsMinConfByCoinAge : &CWallet::SelectCoinsMinConf;
 
-    return (f(this, nTargetValue, nSpendTime, 1, 10, vCoins, setCoinsRet, nValueRet) ||
-            f(this, nTargetValue, nSpendTime, 1, 1, vCoins, setCoinsRet, nValueRet) ||
-            f(this, nTargetValue, nSpendTime, 0, 1, vCoins, setCoinsRet, nValueRet));
+    return (f(this, txType, nTargetValue, nSpendTime, 1, 10, vCoins, setCoinsRet, nValueRet) ||
+            f(this, txType, nTargetValue, nSpendTime, 1, 1, vCoins, setCoinsRet, nValueRet) ||
+            f(this, txType, nTargetValue, nSpendTime, 0, 1, vCoins, setCoinsRet, nValueRet));
 }
 
 // Select some coins without random shuffle or best subset approximation

@@ -70,8 +70,7 @@ qint64 WalletModel::getReserve(const CCoinControl *coinControl) const
         std::vector<COutput> vCoins;
         wallet->AvailableCoins(vCoins, true, coinControl);
         for(const COutput& out : vCoins) {
-            if(out.fSpendable && !out.IsFrozen(wallet->nLastFrozenTime, 
-                                               wallet->nLastVFrozenTime)) {
+            if(out.fSpendable && !out.IsFrozen(wallet->nLastBlockTime)) {
                 nReserve += out.tx->vOutFractions[out.i].Low(getPegSupplyIndex());
             }
         }
@@ -90,8 +89,7 @@ qint64 WalletModel::getLiquidity(const CCoinControl *coinControl) const
         std::vector<COutput> vCoins;
         wallet->AvailableCoins(vCoins, true, coinControl);
         for(const COutput& out : vCoins) {
-            if(out.fSpendable && !out.IsFrozen(wallet->nLastFrozenTime, 
-                                               wallet->nLastVFrozenTime)) {
+            if(out.fSpendable && !out.IsFrozen(wallet->nLastBlockTime)) {
                 nLiquidity += out.tx->vOutFractions[out.i].High(getPegSupplyIndex());
             }
         }
@@ -110,8 +108,7 @@ qint64 WalletModel::getFrozen(const CCoinControl *coinControl) const
         std::vector<COutput> vCoins;
         wallet->AvailableCoins(vCoins, true, coinControl);
         for(const COutput& out : vCoins) {
-            if(out.fSpendable && out.IsFrozen(wallet->nLastFrozenTime, 
-                                              wallet->nLastVFrozenTime)) {
+            if(out.fSpendable && out.IsFrozen(wallet->nLastBlockTime)) {
                 nFrozen += out.tx->vout[out.i].nValue;
             }
         }

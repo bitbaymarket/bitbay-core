@@ -5,6 +5,7 @@
 #include <vector>
 #include <map>
 
+#include "peg.h"
 #include "allocators.h" /* for SecureString */
 
 class OptionsModel;
@@ -44,6 +45,7 @@ public:
         OK,
         InvalidAmount,
         InvalidAddress,
+        InvalidTxType,
         AmountExceedsBalance,
         AmountWithFeeExceedsBalance,
         DuplicateAddress,
@@ -89,7 +91,7 @@ public:
     };
 
     // Send coins to a list of recipients
-    SendCoinsReturn sendCoins(const QList<SendCoinsRecipient> &recipients, const CCoinControl *coinControl=NULL);
+    SendCoinsReturn sendCoins(const QList<SendCoinsRecipient> &recipients, PegTxType nTxType, const CCoinControl *coinControl=NULL);
 
     // Wallet encryption
     bool setWalletEncrypted(bool encrypted, const SecureString &passphrase);

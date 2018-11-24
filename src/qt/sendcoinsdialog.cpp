@@ -97,19 +97,11 @@ SendCoinsDialog::SendCoinsDialog(QWidget *parent) :
     
     ui->comboBoxTxType->clear();
     ui->comboBoxTxType->addItem(tr("Transfer spendable funds (liquidity)"), PEG_MAKETX_SEND_LIQUIDITY);
-//    ui->comboBoxTxType->addItem(tr("Transfer reserve and freeze them for 1 month"), PEG_MAKETX_SEND_RESERVE);
-//    ui->comboBoxTxType->addItem(tr("Freeze reserve for 1 month (such funds have 20 BAY staking reward)"), PEG_MAKETX_FREEZE_RESERVE);
+    ui->comboBoxTxType->addItem(tr("Transfer reserve and freeze it for 1 month"), PEG_MAKETX_SEND_RESERVE);
+    ui->comboBoxTxType->addItem(tr("Freeze reserve for 1 month (such funds have 20 BAY staking reward)"), PEG_MAKETX_FREEZE_RESERVE);
     ui->comboBoxTxType->addItem(tr("Freeze liquidity for 4 month (such funds have 40 BAY staking reward)"), PEG_MAKETX_FREEZE_LIQUIDITY);
 
-    //ui->comboBoxTxType->se
-    //temp
-//    {
-//        QStandardItemModel *model = qobject_cast<QStandardItemModel *>(ui->comboBoxTxType->model());
-//        QStandardItem *item1 = model->item(1);
-//        QStandardItem *item2 = model->item(2);
-//        item1->setFlags(item1->flags() & ~Qt::ItemIsEnabled);
-//        item2->setFlags(item2->flags() & ~Qt::ItemIsEnabled);
-//    }
+    connect(ui->comboBoxTxType, SIGNAL(activated(int)), this, SLOT(clear()));
 }
 
 void SendCoinsDialog::setModel(WalletModel *model)
@@ -207,10 +199,12 @@ void SendCoinsDialog::on_sendButton_clicked()
 
     WalletModel::SendCoinsReturn sendstatus;
 
+    PegTxType nTxType = static_cast<PegTxType>(ui->comboBoxTxType->currentData().toInt());
+    
     if (!model->getOptionsModel() || !model->getOptionsModel()->getCoinControlFeatures())
-        sendstatus = model->sendCoins(recipients);
+        sendstatus = model->sendCoins(recipients, nTxType);
     else
-        sendstatus = model->sendCoins(recipients, CoinControlDialog::coinControl);
+        sendstatus = model->sendCoins(recipients, nTxType, CoinControlDialog::coinControl);
 
     switch(sendstatus.status)
     {
@@ -222,6 +216,11 @@ void SendCoinsDialog::on_sendButton_clicked()
     case WalletModel::InvalidAmount:
         QMessageBox::warning(this, tr("Send Coins"),
             tr("The amount to pay must be larger than 0."),
+            QMessageBox::Ok, QMessageBox::Ok);
+        break;
+    case WalletModel::InvalidTxType:
+        QMessageBox::warning(this, tr("Send Coins"),
+            tr("The selected transaction type is not supported yet."),
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::AmountExceedsBalance:
@@ -272,6 +271,12 @@ void SendCoinsDialog::clear()
 
     updateRemoveEnabled();
 
+    CoinControlDialog::coinControl->UnSelectAll();
+    coinControlUpdateLabels();
+    
+    if (sender() != ui->comboBoxTxType)
+        ui->comboBoxTxType->setCurrentIndex(0);
+    
     ui->sendButton->setDefault(true);
 }
 
@@ -289,6 +294,8 @@ SendCoinsEntry *SendCoinsDialog::addEntry()
 {
     SendCoinsEntry *entry = new SendCoinsEntry(this);
     entry->setModel(model);
+    PegTxType txType = static_cast<PegTxType>(ui->comboBoxTxType->currentData().toInt());
+    entry->setTxType(txType);
     ui->entries->addWidget(entry);
     connect(entry, SIGNAL(removeEntry(SendCoinsEntry*)), this, SLOT(removeEntry(SendCoinsEntry*)));
     connect(entry, SIGNAL(payAmountChanged()), this, SLOT(coinControlUpdateLabels()));

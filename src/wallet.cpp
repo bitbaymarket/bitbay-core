@@ -1899,7 +1899,8 @@ bool COutput::IsFrozen(unsigned int nLastFrozenTime,
     return fF || fV;
 }
 
-bool CWallet::SelectCoins(int64_t nTargetValue, 
+bool CWallet::SelectCoins(PegTxType txType,
+                          int64_t nTargetValue, 
                           unsigned int nSpendTime, 
                           set<CSelectedCoin>& setCoinsRet, 
                           int64_t& nValueRet, 
@@ -1921,8 +1922,14 @@ bool CWallet::SelectCoins(int64_t nTargetValue,
             if (out.IsFrozen(nLastFrozenTime, nLastVFrozenTime))
                 continue;
 
-            // take liquidity part
-            int64_t nValue = out.tx->vOutFractions[out.i].High(GetPegSupplyIndex());
+            // take liquidity or reserve part
+            int64_t nValue = 0;
+            if (txType == PEG_MAKETX_SEND_RESERVE ||
+                txType == PEG_MAKETX_FREEZE_RESERVE) {
+                nValue = out.tx->vOutFractions[out.i].Low(GetPegSupplyIndex());
+            } else {
+                nValue = out.tx->vOutFractions[out.i].High(GetPegSupplyIndex());
+            }
             nValueRet += nValue;
             
             int64_t nValueTake = nValue;
@@ -1990,7 +1997,7 @@ bool CWallet::SelectCoinsForStaking(int64_t nTargetValue,
     return true;
 }
 
-bool CWallet::CreateTransaction(const vector<pair<CScript, int64_t> >& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey, int64_t& nFeeRet, const CCoinControl* coinControl)
+bool CWallet::CreateTransaction(PegTxType txType, const vector<pair<CScript, int64_t> >& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey, int64_t& nFeeRet, const CCoinControl* coinControl)
 {
     int64_t nValue = 0;
     BOOST_FOREACH (const PAIRTYPE(CScript, int64_t)& s, vecSend)
@@ -2047,7 +2054,7 @@ bool CWallet::CreateTransaction(const vector<pair<CScript, int64_t> >& vecSend, 
                 // Choose coins to use
                 set<CSelectedCoin> setCoins;
                 int64_t nValueIn = 0;
-                if (!SelectCoins(nTotalValue, wtxNew.nTime, setCoins, nValueIn, coinControl))
+                if (!SelectCoins(txType, nTotalValue, wtxNew.nTime, setCoins, nValueIn, coinControl))
                     return false;
                 for(const CSelectedCoin & pcoin : setCoins)
                 {
@@ -2138,7 +2145,7 @@ bool CWallet::CreateTransaction(CScript scriptPubKey, int64_t nValue, CWalletTx&
 {
     vector< pair<CScript, int64_t> > vecSend;
     vecSend.push_back(make_pair(scriptPubKey, nValue));
-    return CreateTransaction(vecSend, wtxNew, reservekey, nFeeRet, coinControl);
+    return CreateTransaction(PEG_MAKETX_SEND_LIQUIDITY, vecSend, wtxNew, reservekey, nFeeRet, coinControl);
 }
 
 uint64_t CWallet::GetStakeWeight() const

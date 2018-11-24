@@ -1997,7 +1997,12 @@ bool CWallet::SelectCoinsForStaking(int64_t nTargetValue,
     return true;
 }
 
-bool CWallet::CreateTransaction(PegTxType txType, const vector<pair<CScript, int64_t> >& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey, int64_t& nFeeRet, const CCoinControl* coinControl)
+bool CWallet::CreateTransaction(PegTxType txType, 
+                                const vector<pair<CScript, int64_t> >& vecSend, 
+                                CWalletTx& wtxNew, 
+                                CReserveKey& reservekey, 
+                                int64_t& nFeeRet, 
+                                const CCoinControl* coinControl)
 {
     int64_t nValue = 0;
     BOOST_FOREACH (const PAIRTYPE(CScript, int64_t)& s, vecSend)
@@ -2047,15 +2052,45 @@ bool CWallet::CreateTransaction(PegTxType txType, const vector<pair<CScript, int
 
                 int64_t nTotalValue = nValue + nFeeRet;
                 double dPriority = 0;
-                // vouts to the payees
-                BOOST_FOREACH (const PAIRTYPE(CScript, int64_t)& s, vecSend)
-                    wtxNew.vout.push_back(CTxOut(s.second, s.first));
 
                 // Choose coins to use
                 set<CSelectedCoin> setCoins;
                 int64_t nValueIn = 0;
                 if (!SelectCoins(txType, nTotalValue, wtxNew.nTime, setCoins, nValueIn, coinControl))
                     return false;
+                
+                if (txType == PEG_MAKETX_SEND_RESERVE) {
+                    // prepare indexes to freeze
+                    size_t nCoins = setCoins.size();
+                    size_t nPayees = vecSend.size();
+                    string out_indexes;
+                    for(size_t i=0; i<nPayees; i++) {
+                        if (!out_indexes.empty())
+                            out_indexes += ":";
+                        out_indexes += std::to_string(i+nCoins);
+                    }
+                    // fill vout with freezing instructions
+                    for(size_t i=0; i<nCoins; i++) {
+                        CScript scriptPubKey;
+                        scriptPubKey.push_back(OP_RETURN);
+                        unsigned char len_bytes = out_indexes.size();
+                        scriptPubKey.push_back(len_bytes+5);
+                        scriptPubKey.push_back('*');
+                        scriptPubKey.push_back('*');
+                        scriptPubKey.push_back('F');
+                        scriptPubKey.push_back('*');
+                        scriptPubKey.push_back('*');
+                        for (size_t j=0; j< out_indexes.size(); j++) {
+                            scriptPubKey.push_back(out_indexes[j]);
+                        }
+                        wtxNew.vout.push_back(CTxOut(PEG_MAKETX_FREEZE_VALUE, scriptPubKey));
+                    }
+                }
+                
+                // vouts to the payees
+                BOOST_FOREACH (const PAIRTYPE(CScript, int64_t)& s, vecSend)
+                    wtxNew.vout.push_back(CTxOut(s.second, s.first));
+                
                 for(const CSelectedCoin & pcoin : setCoins)
                 {
                     int64_t nCredit = pcoin.tx->vout[pcoin.i].nValue;
@@ -2122,7 +2157,9 @@ bool CWallet::CreateTransaction(PegTxType txType, const vector<pair<CScript, int
 
                 // Check that enough fee is included
                 int64_t nPayFee = nTransactionFee * (1 + (int64_t)nBytes / 1000);
-                int64_t nMinFee = GetMinFee(wtxNew, 1, GMF_SEND, nBytes);
+                int64_t nMinFee1 = GetMinFee(wtxNew, 1, GMF_SEND, nBytes);
+                int64_t nMinFee2 = PEG_MAKETX_FEE_INP_OUT * (wtxNew.vin.size()+wtxNew.vout.size());
+                int64_t nMinFee = max(nMinFee1, nMinFee2);
 
                 if (nFeeRet < max(nPayFee, nMinFee))
                 {

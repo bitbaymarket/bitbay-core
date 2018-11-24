@@ -27,13 +27,17 @@ typedef std::function<void(const std::string &)> LoadMsg;
 
 enum
 {
-    PEG_INTERVAL    = 200,
-    PEG_RATE        = 100,
-    PEG_SIZE        = 1200,
-    PEG_DEST_OUT    = 1,
-    PEG_DEST_SELF   = 2,
-    PEG_FROZEN_TIME = 2592000,
-    PEG_VFROZEN_TIME= 2592000*4
+    PEG_INTERVAL            = 200,
+    PEG_RATE                = 100,
+    PEG_SIZE                = 1200,
+    PEG_DEST_OUT            = 1,
+    PEG_DEST_SELF           = 2,
+//    PEG_FROZEN_TIME         = (3600 * 24 * 30),
+//    PEG_VFROZEN_TIME        = (3600 * 24 * 30 *4),
+    PEG_FROZEN_TIME         = (3600 * 1),
+    PEG_VFROZEN_TIME        = (3600 * 1 *4),
+    PEG_MAKETX_FREEZE_VALUE = 5590,
+    PEG_MAKETX_FEE_INP_OUT  = 5000
 };
 
 enum PegTxType {

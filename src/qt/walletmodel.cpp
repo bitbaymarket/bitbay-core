@@ -230,8 +230,9 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(const QList<SendCoinsRecipie
         return OK;
     }
 
-    if (txType == PEG_MAKETX_SEND_LIQUIDITY) {
-        
+    if (txType == PEG_MAKETX_SEND_RESERVE) {
+    }
+    else if (txType == PEG_MAKETX_SEND_LIQUIDITY) {
     }
     else {
         return InvalidTxType;
@@ -258,14 +259,21 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(const QList<SendCoinsRecipie
         return DuplicateAddress;
     }
 
-    qint64 nBalance = getLiquidity(coinControl);
+    qint64 nBalance = 0;
+    qint64 nBalanceAll = getBalance(coinControl);
+    
+    if (txType == PEG_MAKETX_SEND_RESERVE) {
+        nBalance = getReserve(coinControl);
+    }else if (txType == PEG_MAKETX_SEND_LIQUIDITY) {
+        nBalance = getLiquidity(coinControl);
+    }
 
     if(total > nBalance)
     {
         return AmountExceedsBalance;
     }
 
-    if((total + nTransactionFee) > nBalance)
+    if((total + nTransactionFee) > nBalanceAll) // fee can be paid from both reserves and liquidity
     {
         return SendCoinsReturn(AmountWithFeeExceedsBalance, nTransactionFee);
     }

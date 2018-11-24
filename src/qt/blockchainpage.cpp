@@ -1073,11 +1073,20 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
     auto sReserveIn = displayValueR(nReserveIn, nValueMaxLen);
     auto sLiquidityIn = displayValueR(nLiquidityIn, nValueMaxLen);
 
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Value In",sValueIn})));
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Value Out",sValueOut})));
-
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Reserves",sReserveIn})));
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Liquidity",sLiquidityIn})));
+    auto twiValueIn = new QTreeWidgetItem(QStringList({"Value In",sValueIn}));
+    auto twiValueOut = new QTreeWidgetItem(QStringList({"Value Out",sValueOut}));
+    auto twiReserves = new QTreeWidgetItem(QStringList({"Reserves",sReserveIn}));
+    auto twiLiquidity = new QTreeWidgetItem(QStringList({"Liquidity",sLiquidityIn}));
+    
+    twiValueIn->setData(1, BlockchainModel::ValueForCopy, qlonglong(nValueIn));
+    twiValueOut->setData(1, BlockchainModel::ValueForCopy, qlonglong(nValueOut));
+    twiReserves->setData(1, BlockchainModel::ValueForCopy, qlonglong(nReserveIn));
+    twiLiquidity->setData(1, BlockchainModel::ValueForCopy, qlonglong(nLiquidityIn));
+    
+    ui->txValues->addTopLevelItem(twiValueIn);
+    ui->txValues->addTopLevelItem(twiValueOut);
+    ui->txValues->addTopLevelItem(twiReserves);
+    ui->txValues->addTopLevelItem(twiLiquidity);
 
     auto twiPegChecks = new QTreeWidgetItem(
                 QStringList({
@@ -1153,10 +1162,13 @@ void BlockchainPage::openTxMenu(const QPoint & pos)
 
     auto a = m.addAction(tr("Copy Value"));
     connect(a, &QAction::triggered, [&] {
+        QString text;
         QModelIndex mi2 = model->index(mi.row(), 1 /*value column*/);
-        QApplication::clipboard()->setText(
-            mi2.data(Qt::DisplayRole).toString()
-        );
+        QVariant v2 = mi2.data(BlockchainModel::ValueForCopy);
+        if (v2.isValid())
+            text = mi2.data(BlockchainModel::ValueForCopy).toString();
+        else text = mi2.data(Qt::DisplayRole).toString();
+        QApplication::clipboard()->setText(text);
     });
     a = m.addAction(tr("Copy All Rows"));
     connect(a, &QAction::triggered, [&] {
@@ -1285,13 +1297,29 @@ void BlockchainPage::openInpMenu(const QPoint & pos)
         }
         QApplication::clipboard()->setText(text);
     });
-//    a = m.addAction(tr("Copy Input Height"));
-//    connect(a, &QAction::triggered, [&] {
-//        QModelIndex mi2 = model->index(mi.row(), COL_INP_TX);
-//        QApplication::clipboard()->setText(
-//            mi2.data(Qt::DisplayRole).toString()
-//        );
-//    });
+    a = m.addAction(tr("Copy Input Height"));
+    connect(a, &QAction::triggered, [&] {
+        QModelIndex mi2 = model->index(mi.row(), COL_INP_TX);
+        QApplication::clipboard()->setText(
+            mi2.data(Qt::DisplayRole).toString()
+        );
+    });
+    m.addSeparator();
+    a = m.addAction(tr("Copy Input Fractions"));
+    connect(a, &QAction::triggered, [&] {
+        QModelIndex mi2 = model->index(mi.row(), COL_INP_FRACTIONS);
+        QVariant vfractions = mi2.data(BlockchainModel::FractionsRole);
+        if (!vfractions.isValid()) return;
+        CFractions fractions = vfractions.value<CFractions>().Std();
+        QString text;
+        for (int i=0; i<PEG_SIZE; i++) {
+            if (i!=0) text += "\n";
+            text += QString::number(i);
+            text += "\t";
+            text += QString::number(qlonglong(fractions.f[i]));
+        }
+        QApplication::clipboard()->setText(text);
+    });
     
     m.exec(ui->txInputs->viewport()->mapToGlobal(pos));
 }
@@ -1364,6 +1392,29 @@ void BlockchainPage::openOutMenu(const QPoint & pos)
             int n = mi2.data(BlockchainModel::OutNumRole).toInt();
             text = QString::fromStdString(hash.ToString());
             text += ":"+QString::number(n);
+        }
+        QApplication::clipboard()->setText(text);
+    });
+    a = m.addAction(tr("Copy Spent Height"));
+    connect(a, &QAction::triggered, [&] {
+        QModelIndex mi2 = model->index(mi.row(), COL_OUT_TX);
+        QApplication::clipboard()->setText(
+            mi2.data(Qt::DisplayRole).toString()
+        );
+    });
+    m.addSeparator();
+    a = m.addAction(tr("Copy Spent Fractions"));
+    connect(a, &QAction::triggered, [&] {
+        QModelIndex mi2 = model->index(mi.row(), COL_OUT_FRACTIONS);
+        QVariant vfractions = mi2.data(BlockchainModel::FractionsRole);
+        if (!vfractions.isValid()) return;
+        CFractions fractions = vfractions.value<CFractions>().Std();
+        QString text;
+        for (int i=0; i<PEG_SIZE; i++) {
+            if (i!=0) text += "\n";
+            text += QString::number(i);
+            text += "\t";
+            text += QString::number(qlonglong(fractions.f[i]));
         }
         QApplication::clipboard()->setText(text);
     });
@@ -1467,6 +1518,7 @@ void BlockchainPage::openFractions(QTreeWidgetItem * item, int column)
         auto row_item = new QTreeWidgetItem(row);
         row_item->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         row_item->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions_std.f[i]));
         ui.fractions->addTopLevelItem(row_item);
 
         xs_reserve[i*2] = i;
@@ -1517,10 +1569,13 @@ void BlockchainPage::openFractionsMenu(const QPoint & pos)
 
     auto a = m.addAction(tr("Copy Value"));
     connect(a, &QAction::triggered, [&] {
+        QString text;
         QModelIndex mi2 = model->index(mi.row(), 1 /*value column*/);
-        QApplication::clipboard()->setText(
-            mi2.data(Qt::DisplayRole).toString()
-        );
+        QVariant v1 = mi2.data(BlockchainModel::ValueForCopy);
+        if (v1.isValid()) 
+            text = v1.toString();
+        else text = mi2.data(Qt::DisplayRole).toString();
+        QApplication::clipboard()->setText(text);
     });
     a = m.addAction(tr("Copy All Rows"));
     connect(a, &QAction::triggered, [&] {
@@ -1529,7 +1584,10 @@ void BlockchainPage::openFractionsMenu(const QPoint & pos)
             for(int c=0; c<model->columnCount(); c++) {
                 if (c>0) text += "\t";
                 QModelIndex mi2 = model->index(r, c);
-                text += mi2.data(Qt::DisplayRole).toString();
+                QVariant v1 = mi2.data(BlockchainModel::ValueForCopy);
+                if (v1.isValid()) 
+                    text += v1.toString();
+                else text += mi2.data(Qt::DisplayRole).toString();
             }
             text += "\n";
         }

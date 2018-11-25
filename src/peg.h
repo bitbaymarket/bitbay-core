@@ -21,6 +21,7 @@ typedef std::map<uint256, std::pair<CTxIndex, CTransaction> > MapPrevTx;
 
 extern int nPegStartHeight;
 extern int nPegMaxSupplyIndex;
+extern uint256 pegWhiteListHash;
 
 // functors for messagings
 typedef std::function<void(const std::string &)> LoadMsg;

@@ -2663,6 +2663,7 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
 
         // ensure pegdb is created
         int nPegStartHeightStored = 0;
+        uint256 pegWhiteListHashStored = 0;
         {
             CPegDB pegdb("cr+");
             if (!pegdb.TxnBegin())
@@ -2670,10 +2671,12 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
             if (!pegdb.TxnCommit())
                 return error("LoadBlockIndex() : peg TxnCommit failed");
             pegdb.ReadPegStartHeight(nPegStartHeightStored);
+            pegdb.ReadPegWhiteListHash(pegWhiteListHashStored);
             pegdb.Close();
         }
         // and peg start matches
-        if (nPegStartHeightStored != nPegStartHeight) {
+        if (nPegStartHeightStored != nPegStartHeight ||
+            pegWhiteListHashStored != pegWhiteListHash) {
             // remove previous db
             {
                 boost::filesystem::remove_all(GetDataDir() / "pegleveldb");

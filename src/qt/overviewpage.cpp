@@ -196,51 +196,6 @@ OverviewPage::OverviewPage(QWidget *parent) :
         fvbox->addWidget(fplot);
         ui->widgetFractions->setLayout(fvbox);
         ui->widgetFractions->setVisible(false);
-
-        auto supply = 40; // temp
-        auto fractions = CFractions(100*100000000, CFractions::STD);
-        auto fractions_std = fractions.Std();
-
-        qreal xs_reserve[PEG_SIZE*2];
-        qreal ys_reserve[PEG_SIZE*2];
-        qreal xs_liquidity[PEG_SIZE*2];
-        qreal ys_liquidity[PEG_SIZE*2];
-
-        for (int i=0; i<PEG_SIZE; i++) {
-            xs_reserve[i*2] = i;
-            ys_reserve[i*2] = i < supply ? qreal(fractions_std.f[i]) : 0;
-            xs_reserve[i*2+1] = i+1;
-            ys_reserve[i*2+1] = ys_reserve[i*2];
-
-            xs_liquidity[i*2] = i;
-            ys_liquidity[i*2] = i >= supply ? qreal(fractions_std.f[i]) : 0;
-            xs_liquidity[i*2+1] = i+1;
-            ys_liquidity[i*2+1] = ys_liquidity[i*2];
-        }
-
-        QPen nopen(Qt::NoPen);
-
-        auto curve_reserve = new QwtPlotCurve;
-        curve_reserve->setPen(nopen);
-        curve_reserve->setBrush(QColor("#c06a15"));
-        curve_reserve->setSamples(xs_reserve, ys_reserve, supply*2);
-        curve_reserve->setRenderHint(QwtPlotItem::RenderAntialiased);
-        curve_reserve->attach(fplot);
-
-        auto curve_liquidity = new QwtPlotCurve;
-        curve_liquidity->setPen(nopen);
-        curve_liquidity->setBrush(QColor("#2da5e0"));
-        curve_liquidity->setSamples(xs_liquidity+supply*2,
-                                    ys_liquidity+supply*2,
-                                    PEG_SIZE*2-supply*2);
-        curve_liquidity->setRenderHint(QwtPlotItem::RenderAntialiased);
-        curve_liquidity->attach(fplot);
-
-        fplot->enableAxis(0, false);
-        fplot->enableAxis(1, false);
-        fplot->enableAxis(2, false);
-        fplot->plotLayout()->setCanvasMargin(0);
-        fplot->replot();
     }
 }
 

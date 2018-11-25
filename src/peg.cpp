@@ -39,7 +39,9 @@ using namespace boost;
 
 int nPegStartHeight = 1837000;
 int nPegMaxSupplyIndex = 1198;
+bool fPegWhitelistAll = false;
 static set<string> vPegWhitelist;
+uint256 pegWhiteListHash = 0;
 
 static string sBurnAddress =
     "bJnV8J5v74MGctMyVSVPfGu1mGQ9nMTiB3";
@@ -54,11 +56,18 @@ bool ReadWhitelistInfo() {
     bool fHasPegStart = false;
     bool fHasAddresses = false;;
     string line;
+    string input;
     while (getline(infile, line)) {
         boost::trim(line);
         if (line.length()==34) {
             vPegWhitelist.insert(line);
             fHasAddresses = true;
+            input += line;
+        }
+        if (boost::starts_with(line, "all")) {
+            fPegWhitelistAll = true;
+            fHasAddresses = true;
+            input += line;
         }
         if (boost::starts_with(line, "#")) {
             char * pEnd = nullptr;
@@ -75,6 +84,10 @@ bool ReadWhitelistInfo() {
     if (!fHasAddresses || !fHasPegStart)
         return false;
 
+    CDataStream ss(SER_GETHASH, 0);
+    ss << input;
+    pegWhiteListHash = Hash(ss.begin(), ss.end());
+    
     return true;
 }
 
@@ -813,6 +826,9 @@ static string toAddress(const CScript& scriptPubKey,
 bool IsPegWhiteListed(const CTransaction & tx,
                       MapPrevTx & inputs)
 {
+    if (fPegWhitelistAll)
+        return true;
+    
     size_t n_vin = tx.vin.size();
     if (tx.IsCoinBase()) n_vin = 0;
     for (unsigned int i = 0; i < n_vin; i++)
@@ -827,8 +843,7 @@ bool IsPegWhiteListed(const CTransaction & tx,
         if (vPegWhitelist.count(sAddress))
             return true;
     }
-    //return false;
-    return true;
+    return false;
 }
 
 bool CalculateFractions(CTxDB& txdb,
@@ -1379,9 +1394,11 @@ bool CalculateStakingFractions(const CTransaction & tx,
 
     int nSupply = pindexBlock->nPegSupplyIndex;
     set<string> setInputAddresses;
+    CFractions frInp(0, CFractions::STD);
     
-    for (unsigned int i = 0; i < n_vin; i++)
+    // only one input
     {
+        unsigned int i = 0;
         const COutPoint & prevout = tx.vin[i].prevout;
         CTransaction& txPrev = inputs[prevout.hash].second;
         if (prevout.n >= txPrev.vout.size()) {
@@ -1400,7 +1417,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
             return false;
         }
 
-        auto frInp = fInputs[fkey].Std();
+        frInp = fInputs[fkey].Std();
         if (frInp.Total() != txPrev.vout[prevout.n].nValue) {
             sFailCause = "P04: Input fraction total mismatches value";
             return false;
@@ -1454,11 +1471,23 @@ bool CalculateStakingFractions(const CTransaction & tx,
 
         auto fkey = uint320(tx.GetHash(), i);
         auto & frOut = mapTestFractionsPool[fkey];
-
+        
         string sNotary;
         bool fNotary = false;
         auto sAddress = toAddress(tx.vout[i].scriptPubKey, &fNotary, &sNotary);
 
+        // for output returning on same address and greater or equal value
+        if (nValue >= nValueIn && setInputAddresses.count(sAddress)) {
+            if (frInp.nFlags & CFractions::NOTARY_F) {
+                frOut.nFlags |= CFractions::NOTARY_F;
+                frOut.nLockTime = frInp.nLockTime;
+            }
+            if (frInp.nFlags & CFractions::NOTARY_V) {
+                frOut.nFlags |= CFractions::NOTARY_V;
+                frOut.nLockTime = frInp.nLockTime;
+            }
+        }
+        
         if (poolReserves.count(sAddress)) { // to reserve
             int64_t nValueLeft = nValue;
             auto & frReserve = poolReserves[sAddress];

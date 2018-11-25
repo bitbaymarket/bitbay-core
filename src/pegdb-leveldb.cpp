@@ -186,8 +186,8 @@ bool CPegDB::Read(uint320 txout, CFractions & f) {
         // and supposed to be before the peg started, otherwise may
         // need to know height of transction to compare with peg start
         // to indicate pegdb fault.
+        uint256 txhash = txout.b1(); // todo
         return true;
-        //return false;
     }
     CDataStream finp(strValue.data(), strValue.data() + strValue.size(),
                      SER_DISK, CLIENT_VERSION);
@@ -207,4 +207,14 @@ bool CPegDB::ReadPegStartHeight(int& nHeight)
 bool CPegDB::WritePegStartHeight(int nHeight)
 {
     return Write(string("pegStartHeight"), nHeight);
+}
+
+bool CPegDB::ReadPegWhiteListHash(uint256& hash)
+{
+    return Read(string("pegWhiteListHash"), hash);
+}
+
+bool CPegDB::WritePegWhiteListHash(uint256 hash)
+{
+    return Write(string("pegWhiteListHash"), hash);
 }

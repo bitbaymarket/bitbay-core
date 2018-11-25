@@ -575,6 +575,13 @@ public:
             pn[i] = 0;
         return *this;
     }
+    
+    uint256& from320(base_uint320 b)
+    {
+        for (int i = 0; i < WIDTH; i++)
+            pn[i] = b.pn[i];
+        return *this;
+    }
 
     explicit uint256(const std::string& str)
     {
@@ -830,6 +837,12 @@ public:
             pn[i] = b1.pn[i];
         pn[8] = (unsigned int)b2;
         pn[9] = (unsigned int)(b2 >> 32);
+    }
+    
+    uint256 b1() const {
+        uint256 b;
+        b.from320(*this);
+        return b;
     }
 
     uint320& operator=(uint64_t b)

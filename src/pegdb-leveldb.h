@@ -207,6 +207,8 @@ public:
     bool ReadPegStartHeight(int& nHeight);
     bool WritePegStartHeight(int nHeight);
 
+    bool ReadPegWhiteListHash(uint256& hash);
+    bool WritePegWhiteListHash(uint256 hash);
 };
 
 

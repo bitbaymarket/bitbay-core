@@ -648,8 +648,13 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                 uint256 hash = *pblockindex->phashBlock;
                 pblockindex = mapBlockIndex[hash];
 
-                if (pblockindex->nHeight % 10000 == 0) {
+                if (pblockindex->nHeight % 100 == 0) {
                     load_msg(std::string(" process peg fractions: ")+std::to_string(pblockindex->nHeight));
+                    
+                    if (!pegdb.TxnCommit())
+                        return error("LoadBlockIndex() : peg TxnCommit failed");
+                    if (!pegdb.TxnBegin())
+                        return error("LoadBlockIndex() : peg TxnBegin failed");
                 }
 
                 // calc votes per block
@@ -743,8 +748,11 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
             }
 
             if (!pegdb.WritePegStartHeight(nPegStartHeight))
-                return error("WritePegStartHeight() : flag write failed");
+                return error("WritePegStartHeight() : peg start write failed");
 
+            if (!pegdb.WritePegWhiteListHash(pegWhiteListHash))
+                return error("WritePegStartHeight() : peg whitelist hash write failed");
+            
             if (!pegdb.TxnCommit())
                 return error("LoadBlockIndex() : peg TxnCommit failed");
         }

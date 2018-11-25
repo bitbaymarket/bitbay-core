@@ -867,12 +867,12 @@ class CSelectedCoin
 public:
     const CWalletTx* tx;
     unsigned int i;
-    int64_t nValue;
+    int64_t nAvailableValue;
     
     friend bool operator<(const CSelectedCoin &a, const CSelectedCoin &b) { 
         if (a.tx < b.tx) return true;
         if (a.tx == b.tx && a.i < b.i) return true;
-        if (a.tx == b.tx && a.i == b.i && a.nValue < b.nValue) return true;
+        if (a.tx == b.tx && a.i == b.i && a.nAvailableValue < b.nAvailableValue) return true;
         return false;
     }
 };

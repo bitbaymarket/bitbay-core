@@ -1539,7 +1539,6 @@ bool CWallet::SelectCoinsMinConfByCoinAge(PegTxType txType,
         if (coinLowestLarger.second.tx == NULL)
             return false;
         CSelectedCoin selectedCoin = coinLowestLarger.second;
-        selectedCoin.nValue = nTargetValue;
         setCoinsRet.insert(selectedCoin);
         nValueRet += coinLowestLarger.first.first;
         return true;
@@ -1573,9 +1572,6 @@ bool CWallet::SelectCoinsMinConfByCoinAge(PegTxType txType,
         return true;
     }
 
-    // trace what is left to correct last nValueTake
-    int64_t nValueLeft = nTargetValue;
-    
     size_t nBeginBundles = vValue.size();
     size_t nTotalCoinValues = vValue.size();
     size_t nBeginCoinValues = 0;
@@ -1623,12 +1619,6 @@ bool CWallet::SelectCoinsMinConfByCoinAge(PegTxType txType,
                     for (vector<pair<pair<int64_t,int64_t>,CSelectedCoin> >::iterator it = vZeroValueBundles[nBundle]; it != vZeroValueBundles[nBundle + 1]; ++it)
                     {
                         CSelectedCoin selectedCoin = it->second;
-                        int64_t nValueTake = selectedCoin.nValue;
-                        if (nValueTake > nValueLeft) {
-                            nValueTake = nValueLeft;
-                            selectedCoin.nValue = nValueTake;
-                        }
-                        nValueLeft -= nValueTake;
                         setCoinsRet.insert(selectedCoin);
                     }
                 }
@@ -1641,12 +1631,6 @@ bool CWallet::SelectCoinsMinConfByCoinAge(PegTxType txType,
                                      << " cost " 
                                      << vValue[nBeginCoinValues].first.second << endl;
                     CSelectedCoin selectedCoin = vValue[nBeginCoinValues].second;
-                    int64_t nValueTake = selectedCoin.nValue;
-                    if (nValueTake > nValueLeft) {
-                        nValueTake = nValueLeft;
-                        selectedCoin.nValue = nValueTake;
-                    }
-                    nValueLeft -= nValueTake;
                     setCoinsRet.insert(selectedCoin);
                 }
                 nTotalValue -= vValue[nBeginCoinValues].first.first / denom;
@@ -1722,12 +1706,6 @@ bool CWallet::SelectCoinsMinConfByCoinAge(PegTxType txType,
                 for (vector<pair<pair<int64_t,int64_t>,CSelectedCoin> >::iterator it = vZeroValueBundles[nBundle]; it != vZeroValueBundles[nBundle + 1]; ++it)
                 {
                     CSelectedCoin selectedCoin = it->second;
-                    int64_t nValueTake = selectedCoin.nValue;
-                    if (nValueTake > nValueLeft) {
-                        nValueTake = nValueLeft;
-                        selectedCoin.nValue = nValueTake;
-                    }
-                    nValueLeft -= nValueTake;
                     setCoinsRet.insert(selectedCoin);
                 }
             }
@@ -1735,12 +1713,6 @@ bool CWallet::SelectCoinsMinConfByCoinAge(PegTxType txType,
             {
                 if (fDebug) cerr << "pick " << nValue << " value " << FormatMoney(vValue[nValue].first.first) << " normalized " << vValue[nValue].first.first / denom << " cost " << vValue[nValue].first.second << endl;
                 CSelectedCoin selectedCoin = vValue[nValue].second;
-                int64_t nValueTake = selectedCoin.nValue;
-                if (nValueTake > nValueLeft) {
-                    nValueTake = nValueLeft;
-                    selectedCoin.nValue = nValueTake;
-                }
-                nValueLeft -= nValueTake;
                 setCoinsRet.insert(selectedCoin);
             }
             nValueRet += vValue[nValue].first.first;
@@ -1755,12 +1727,6 @@ bool CWallet::SelectCoinsMinConfByCoinAge(PegTxType txType,
         for (vector<pair<pair<int64_t,int64_t>,CSelectedCoin> >::iterator it = vZeroValueBundles.back(); it != vValue.end() && nValueRet < nTargetValue; ++it)
         {
             CSelectedCoin selectedCoin = it->second;
-            int64_t nValueTake = selectedCoin.nValue;
-            if (nValueTake > nValueLeft) {
-                nValueTake = nValueLeft;
-                selectedCoin.nValue = nValueTake;
-            }
-            nValueLeft -= nValueTake;
             setCoinsRet.insert(selectedCoin);
             nValueRet += it->first.first;
         }
@@ -1852,7 +1818,6 @@ bool CWallet::SelectCoinsMinConf(PegTxType txType,
         if (coinLowestLarger.second.tx == NULL)
             return false;
         CSelectedCoin selectedCoin = coinLowestLarger.second;
-        selectedCoin.nValue = nTargetValue; // take all from one input
         setCoinsRet.insert(selectedCoin);
         nValueRet += coinLowestLarger.first;
         return true;
@@ -1873,22 +1838,14 @@ bool CWallet::SelectCoinsMinConf(PegTxType txType,
         ((nBest != nTargetValue && nBest < nTargetValue + CENT) || coinLowestLarger.first <= nBest))
     {
         CSelectedCoin selectedCoin = coinLowestLarger.second;
-        selectedCoin.nValue = nTargetValue; // take all from one input
         setCoinsRet.insert(selectedCoin);
         nValueRet += coinLowestLarger.first;
     }
     else {
-        int64_t nValueLeft = nTargetValue;
         for (unsigned int i = 0; i < vValue.size(); i++) {
             if (vfBest[i])
             {
                 CSelectedCoin selectedCoin = vValue[i].second;
-                int64_t nValueTake = selectedCoin.nValue;
-                if (nValueTake > nValueLeft) {
-                    nValueTake = nValueLeft;
-                    selectedCoin.nValue = nValueTake;
-                }
-                nValueLeft -= nValueTake;
                 setCoinsRet.insert(selectedCoin);
                 nValueRet += vValue[i].first;
             }
@@ -2011,6 +1968,32 @@ bool CWallet::SelectCoinsForStaking(int64_t nTargetValue,
     return true;
 }
 
+static bool sortByAddress(const CSelectedCoin &lhs, const CSelectedCoin &rhs) { 
+    CScript lhs_script = lhs.tx->vout[lhs.i].scriptPubKey;
+    CScript rhs_script = rhs.tx->vout[rhs.i].scriptPubKey;
+    
+    CTxDestination lhs_dst;
+    CTxDestination rhs_dst;
+    bool lhs_ok1 = ExtractDestination(lhs_script, lhs_dst);
+    bool rhs_ok1 = ExtractDestination(rhs_script, rhs_dst);
+    
+    if (!lhs_ok1 || !rhs_ok1) {
+        if (lhs_ok1 == rhs_ok1) 
+            return lhs_script < rhs_script;
+        return lhs_ok1 < rhs_ok1;
+    }
+    
+    string lhs_addr = CBitcoinAddress(lhs_dst).ToString();
+    string rhs_addr = CBitcoinAddress(rhs_dst).ToString();
+    
+    return lhs_addr < rhs_addr;
+}
+static bool sortByDestination(const CTxDestination &lhs, const CTxDestination &rhs) { 
+    string lhs_addr = CBitcoinAddress(lhs).ToString();
+    string rhs_addr = CBitcoinAddress(rhs).ToString();
+    return lhs_addr < rhs_addr;
+}
+
 bool CWallet::CreateTransaction(PegTxType txType, 
                                 const vector<pair<CScript, int64_t> >& vecSend, 
                                 CWalletTx& wtxNew, 
@@ -2058,6 +2041,7 @@ bool CWallet::CreateTransaction(PegTxType txType,
         CTxDB txdb("r");
         {
             nFeeRet = nTransactionFee;
+            size_t nNumInputs = (txType == PEG_MAKETX_SEND_RESERVE) ? 0 : 1;
             while (true)
             {
                 wtxNew.vin.clear();
@@ -2066,24 +2050,79 @@ bool CWallet::CreateTransaction(PegTxType txType,
 
                 int64_t nTotalValue = nValue + nFeeRet;
                 double dPriority = 0;
-
+                
+                if (txType == PEG_MAKETX_SEND_RESERVE ||
+                    txType == PEG_MAKETX_FREEZE_RESERVE) {
+                    nTotalValue += PEG_MAKETX_FREEZE_VALUE * nNumInputs;
+                }
+                
                 // Choose coins to use
                 set<CSelectedCoin> setCoins;
                 int64_t nValueIn = 0;
                 if (!SelectCoins(txType, nTotalValue, wtxNew.nTime, setCoins, nValueIn, coinControl))
                     return false;
                 
-                if (txType == PEG_MAKETX_SEND_RESERVE) {
+                nNumInputs = setCoins.size();
+                if (!nNumInputs) return false;
+                
+                // Inputs to be sorted by address
+                vector<CSelectedCoin> vCoins;
+                for(const CSelectedCoin& coin : setCoins) {
+                    vCoins.push_back(coin);
+                }
+                sort(vCoins.begin(), vCoins.end(), sortByAddress);
+                
+                // Collect input addresses
+                // Prepare maps for input,available,take
+                vector<CTxDestination> vInputAddresses;
+                map<CTxDestination, int64_t> mapAvailableValuesAt;
+                map<CTxDestination, int64_t> mapInputValuesAt;
+                map<CTxDestination, int64_t> mapTakeValuesAt;
+                int64_t nValueToTakeFromChange = 0;
+                for(const CSelectedCoin& coin : vCoins) {
+                    CTxDestination address;
+                    if(!ExtractDestination(coin.tx->vout[coin.i].scriptPubKey, address))
+                        continue;
+                    vInputAddresses.push_back(address); // sorted due to vCoins
+                    mapAvailableValuesAt[address] = 0;
+                    mapInputValuesAt[address] = 0;
+                    mapTakeValuesAt[address] = 0;
+                }
+                // Input and available values can be filled in
+                for(const CSelectedCoin& coin : vCoins) {
+                    CTxDestination address;
+                    if(!ExtractDestination(coin.tx->vout[coin.i].scriptPubKey, address))
+                        continue;
+                    int64_t& nValueAvailableAt = mapAvailableValuesAt[address];
+                    nValueAvailableAt += coin.nAvailableValue;
+                    int64_t& nValueInputAt = mapInputValuesAt[address];
+                    nValueInputAt += coin.tx->vout[coin.i].nValue;
+                }
+                
+                // Notations for frozen **F**
+                if (txType == PEG_MAKETX_SEND_RESERVE ||
+                    txType == PEG_MAKETX_FREEZE_RESERVE) {
                     // prepare indexes to freeze
-                    size_t nCoins = setCoins.size();
+                    size_t nCoins = vCoins.size();
                     size_t nPayees = vecSend.size();
                     string out_indexes;
-                    for(size_t i=0; i<nPayees; i++) {
-                        if (!out_indexes.empty())
-                            out_indexes += ":";
-                        out_indexes += std::to_string(i+nCoins);
+                    if (nPayees == 1) { // trick to have triple to use sort
+                        auto out_index = std::to_string(0+nCoins);
+                        out_indexes = out_index+":"+out_index+":"+out_index;
                     }
-                    // fill vout with freezing instructions
+                    else if (nPayees == 2) { // trick to have triple to use sort
+                        auto out_index1 = std::to_string(0+nCoins);
+                        auto out_index2 = std::to_string(1+nCoins);
+                        out_indexes = out_index1+":"+out_index1+":"+out_index2+":"+out_index2;
+                    }
+                    else {
+                        for(size_t i=0; i<nPayees; i++) {
+                            if (!out_indexes.empty())
+                                out_indexes += ":";
+                            out_indexes += std::to_string(i+nCoins);
+                        }
+                    }
+                    // Fill vout with freezing instructions
                     for(size_t i=0; i<nCoins; i++) {
                         CScript scriptPubKey;
                         scriptPubKey.push_back(OP_RETURN);
@@ -2099,6 +2138,25 @@ bool CWallet::CreateTransaction(PegTxType txType,
                         }
                         wtxNew.vout.push_back(CTxOut(PEG_MAKETX_FREEZE_VALUE, scriptPubKey));
                     }
+                    // Value for notary is first taken from reserves sorted by address
+                    int64_t nValueLeft = PEG_MAKETX_FREEZE_VALUE;
+                    // take reserves in defined order
+                    for(const CTxDestination& address : vInputAddresses) {
+                        int64_t nValueReserve = mapAvailableValuesAt[address];
+                        if (nValueReserve ==0) continue;
+                        int64_t nValueToTake = nValueLeft;
+                        if (nValueToTake > nValueReserve)
+                            nValueToTake = nValueReserve;
+                        if (nValueToTake > nValueLeft)
+                            nValueToTake = nValueLeft;
+
+                        int64_t& nValueTakeAt = mapTakeValuesAt[address];
+                        nValueTakeAt += nValueToTake;
+                        nValueLeft -= nValueToTake;
+                        if (nValueLeft == 0) break;
+                    }
+                    // if nValueLeft is left - need to be taken from change (liquidity)
+                    nValueToTakeFromChange += nValueLeft;
                 }
                 
                 // vouts to the payees
@@ -2113,52 +2171,94 @@ bool CWallet::CreateTransaction(PegTxType txType,
 
                 reservekey.ReturnKey();
 
-                // Collect return addresses
-                map<CTxDestination, int64_t> mapInputValuesAt;
-                map<CTxDestination, int64_t> mapTakeValuesAt;
-                for(const CSelectedCoin& coin : setCoins) {
-                    CTxDestination address;
-                    if(!ExtractDestination(coin.tx->vout[coin.i].scriptPubKey, address))
-                        continue;
-                    int64_t& nValueInputAt = mapInputValuesAt[address];
-                    nValueInputAt += coin.tx->vout[coin.i].nValue;
-                    int64_t& nValueTakeAt = mapTakeValuesAt[address];
-                    nValueTakeAt += coin.nValue;
+                // Logic is different depend on txType
+                if (txType == PEG_MAKETX_SEND_LIQUIDITY) {
+                    // Available values - liquidity
+                    // Compute values to take from each address (liquidity is common)
+                    int64_t nValueLeft = nValue;
+                    for(const CSelectedCoin& coin : vCoins) {
+                        CTxDestination address;
+                        if(!ExtractDestination(coin.tx->vout[coin.i].scriptPubKey, address))
+                            continue;
+                        int64_t nValueAvailable = coin.nAvailableValue;
+                        int64_t nValueTake = nValueAvailable;
+                        if (nValueTake > nValueLeft) {
+                            nValueTake = nValueLeft;
+                        }
+                        int64_t& nValueTakeAt = mapTakeValuesAt[address];
+                        nValueTakeAt += nValueTake;
+                        nValueLeft -= nValueTake;
+                    }
+                }
+                else if (txType == PEG_MAKETX_SEND_RESERVE) {
+                    // Available values - reserves per address
+                    // vecSend - outputs to be frozen reserve parts
+                    
+                    // Prepare order of inputs
+                    // For **F** the first is referenced (last input) then others are sorted
+                    vector<CTxDestination> vAddressesForFrozen;
+                    vAddressesForFrozen.push_back(vInputAddresses.back());
+                    for(const CTxDestination & address : vInputAddresses) {
+                        if (address != vInputAddresses.back())
+                            vAddressesForFrozen.push_back(address);
+                    }
+                    
+                    // Follow outputs and compute taken values
+                    for(const pair<CScript, int64_t>& s : vecSend) {
+                        int64_t nValueLeft = s.second;
+                        // take reserves in defined order
+                        for(const CTxDestination& address : vAddressesForFrozen) {
+                            int64_t nValueReserve = mapAvailableValuesAt[address];
+                            if (nValueReserve ==0) continue;
+                            int64_t nValueToTake = nValueLeft;
+                            if (nValueToTake > nValueReserve)
+                                nValueToTake = nValueReserve;
+                            if (nValueToTake > nValueLeft)
+                                nValueToTake = nValueLeft;
+    
+                            int64_t& nValueTakeAt = mapTakeValuesAt[address];
+                            nValueTakeAt += nValueToTake;
+                            nValueLeft -= nValueToTake;
+                            
+                            if (nValueLeft == 0) break;
+                        }
+                        // if nValueLeft is left then is taken from change (liquidity)
+                        nValueToTakeFromChange += nValueLeft;
+                    }
                 }
                 
-                // Fill vout for returning reserves
-                int64_t nFeeLeft = nFeeRet;
-                for (auto const & addrAndValue : mapInputValuesAt)
-                {
+                // Calculate change (minus fee and part taken from change)
+                int64_t nTakeFromChangeLeft = nValueToTakeFromChange + nFeeRet;
+                for (const CTxDestination& address : vInputAddresses) {
                     CScript scriptPubKey;
-                    scriptPubKey.SetDestination(addrAndValue.first);
-                    int64_t nValueInput = addrAndValue.second;
-                    int64_t nValueTake = mapTakeValuesAt[addrAndValue.first];
-                    int64_t nValueReturn = nValueInput - nValueTake;
-                    if (nValueReturn > nFeeLeft) {
-                        nValueReturn -= nFeeLeft;
-                        nFeeLeft = 0;
+                    scriptPubKey.SetDestination(address);
+                    int64_t nValueTake = mapTakeValuesAt[address];
+                    int64_t nValueInput = mapInputValuesAt[address];
+                    int64_t nValueChange = nValueInput - nValueTake;
+                    if (nValueChange > nTakeFromChangeLeft) {
+                        nValueChange -= nTakeFromChangeLeft;
+                        nTakeFromChangeLeft = 0;
                     }
-                    if (nValueReturn < nFeeLeft) {
-                        nFeeLeft -= nValueReturn;
-                        nValueReturn = 0;
+                    if (nValueChange < nTakeFromChangeLeft) {
+                        nTakeFromChangeLeft -= nValueChange;
+                        nValueChange = 0;
                     }
-                    if (nValueReturn == 0) continue;
-                    wtxNew.vout.push_back(CTxOut(nValueReturn, scriptPubKey));
+                    if (nValueChange == 0) continue;
+                    wtxNew.vout.push_back(CTxOut(nValueChange, scriptPubKey));
                 }
                 
                 // Fill vin
                 //
                 // Note how the sequence number is set to max()-1 so that the
                 // nLockTime set above actually works.
-                for(const CSelectedCoin& coin : setCoins) {
+                for(const CSelectedCoin& coin : vCoins) {
                     wtxNew.vin.push_back(CTxIn(coin.tx->GetHash(),coin.i,CScript(),
                                               std::numeric_limits<unsigned int>::max()-1));
                 }
 
                 // Sign
                 int nIn = 0;
-                for(const CSelectedCoin& coin : setCoins) {
+                for(const CSelectedCoin& coin : vCoins) {
                     if (!SignSignature(*this, *coin.tx, wtxNew, nIn++))
                         return false;
                 }
@@ -2461,7 +2561,7 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
         mapRequestCount[wtxNew.GetHash()] = 0;
 
         // Broadcast
-        if (!wtxNew.AcceptToMemoryPool(true))
+        if (!wtxNew.AcceptToMemoryPool(true, true /*fMine*/))
         {
             // This must not fail. The transaction has already been signed and recorded.
             LogPrintf("CommitTransaction() : Error: Transaction not valid\n");

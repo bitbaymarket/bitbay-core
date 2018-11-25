@@ -1013,10 +1013,6 @@ bool CalculateStandardFractions(const CTransaction & tx,
                         sFailCause = "PI08: Freeze notary: output refers itself";
                         return false;
                     }
-                    if (setFrozenIndexes.count(nFrozenIndex)) {
-                        sFailCause = "PI09: Freeze notary: output refered multiple times";
-                        return false;
-                    }
                     
                     int64_t nFrozenValueOut = tx.vout[size_t(nFrozenIndex)].nValue;
                     auto & frozenTxOut = poolFrozen[nFrozenIndex];

@@ -609,8 +609,11 @@ int64_t GetMinFee(const CTransaction& tx, unsigned int nBlockSize, enum GetMinFe
 }
 
 
-bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
-                        bool* pfMissingInputs)
+bool AcceptToMemoryPool(CTxMemPool& pool, 
+                        CTransaction &tx, 
+                        bool fLimitFree,
+                        bool* pfMissingInputs,
+                        bool fMine)
 {
     AssertLockHeld(cs_main);
     if (pfMissingInputs)
@@ -732,7 +735,8 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
                               mapUnused, mapOutputsFractions,
                               feesFractions,
                               CDiskTxPos(1,1,1), pindexBest, false, false,
-                              STANDARD_SCRIPT_VERIFY_FLAGS))
+                              STANDARD_SCRIPT_VERIFY_FLAGS,
+                              fMine))
         {
             return error("AcceptToMemoryPool : ConnectInputs failed %s", hash.ToString());
         }
@@ -815,9 +819,9 @@ int CMerkleTx::GetBlocksToMaturity() const
 }
 
 
-bool CMerkleTx::AcceptToMemoryPool(bool fLimitFree)
+bool CMerkleTx::AcceptToMemoryPool(bool fLimitFree, bool fMine)
 {
-    return ::AcceptToMemoryPool(mempool, *this, fLimitFree, NULL);
+    return ::AcceptToMemoryPool(mempool, *this, fLimitFree, NULL, fMine);
 }
 
 
@@ -1374,7 +1378,10 @@ bool CTransaction::ConnectInputs(CTxDB& txdb,
                                  CFractions& feesFractions,
                                  const CDiskTxPos& posThisTx,
                                  const CBlockIndex* pindexBlock,
-                                 bool fBlock, bool fMiner, unsigned int flags)
+                                 bool fBlock, 
+                                 bool fMiner, 
+                                 unsigned int flags,
+                                 bool fApplyPegCheck)
 {
     // Take over previous transactions' spent pointers
     // fBlock is true when this is called from AcceptBlock when a new best-block is added to the blockchain
@@ -1434,7 +1441,10 @@ bool CTransaction::ConnectInputs(CTxDB& txdb,
                                                  vOutputsTypes,
                                                  sPegFailCause);
         if (!peg_ok) {
-            // nothing todo now
+            // nothing todo now for demo
+            // for accept tx from wallet we apply peg
+            if (fApplyPegCheck)
+                return false;
         }
     }
 

@@ -161,8 +161,11 @@ const CBlockIndex* GetLastBlockIndex(const CBlockIndex* pindex, bool fProofOfSta
 void ThreadStakeMiner(CWallet *pwallet);
 
 /** (try to) add transaction to memory pool **/
-bool AcceptToMemoryPool(CTxMemPool& pool, CTransaction &tx, bool fLimitFree,
-                        bool* pfMissingInputs);
+bool AcceptToMemoryPool(CTxMemPool& pool, 
+                        CTransaction &tx, 
+                        bool fLimitFree,
+                        bool* pfMissingInputs,
+                        bool fMine = false);
 
 
 
@@ -426,7 +429,10 @@ public:
                        CFractions& feesFractions,
                        const CDiskTxPos& posThisTx,
                        const CBlockIndex* pindexBlock,
-                       bool fBlock, bool fMiner, unsigned int flags = STANDARD_SCRIPT_VERIFY_FLAGS);
+                       bool fBlock, 
+                       bool fMiner, 
+                       unsigned int flags = STANDARD_SCRIPT_VERIFY_FLAGS,
+                       bool fApplyPegCheck = false);
     bool CheckTransaction() const;
     bool GetCoinAge(CTxDB& txdb, const CBlockIndex* pindexPrev, uint64_t& nCoinAge) const;
 
@@ -530,7 +536,7 @@ public:
     int GetDepthInMainChain() const { CBlockIndex *pindexRet; return GetDepthInMainChain(pindexRet); }
     bool IsInMainChain() const { CBlockIndex *pindexRet; return GetDepthInMainChainINTERNAL(pindexRet) > 0; }
     int GetBlocksToMaturity() const;
-    bool AcceptToMemoryPool(bool fLimitFree=true);
+    bool AcceptToMemoryPool(bool fLimitFree=true, bool fMine=false);
 };
 
 

@@ -141,6 +141,9 @@
         <property name="topMargin">
          <number>10</number>
         </property>
+        <property name="rightMargin">
+         <number>10</number>
+        </property>
         <item>
          <layout class="QHBoxLayout" name="horizontalLayoutCoinControl1">
           <property name="bottomMargin">
@@ -171,7 +174,7 @@
          </layout>
         </item>
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayoutCoinControl2" stretch="0,0,0,0">
+         <layout class="QHBoxLayout" name="horizontalLayoutCoinControl2" stretch="0,0,0,0,0">
           <property name="spacing">
            <number>8</number>
           </property>
@@ -229,6 +232,13 @@
              </size>
             </property>
            </spacer>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButtonTxPreview">
+            <property name="text">
+             <string>TX Preview...</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </item>
@@ -942,6 +952,15 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>scrollArea</tabstop>
+  <tabstop>comboBoxTxType</tabstop>
+  <tabstop>pushButtonCoinControl</tabstop>
+  <tabstop>pushButtonTxPreview</tabstop>
+  <tabstop>addButton</tabstop>
+  <tabstop>clearButton</tabstop>
+  <tabstop>sendButton</tabstop>
+ </tabstops>
  <resources>
   <include location="../bitbay.qrc"/>
  </resources>

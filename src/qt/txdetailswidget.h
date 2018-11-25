@@ -20,6 +20,8 @@ class QTreeWidget;
 class QModelIndex;
 class QTreeWidgetItem;
 class BlockchainModel;
+class CTransaction;
+class CBlockIndex;
 
 class TxDetailsWidget : public QWidget
 {
@@ -45,8 +47,13 @@ public:
     ~TxDetailsWidget();
 
 public slots:
-    void openTx(uint256 blockhash, uint txidx);
     void openTx(QTreeWidgetItem*,int);
+    void openTx(uint256 blockhash, uint txidx);
+    void openTx(CTransaction & tx, 
+                CBlockIndex* pblockindex, 
+                uint txidx, 
+                int nSupply, 
+                unsigned int nTime);
 
 private slots:
     void openFractions(QTreeWidgetItem*,int);

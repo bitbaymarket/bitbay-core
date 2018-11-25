@@ -334,6 +334,99 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(const QList<SendCoinsRecipie
     return SendCoinsReturn(OK, 0, hex);
 }
 
+WalletModel::SendCoinsReturn WalletModel::sendCoinsTest(CWalletTx& wtx,
+                                                        const QList<SendCoinsRecipient>& recipients, 
+                                                        PegTxType txType, 
+                                                        const CCoinControl *coinControl)
+{
+    qint64 total = 0;
+    QSet<QString> setAddress;
+    QString hex;
+
+    if(recipients.empty())
+    {
+        return OK;
+    }
+
+    if (txType == PEG_MAKETX_SEND_RESERVE) {
+    }
+    else if (txType == PEG_MAKETX_SEND_LIQUIDITY) {
+    }
+    else {
+        return InvalidTxType;
+    }
+    
+    // Pre-check input data for validity
+    foreach(const SendCoinsRecipient &rcp, recipients)
+    {
+        if(!validateAddress(rcp.address))
+        {
+            return InvalidAddress;
+        }
+        setAddress.insert(rcp.address);
+
+        if(rcp.amount <= 0)
+        {
+            return InvalidAmount;
+        }
+        total += rcp.amount;
+    }
+
+    if(recipients.size() > setAddress.size())
+    {
+        return DuplicateAddress;
+    }
+
+    qint64 nBalance = 0;
+    qint64 nBalanceAll = getBalance(coinControl);
+    
+    if (txType == PEG_MAKETX_SEND_RESERVE) {
+        nBalance = getReserve(coinControl);
+    }else if (txType == PEG_MAKETX_SEND_LIQUIDITY) {
+        nBalance = getLiquidity(coinControl);
+    }
+
+    if(total > nBalance)
+    {
+        return AmountExceedsBalance;
+    }
+
+    if((total + nTransactionFee) > nBalanceAll) // fee can be paid from both reserves and liquidity
+    {
+        return SendCoinsReturn(AmountWithFeeExceedsBalance, nTransactionFee);
+    }
+
+    {
+        LOCK2(cs_main, wallet->cs_wallet);
+
+        // Sendmany
+        std::vector<std::pair<CScript, int64_t> > vecSend;
+        foreach(const SendCoinsRecipient &rcp, recipients)
+        {
+            CScript scriptPubKey;
+            scriptPubKey.SetDestination(CBitcoinAddress(rcp.address.toStdString()).Get());
+            vecSend.push_back(make_pair(scriptPubKey, rcp.amount));
+        }
+
+        CReserveKey keyChange(wallet);
+        int64_t nFeeRequired = 0;
+        bool fCreated = wallet->CreateTransaction(txType, vecSend, wtx, keyChange, nFeeRequired, coinControl, true /*fTest*/);
+
+        if(!fCreated)
+        {
+            if((total + nFeeRequired) > nBalance) // FIXME: could cause collisions in the future
+            {
+                return SendCoinsReturn(AmountWithFeeExceedsBalance, nFeeRequired);
+            }
+            return TransactionCreationFailed;
+        }
+
+        hex = QString::fromStdString(wtx.GetHash().GetHex());
+    }
+
+    return SendCoinsReturn(OK, 0, hex);
+}
+
 OptionsModel *WalletModel::getOptionsModel()
 {
     return optionsModel;

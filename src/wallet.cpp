@@ -1999,7 +1999,8 @@ bool CWallet::CreateTransaction(PegTxType txType,
                                 CWalletTx& wtxNew, 
                                 CReserveKey& reservekey, 
                                 int64_t& nFeeRet, 
-                                const CCoinControl* coinControl)
+                                const CCoinControl* coinControl,
+                                bool fTest)
 {
     int64_t nValue = 0;
     BOOST_FOREACH (const PAIRTYPE(CScript, int64_t)& s, vecSend)
@@ -2041,7 +2042,7 @@ bool CWallet::CreateTransaction(PegTxType txType,
         CTxDB txdb("r");
         {
             nFeeRet = nTransactionFee;
-            size_t nNumInputs = (txType == PEG_MAKETX_SEND_RESERVE) ? 0 : 1;
+            size_t nNumInputs = 1;
             while (true)
             {
                 wtxNew.vin.clear();
@@ -2074,6 +2075,7 @@ bool CWallet::CreateTransaction(PegTxType txType,
                 
                 // Collect input addresses
                 // Prepare maps for input,available,take
+                set<CTxDestination> setInputAddresses;
                 vector<CTxDestination> vInputAddresses;
                 map<CTxDestination, int64_t> mapAvailableValuesAt;
                 map<CTxDestination, int64_t> mapInputValuesAt;
@@ -2083,10 +2085,14 @@ bool CWallet::CreateTransaction(PegTxType txType,
                     CTxDestination address;
                     if(!ExtractDestination(coin.tx->vout[coin.i].scriptPubKey, address))
                         continue;
-                    vInputAddresses.push_back(address); // sorted due to vCoins
+                    setInputAddresses.insert(address); // sorted due to vCoins
                     mapAvailableValuesAt[address] = 0;
                     mapInputValuesAt[address] = 0;
                     mapTakeValuesAt[address] = 0;
+                }
+                // Get sorted list of input addresses
+                for(const CTxDestination& address : setInputAddresses) {
+                    vInputAddresses.push_back(address);
                 }
                 // Input and available values can be filled in
                 for(const CSelectedCoin& coin : vCoins) {
@@ -2139,7 +2145,7 @@ bool CWallet::CreateTransaction(PegTxType txType,
                         wtxNew.vout.push_back(CTxOut(PEG_MAKETX_FREEZE_VALUE, scriptPubKey));
                     }
                     // Value for notary is first taken from reserves sorted by address
-                    int64_t nValueLeft = PEG_MAKETX_FREEZE_VALUE;
+                    int64_t nValueLeft = nCoins*PEG_MAKETX_FREEZE_VALUE;
                     // take reserves in defined order
                     for(const CTxDestination& address : vInputAddresses) {
                         int64_t nValueReserve = mapAvailableValuesAt[address];
@@ -2258,10 +2264,12 @@ bool CWallet::CreateTransaction(PegTxType txType,
                 }
 
                 // Sign
-                int nIn = 0;
-                for(const CSelectedCoin& coin : vCoins) {
-                    if (!SignSignature(*this, *coin.tx, wtxNew, nIn++))
-                        return false;
+                if (!fTest) {
+                    int nIn = 0;
+                    for(const CSelectedCoin& coin : vCoins) {
+                        if (!SignSignature(*this, *coin.tx, wtxNew, nIn++))
+                            return false;
+                    }
                 }
 
                 // Limit size
@@ -2290,7 +2298,7 @@ bool CWallet::CreateTransaction(PegTxType txType,
             }
         }
         // now everything is ready to calculate output fractions
-        {
+        if (!fTest) {
             CPegDB pegdb("r");
             
             MapPrevTx mapInputs;

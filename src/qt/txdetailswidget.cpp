@@ -243,10 +243,12 @@ static QString txId(CTxDB& txdb, uint256 txhash) {
 }
 
 static bool calculateFeesFractions(CBlockIndex* pblockindex,
-                                   CBlock& block,
                                    CFractions& feesFractions,
                                    int64_t& nFeesValue)
 {
+    CBlock block;
+    block.ReadFromDisk(pblockindex, true);
+    
     MapPrevTx mapInputs;
     MapFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
@@ -308,30 +310,46 @@ void TxDetailsWidget::openTx(uint256 blockhash, uint txidx)
         return;
 
     CTransaction & tx = block.vtx[txidx];
+    openTx(tx, pblockindex, txidx, pblockindex->nPegSupplyIndex, pblockindex->nTime);
+}
+
+void TxDetailsWidget::openTx(CTransaction & tx, 
+                             CBlockIndex* pblockindex, 
+                             uint txidx, 
+                             int nSupply, 
+                             unsigned int nTime)
+{
+    LOCK(cs_main);
+
     uint256 hash = tx.GetHash();
     QString thash = QString::fromStdString(hash.ToString());
-    QString sheight = QString("%1-%2").arg(pblockindex->nHeight).arg(txidx);
 
     CTxDB txdb("r");
     CPegDB pegdb("r");
-    if (!txdb.ContainsTx(hash))
-        return;
 
     ui->txValues->clear();
-    auto topItem = new QTreeWidgetItem(QStringList({"Height",sheight}));
-    QVariant vhash;
-    vhash.setValue(hash);
-    topItem->setData(0, BlockchainModel::HashRole, vhash);
-    ui->txValues->addTopLevelItem(topItem);
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Datetime",QString::fromStdString(DateTimeStrFormat(pblockindex->GetBlockTime()))})));
+    if (pblockindex) {
+        QString sheight = QString("%1-%2").arg(pblockindex->nHeight).arg(txidx);
+        auto topItem = new QTreeWidgetItem(QStringList({"Height",sheight}));
+        QVariant vhash;
+        vhash.setValue(hash);
+        topItem->setData(0, BlockchainModel::HashRole, vhash);
+        ui->txValues->addTopLevelItem(topItem);
+        ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Datetime",QString::fromStdString(DateTimeStrFormat(pblockindex->GetBlockTime()))})));
+    }
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Hash",thash})));
 
     QString txtype = tr("Transaction");
     if (tx.IsCoinBase()) txtype = tr("CoinBase");
     if (tx.IsCoinStake()) txtype = tr("CoinStake");
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Type",txtype})));
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Peg Supply Index",QString::number(pblockindex->nPegSupplyIndex)})));
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Peg Supply Index",QString::number(nSupply)})));
 
+    if (tx.IsCoinStake() && !pblockindex) {
+        ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Error","No blockindex provided"})));
+        return;
+    }
+    
     // logic
 
     QTime timeFetchInputs = QTime::currentTime();
@@ -350,8 +368,8 @@ void TxDetailsWidget::openTx(uint256 blockhash, uint txidx)
     int64_t nReserveIn = 0;
     int64_t nLiquidityIn = 0;
     for(auto const & inputFractionItem : mapInputsFractions) {
-        inputFractionItem.second.LowPart(pblockindex->nPegSupplyIndex, &nReserveIn);
-        inputFractionItem.second.HighPart(pblockindex->nPegSupplyIndex, &nLiquidityIn);
+        inputFractionItem.second.LowPart(nSupply, &nReserveIn);
+        inputFractionItem.second.HighPart(nSupply, &nLiquidityIn);
     }
 
     bool peg_whitelisted = IsPegWhiteListed(tx, mapInputs);
@@ -374,7 +392,7 @@ void TxDetailsWidget::openTx(uint256 blockhash, uint txidx)
         int64_t nDemoSubsidy = 0;
         int64_t nStakeRewardWithoutFees = GetProofOfStakeReward(
                     pblockindex->pprev, nCoinAge, 0 /*fees*/, inpStake, nDemoSubsidy);
-
+        
         peg_ok = CalculateStakingFractions(tx, pblockindex,
                                            mapInputs, mapInputsFractions,
                                            mapUnused, mapFractionsUnused,
@@ -385,8 +403,8 @@ void TxDetailsWidget::openTx(uint256 blockhash, uint txidx)
     }
     else {
         peg_ok = CalculateStandardFractions(tx,
-                                            pblockindex->nPegSupplyIndex,
-                                            pblockindex->nTime,
+                                            nSupply,
+                                            nTime,
                                             mapInputs, mapInputsFractions,
                                             mapUnused, mapFractionsUnused,
                                             feesFractions,
@@ -466,7 +484,7 @@ void TxDetailsWidget::openTx(uint256 blockhash, uint txidx)
             input->setData(COL_INP_FRACTIONS, BlockchainModel::HashRole, prev_input);
             input->setData(COL_INP_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
             input->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, peg_whitelisted
-                           ? pblockindex->nPegSupplyIndex
+                           ? nSupply
                            : 0);
             if (mapInputsFractions[fkey].nFlags & CFractions::NOTARY_F) {
                 input->setData(COL_INP_VALUE, Qt::DecorationPropertyRole, pmNotaryF);
@@ -508,7 +526,7 @@ void TxDetailsWidget::openTx(uint256 blockhash, uint txidx)
         vfractions.setValue(CFractions(nStakeReward, CFractions::STD));
         inputMined->setData(COL_INP_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
         inputMined->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, peg_whitelisted
-                            ? pblockindex->nPegSupplyIndex
+                            ? nSupply
                             : 0);
         inputMined->setData(COL_INP_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         inputMined->setData(COL_INP_VALUE, BlockchainModel::ValueForCopy, qlonglong(nStakeReward));
@@ -525,14 +543,14 @@ void TxDetailsWidget::openTx(uint256 blockhash, uint txidx)
         vfractions.setValue(CFractions(nDemoSubsidy, CFractions::STD));
         inputMinedDemo->setData(COL_INP_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
         inputMinedDemo->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, peg_whitelisted
-                            ? pblockindex->nPegSupplyIndex
+                            ? nSupply
                             : 0);
         inputMinedDemo->setData(COL_INP_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         inputMinedDemo->setData(COL_INP_VALUE, BlockchainModel::ValueForCopy, qlonglong(nDemoSubsidy));
         ui->txInputs->addTopLevelItem(inputMinedDemo);
 
         // need to collect all fees fractions from all tx in the block
-        if (!calculateFeesFractions(pblockindex, block, feesFractions, nFeesValue)) {
+        if (!calculateFeesFractions(pblockindex, feesFractions, nFeesValue)) {
             // peg violation?
         }
 
@@ -546,7 +564,7 @@ void TxDetailsWidget::openTx(uint256 blockhash, uint txidx)
         vfractions.setValue(feesFractions);
         inputFees->setData(COL_INP_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
         inputFees->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, peg_whitelisted
-                           ? pblockindex->nPegSupplyIndex
+                           ? nSupply
                            : 0);
         inputFees->setData(COL_INP_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         inputFees->setData(COL_INP_VALUE, BlockchainModel::ValueForCopy, qlonglong(nFeesValue));
@@ -652,7 +670,7 @@ void TxDetailsWidget::openTx(uint256 blockhash, uint txidx)
             vFractions.setValue(mapFractionsUnused[fkey]);
             output->setData(COL_OUT_FRACTIONS, BlockchainModel::HashRole, titleSpend);
             output->setData(COL_OUT_FRACTIONS, BlockchainModel::FractionsRole, vFractions);
-            output->setData(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
+            output->setData(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyRole, nSupply);
             if (mapFractionsUnused[fkey].nFlags & CFractions::NOTARY_F) {
                 output->setData(COL_OUT_VALUE, Qt::DecorationPropertyRole, pmNotaryF);
                 fIndicateFrozen = true;
@@ -714,7 +732,7 @@ void TxDetailsWidget::openTx(uint256 blockhash, uint txidx)
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Fetch Inputs Time",QString::number(msecsFetchInputs)+" msecs (can be cached)"})));
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Mandatory Signatures Checks",QString::number(msecsSigsChecks)+" msecs"})));
 
-    if (!tx.IsCoinBase() && !tx.IsCoinStake() && nValueOut < nValueIn) {
+    if (!tx.IsCoinBase() && !tx.IsCoinStake() /*&& nValueOut < nValueIn*/) {
         QStringList row;
         row << "Fee";
         row << ""; // spent
@@ -725,7 +743,7 @@ void TxDetailsWidget::openTx(uint256 blockhash, uint txidx)
         if (peg_whitelisted) {
             vfractions.setValue(feesFractions);
             outputFees->setData(COL_OUT_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
-            outputFees->setData(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyRole, pblockindex->nPegSupplyIndex);
+            outputFees->setData(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyRole, nSupply);
         } else {
             vfractions.setValue(CFractions(nValueIn - nValueOut, CFractions::STD));
             outputFees->setData(COL_OUT_FRACTIONS, BlockchainModel::FractionsRole, vfractions);

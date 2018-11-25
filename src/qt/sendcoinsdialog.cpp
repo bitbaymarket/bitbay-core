@@ -16,6 +16,8 @@
 #include "coincontrol.h"
 #include "coincontroldialog.h"
 #include "peg.h"
+#include "wallet.h"
+#include "txdetailswidget.h"
 
 #include <QMessageBox>
 #include <QTextDocument>
@@ -23,6 +25,7 @@
 #include <QClipboard>
 #include <QStandardItem>
 #include <QStandardItemModel>
+#include <QDialogButtonBox>
 
 SendCoinsDialog::SendCoinsDialog(QWidget *parent) :
     QDialog(parent),
@@ -45,6 +48,7 @@ SendCoinsDialog::SendCoinsDialog(QWidget *parent) :
 
     // Coin Control
     connect(ui->pushButtonCoinControl, SIGNAL(clicked()), this, SLOT(coinControlButtonClicked()));
+    connect(ui->pushButtonTxPreview, SIGNAL(clicked()), this, SLOT(txPreviewButtonClicked()));
 
     // Coin Control: clipboard actions
     QAction *clipboardQuantityAction = new QAction(tr("Copy quantity"), this);
@@ -258,6 +262,104 @@ void SendCoinsDialog::on_sendButton_clicked()
         break;
     }
     fNewRecipientAllowed = true;
+}
+
+// Coin Control: preview transaction
+void SendCoinsDialog::txPreviewButtonClicked()
+{
+    if(!model || !model->getOptionsModel())
+        return;
+
+    QList<SendCoinsRecipient> recipients;
+    bool valid = true;
+
+    for(int i = 0; i < ui->entries->count(); ++i)
+    {
+        SendCoinsEntry *entry = qobject_cast<SendCoinsEntry*>(ui->entries->itemAt(i)->widget());
+        if(entry)
+        {
+            if(entry->validate())
+            {
+                recipients.append(entry->getValue());
+            }
+            else
+            {
+                valid = false;
+            }
+        }
+    }
+
+    if(!valid || recipients.isEmpty())
+    {
+        return;
+    }
+
+    WalletModel::SendCoinsReturn sendstatus;
+
+    PegTxType nTxType = static_cast<PegTxType>(ui->comboBoxTxType->currentData().toInt());
+    
+    CWalletTx wtx;
+    if (!model->getOptionsModel() || !model->getOptionsModel()->getCoinControlFeatures())
+        sendstatus = model->sendCoinsTest(wtx, recipients, nTxType, nullptr);
+    else
+        sendstatus = model->sendCoinsTest(wtx, recipients, nTxType, CoinControlDialog::coinControl);
+
+    switch(sendstatus.status)
+    {
+    case WalletModel::InvalidAddress:
+        QMessageBox::warning(this, tr("Send Coins"),
+            tr("The recipient address is not valid, please recheck."),
+            QMessageBox::Ok, QMessageBox::Ok);
+        break;
+    case WalletModel::InvalidAmount:
+        QMessageBox::warning(this, tr("Send Coins"),
+            tr("The amount to pay must be larger than 0."),
+            QMessageBox::Ok, QMessageBox::Ok);
+        break;
+    case WalletModel::InvalidTxType:
+        QMessageBox::warning(this, tr("Send Coins"),
+            tr("The selected transaction type is not supported yet."),
+            QMessageBox::Ok, QMessageBox::Ok);
+        break;
+    case WalletModel::AmountExceedsBalance:
+        QMessageBox::warning(this, tr("Send Coins"),
+            tr("The amount exceeds your balance."),
+            QMessageBox::Ok, QMessageBox::Ok);
+        break;
+    case WalletModel::AmountWithFeeExceedsBalance:
+        QMessageBox::warning(this, tr("Send Coins"),
+            tr("The total exceeds your balance when the %1 transaction fee is included.").
+            arg(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), sendstatus.fee)),
+            QMessageBox::Ok, QMessageBox::Ok);
+        break;
+    case WalletModel::DuplicateAddress:
+        QMessageBox::warning(this, tr("Send Coins"),
+            tr("Duplicate address found, can only send to each address once per send operation."),
+            QMessageBox::Ok, QMessageBox::Ok);
+        break;
+    case WalletModel::TransactionCreationFailed:
+        QMessageBox::warning(this, tr("Send Coins"),
+            tr("Error: Transaction creation failed!"),
+            QMessageBox::Ok, QMessageBox::Ok);
+        break;
+    case WalletModel::OK:
+
+        QDialog dlg(this);
+        auto vbox = new QVBoxLayout;
+        vbox->setMargin(12);
+        auto txdetails = new TxDetailsWidget;
+        txdetails->layout()->setMargin(0);
+        vbox->addWidget(txdetails);
+        auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok);
+        connect(buttonBox, SIGNAL(accepted()), &dlg, SLOT(accept()));
+        vbox->addWidget(buttonBox);
+        dlg.setLayout(vbox);
+        
+        txdetails->openTx(wtx, nullptr, 0, model->getPegSupplyIndex(), wtx.nTime);
+        dlg.resize(1400,800);
+        dlg.exec();
+        break;
+    }
 }
 
 void SendCoinsDialog::clear()

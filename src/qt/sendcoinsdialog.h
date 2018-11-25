@@ -59,6 +59,7 @@ private slots:
     void on_sendButton_clicked();
     void removeEntry(SendCoinsEntry* entry);
     void updateDisplayUnit();
+    void txPreviewButtonClicked();
     void coinControlFeatureChanged(bool);
     void coinControlButtonClicked();
     void coinControlUpdateLabels();

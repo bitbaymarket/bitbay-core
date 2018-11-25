@@ -670,7 +670,9 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     bool fInvalid = false;
                     tx.FetchInputs(*this, pegdb, mapUnused, mapQueuedFractionsChanges, false, false, mapInputs, mapInputsFractions, fInvalid);
 
-                    CalculateStandardFractions(tx, pblockindex,
+                    CalculateStandardFractions(tx, 
+                                               pblockindex->nPegSupplyIndex,
+                                               pblockindex->nTime,
                                                mapInputs, mapInputsFractions,
                                                mapUnused, mapQueuedFractionsChanges,
                                                feesFractions,

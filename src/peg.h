@@ -132,7 +132,8 @@ bool CalculateFractions(CTxDB& txdb,
                         std::string& sPegFailCause);
 
 bool CalculateStandardFractions(const CTransaction & tx,
-                                const CBlockIndex* pindexBlock,
+                                int nSupply,
+                                unsigned int nTime,
                                 MapPrevTx & inputs,
                                 MapFractions& finputs,
                                 std::map<uint256, CTxIndex>& mapTestPool,

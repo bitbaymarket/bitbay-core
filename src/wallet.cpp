@@ -2288,6 +2288,46 @@ bool CWallet::CreateTransaction(PegTxType txType,
                 break;
             }
         }
+        // now everything is ready to calculate output fractions
+        {
+            CPegDB pegdb("r");
+            
+            MapPrevTx mapInputs;
+            MapFractions mapInputsFractions;
+            map<uint256, CTxIndex> mapUnused;
+            MapFractions mapOutputFractions;
+            CFractions feesFractions;
+            vector<int> vOutputsTypes;
+            string sPegFailCause;
+            bool fInvalid = false;
+            wtxNew.FetchInputs(txdb, 
+                               pegdb, 
+                               mapUnused, mapOutputFractions, 
+                               false, false, 
+                               mapInputs, mapInputsFractions, 
+                               fInvalid);
+
+            bool peg_ok = CalculateStandardFractions(wtxNew, 
+                                                     GetPegSupplyIndex(),
+                                                     wtxNew.nTime,
+                                                     mapInputs, mapInputsFractions,
+                                                     mapUnused, mapOutputFractions,
+                                                     feesFractions,
+                                                     vOutputsTypes,sPegFailCause);
+            if (!peg_ok)
+                return false;
+            
+            auto txhash = wtxNew.GetHash();
+            wtxNew.vOutFractions.resize(wtxNew.vout.size());
+            for(size_t i=0; i < wtxNew.vout.size(); i++) {
+                CFractions& fractions = wtxNew.vOutFractions.at(i);
+                auto fkey = uint320(txhash, i);
+                if (mapOutputFractions.find(fkey) == mapOutputFractions.end()) {
+                    return false;
+                } 
+                fractions = mapOutputFractions.at(fkey);
+            }
+        }
     }
     return true;
 }

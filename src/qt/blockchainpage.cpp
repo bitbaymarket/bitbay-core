@@ -667,7 +667,9 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
             continue;
         }
 
-        bool peg_ok = CalculateStandardFractions(tx, pblockindex,
+        bool peg_ok = CalculateStandardFractions(tx, 
+                                                 pblockindex->nPegSupplyIndex,
+                                                 pblockindex->nTime,
                                                  mapInputs, mapInputsFractions,
                                                  mapUnused, mapFractionsUnused,
                                                  feesFractions,
@@ -773,7 +775,9 @@ void BlockchainPage::openTx(uint256 blockhash, uint txidx)
                                            sPegFailCause);
     }
     else {
-        peg_ok = CalculateStandardFractions(tx, pblockindex,
+        peg_ok = CalculateStandardFractions(tx, 
+                                            pblockindex->nPegSupplyIndex,
+                                            pblockindex->nTime,
                                             mapInputs, mapInputsFractions,
                                             mapUnused, mapFractionsUnused,
                                             feesFractions,

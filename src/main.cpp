@@ -1434,7 +1434,9 @@ bool CTransaction::ConnectInputs(CTxDB& txdb,
     if (!IsCoinStake()) {
         string sPegFailCause;
         vector<int> vOutputsTypes;
-        bool peg_ok = CalculateStandardFractions(*this, pindexBlock,
+        bool peg_ok = CalculateStandardFractions(*this, 
+                                                 pindexBlock->nPegSupplyIndex,
+                                                 pindexBlock->nTime,
                                                  inputs, finputs,
                                                  mapTestPool, mapTestFractionsPool,
                                                  feesFractions,

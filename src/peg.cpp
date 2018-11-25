@@ -872,7 +872,9 @@ bool CalculateFractions(CTxDB& txdb,
                                            sPegFailCause);
     }
     else {
-        peg_ok = CalculateStandardFractions(tx, pindexBlock,
+        peg_ok = CalculateStandardFractions(tx, 
+                                            pindexBlock->nPegSupplyIndex,
+                                            pindexBlock->nTime,
                                             mapInputs, mapInputsFractions,
                                             mapTestPool, mapTestFractionsPool,
                                             feesFractions,
@@ -883,7 +885,8 @@ bool CalculateFractions(CTxDB& txdb,
 }
 
 bool CalculateStandardFractions(const CTransaction & tx,
-                                const CBlockIndex* pindexBlock,
+                                int nSupply,
+                                unsigned int nTime,
                                 MapPrevTx & mapInputs,
                                 MapFractions& mapInputsFractions,
                                 map<uint256, CTxIndex>& mapTestPool,
@@ -910,7 +913,6 @@ bool CalculateStandardFractions(const CTransaction & tx,
     map<long, FrozenTxOut> poolFrozen;
     bool fFreezeAll = false;
 
-    int nSupply = pindexBlock->nPegSupplyIndex;
     set<string> setInputAddresses;
 
     if (tx.GetHash().ToString().substr(0,3)=="e55") {
@@ -1137,13 +1139,13 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 if (poolFrozen[i].fractions.nFlags & CFractions::NOTARY_V) {
                     frOut = frCommonLiquidity.RatioPart(nValue, nCommonLiquidity, nSupply);
                     frOut.nFlags |= CFractions::NOTARY_V;
-                    frOut.nLockTime = pindexBlock->nTime + PEG_VFROZEN_TIME;
+                    frOut.nLockTime = nTime + PEG_VFROZEN_TIME;
                     frCommonLiquidity -= frOut;
                     nCommonLiquidity -= nValue;
                 }
                 else if (poolFrozen[i].fractions.nFlags & CFractions::NOTARY_F) {
                     frOut.nFlags |= CFractions::NOTARY_F;
-                    frOut.nLockTime = pindexBlock->nTime + PEG_FROZEN_TIME;
+                    frOut.nLockTime = nTime + PEG_FROZEN_TIME;
 
                     vector<string> vAddresses;
                     auto sFrozenAddress = poolFrozen[i].sAddress;

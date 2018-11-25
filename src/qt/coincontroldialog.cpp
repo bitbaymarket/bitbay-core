@@ -13,6 +13,7 @@
 #include "metatypes.h" // for fractions delegate
 #include "blockchainpage.h" // for fractions delegate
 #include "blockchainmodel.h" // for fractions delegate
+#include "itemdelegates.h" // for fractions delegate
 
 #include <QApplication>
 #include <QCheckBox>

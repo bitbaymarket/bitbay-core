@@ -2197,10 +2197,11 @@ bool CWallet::CreateTransaction(PegTxType txType,
                     // Prepare order of inputs
                     // For **F** the first is referenced (last input) then others are sorted
                     vector<CTxDestination> vAddressesForFrozen;
-                    vAddressesForFrozen.push_back(vInputAddresses.back());
+                    CTxDestination addressFrozenRef = vInputAddresses.back();
+                    vAddressesForFrozen.push_back(addressFrozenRef);
                     for(const CTxDestination & address : vInputAddresses) {
-                        if (address != vInputAddresses.back())
-                            vAddressesForFrozen.push_back(address);
+                        if (address == addressFrozenRef) continue;
+                        vAddressesForFrozen.push_back(address);
                     }
                     
                     // Follow outputs and compute taken values

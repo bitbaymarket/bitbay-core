@@ -185,129 +185,15 @@
        <property name="bottomMargin">
         <number>0</number>
        </property>
-       <item row="3" column="0">
-        <widget class="QTreeWidget" name="txOutputs">
-         <property name="alternatingRowColors">
-          <bool>true</bool>
-         </property>
-         <property name="rootIsDecorated">
-          <bool>false</bool>
-         </property>
-         <property name="uniformRowHeights">
-          <bool>true</bool>
-         </property>
-         <property name="itemsExpandable">
-          <bool>false</bool>
-         </property>
-         <property name="allColumnsShowFocus">
-          <bool>true</bool>
-         </property>
-         <column>
-          <property name="text">
-           <string>N</string>
-          </property>
-         </column>
-         <column>
-          <property name="text">
-           <string>Spent</string>
-          </property>
-         </column>
-         <column>
-          <property name="text">
-           <string>Address</string>
-          </property>
-         </column>
-         <column>
-          <property name="text">
-           <string>Value</string>
-          </property>
-         </column>
-         <column>
-          <property name="text">
-           <string>Fractions</string>
-          </property>
-         </column>
-        </widget>
-       </item>
-       <item row="2" column="0">
-        <widget class="QTreeWidget" name="txInputs">
-         <property name="alternatingRowColors">
-          <bool>true</bool>
-         </property>
-         <property name="rootIsDecorated">
-          <bool>false</bool>
-         </property>
-         <property name="uniformRowHeights">
-          <bool>true</bool>
-         </property>
-         <property name="itemsExpandable">
-          <bool>false</bool>
-         </property>
-         <property name="allColumnsShowFocus">
-          <bool>true</bool>
-         </property>
-         <column>
-          <property name="text">
-           <string>N</string>
-          </property>
-         </column>
-         <column>
-          <property name="text">
-           <string>Inputs</string>
-          </property>
-         </column>
-         <column>
-          <property name="text">
-           <string>Address</string>
-          </property>
-         </column>
-         <column>
-          <property name="text">
-           <string>Value</string>
-          </property>
-         </column>
-         <column>
-          <property name="text">
-           <string>Fractions</string>
-          </property>
-         </column>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QTreeWidget" name="txValues">
-         <property name="alternatingRowColors">
-          <bool>true</bool>
-         </property>
-         <property name="rootIsDecorated">
-          <bool>false</bool>
-         </property>
-         <property name="uniformRowHeights">
-          <bool>true</bool>
-         </property>
-         <property name="itemsExpandable">
-          <bool>false</bool>
-         </property>
-         <property name="allColumnsShowFocus">
-          <bool>true</bool>
-         </property>
-         <column>
-          <property name="text">
-           <string>Property</string>
-          </property>
-         </column>
-         <column>
-          <property name="text">
-           <string>Value</string>
-          </property>
-         </column>
-        </widget>
-       </item>
        <item row="0" column="0">
         <widget class="QLineEdit" name="lineTx">
          <property name="placeholderText">
           <string>Paste transaction hash to see details</string>
          </property>
         </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QWidget" name="txDetails" native="true"/>
        </item>
       </layout>
      </widget>

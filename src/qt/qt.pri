@@ -14,6 +14,8 @@ HEADERS += \
     $$PWD/verifymessagepage.h \
     $$PWD/stakingpage.h \
     $$PWD/blockchainpage.h \
+    $$PWD/txdetailswidget.h \
+    $$PWD/itemdelegates.h \
     $$PWD/aboutdialog.h \
     $$PWD/editaddressdialog.h \
     $$PWD/bitcoinaddressvalidator.h \
@@ -57,6 +59,8 @@ SOURCES += \
     $$PWD/verifymessagepage.cpp \
     $$PWD/stakingpage.cpp \
     $$PWD/blockchainpage.cpp \
+    $$PWD/txdetailswidget.cpp \
+    $$PWD/itemdelegates.cpp \
     $$PWD/aboutdialog.cpp \
     $$PWD/editaddressdialog.cpp \
     $$PWD/bitcoinaddressvalidator.cpp \
@@ -97,6 +101,7 @@ FORMS += \
     $$PWD/forms/verifymessagepage.ui \
     $$PWD/forms/stakingpage.ui \
     $$PWD/forms/blockchainpage.ui \
+    $$PWD/forms/txdetails.ui \
     $$PWD/forms/aboutdialog.ui \
     $$PWD/forms/editaddressdialog.ui \
     $$PWD/forms/transactiondescdialog.ui \

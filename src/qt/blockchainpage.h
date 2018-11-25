@@ -20,6 +20,7 @@ class QTreeWidget;
 class QModelIndex;
 class QTreeWidgetItem;
 class BlockchainModel;
+class TxDetailsWidget;
 
 class BlockchainPage : public QDialog
 {
@@ -54,55 +55,24 @@ private slots:
     void openBlock(const QModelIndex &);
     void openBlock(QTreeWidgetItem*,int);
     void openTx(QTreeWidgetItem*,int);
-    void openTx(uint256 blockhash, uint txidx);
     void openTxFromInput();
-    void openFractions(QTreeWidgetItem*,int);
-    void openFractionsMenu(const QPoint &);
     void jumpToBlock();
     void openBlockFromInput();
     void updateCurrentBlockIndex();
     void scrollToCurrentBlockIndex();
     void openChainMenu(const QPoint &);
     void openBlockMenu(const QPoint &);
-    void openTxMenu(const QPoint &);
-    void openInpMenu(const QPoint &);
-    void openOutMenu(const QPoint &);
 
 private:
-    Ui::BlockchainPage *ui;
-    BlockchainModel *model;
+    Ui::BlockchainPage* ui;
+    BlockchainModel* model;
+    TxDetailsWidget* txDetails;
     QPersistentModelIndex currentBlockIndex;
     uint256 currentBlock;
     QPixmap pmChange;
     QPixmap pmNotaryF;
     QPixmap pmNotaryV;
     QPixmap pmNotaryL;
-};
-
-class LeftSideIconItemDelegate : public QStyledItemDelegate
-{
-    Q_OBJECT
-
-public:
-    explicit LeftSideIconItemDelegate(QWidget *parent = nullptr);
-    ~LeftSideIconItemDelegate() override;
-
-    void paint(QPainter *painter,
-               const QStyleOptionViewItem &option,
-               const QModelIndex &index) const override;
-};
-
-class FractionsItemDelegate : public QStyledItemDelegate
-{
-    Q_OBJECT
-
-public:
-    explicit FractionsItemDelegate(QWidget *parent = nullptr);
-    ~FractionsItemDelegate() override;
-
-    void paint(QPainter *painter,
-               const QStyleOptionViewItem &option,
-               const QModelIndex &index) const override;
 };
 
 class BlockchainPageChainEvents : public QObject
@@ -137,18 +107,6 @@ public:
     BlockchainPageTxEvents(QTreeWidget* w, QObject* parent)
         :QObject(parent), treeWidget(w) {}
     ~BlockchainPageTxEvents() override {}
-protected:
-    bool eventFilter(QObject *obj, QEvent *event) override;
-};
-
-class FractionsDialogEvents : public QObject
-{
-    Q_OBJECT
-    QTreeWidget* treeWidget;
-public:
-    FractionsDialogEvents(QTreeWidget* w, QObject* parent)
-        :QObject(parent), treeWidget(w) {}
-    ~FractionsDialogEvents() override {}
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
 };

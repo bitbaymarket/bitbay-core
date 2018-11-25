@@ -1518,7 +1518,8 @@ bool CWallet::SelectCoinsMinConfByCoinAge(PegTxType txType,
         if (txType == PEG_MAKETX_SEND_RESERVE ||
             txType == PEG_MAKETX_FREEZE_RESERVE) {
             nValue = pcoin->vOutFractions[i].Low(GetPegSupplyIndex());
-        } else {
+        } else if (txType == PEG_MAKETX_SEND_LIQUIDITY ||
+                   txType == PEG_MAKETX_FREEZE_LIQUIDITY) {
             nValue = pcoin->vOutFractions[i].High(GetPegSupplyIndex());
         }
         if (nValue == 0) continue;
@@ -1781,7 +1782,8 @@ bool CWallet::SelectCoinsMinConf(PegTxType txType,
         if (txType == PEG_MAKETX_SEND_RESERVE ||
             txType == PEG_MAKETX_FREEZE_RESERVE) {
             nValue = pcoin->vOutFractions[i].Low(GetPegSupplyIndex());
-        } else {
+        } else if (txType == PEG_MAKETX_SEND_LIQUIDITY ||
+                   txType == PEG_MAKETX_FREEZE_LIQUIDITY) {
             nValue = pcoin->vOutFractions[i].High(GetPegSupplyIndex());
         }
         if (nValue == 0) continue;
@@ -1901,7 +1903,8 @@ bool CWallet::SelectCoins(PegTxType txType,
             if (txType == PEG_MAKETX_SEND_RESERVE ||
                 txType == PEG_MAKETX_FREEZE_RESERVE) {
                 nValue = out.tx->vOutFractions[out.i].Low(GetPegSupplyIndex());
-            } else {
+            } else if (txType == PEG_MAKETX_SEND_LIQUIDITY ||
+                       txType == PEG_MAKETX_FREEZE_LIQUIDITY) {
                 nValue = out.tx->vOutFractions[out.i].High(GetPegSupplyIndex());
             }
             nValueRet += nValue;
@@ -2059,6 +2062,9 @@ bool CWallet::CreateTransaction(PegTxType txType,
                     txType == PEG_MAKETX_FREEZE_RESERVE) {
                     nTotalValue += PEG_MAKETX_FREEZE_VALUE * nNumInputs;
                 }
+                else if (txType == PEG_MAKETX_FREEZE_LIQUIDITY) {
+                    nTotalValue += PEG_MAKETX_VFREEZE_VALUE * nNumInputs;
+                }
                 
                 // Choose coins to use
                 set<CSelectedCoin> setCoins;
@@ -2169,6 +2175,65 @@ bool CWallet::CreateTransaction(PegTxType txType,
                     nValueToTakeFromChange += nValueLeft;
                 }
                 
+                // Notations for frozen **V**
+                if (txType == PEG_MAKETX_FREEZE_LIQUIDITY) {
+                    // prepare indexes to freeze
+                    size_t nCoins = vCoins.size();
+                    size_t nPayees = vecSend.size();
+                    string out_indexes;
+                    if (nPayees == 1) { // trick to have triple to use sort
+                        auto out_index = std::to_string(0+nCoins);
+                        out_indexes = out_index+":"+out_index+":"+out_index;
+                    }
+                    else if (nPayees == 2) { // trick to have triple to use sort
+                        auto out_index1 = std::to_string(0+nCoins);
+                        auto out_index2 = std::to_string(1+nCoins);
+                        out_indexes = out_index1+":"+out_index1+":"+out_index2+":"+out_index2;
+                    }
+                    else {
+                        for(size_t i=0; i<nPayees; i++) {
+                            if (!out_indexes.empty())
+                                out_indexes += ":";
+                            out_indexes += std::to_string(i+nCoins);
+                        }
+                    }
+                    // Fill vout with freezing instructions
+                    for(size_t i=0; i<nCoins; i++) {
+                        CScript scriptPubKey;
+                        scriptPubKey.push_back(OP_RETURN);
+                        unsigned char len_bytes = out_indexes.size();
+                        scriptPubKey.push_back(len_bytes+5);
+                        scriptPubKey.push_back('*');
+                        scriptPubKey.push_back('*');
+                        scriptPubKey.push_back('V');
+                        scriptPubKey.push_back('*');
+                        scriptPubKey.push_back('*');
+                        for (size_t j=0; j< out_indexes.size(); j++) {
+                            scriptPubKey.push_back(out_indexes[j]);
+                        }
+                        wtxNew.vout.push_back(CTxOut(PEG_MAKETX_VFREEZE_VALUE, scriptPubKey));
+                    }
+                    // Value for notary is first taken from reserves sorted by address
+                    int64_t nValueLeft = nCoins*PEG_MAKETX_VFREEZE_VALUE;
+                    // take values in defined order
+                    for(const CTxDestination& address : vInputAddresses) {
+                        int64_t nValueAvailableAt = mapAvailableValuesAt[address];
+                        int64_t& nValueTakeAt = mapTakeValuesAt[address];
+                        int64_t nValueLeftAt = nValueAvailableAt-nValueTakeAt;
+                        if (nValueAvailableAt ==0) continue;
+                        int64_t nValueToTake = nValueLeft;
+                        if (nValueToTake > nValueLeftAt)
+                            nValueToTake = nValueLeftAt;
+                        
+                        nValueTakeAt += nValueToTake;
+                        nValueLeft -= nValueToTake;
+                        
+                        if (nValueLeft == 0) break;
+                    }
+                    // if nValueLeft is left - need to be taken from change (liquidity)
+                    nValueToTakeFromChange += nValueLeft;
+                }
+                
                 // vouts to the payees
                 BOOST_FOREACH (const PAIRTYPE(CScript, int64_t)& s, vecSend)
                     wtxNew.vout.push_back(CTxOut(s.second, s.first));
@@ -2200,7 +2265,8 @@ bool CWallet::CreateTransaction(PegTxType txType,
                         nValueLeft -= nValueTake;
                     }
                 }
-                else if (txType == PEG_MAKETX_SEND_RESERVE) {
+                else if (txType == PEG_MAKETX_SEND_RESERVE ||
+                         txType == PEG_MAKETX_FREEZE_RESERVE) {
                     // Available values - reserves per address
                     // vecSend - outputs to be frozen reserve parts
                     
@@ -2234,6 +2300,27 @@ bool CWallet::CreateTransaction(PegTxType txType,
                         }
                         // if nValueLeft is left then is taken from change (liquidity)
                         nValueToTakeFromChange += nValueLeft;
+                    }
+                }
+                else if (txType == PEG_MAKETX_FREEZE_LIQUIDITY) {
+                    // Available values - liquidities per address
+                    // vecSend - outputs to be frozen liquidity parts
+                    
+                    // Follow outputs and compute taken values
+                    // Logic is same as for sending liquidity
+                    int64_t nValueLeft = nValue;
+                    for(const CSelectedCoin& coin : vCoins) {
+                        CTxDestination address;
+                        if(!ExtractDestination(coin.tx->vout[coin.i].scriptPubKey, address))
+                            continue;
+                        int64_t nValueAvailable = coin.nAvailableValue;
+                        int64_t nValueTake = nValueAvailable;
+                        if (nValueTake > nValueLeft) {
+                            nValueTake = nValueLeft;
+                        }
+                        int64_t& nValueTakeAt = mapTakeValuesAt[address];
+                        nValueTakeAt += nValueTake;
+                        nValueLeft -= nValueTake;
                     }
                 }
                 

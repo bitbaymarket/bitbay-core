@@ -229,7 +229,11 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(const QList<SendCoinsRecipie
 
     if (txType == PEG_MAKETX_SEND_RESERVE) {
     }
+    else if (txType == PEG_MAKETX_FREEZE_RESERVE) {
+    }
     else if (txType == PEG_MAKETX_SEND_LIQUIDITY) {
+    }
+    else if (txType == PEG_MAKETX_FREEZE_LIQUIDITY) {
     }
     else {
         return InvalidTxType;
@@ -259,9 +263,11 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(const QList<SendCoinsRecipie
     qint64 nBalance = 0;
     qint64 nBalanceAll = getBalance(coinControl);
     
-    if (txType == PEG_MAKETX_SEND_RESERVE) {
+    if (txType == PEG_MAKETX_SEND_RESERVE ||
+        txType == PEG_MAKETX_FREEZE_RESERVE) {
         nBalance = getReserve(coinControl);
-    }else if (txType == PEG_MAKETX_SEND_LIQUIDITY) {
+    }else if (txType == PEG_MAKETX_SEND_LIQUIDITY ||
+              txType == PEG_MAKETX_FREEZE_LIQUIDITY) {
         nBalance = getLiquidity(coinControl);
     }
 
@@ -350,7 +356,11 @@ WalletModel::SendCoinsReturn WalletModel::sendCoinsTest(CWalletTx& wtx,
 
     if (txType == PEG_MAKETX_SEND_RESERVE) {
     }
+    else if (txType == PEG_MAKETX_FREEZE_RESERVE) {
+    }
     else if (txType == PEG_MAKETX_SEND_LIQUIDITY) {
+    }
+    else if (txType == PEG_MAKETX_FREEZE_LIQUIDITY) {
     }
     else {
         return InvalidTxType;
@@ -380,9 +390,11 @@ WalletModel::SendCoinsReturn WalletModel::sendCoinsTest(CWalletTx& wtx,
     qint64 nBalance = 0;
     qint64 nBalanceAll = getBalance(coinControl);
     
-    if (txType == PEG_MAKETX_SEND_RESERVE) {
+    if (txType == PEG_MAKETX_SEND_RESERVE ||
+        txType == PEG_MAKETX_FREEZE_RESERVE) {
         nBalance = getReserve(coinControl);
-    }else if (txType == PEG_MAKETX_SEND_LIQUIDITY) {
+    }else if (txType == PEG_MAKETX_SEND_LIQUIDITY ||
+              txType == PEG_MAKETX_FREEZE_LIQUIDITY) {
         nBalance = getLiquidity(coinControl);
     }
 

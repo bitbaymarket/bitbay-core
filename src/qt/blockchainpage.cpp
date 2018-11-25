@@ -121,15 +121,6 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
             this, SLOT(openBlockFromInput()));
     connect(ui->lineTx, SIGNAL(returnPressed()),
             this, SLOT(openTxFromInput()));
-
-    pmChange = QPixmap(":/icons/change");
-    pmChange = pmChange.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    pmNotaryF = QPixmap(":/icons/frost");
-    pmNotaryF = pmNotaryF.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    pmNotaryV = QPixmap(":/icons/frostr");
-    pmNotaryV = pmNotaryV.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    pmNotaryL = QPixmap(":/icons/frostl");
-    pmNotaryL = pmNotaryL.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 }
 
 BlockchainPage::~BlockchainPage()

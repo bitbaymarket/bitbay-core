@@ -44,7 +44,6 @@ private:
     QPixmap pmChange;
     QPixmap pmNotaryF;
     QPixmap pmNotaryV;
-    QPixmap pmNotaryL;
 
     QMenu *contextMenu;
     QTreeWidgetItem *contextMenuItem;

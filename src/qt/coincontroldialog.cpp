@@ -166,10 +166,8 @@ CoinControlDialog::CoinControlDialog(QWidget *parent) :
     pmChange = pmChange.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
     pmNotaryF = QPixmap(":/icons/frost");
     pmNotaryF = pmNotaryF.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    pmNotaryV = QPixmap(":/icons/frostr");
+    pmNotaryV = QPixmap(":/icons/frostl");
     pmNotaryV = pmNotaryV.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    pmNotaryL = QPixmap(":/icons/frostl");
-    pmNotaryL = pmNotaryL.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 }
 
 CoinControlDialog::~CoinControlDialog()
@@ -552,7 +550,7 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog, PegTxT
     coinControl->ListSelected(vCoinControl);
     model->getOutputs(vCoinControl, vOutputs);
 
-    BOOST_FOREACH(const COutput& out, vOutputs)
+    for(const COutput& out : vOutputs)
     {
         // Quantity
         nQuantity++;

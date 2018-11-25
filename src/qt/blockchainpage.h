@@ -69,10 +69,6 @@ private:
     TxDetailsWidget* txDetails;
     QPersistentModelIndex currentBlockIndex;
     uint256 currentBlock;
-    QPixmap pmChange;
-    QPixmap pmNotaryF;
-    QPixmap pmNotaryV;
-    QPixmap pmNotaryL;
 };
 
 class BlockchainPageChainEvents : public QObject

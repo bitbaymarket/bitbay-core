@@ -67,7 +67,6 @@ private:
     QPixmap pmChange;
     QPixmap pmNotaryF;
     QPixmap pmNotaryV;
-    QPixmap pmNotaryL;
 };
 
 class TxDetailsWidgetTxEvents : public QObject

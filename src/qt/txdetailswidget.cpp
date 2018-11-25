@@ -127,10 +127,8 @@ TxDetailsWidget::TxDetailsWidget(QWidget *parent) :
     pmChange = pmChange.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
     pmNotaryF = QPixmap(":/icons/frost");
     pmNotaryF = pmNotaryF.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    pmNotaryV = QPixmap(":/icons/frostr");
+    pmNotaryV = QPixmap(":/icons/frostl");
     pmNotaryV = pmNotaryV.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    pmNotaryL = QPixmap(":/icons/frostl");
-    pmNotaryL = pmNotaryL.scaled(32,32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 }
 
 TxDetailsWidget::~TxDetailsWidget()

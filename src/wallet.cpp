@@ -2094,6 +2094,7 @@ bool CWallet::CreateTransaction(PegTxType txType,
                 for(const CTxDestination& address : setInputAddresses) {
                     vInputAddresses.push_back(address);
                 }
+                sort(vInputAddresses.begin(), vInputAddresses.end(), sortByDestination);
                 // Input and available values can be filled in
                 for(const CSelectedCoin& coin : vCoins) {
                     CTxDestination address;
@@ -2148,17 +2149,17 @@ bool CWallet::CreateTransaction(PegTxType txType,
                     int64_t nValueLeft = nCoins*PEG_MAKETX_FREEZE_VALUE;
                     // take reserves in defined order
                     for(const CTxDestination& address : vInputAddresses) {
-                        int64_t nValueReserve = mapAvailableValuesAt[address];
-                        if (nValueReserve ==0) continue;
-                        int64_t nValueToTake = nValueLeft;
-                        if (nValueToTake > nValueReserve)
-                            nValueToTake = nValueReserve;
-                        if (nValueToTake > nValueLeft)
-                            nValueToTake = nValueLeft;
-
+                        int64_t nValueAvailableAt = mapAvailableValuesAt[address];
                         int64_t& nValueTakeAt = mapTakeValuesAt[address];
+                        int64_t nValueLeftAt = nValueAvailableAt-nValueTakeAt;
+                        if (nValueAvailableAt ==0) continue;
+                        int64_t nValueToTake = nValueLeft;
+                        if (nValueToTake > nValueLeftAt)
+                            nValueToTake = nValueLeftAt;
+                        
                         nValueTakeAt += nValueToTake;
                         nValueLeft -= nValueToTake;
+                        
                         if (nValueLeft == 0) break;
                     }
                     // if nValueLeft is left - need to be taken from change (liquidity)
@@ -2215,15 +2216,14 @@ bool CWallet::CreateTransaction(PegTxType txType,
                         int64_t nValueLeft = s.second;
                         // take reserves in defined order
                         for(const CTxDestination& address : vAddressesForFrozen) {
-                            int64_t nValueReserve = mapAvailableValuesAt[address];
-                            if (nValueReserve ==0) continue;
-                            int64_t nValueToTake = nValueLeft;
-                            if (nValueToTake > nValueReserve)
-                                nValueToTake = nValueReserve;
-                            if (nValueToTake > nValueLeft)
-                                nValueToTake = nValueLeft;
-    
+                            int64_t nValueAvailableAt = mapAvailableValuesAt[address];
                             int64_t& nValueTakeAt = mapTakeValuesAt[address];
+                            int64_t nValueLeftAt = nValueAvailableAt-nValueTakeAt;
+                            if (nValueAvailableAt ==0) continue;
+                            int64_t nValueToTake = nValueLeft;
+                            if (nValueToTake > nValueLeftAt)
+                                nValueToTake = nValueLeftAt;
+    
                             nValueTakeAt += nValueToTake;
                             nValueLeft -= nValueToTake;
                             

@@ -620,8 +620,10 @@ static int64_t RatioPart(int64_t nValue,
  */
 CFractions CFractions::RatioPart(int64_t nPartValue,
                                  int64_t nTotalValue,
-                                 int adjust_from) {
-    ToStd();
+                                 int adjust_from) const {
+    if ((nFlags & STD) == 0) {
+        return Std().RatioPart(nPartValue, nTotalValue, adjust_from);
+    }
     int64_t nPartValueSum = 0;
     CFractions fPart(0, CFractions::STD);
 
@@ -656,9 +658,25 @@ CFractions CFractions::RatioPart(int64_t nPartValue,
 
         nPartValueSum += fPart.f[i];
     }
-    for (int64_t i=nPartValueSum; i<nPartValue; i++) {
-        fPart.f[adjust_from + ((i-nPartValueSum) % (PEG_SIZE-adjust_from))]++;
+    
+    if (nPartValueSum == nPartValue)
+        return fPart;
+    if (nPartValueSum > nPartValue)
+        return fPart; // todo:peg: validate if possible
+    
+    int idx = adjust_from;
+    int64_t nAdjustValue = nPartValue - nPartValueSum;
+    while(nAdjustValue >0) {
+        if (fPart.f[idx] < f[idx]) {
+            nAdjustValue--;
+            fPart.f[idx]++;
+        }
+        idx++;
+        if (idx >= PEG_SIZE) {
+            idx = adjust_from;
+        }
     }
+    
     return fPart;
 }
 
@@ -722,10 +740,23 @@ int64_t CFractions::MoveRatioPartTo(int64_t nValueToMove,
         f[i] -= vp;
     }
     
-    for (int64_t i=nPartValueSum; i<nPartValue; i++) {
-        int idx = adjust_from + ((i-nPartValueSum) % (PEG_SIZE-adjust_from));
-        b.f[idx]++;
-        f[idx]--;
+    if (nPartValueSum == nPartValue)
+        return 0;
+    if (nPartValueSum > nPartValue)
+        return 0; // todo:peg: validate if possible
+    
+    int idx = adjust_from;
+    int64_t nAdjustValue = nPartValue - nPartValueSum;
+    while(nAdjustValue >0) {
+        if (f[idx] >0) {
+            nAdjustValue--;
+            b.f[idx]++;
+            f[idx]--;
+        }
+        idx++;
+        if (idx >= PEG_SIZE) {
+            idx = adjust_from;
+        }
     }
     
     return 0;
@@ -1074,31 +1105,34 @@ bool CalculateStandardFractions(const CTransaction & tx,
                         fSharedFreeze = true;
                     }
                     else if (fNotaryL && nLiquidityIn < nFrozenValueOut) {
-                        sFailCause = "PI10: Freeze notary: not enough liquidity";
+                        sFailCause = "PI10: Freeze notary: not enough input liquidity";
                         return false;
                     }
     
                     // deductions if not shared freeze
                     if (!fSharedFreeze) {
                         if (fNotaryF) {
-                            frozenTxOut.fractions = frReserve.RatioPart(nFrozenValueOut, nReserveIn, 0);
+                            CFractions frozenOut(0, CFractions::STD);
+                            frReserve.MoveRatioPartTo(nFrozenValueOut, 0, frozenOut);
+                            frozenTxOut.fractions += frozenOut;
                             frozenTxOut.fractions.nFlags |= CFractions::NOTARY_F;
-                            frInp -= frozenTxOut.fractions;
-                            frReserve -= frozenTxOut.fractions;
+                            frInp -= frozenOut;
                             nReserveIn -= nFrozenValueOut;
                         }
                         else if (fNotaryV) {
-                            frozenTxOut.fractions = frLiquidity.RatioPart(nFrozenValueOut, nLiquidityIn, nSupply);
+                            CFractions frozenOut(0, CFractions::STD);
+                            frLiquidity.MoveRatioPartTo(nFrozenValueOut, nSupply, frozenOut);
+                            frozenTxOut.fractions += frozenOut;
                             frozenTxOut.fractions.nFlags |= CFractions::NOTARY_V;
-                            frInp -= frozenTxOut.fractions;
-                            frLiquidity -= frozenTxOut.fractions;
+                            frInp -= frozenOut;
                             nLiquidityIn -= nFrozenValueOut;
                         }
                         else if (fNotaryL) {
-                            frozenTxOut.fractions = frLiquidity.RatioPart(nFrozenValueOut, nLiquidityIn, nSupply);
+                            CFractions frozenOut(0, CFractions::STD);
+                            frLiquidity.MoveRatioPartTo(nFrozenValueOut, nSupply, frozenOut);
+                            frozenTxOut.fractions += frozenOut;
                             frozenTxOut.fractions.nFlags |= CFractions::NOTARY_L;
-                            frInp -= frozenTxOut.fractions;
-                            frLiquidity -= frozenTxOut.fractions;
+                            frInp -= frozenOut;
                             nLiquidityIn -= nFrozenValueOut;
                         }
                     }
@@ -1152,10 +1186,9 @@ bool CalculateStandardFractions(const CTransaction & tx,
             }
             else {
                 if (poolFrozen[i].fractions.nFlags & CFractions::NOTARY_V) {
-                    frOut = frCommonLiquidity.RatioPart(nValue, nCommonLiquidity, nSupply);
                     frOut.nFlags |= CFractions::NOTARY_V;
                     frOut.nLockTime = nTime + PEG_VFROZEN_TIME;
-                    frCommonLiquidity -= frOut;
+                    frCommonLiquidity.MoveRatioPartTo(nValue, nSupply, frOut);
                     nCommonLiquidity -= nValue;
                 }
                 else if (poolFrozen[i].fractions.nFlags & CFractions::NOTARY_F) {
@@ -1210,9 +1243,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                         if (nValueToTake > nReserve)
                             nValueToTake = nReserve;
 
-                        auto frReservePart = frReserve.RatioPart(nValueToTake, nReserve, 0);
-                        frOut += frReservePart;
-                        frReserve -= frReservePart;
+                        frReserve.MoveRatioPartTo(nValueToTake, 0, frOut);
                         nValueLeft -= nValueToTake;
                         nValueToTakeReserves -= nValueToTake;
 
@@ -1227,11 +1258,8 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             fFailedPegOut = true;
                             break;
                         }
-                        auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
-                        frOut += frLiquidityPart;
-                        frCommonLiquidity -= frLiquidityPart;
+                        frCommonLiquidity.MoveRatioPartTo(nValueLeft, nSupply, frOut);
                         nCommonLiquidity -= nValueLeft;
-                        nValueLeft = 0;
                     }
                 }
             }
@@ -1248,9 +1276,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                         if (nValueToTake > nReserve)
                             nValueToTake = nReserve;
 
-                        auto frReservePart = frReserve.RatioPart(nValueToTake, nReserve, 0);
-                        frOut += frReservePart;
-                        frReserve -= frReservePart;
+                        frReserve.MoveRatioPartTo(nValueToTake, 0, frOut);
                         nValueLeft -= nValueToTake;
                     }
 
@@ -1260,11 +1286,8 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             fFailedPegOut = true;
                             break;
                         }
-                        auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
-                        frOut += frLiquidityPart;
-                        frCommonLiquidity -= frLiquidityPart;
+                        frCommonLiquidity.MoveRatioPartTo(nValueLeft, nSupply, frOut);
                         nCommonLiquidity -= nValueLeft;
-                        nValueLeft = 0;
                     }
                 }
                 else { // move liquidity out
@@ -1284,9 +1307,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             if (nValueToTake > nReserve)
                                 nValueToTake = nReserve;
 
-                            auto frReservePart = frReserve.RatioPart(nValueToTake, nReserve, 0);
-                            frOut += frReservePart;
-                            frReserve -= frReservePart;
+                            frReserve.MoveRatioPartTo(nValueToTake, 0, frOut);
                             nValueLeft -= nValueToTake;
 
                             if (nValueLeft == 0) {
@@ -1300,11 +1321,8 @@ bool CalculateStandardFractions(const CTransaction & tx,
                                 fFailedPegOut = true;
                                 break;
                             }
-                            auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
-                            frOut += frLiquidityPart;
-                            frCommonLiquidity -= frLiquidityPart;
+                            frCommonLiquidity.MoveRatioPartTo(nValueLeft, nSupply, frOut);
                             nCommonLiquidity -= nValueLeft;
-                            nValueLeft = 0;
                         }
                     }
                     else {
@@ -1314,11 +1332,8 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             fFailedPegOut = true;
                             break;
                         }
-                        auto frLiquidityPart = frCommonLiquidity.RatioPart(nValueLeft, nCommonLiquidity, nSupply);
-                        frOut += frLiquidityPart;
-                        frCommonLiquidity -= frLiquidityPart;
+                        frCommonLiquidity.MoveRatioPartTo(nValueLeft, nSupply, frOut);
                         nCommonLiquidity -= nValueLeft;
-                        nValueLeft = 0;
                     }
                 }
             }

@@ -79,7 +79,7 @@ public:
     CFractions Std() const;
     CFractions LowPart(int supply, int64_t* total) const;
     CFractions HighPart(int supply, int64_t* total) const;
-    CFractions RatioPart(int64_t part, int64_t of_total, int adjust_from);
+    CFractions RatioPart(int64_t part, int64_t of_total, int adjust_from) const;
 
     CFractions& operator+=(const CFractions& b);
     CFractions& operator-=(const CFractions& b);

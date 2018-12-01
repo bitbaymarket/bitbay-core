@@ -612,8 +612,7 @@ int64_t GetMinFee(const CTransaction& tx, unsigned int nBlockSize, enum GetMinFe
 bool AcceptToMemoryPool(CTxMemPool& pool, 
                         CTransaction &tx, 
                         bool fLimitFree,
-                        bool* pfMissingInputs,
-                        bool fMine)
+                        bool* pfMissingInputs)
 {
     AssertLockHeld(cs_main);
     if (pfMissingInputs)
@@ -730,13 +729,11 @@ bool AcceptToMemoryPool(CTxMemPool& pool,
 
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
-        if (!tx.ConnectInputs(txdb,
-                              mapInputs, mapInputsFractions,
+        if (!tx.ConnectInputs(mapInputs, mapInputsFractions,
                               mapUnused, mapOutputsFractions,
                               feesFractions,
                               CDiskTxPos(1,1,1), pindexBest, false, false,
-                              STANDARD_SCRIPT_VERIFY_FLAGS,
-                              fMine))
+                              STANDARD_SCRIPT_VERIFY_FLAGS))
         {
             return error("AcceptToMemoryPool : ConnectInputs failed %s", hash.ToString());
         }
@@ -750,8 +747,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool,
         // There is a similar check in CreateNewBlock() to prevent creating
         // invalid blocks, however allowing such transactions into the mempool
         // can be exploited as a DoS attack.
-        if (!tx.ConnectInputs(txdb,
-                              mapInputs, mapInputsFractions,
+        if (!tx.ConnectInputs(mapInputs, mapInputsFractions,
                               mapUnused, mapOutputsFractions,
                               feesFractions,
                               CDiskTxPos(1,1,1), pindexBest, false, false,
@@ -819,9 +815,9 @@ int CMerkleTx::GetBlocksToMaturity() const
 }
 
 
-bool CMerkleTx::AcceptToMemoryPool(bool fLimitFree, bool fMine)
+bool CMerkleTx::AcceptToMemoryPool(bool fLimitFree)
 {
-    return ::AcceptToMemoryPool(mempool, *this, fLimitFree, NULL, fMine);
+    return ::AcceptToMemoryPool(mempool, *this, fLimitFree, NULL);
 }
 
 
@@ -1370,8 +1366,7 @@ int64_t CTransaction::GetValueIn(const MapPrevTx& inputs) const
 
 }
 
-bool CTransaction::ConnectInputs(CTxDB& txdb,
-                                 MapPrevTx inputs,
+bool CTransaction::ConnectInputs(MapPrevTx inputs,
                                  MapFractions& finputs,
                                  map<uint256, CTxIndex>& mapTestPool,
                                  MapFractions& mapTestFractionsPool,
@@ -1380,8 +1375,7 @@ bool CTransaction::ConnectInputs(CTxDB& txdb,
                                  const CBlockIndex* pindexBlock,
                                  bool fBlock, 
                                  bool fMiner, 
-                                 unsigned int flags,
-                                 bool fApplyPegCheck)
+                                 unsigned int flags)
 {
     // Take over previous transactions' spent pointers
     // fBlock is true when this is called from AcceptBlock when a new best-block is added to the blockchain
@@ -1443,10 +1437,7 @@ bool CTransaction::ConnectInputs(CTxDB& txdb,
                                                  vOutputsTypes,
                                                  sPegFailCause);
         if (!peg_ok) {
-            // nothing todo now for demo
-            // for accept tx from wallet we apply peg
-            if (fApplyPegCheck)
-                return false;
+            return false;
         }
     }
 
@@ -1654,8 +1645,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
             if (tx.IsCoinStake())
                 nStakeReward = nTxValueOut - nTxValueIn;
 
-            if (!tx.ConnectInputs(txdb,
-                                  mapInputs, mapInputsFractions,
+            if (!tx.ConnectInputs(mapInputs, mapInputsFractions,
                                   mapQueuedChanges, mapQueuedFractionsChanges,
                                   feesFractions,
                                   posThisTx, pindex, true, false, flags))

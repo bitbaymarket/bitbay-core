@@ -323,8 +323,7 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
             // Note that flags: we don't want to set mempool/IsStandard()
             // policy here, but we still have to ensure that the block we
             // create only contains transactions that are valid in new blocks.
-            if (!tx.ConnectInputs(txdb,
-                                  mapInputs, mapInputsFractions,
+            if (!tx.ConnectInputs(mapInputs, mapInputsFractions,
                                   mapTestPoolTmp, mapTestFractionsPoolTmp,
                                   feesFractions,
                                   CDiskTxPos(1,1,1), pindexPrev, false, true, MANDATORY_SCRIPT_VERIFY_FLAGS))

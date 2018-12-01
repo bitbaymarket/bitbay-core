@@ -675,14 +675,21 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     bool fInvalid = false;
                     tx.FetchInputs(*this, pegdb, mapUnused, mapQueuedFractionsChanges, false, false, mapInputs, mapInputsFractions, fInvalid);
 
-                    CalculateStandardFractions(tx, 
-                                               pblockindex->nPegSupplyIndex,
-                                               pblockindex->nTime,
-                                               mapInputs, mapInputsFractions,
-                                               mapUnused, mapQueuedFractionsChanges,
-                                               feesFractions,
-                                               vOutputsTypes,
-                                               sPegFailCause);
+                    bool peg_ok = CalculateStandardFractions(tx, 
+                                                             pblockindex->nPegSupplyIndex,
+                                                             pblockindex->nTime,
+                                                             mapInputs, mapInputsFractions,
+                                                             mapUnused, mapQueuedFractionsChanges,
+                                                             feesFractions,
+                                                             vOutputsTypes,
+                                                             sPegFailCause);
+                    if (!peg_ok) {
+                        string err = "LoadBlockIndex() : peg violation at block ";
+                        err += std::to_string(pblockindex->nHeight);
+                        err += " ";
+                        err += sPegFailCause;
+                        return error(err.c_str());
+                    }
 
                     // Write queued fractions changes
                     for (MapFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
@@ -728,14 +735,21 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                                 mapInputsFractions[fkey],
                                 nDemoSubsidy);
 
-                    CalculateStakingFractions(tx, pblockindex,
-                                              mapInputs, mapInputsFractions,
-                                              mapUnused, mapQueuedFractionsChanges,
-                                              feesFractions,
-                                              nStakeRewardWithoutFees,
-                                              vOutputsTypes,
-                                              sPegFailCause);
-
+                    bool peg_ok = CalculateStakingFractions(tx, pblockindex,
+                                                            mapInputs, mapInputsFractions,
+                                                            mapUnused, mapQueuedFractionsChanges,
+                                                            feesFractions,
+                                                            nStakeRewardWithoutFees,
+                                                            vOutputsTypes,
+                                                            sPegFailCause);
+                    if (!peg_ok) {
+                        string err = "LoadBlockIndex() : peg violation at block ";
+                        err += std::to_string(pblockindex->nHeight);
+                        err += " ";
+                        err += sPegFailCause;
+                        return error(err.c_str());
+                    }
+                    
                     // Write queued fractions changes
                     for (MapFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
                     {

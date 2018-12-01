@@ -164,8 +164,7 @@ void ThreadStakeMiner(CWallet *pwallet);
 bool AcceptToMemoryPool(CTxMemPool& pool, 
                         CTransaction &tx, 
                         bool fLimitFree,
-                        bool* pfMissingInputs,
-                        bool fMine = false);
+                        bool* pfMissingInputs);
 
 
 
@@ -421,8 +420,7 @@ public:
         @param[in] fMiner	true if called from CreateNewBlock
         @return Returns true if all checks succeed
      */
-    bool ConnectInputs(CTxDB& txdb,
-                       MapPrevTx inputs,
+    bool ConnectInputs(MapPrevTx inputs,
                        MapFractions& finputs,
                        std::map<uint256, CTxIndex>& mapTestPool,
                        MapFractions& mapTestFractionsPool,
@@ -431,8 +429,7 @@ public:
                        const CBlockIndex* pindexBlock,
                        bool fBlock, 
                        bool fMiner, 
-                       unsigned int flags = STANDARD_SCRIPT_VERIFY_FLAGS,
-                       bool fApplyPegCheck = false);
+                       unsigned int flags = STANDARD_SCRIPT_VERIFY_FLAGS);
     bool CheckTransaction() const;
     bool GetCoinAge(CTxDB& txdb, const CBlockIndex* pindexPrev, uint64_t& nCoinAge) const;
 
@@ -536,7 +533,7 @@ public:
     int GetDepthInMainChain() const { CBlockIndex *pindexRet; return GetDepthInMainChain(pindexRet); }
     bool IsInMainChain() const { CBlockIndex *pindexRet; return GetDepthInMainChainINTERNAL(pindexRet) > 0; }
     int GetBlocksToMaturity() const;
-    bool AcceptToMemoryPool(bool fLimitFree=true, bool fMine=false);
+    bool AcceptToMemoryPool(bool fLimitFree=true);
 };
 
 

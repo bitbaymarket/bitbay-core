@@ -90,6 +90,7 @@ install:
     export                                                      ;
   fi &&
   if [[ $ARCH == "mac" ]]; then
+    brew update || echo -                                       ;
     brew install boost || echo -                                ;
     brew install openssl || echo -                              ;
     brew install miniupnpc                                      &&

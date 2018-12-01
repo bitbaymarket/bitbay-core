@@ -91,6 +91,8 @@ install:
   fi &&
   if [[ $ARCH == "mac" ]]; then
     brew update || echo -                                       ;
+    brew config || echo -                                       ;
+    brew doctor || echo -                                       ;
     brew install boost || echo -                                ;
     brew install openssl || echo -                              ;
     brew install miniupnpc                                      &&

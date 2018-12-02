@@ -64,16 +64,20 @@ CoinControlDialog::CoinControlDialog(QWidget *parent) :
     // context menu actions
     QAction *copyAddressAction = new QAction(tr("Copy address"), this);
     QAction *copyLabelAction = new QAction(tr("Copy label"), this);
-    QAction *copyAmountAction = new QAction(tr("Copy amount"), this);
-             copyTransactionHashAction = new QAction(tr("Copy transaction ID"), this);  // we need to enable/disable this
-             //lockAction = new QAction(tr("Lock unspent"), this);                        // we need to enable/disable this
-             //unlockAction = new QAction(tr("Unlock unspent"), this);                    // we need to enable/disable this
+    QAction *copyTotalAmountAction = new QAction(tr("Copy total amount"), this);
+    QAction *copyReserveAmountAction = new QAction(tr("Copy reserve amount"), this);
+    QAction *copySpendableAmountAction = new QAction(tr("Copy spendable amount"), this);
+    copyTransactionHashAction = new QAction(tr("Copy transaction ID"), this);  // we need to enable/disable this
+    //lockAction = new QAction(tr("Lock unspent"), this);                        // we need to enable/disable this
+    //unlockAction = new QAction(tr("Unlock unspent"), this);                    // we need to enable/disable this
 
     // context menu
     contextMenu = new QMenu();
     contextMenu->addAction(copyAddressAction);
     contextMenu->addAction(copyLabelAction);
-    contextMenu->addAction(copyAmountAction);
+    contextMenu->addAction(copySpendableAmountAction);
+    contextMenu->addAction(copyReserveAmountAction);
+    contextMenu->addAction(copyTotalAmountAction);
     contextMenu->addAction(copyTransactionHashAction);
     //contextMenu->addSeparator();
     //contextMenu->addAction(lockAction);
@@ -83,7 +87,9 @@ CoinControlDialog::CoinControlDialog(QWidget *parent) :
     connect(ui->treeWidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(showMenu(QPoint)));
     connect(copyAddressAction, SIGNAL(triggered()), this, SLOT(copyAddress()));
     connect(copyLabelAction, SIGNAL(triggered()), this, SLOT(copyLabel()));
-    connect(copyAmountAction, SIGNAL(triggered()), this, SLOT(copyAmount()));
+    connect(copyTotalAmountAction, SIGNAL(triggered()), this, SLOT(copyTotalAmount()));
+    connect(copyReserveAmountAction, SIGNAL(triggered()), this, SLOT(copyReserveAmount()));
+    connect(copySpendableAmountAction, SIGNAL(triggered()), this, SLOT(copySpendableAmount()));
     connect(copyTransactionHashAction, SIGNAL(triggered()), this, SLOT(copyTransactionHash()));
     //connect(lockAction, SIGNAL(triggered()), this, SLOT(lockCoin()));
     //connect(unlockAction, SIGNAL(triggered()), this, SLOT(unlockCoin()));
@@ -263,10 +269,22 @@ void CoinControlDialog::showMenu(const QPoint &point)
     }
 }
 
-// context menu action: copy amount
-void CoinControlDialog::copyAmount()
+// context menu action: copy total amount
+void CoinControlDialog::copyTotalAmount()
 {
     QApplication::clipboard()->setText(contextMenuItem->text(COLUMN_AMOUNT));
+}
+
+// context menu action: copy reserve amount
+void CoinControlDialog::copyReserveAmount()
+{
+    QApplication::clipboard()->setText(contextMenuItem->text(COLUMN_RESERVE));
+}
+
+// context menu action: copy spendable amount
+void CoinControlDialog::copySpendableAmount()
+{
+    QApplication::clipboard()->setText(contextMenuItem->text(COLUMN_LIQUIDITY));
 }
 
 // context menu action: copy label

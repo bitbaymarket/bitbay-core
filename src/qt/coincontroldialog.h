@@ -77,7 +77,9 @@ private:
 
 private slots:
     void showMenu(const QPoint &);
-    void copyAmount();
+    void copyTotalAmount();
+    void copyReserveAmount();
+    void copySpendableAmount();
     void copyLabel();
     void copyAddress();
     void copyTransactionHash();

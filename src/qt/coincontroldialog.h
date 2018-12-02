@@ -96,6 +96,8 @@ private slots:
     void radioTreeMode(bool);
     void radioListMode(bool);
     void viewItemChanged(QTreeWidgetItem*, int);
+    void openFractions(QTreeWidgetItem*,int);
+    void openFractionsMenu(const QPoint &);
     void headerSectionClicked(int);
     void buttonBoxClicked(QAbstractButton*);
     void buttonSelectAllClicked();

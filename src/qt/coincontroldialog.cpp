@@ -1,5 +1,6 @@
 #include "coincontroldialog.h"
 #include "ui_coincontroldialog.h"
+#include "ui_fractionsdialog.h"
 
 #include "init.h"
 #include "base58.h"
@@ -15,6 +16,11 @@
 #include "blockchainmodel.h" // for fractions delegate
 #include "itemdelegates.h" // for fractions delegate
 
+#include "qwt/qwt_plot.h"
+#include "qwt/qwt_plot_item.h"
+#include "qwt/qwt_plot_curve.h"
+#include "qwt/qwt_plot_barchart.h"
+
 #include <QApplication>
 #include <QCheckBox>
 #include <QClipboard>
@@ -24,6 +30,7 @@
 #include <QDialogButtonBox>
 #include <QFlags>
 #include <QIcon>
+#include <QPen>
 #include <QString>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
@@ -85,6 +92,8 @@ CoinControlDialog::CoinControlDialog(QWidget *parent) :
 
     // context menu signals
     connect(ui->treeWidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(showMenu(QPoint)));
+    connect(ui->treeWidget, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)), this, SLOT(openFractions(QTreeWidgetItem*,int)));
+    
     connect(copyAddressAction, SIGNAL(triggered()), this, SLOT(copyAddress()));
     connect(copyLabelAction, SIGNAL(triggered()), this, SLOT(copyLabel()));
     connect(copyTotalAmountAction, SIGNAL(triggered()), this, SLOT(copyTotalAmount()));
@@ -882,4 +891,168 @@ void CoinControlDialog::updateView()
     // sort view
     sortView(sortColumn, sortOrder);
     ui->treeWidget->setEnabled(true);
+}
+
+static QString displayValue(int64_t nValue) {
+    QString sValue = QString::number(nValue);
+    if (sValue.length() <8) {
+        sValue = sValue.rightJustified(8, QChar(' '));
+    }
+    sValue.insert(sValue.length()-8, QChar('.'));
+    if (sValue.length() > (8+1+3))
+        sValue.insert(sValue.length()-8-1-3, QChar(','));
+    if (sValue.length() > (8+1+3+1+3))
+        sValue.insert(sValue.length()-8-1-3-1-3, QChar(','));
+    if (sValue.length() > (8+1+3+1+3+1+3))
+        sValue.insert(sValue.length()-8-1-3-1-3-1-3, QChar(','));
+    return sValue;
+}
+
+void CoinControlDialog::openFractions(QTreeWidgetItem * item, int column)
+{
+    if (column != COLUMN_FRACTIONS) // only fractions column
+        return;
+
+    auto dlg = new QDialog(this);
+    Ui::FractionsDialog ui;
+    ui.setupUi(dlg);
+    QwtPlot * fplot = new QwtPlot;
+    QVBoxLayout *fvbox = new QVBoxLayout;
+    fvbox->setMargin(0);
+    fvbox->addWidget(fplot);
+    ui.chart->setLayout(fvbox);
+
+    QFont font = GUIUtil::bitcoinAddressFont();
+    qreal pt = font.pointSizeF()*0.8;
+    if (pt != .0) {
+        font.setPointSizeF(pt);
+    } else {
+        int px = font.pixelSize()*8/10;
+        font.setPixelSize(px);
+    }
+
+    QString hstyle = R"(
+        QHeaderView::section {
+            background-color: rgb(204,203,227);
+            color: rgb(64,64,64);
+            padding-left: 4px;
+            border: 0px solid #6c6c6c;
+            border-right: 1px solid #6c6c6c;
+            border-bottom: 1px solid #6c6c6c;
+            min-height: 16px;
+            text-align: left;
+        }
+    )";
+    ui.fractions->setStyleSheet(hstyle);
+    ui.fractions->setFont(font);
+    ui.fractions->header()->setFont(font);
+    ui.fractions->header()->resizeSection(0 /*n*/, 50);
+    ui.fractions->header()->resizeSection(1 /*value*/, 160);
+
+    ui.fractions->setContextMenuPolicy(Qt::CustomContextMenu);
+    //ui.fractions->installEventFilter(new FractionsDialogEvents(ui.fractions, this));
+    connect(ui.fractions, SIGNAL(customContextMenuRequested(const QPoint &)),
+            this, SLOT(openFractionsMenu(const QPoint &)));
+
+    auto txhash = item->data(4, BlockchainModel::HashRole).toString();
+    auto supply = item->data(4, BlockchainModel::PegSupplyRole).toInt();
+    auto vfractions = item->data(4, BlockchainModel::FractionsRole);
+    auto fractions = vfractions.value<CFractions>();
+    auto fractions_std = fractions.Std();
+
+    unsigned long len_test = 0;
+    CDataStream fout_test(SER_DISK, CLIENT_VERSION);
+    fractions.Pack(fout_test, &len_test);
+    ui.packedLabel->setText(tr("Packed: %1 bytes").arg(len_test));
+    ui.valueLabel->setText(tr("Value: %1").arg(displayValue(fractions.Total())));
+    ui.reserveLabel->setText(tr("Reserve: %1").arg(displayValue(fractions.Low(supply))));
+    ui.liquidityLabel->setText(tr("Liquidity: %1").arg(displayValue(fractions.High(supply))));
+
+    qreal xs_reserve[PEG_SIZE*2];
+    qreal ys_reserve[PEG_SIZE*2];
+    qreal xs_liquidity[PEG_SIZE*2];
+    qreal ys_liquidity[PEG_SIZE*2];
+
+    for (int i=0; i<PEG_SIZE; i++) {
+        QStringList row;
+        row << QString::number(i) << displayValue(fractions_std.f[i]); // << QString::number(fdelta[i]) << QString::number(fd.f[i]);
+        auto row_item = new QTreeWidgetItem(row);
+        row_item->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions_std.f[i]));
+        ui.fractions->addTopLevelItem(row_item);
+
+        xs_reserve[i*2] = i;
+        ys_reserve[i*2] = i < supply ? qreal(fractions_std.f[i]) : 0;
+        xs_reserve[i*2+1] = i+1;
+        ys_reserve[i*2+1] = ys_reserve[i*2];
+
+        xs_liquidity[i*2] = i;
+        ys_liquidity[i*2] = i >= supply ? qreal(fractions_std.f[i]) : 0;
+        xs_liquidity[i*2+1] = i+1;
+        ys_liquidity[i*2+1] = ys_liquidity[i*2];
+    }
+
+    QPen nopen(Qt::NoPen);
+
+    auto curve_reserve = new QwtPlotCurve;
+    curve_reserve->setPen(nopen);
+    curve_reserve->setBrush(QColor("#c06a15"));
+    curve_reserve->setSamples(xs_reserve, ys_reserve, supply*2);
+    curve_reserve->setRenderHint(QwtPlotItem::RenderAntialiased);
+    curve_reserve->attach(fplot);
+
+    auto curve_liquidity = new QwtPlotCurve;
+    curve_liquidity->setPen(nopen);
+    curve_liquidity->setBrush(QColor("#2da5e0"));
+    curve_liquidity->setSamples(xs_liquidity+supply*2,
+                                ys_liquidity+supply*2,
+                                PEG_SIZE*2-supply*2);
+    curve_liquidity->setRenderHint(QwtPlotItem::RenderAntialiased);
+    curve_liquidity->attach(fplot);
+
+    fplot->replot();
+
+    dlg->setWindowTitle(txhash+" "+tr("fractions"));
+    dlg->show();
+}
+
+void CoinControlDialog::openFractionsMenu(const QPoint & pos)
+{
+    QTreeWidget * table = dynamic_cast<QTreeWidget *>(sender());
+    if (!table) return;
+    QModelIndex mi = table->indexAt(pos);
+    if (!mi.isValid()) return;
+    auto model = mi.model();
+    if (!model) return;
+
+    QMenu m;
+
+    auto a = m.addAction(tr("Copy Value"));
+    connect(a, &QAction::triggered, [&] {
+        QString text;
+        QModelIndex mi2 = model->index(mi.row(), 1 /*value column*/);
+        QVariant v1 = mi2.data(BlockchainModel::ValueForCopy);
+        if (v1.isValid())
+            text = v1.toString();
+        else text = mi2.data(Qt::DisplayRole).toString();
+        QApplication::clipboard()->setText(text);
+    });
+    a = m.addAction(tr("Copy All Rows"));
+    connect(a, &QAction::triggered, [&] {
+        QString text;
+        for(int r=0; r<model->rowCount(); r++) {
+            for(int c=0; c<model->columnCount(); c++) {
+                if (c>0) text += "\t";
+                QModelIndex mi2 = model->index(r, c);
+                QVariant v1 = mi2.data(BlockchainModel::ValueForCopy);
+                if (v1.isValid())
+                    text += v1.toString();
+                else text += mi2.data(Qt::DisplayRole).toString();
+            }
+            text += "\n";
+        }
+        QApplication::clipboard()->setText(text);
+    });
+    m.exec(table->viewport()->mapToGlobal(pos));
 }

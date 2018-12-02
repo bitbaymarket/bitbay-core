@@ -18,6 +18,7 @@ struct BlockIndexCacheObj {
     int nPegVotesDeflate;
     int nPegVotesNochange;
     unsigned int nFlags;
+    int64_t nMint;
     QString date;
 };
 
@@ -33,7 +34,7 @@ BlockchainModel::BlockchainModel(QObject *parent) :
     QAbstractItemModel(parent),priv(new BlockchainModelPriv)
 {
     priv->columns << tr("Height") << tr("Hash") << tr("Votes")
-                  << tr("Peg") << tr("PegWOK") << tr("Date");
+                  << tr("Peg") << tr("Mined") << tr("Date");
     priv->cache.setMaxCost(100000);
 }
 
@@ -81,6 +82,7 @@ bool BlockchainModel::getItem(int h) const
                 pblockindex->nPegVotesDeflate,
                 pblockindex->nPegVotesNochange,
                 pblockindex->nFlags,
+                pblockindex->nMint,
                 QString::fromStdString(DateTimeStrFormat(pblockindex->GetBlockTime()))
         };
         priv->cache.insert(pblockindex->nHeight, obj);
@@ -136,10 +138,8 @@ QVariant BlockchainModel::data(const QModelIndex &index, int role) const
         case Peg: {
             return tr("%1").arg(obj->nPegSupplyIndex);
         }
-        case PegWOk: {
-            if (h < nPegStartHeight)
-                return QVariant();
-            return tr("%1").arg(obj->nFlags & CBlockIndex::BLOCK_PEG_WFAIL ? "FAIL" : "OK");
+        case Mined: {
+            return (double)obj->nMint / (double)COIN;
         }
         case Date: {
             return obj->date;

@@ -28,7 +28,7 @@ public:
         Hash,        /**< Blok hash */
         Votes,
         Peg,
-        PegWOk,
+        Mined,
         Date        /**< Block date */
     };
     enum Roles {

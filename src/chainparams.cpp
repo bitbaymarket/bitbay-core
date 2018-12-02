@@ -174,17 +174,24 @@ public:
         pchMessageStart[1] = 0xf2;
         pchMessageStart[2] = 0xc0;
         pchMessageStart[3] = 0xef;
-        bnProofOfWorkLimit = CBigNum(~uint256(0) >> 16);
         vAlertPubKey = ParseHex("04ce8ee24c208237c7b1992f8a2a459360f2921d57b2026e5139e0065838d13a457a51632cef02d5d00d85c3ae55dec8a61807ee75b3390b492f87f39f44199a4b");
         nDefaultPort = 21914;
         nRPCPort = 21915;
         strDataDir = "testnet";
 
+        genesis.vtx[0].nTime = 1543680000;
+        genesis.hashPrevBlock = 0;
+        genesis.hashMerkleRoot = genesis.BuildMerkleTree();
+        genesis.nVersion = 1;
+        genesis.nTime    = 1543680000;
+        
         // Modify the testnet genesis block so the timestamp is valid for a later start.
+        bnProofOfWorkLimit = CBigNum(~uint256(0) >> 16);
         genesis.nBits  = bnProofOfWorkLimit.GetCompact();
-        genesis.nNonce = 216178;
+        genesis.nNonce = 36026;
+        
         hashGenesisBlock = genesis.GetHash();
-        //assert(hashGenesisBlock == uint256("0x000012424a3b8d8c1a4ae9ca4426d67a1678c26c4e8cc6e72cb368d687dc07dd"));
+        assert(hashGenesisBlock == uint256("0000390815f72e6122841ae15cfc82222c147967beac0d70f453460518a7261b"));
 
         vFixedSeeds.clear();
         vSeeds.clear();
@@ -272,8 +279,10 @@ bool SelectParamsFromCommandLine() {
 
     if (fRegTest) {
         SelectParams(CChainParams::REGTEST);
+        fReopenDebugLog = true;
     } else if (fTestNet) {
         SelectParams(CChainParams::TESTNET);
+        fReopenDebugLog = true;
     } else {
         SelectParams(CChainParams::MAIN);
     }

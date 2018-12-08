@@ -2496,7 +2496,7 @@ bool CBlock::SignBlock(CWallet& wallet, int64_t nFees)
     if (nSearchTime > nLastCoinStakeSearchTime)
     {
         int64_t nSearchInterval = IsProtocolV2(nBestHeight+1) ? 1 : nSearchTime - nLastCoinStakeSearchTime;
-        if (wallet.CreateCoinStake(wallet, nBits, nSearchInterval, nFees, txCoinStake, key))
+        if (wallet.CreateCoinStake(wallet, nBits, nSearchInterval, nFees, txCoinStake, key, wallet.GetPegVoteType()))
         {
             if (txCoinStake.nTime >= pindexBest->GetPastTimeLimit()+1)
             {
@@ -2641,9 +2641,13 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
     {
         nStakeMinConfirmations = 10;
         nCoinbaseMaturity = 10; // test maturity is 10 blocks
-	nPegStartHeight = 5000;
-	fPegWhitelistAll = true;
-	uint256 pegWhiteListHash = 0;
+        nPegStartHeight = 5000;
+        fPegWhitelistAll = true;
+        pegWhiteListHash = 0;
+        
+        PEG_INFLATE_ADDR    = "n29zWn5WYvU6WRLBMvK49i2eoFRkxMMCdV";
+        PEG_DEFLATE_ADDR    = "mzbVXs9bQtS7i82gXrKEGEhWUvJRStNtRh";
+        PEG_NOCHANGE_ADDR   = "mzCbx5ioAgyndeiMeDAPjFgp3xjUaiYvma";
     }
 
     //

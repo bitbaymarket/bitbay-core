@@ -45,6 +45,11 @@ StakingPage::StakingPage(QWidget *parent) :
     pollTimer->setInterval(30*1000);
     pollTimer->start();
     connect(pollTimer, SIGNAL(timeout()), this, SLOT(updateTimer()));
+    
+    connect(ui->radioButtonVoteNone, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
+    connect(ui->radioButtonVoteInflate, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
+    connect(ui->radioButtonVoteDeflate, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
+    connect(ui->radioButtonVoteNoChange, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
 }
 
 StakingPage::~StakingPage()
@@ -112,5 +117,18 @@ void StakingPage::updateTimer()
             ui->labelText->setText(tr("Not staking because you don't have mature coins"));
         else
             ui->labelText->setText(tr("Not staking"));
+    }
+}
+
+void StakingPage::updatePegVoteType()
+{
+    if (ui->radioButtonVoteNone->isChecked()) {
+        pwalletMain->SetPegVoteType(PEG_VOTE_NONE);
+    } else if (ui->radioButtonVoteInflate->isChecked()) {
+        pwalletMain->SetPegVoteType(PEG_VOTE_INFLATE);
+    } else if (ui->radioButtonVoteDeflate->isChecked()) {
+        pwalletMain->SetPegVoteType(PEG_VOTE_DEFLATE);
+    } else if (ui->radioButtonVoteNoChange->isChecked()) {
+        pwalletMain->SetPegVoteType(PEG_VOTE_NOCHANGE);
     }
 }

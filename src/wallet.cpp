@@ -2489,7 +2489,8 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
                               int64_t nSearchInterval, 
                               int64_t nFees, 
                               CTransaction& txNew, 
-                              CKey& key)
+                              CKey& key,
+                              PegVoteType voteType)
 {
     CBlockIndex* pindexPrev = pindexBest;
     CBigNum bnTargetPerCoinDay;
@@ -2642,7 +2643,28 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
     //    txNew.vout[2].nValue = nCredit - txNew.vout[1].nValue;
     // }
     // else
-    txNew.vout[1].nValue = nCredit;
+    if (voteType != PEG_VOTE_NONE) {
+        txNew.vout.push_back(CTxOut(0, txNew.vout[1].scriptPubKey)); //split stake
+        CScript scriptPubKey;
+        string address = "";
+        if (voteType == PEG_VOTE_INFLATE) {
+            address = PEG_INFLATE_ADDR;
+        } else if (voteType == PEG_VOTE_DEFLATE) {
+            address = PEG_DEFLATE_ADDR;
+        } else if (voteType == PEG_VOTE_NOCHANGE) {
+            address = PEG_NOCHANGE_ADDR;
+        } 
+        if (!CBitcoinAddress(address).IsValid()) {
+            LogPrint("coinstake", "CreateCoinStake : vote address=%s is not valie\n", address);
+        }
+        scriptPubKey.SetDestination(CBitcoinAddress(address).Get());
+        txNew.vout[2].scriptPubKey = scriptPubKey;
+        txNew.vout[2].nValue = PEG_MAKETX_VOTE_VALUE;
+        txNew.vout[1].nValue = nCredit - PEG_MAKETX_VOTE_VALUE;
+    }
+    else {
+        txNew.vout[1].nValue = nCredit;
+    }
 
     // Sign
     int nIn = 0;

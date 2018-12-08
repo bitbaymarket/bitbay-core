@@ -43,6 +43,10 @@ bool fPegWhitelistAll = false;
 static set<string> vPegWhitelist;
 uint256 pegWhiteListHash = 0;
 
+std::string PEG_INFLATE_ADDR    = "bNyZrPLQAMPvYedrVLDcBSd8fbLdNgnRPz";
+std::string PEG_DEFLATE_ADDR    = "bNyZrP2SbrV6v5HqeBoXZXZDE2e4fe6STo";
+std::string PEG_NOCHANGE_ADDR   = "bNyZrPeFFNP6GFJZCkE82DDN7JC4K5Vrkk";
+
 static string sBurnAddress =
     "bJnV8J5v74MGctMyVSVPfGu1mGQ9nMTiB3";
 
@@ -326,17 +330,17 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& 
         bool voted = false;
         for(const CTxDestination& addr : addresses) {
             std::string str_addr = CBitcoinAddress(addr).ToString();
-            if (str_addr == "bNyZrPLQAMPvYedrVLDcBSd8fbLdNgnRPz") {
+            if (str_addr == PEG_INFLATE_ADDR) {
                 pindex->nPegVotesInflate += nVoteWeight;
                 voted = true;
                 break;
             }
-            else if (str_addr == "bNyZrP2SbrV6v5HqeBoXZXZDE2e4fe6STo") {
+            else if (str_addr == PEG_DEFLATE_ADDR) {
                 pindex->nPegVotesDeflate += nVoteWeight;
                 voted = true;
                 break;
             }
-            else if (str_addr == "bNyZrPeFFNP6GFJZCkE82DDN7JC4K5Vrkk") {
+            else if (str_addr == PEG_NOCHANGE_ADDR) {
                 pindex->nPegVotesNochange += nVoteWeight;
                 voted = true;
                 break;

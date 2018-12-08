@@ -36,11 +36,12 @@ enum
     PEG_DEST_SELF           = 2,
 //    PEG_FROZEN_TIME         = (3600 * 24 * 30),
 //    PEG_VFROZEN_TIME        = (3600 * 24 * 30 *4),
-    PEG_FROZEN_TIME         = (3600 * 1),
-    PEG_VFROZEN_TIME        = (3600 * 1 *4),
+    PEG_FROZEN_TIME         = (3600 * 24),
+    PEG_VFROZEN_TIME        = (3600 * 24 *4),
     PEG_MAKETX_FREEZE_VALUE = 5590,
     PEG_MAKETX_VFREEZE_VALUE= 5590,
-    PEG_MAKETX_FEE_INP_OUT  = 5000
+    PEG_MAKETX_FEE_INP_OUT  = 5000,
+    PEG_MAKETX_VOTE_VALUE   = 5554
 };
 
 enum PegTxType {
@@ -49,6 +50,17 @@ enum PegTxType {
     PEG_MAKETX_FREEZE_RESERVE   = 2,
     PEG_MAKETX_FREEZE_LIQUIDITY = 3
 };
+
+enum PegVoteType {
+    PEG_VOTE_NONE       = 0,
+    PEG_VOTE_INFLATE    = 1,
+    PEG_VOTE_DEFLATE    = 2,
+    PEG_VOTE_NOCHANGE   = 3
+};
+
+extern std::string PEG_INFLATE_ADDR;
+extern std::string PEG_DEFLATE_ADDR;
+extern std::string PEG_NOCHANGE_ADDR;
 
 class CFractions {
 public:

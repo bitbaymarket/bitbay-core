@@ -122,37 +122,28 @@
               </widget>
              </item>
              <item row="1" column="0">
-              <widget class="QRadioButton" name="radioButton_2">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
+              <widget class="QRadioButton" name="radioButtonVoteDeflate">
                <property name="text">
                 <string>Deflation</string>
                </property>
               </widget>
              </item>
              <item row="2" column="0">
-              <widget class="QRadioButton" name="radioButton_3">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
+              <widget class="QRadioButton" name="radioButtonVoteInflate">
                <property name="text">
                 <string>Inflation</string>
                </property>
               </widget>
              </item>
              <item row="3" column="0">
-              <widget class="QRadioButton" name="radioButton_4">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
+              <widget class="QRadioButton" name="radioButtonVoteNoChange">
                <property name="text">
                 <string>No Changes</string>
                </property>
               </widget>
              </item>
              <item row="4" column="0">
-              <widget class="QRadioButton" name="radioButton_5">
+              <widget class="QRadioButton" name="radioButtonVoteNone">
                <property name="text">
                 <string>Disable</string>
                </property>

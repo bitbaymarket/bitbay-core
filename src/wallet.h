@@ -19,6 +19,7 @@
 #include "script.h"
 #include "ui_interface.h"
 #include "util.h"
+#include "peg.h"
 
 // Settings
 extern int64_t nTransactionFee;
@@ -90,6 +91,9 @@ private:
     // the maximum wallet format version: memory-only variable that specifies to what version this wallet may be upgraded
     int nWalletMaxVersion;
 
+    // peg vote type for staking
+    PegVoteType pegVoteType = PEG_VOTE_NONE;
+    
 public:
     /// Main wallet lock.
     /// This lock protects all the fields added by CWallet
@@ -219,7 +223,7 @@ public:
     bool CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);
 
     uint64_t GetStakeWeight() const;
-    bool CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int64_t nSearchInterval, int64_t nFees, CTransaction& txNew, CKey& key);
+    bool CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int64_t nSearchInterval, int64_t nFees, CTransaction& txNew, CKey& key, PegVoteType);
 
     std::string SendMoney(CScript scriptPubKey, int64_t nValue, CWalletTx& wtxNew, bool fAskFee=false);
     std::string SendMoneyToDestination(const CTxDestination &address, int64_t nValue, CWalletTx& wtxNew, bool fAskFee=false);
@@ -352,6 +356,13 @@ public:
      * @note called with lock cs_wallet held.
      */
     boost::signals2::signal<void (CWallet *wallet, const uint256 &hashTx, ChangeType status)> NotifyTransactionChanged;
+    
+    // get the current vote type for staking
+    PegVoteType GetPegVoteType() { LOCK(cs_wallet); return pegVoteType; }
+    
+    // get the current vote type for staking
+    bool SetPegVoteType(PegVoteType type) { LOCK(cs_wallet); pegVoteType = type; return true; }
+    
 };
 
 /** A key allocated from the key pool. */

@@ -21,6 +21,9 @@ public:
 public slots:
     void updateTimer();
     
+private slots:
+    void updatePegVoteType();
+    
 private:
     Ui::StakingPage *ui;
     QTimer* pollTimer;

@@ -2645,7 +2645,7 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
     {
         nStakeMinConfirmations = 10;
         nCoinbaseMaturity = 10; // test maturity is 10 blocks
-        nPegStartHeight = 3800;
+        nPegStartHeight = 6000;
         fPegWhitelistAll = true;
         pegWhiteListHash = 0;
         

@@ -644,7 +644,9 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                 pblockindex = pblockindex->pprev;
 
             CBlock block;
-            while (pblockindex && pblockindex->nHeight <= nBestHeight) {
+            while (pblockindex && 
+                   pblockindex->nHeight >= nPegStartHeight && 
+                   pblockindex->nHeight <= nBestHeight) {
                 uint256 hash = *pblockindex->phashBlock;
                 pblockindex = mapBlockIndex[hash];
 

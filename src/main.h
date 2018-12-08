@@ -63,7 +63,7 @@ inline bool IsProtocolV1RetargetingFixed(int nHeight) { return TestNet() || nHei
 inline bool IsProtocolV2(int nHeight) { return TestNet() || nHeight > 20000; }
 inline bool IsProtocolV3(int64_t nTime) { return TestNet() || nTime > 1484956800; }
 inline bool IsProtocolVS(int64_t nTime) { return TestNet() || nTime > 1512000000; }
-inline bool IsProtocolVP(int nHeight) { return TestNet() || nHeight > nPegStartHeight; }
+inline bool IsProtocolVP(int nHeight) { return nHeight >= nPegStartHeight; }
 
 inline int64_t FutureDriftV1(int64_t nTime) { return nTime + 10 * 60; }
 inline int64_t FutureDriftV2(int64_t nTime) { return nTime + 15; }

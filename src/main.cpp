@@ -1035,7 +1035,7 @@ int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev, int64_t nCoinAge, i
     int64_t nSubsidy;
     if (IsProtocolV3(pindexPrev->nTime)) {
         if (IsProtocolVS(pindexPrev->nTime)) {
-            if (IsProtocolVP(pindexPrev->nHeight)) {
+            if (IsProtocolVP((pindexPrev->nHeight+1))) {
                 nSubsidy = COIN * 20;
                 if (inp.nFlags & CFractions::NOTARY_V) {
                     nDemoSubsidy = COIN * 40;
@@ -1068,6 +1068,10 @@ int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev, int64_t nCoinAge, i
         nDemoSubsidy = nSubsidy;
     }
 
+    if (TestNet()) {
+        nSubsidy = nDemoSubsidy;
+    }
+    
     LogPrint("creation", "GetProofOfStakeReward(): create=%s nCoinAge=%d\n", FormatMoney(nSubsidy), nCoinAge);
 
     return nSubsidy + nFees;
@@ -2641,7 +2645,7 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
     {
         nStakeMinConfirmations = 10;
         nCoinbaseMaturity = 10; // test maturity is 10 blocks
-        nPegStartHeight = 5000;
+        nPegStartHeight = 3800;
         fPegWhitelistAll = true;
         pegWhiteListHash = 0;
         

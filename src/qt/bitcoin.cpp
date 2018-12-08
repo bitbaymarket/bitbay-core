@@ -179,10 +179,10 @@ int main(int argc, char *argv[])
     // as it is used to locate QSettings)
     app.setOrganizationName("BitBay");
     //XXX app.setOrganizationDomain("");
-    if(GetBoolArg("-testnet", false)) // Separate UI settings for testnet
+    //if(GetBoolArg("-testnet", false)) // Separate UI settings for testnet
         app.setApplicationName("BitBay-Qt-testnet");
-    else
-        app.setApplicationName("BitBay-Qt");
+    //else
+    //    app.setApplicationName("BitBay-Qt");
 
     // ... then GUI settings:
     OptionsModel optionsModel;
@@ -231,7 +231,7 @@ int main(int argc, char *argv[])
 
 #ifdef Q_OS_MAC
     // on mac, also change the icon now because it would look strange to have a testnet splash (green) and a std app icon (orange)
-    if(GetBoolArg("-testnet", false))
+    //if(GetBoolArg("-testnet", false))
     {
         MacDockIconHandler::instance()->setIcon(QIcon(":icons/bitcoin_testnet"));
     }

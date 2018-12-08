@@ -179,19 +179,17 @@ public:
         nRPCPort = 21915;
         strDataDir = "testnet";
 
-        genesis.vtx[0].nTime = 1543680000;
         genesis.hashPrevBlock = 0;
         genesis.hashMerkleRoot = genesis.BuildMerkleTree();
         genesis.nVersion = 1;
-        genesis.nTime    = 1543680000;
         
         // Modify the testnet genesis block so the timestamp is valid for a later start.
         bnProofOfWorkLimit = CBigNum(~uint256(0) >> 16);
         genesis.nBits  = bnProofOfWorkLimit.GetCompact();
-        genesis.nNonce = 36026;
+        genesis.nNonce = 349114;
         
         hashGenesisBlock = genesis.GetHash();
-        assert(hashGenesisBlock == uint256("0000390815f72e6122841ae15cfc82222c147967beac0d70f453460518a7261b"));
+        assert(hashGenesisBlock == uint256("0000e6e0e97c71119aaeaba384fa62583818582299538b70ba80a047168e6852"));
 
         vFixedSeeds.clear();
         vSeeds.clear();

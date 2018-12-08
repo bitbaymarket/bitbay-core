@@ -1,0 +1,11 @@
+FROM bitbayofficial/bitbayd-base
+MAINTAINER yshurik <yshurik@gmail.com>
+
+COPY bitbayd /usr/bin/
+RUN which bitbayd
+RUN mkdir -p /data/testnet
+RUN echo rpcuser=bitbayrpc > /data/bitbay.conf
+RUN echo rpcpassword=bitbaypassword >> /data/bitbay.conf
+
+CMD ["/usr/bin/bitbayd", "-testnet", "-debug=1", "-datadir=/data", "-addnode=62.16.228.243"]
+

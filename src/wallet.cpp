@@ -25,7 +25,7 @@ int64_t nTransactionFee = MIN_TX_FEE;
 int64_t nReserveBalance = 0;
 int64_t nMinimumInputValue = 0;
 
-static int64_t GetStakeCombineThreshold() { return 100 * COIN; }
+static int64_t GetStakeCombineThreshold() { return 5000 * COIN; }
 static int64_t GetStakeSplitThreshold() { return 2 * GetStakeCombineThreshold(); }
 
 int64_t gcd(int64_t n,int64_t m) { return m == 0 ? n : gcd(m, n % m); }
@@ -2603,6 +2603,8 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
     if (nCredit == 0 || nCredit > nBalance - nReserveBalance)
         return false;
 
+    bool fInputIsFrozen = false;
+    
     // Calculate coin age reward
     {
         uint64_t nCoinAge;
@@ -2615,10 +2617,11 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         auto fkey = uint320(prevout.hash, prevout.n);
         CFractions fractions(vwtxPrev[0]->vout[prevout.n].nValue, CFractions::VALUE);
         if (!pegdb.Read(fkey, fractions)) {
-            //todo:peg
-            //PegError("FetchInputs() : %s pegdb.Read/Unpack prev tx fractions %s failed", GetHash().ToString(),  prevout.hash.ToString());
-            //return DoS?
+            //todo:peg: fail if previout after pegstart, so it should have fractions
         }
+        
+        if (fractions.nFlags & CFractions::NOTARY_F) fInputIsFrozen = true;
+        if (fractions.nFlags & CFractions::NOTARY_V) fInputIsFrozen = true;
         
         int64_t nDemoSubsidy = 0; 
         int64_t nReward = GetProofOfStakeReward(pindexPrev, nCoinAge, nFees, fractions, nDemoSubsidy);
@@ -2628,23 +2631,19 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         nCredit += nReward;
     }
 
-    // The stake split is disabled for peg codes, dzimbeck:
-    // The reason of split was to get consecutive stakes in a 200 block period
-    // But no reason to have it for wallets with the balance less than 100K coins
-    // Otherwise the probability is extremely low and there is no reason to split as
-    // it only bloats the wallet
-    // if (nCredit >= GetStakeSplitThreshold())
-    //    txNew.vout.push_back(CTxOut(0, txNew.vout[1].scriptPubKey)); //split stake
-    //
-    // Set output amount
-    // if (txNew.vout.size() == 3)
-    // {
-    //    txNew.vout[1].nValue = (nCredit / 2 / CENT) * CENT;
-    //    txNew.vout[2].nValue = nCredit - txNew.vout[1].nValue;
-    // }
-    // else
-    if (voteType != PEG_VOTE_NONE) {
+    // The stake split is disabled if input has frozen marks, 
+    if (nCredit >= GetStakeSplitThreshold() && !fInputIsFrozen) {
         txNew.vout.push_back(CTxOut(0, txNew.vout[1].scriptPubKey)); //split stake
+        txNew.vout[1].nValue = (nCredit / 2 / CENT) * CENT;
+        txNew.vout[2].nValue = nCredit - txNew.vout[1].nValue;
+    }
+    else {
+        txNew.vout[1].nValue = nCredit;
+    }
+    
+    // Add vote output
+    if (voteType != PEG_VOTE_NONE) {
+        txNew.vout.push_back(CTxOut(0, txNew.vout[1].scriptPubKey)); //add vote
         CScript scriptPubKey;
         string address = "";
         if (voteType == PEG_VOTE_INFLATE) {
@@ -2655,20 +2654,17 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
             address = PEG_NOCHANGE_ADDR;
         } 
         if (!CBitcoinAddress(address).IsValid()) {
-            LogPrint("coinstake", "CreateCoinStake : vote address=%s is not valie\n", address);
+            LogPrint("coinstake", "CreateCoinStake : vote address=%s is not valid\n", address);
         }
         scriptPubKey.SetDestination(CBitcoinAddress(address).Get());
-        txNew.vout[2].scriptPubKey = scriptPubKey;
-        txNew.vout[2].nValue = PEG_MAKETX_VOTE_VALUE;
-        txNew.vout[1].nValue = nCredit - PEG_MAKETX_VOTE_VALUE;
-    }
-    else {
-        txNew.vout[1].nValue = nCredit;
+        txNew.vout[txNew.vout.size()-1].scriptPubKey = scriptPubKey;
+        txNew.vout[txNew.vout.size()-1].nValue = PEG_MAKETX_VOTE_VALUE;
+        txNew.vout[txNew.vout.size()-2].nValue -= PEG_MAKETX_VOTE_VALUE;
     }
 
     // Sign
     int nIn = 0;
-    BOOST_FOREACH(const CWalletTx* pcoin, vwtxPrev)
+    for(const CWalletTx* pcoin : vwtxPrev)
     {
         if (!SignSignature(*this, *pcoin, txNew, nIn++))
             return error("CreateCoinStake : failed to sign coinstake");

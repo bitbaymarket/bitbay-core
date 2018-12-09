@@ -320,13 +320,13 @@ void TxDetailsWidget::openTx(CTransaction & tx,
     LOCK(cs_main);
 
     uint256 hash = tx.GetHash();
-    QString thash = QString::fromStdString(hash.ToString());
 
     CTxDB txdb("r");
     CPegDB pegdb("r");
 
     ui->txValues->clear();
     if (pblockindex) {
+        QString thash = QString::fromStdString(hash.ToString());
         QString sheight = QString("%1-%2").arg(pblockindex->nHeight).arg(txidx);
         auto topItem = new QTreeWidgetItem(QStringList({"Height",sheight}));
         QVariant vhash;
@@ -334,8 +334,8 @@ void TxDetailsWidget::openTx(CTransaction & tx,
         topItem->setData(0, BlockchainModel::HashRole, vhash);
         ui->txValues->addTopLevelItem(topItem);
         ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Datetime",QString::fromStdString(DateTimeStrFormat(pblockindex->GetBlockTime()))})));
+        ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Hash",thash})));
     }
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Hash",thash})));
 
     QString txtype = tr("Transaction");
     if (tx.IsCoinBase()) txtype = tr("CoinBase");
@@ -374,15 +374,17 @@ void TxDetailsWidget::openTx(CTransaction & tx,
     bool peg_ok = false;
 
     // need to collect all fees fractions from all tx in the block
-    if (!calculateFeesFractions(pblockindex, feesFractions, nFeesValue)) {
-        // peg violation?
+    if (tx.IsCoinStake() && !calculateFeesFractions(pblockindex, feesFractions, nFeesValue)) {
+        ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Error","Failed to calculate fees fractions"})));
+        return;
     }
     
     QTime timePegChecks = QTime::currentTime();
     if (tx.IsCoinStake()) {
         uint64_t nCoinAge = 0;
         if (!tx.GetCoinAge(txdb, pblockindex->pprev, nCoinAge)) {
-            //something went wrong
+            ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Error","Cannot get coin age"})));
+            return;
         }
         CFractions inpStake(0, CFractions::STD);
         if (tx.vin.size() > 0) {
@@ -416,22 +418,32 @@ void TxDetailsWidget::openTx(CTransaction & tx,
     }
     int msecsPegChecks = timePegChecks.msecsTo(QTime::currentTime());
 
-    QTime timeSigsChecks = QTime::currentTime();
-    for (unsigned int i = 0; i < tx.vin.size(); i++)
-    {
+    size_t n_vin = tx.vin.size();
+    size_t n_vout = tx.vout.size();
+    if (tx.IsCoinBase()) n_vin = 0;
+    if (tx.IsCoinBase()) n_vout = 0;
+    
+    int64_t nValueIn = 0;
+    for (unsigned int i = 0; i < n_vin; i++) {
         COutPoint prevout = tx.vin[i].prevout;
-        CTransaction& txPrev = mapInputs[prevout.hash].second;
-        VerifySignature(txPrev, tx, i, MANDATORY_SCRIPT_VERIFY_FLAGS, 0);
+        if (mapInputs.find(prevout.hash) != mapInputs.end()) {
+            CTransaction& txPrev = mapInputs[prevout.hash].second;
+            if (prevout.n < txPrev.vout.size()) {
+                int64_t nValue = txPrev.vout[prevout.n].nValue;
+                nValueIn += nValue;
+            }
+        }
     }
-    int msecsSigsChecks = timeSigsChecks.msecsTo(QTime::currentTime());
-
+    int64_t nValueOut = 0;
+    for (unsigned int i = 0; i < n_vout; i++) {
+        int64_t nValue = tx.vout[i].nValue;
+        nValueOut += nValue;
+    }
+    
     // gui
 
     ui->txInputs->clear();
     QSet<QString> sAddresses;
-    size_t n_vin = tx.vin.size();
-    if (tx.IsCoinBase()) n_vin = 0;
-    int64_t nValueIn = 0;
     for (unsigned int i = 0; i < n_vin; i++)
     {
         COutPoint prevout = tx.vin[i].prevout;
@@ -460,7 +472,6 @@ void TxDetailsWidget::openTx(CTransaction & tx,
                 }
 
                 nValue = txPrev.vout[prevout.n].nValue;
-                nValueIn += nValue;
                 row << displayValue(nValue);
             }
             else {
@@ -504,7 +515,8 @@ void TxDetailsWidget::openTx(CTransaction & tx,
     if (tx.IsCoinStake()) {
         uint64_t nCoinAge = 0;
         if (!tx.GetCoinAge(txdb, pblockindex->pprev, nCoinAge)) {
-            //something went wrong
+            ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Error","Cannot get coin age"})));
+            return;
         }
         CFractions inpStake(0, CFractions::STD);
         if (tx.vin.size() > 0) {
@@ -514,43 +526,23 @@ void TxDetailsWidget::openTx(CTransaction & tx,
                 inpStake = mapInputsFractions[fkey];
             }
         }
-        int64_t nDemoSubsidy = 0;
-        int64_t nStakeReward = GetProofOfStakeReward(
-                    pblockindex->pprev, nCoinAge, 0 /*fees*/, inpStake, nDemoSubsidy);
 
         QStringList rowMined;
         rowMined << "Mined"; // idx, 0
         rowMined << "";      // tx, 1
         rowMined << "N/A";   // address, 2
-        rowMined << displayValue(nStakeReward);
+        rowMined << displayValue(nValueOut - nValueIn);
 
         auto inputMined = new QTreeWidgetItem(rowMined);
         QVariant vfractions;
-        vfractions.setValue(CFractions(nStakeReward, CFractions::STD));
+        vfractions.setValue(CFractions(nValueOut - nValueIn, CFractions::STD));
         inputMined->setData(COL_INP_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
         inputMined->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, peg_whitelisted
                             ? nSupply
                             : 0);
         inputMined->setData(COL_INP_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        inputMined->setData(COL_INP_VALUE, BlockchainModel::ValueForCopy, qlonglong(nStakeReward));
+        inputMined->setData(COL_INP_VALUE, BlockchainModel::ValueForCopy, qlonglong(nValueOut - nValueIn));
         ui->txInputs->addTopLevelItem(inputMined);
-
-        QStringList rowMinedDemo;
-        rowMinedDemo << "MinedPeg"; // idx, 0
-        rowMinedDemo << "";         // tx, 1
-        rowMinedDemo << "N/A";      // address, 2
-        rowMinedDemo << displayValue(nDemoSubsidy);
-
-        auto inputMinedDemo = new QTreeWidgetItem(rowMinedDemo);
-        //QVariant vfractions;
-        vfractions.setValue(CFractions(nDemoSubsidy, CFractions::STD));
-        inputMinedDemo->setData(COL_INP_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
-        inputMinedDemo->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, peg_whitelisted
-                            ? nSupply
-                            : 0);
-        inputMinedDemo->setData(COL_INP_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        inputMinedDemo->setData(COL_INP_VALUE, BlockchainModel::ValueForCopy, qlonglong(nDemoSubsidy));
-        ui->txInputs->addTopLevelItem(inputMinedDemo);
 
         QStringList rowFees;
         rowFees << "Fees";  // idx, 0
@@ -599,9 +591,6 @@ void TxDetailsWidget::openTx(CTransaction & tx,
     txdb.ReadTxIndex(hash, txindex);
 
     ui->txOutputs->clear();
-    size_t n_vout = tx.vout.size();
-    if (tx.IsCoinBase()) n_vout = 0;
-    int64_t nValueOut = 0;
     for (unsigned int i = 0; i < n_vout; i++)
     {
         QStringList row;
@@ -651,7 +640,6 @@ void TxDetailsWidget::openTx(CTransaction & tx,
         else row << addr;
 
         int64_t nValue = tx.vout[i].nValue;
-        nValueOut += nValue;
         row << displayValue(nValue); // 3, value
 
         bool fIndicateFrozen = false;
@@ -728,7 +716,6 @@ void TxDetailsWidget::openTx(CTransaction & tx,
     ui->txValues->addTopLevelItem(twiPegChecks);
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Peg Checks Time",QString::number(msecsPegChecks)+" msecs"})));
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Fetch Inputs Time",QString::number(msecsFetchInputs)+" msecs (can be cached)"})));
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Mandatory Signatures Checks",QString::number(msecsSigsChecks)+" msecs"})));
 
     if (!tx.IsCoinBase() && !tx.IsCoinStake() /*&& nValueOut < nValueIn*/) {
         QStringList row;

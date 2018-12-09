@@ -373,6 +373,11 @@ void TxDetailsWidget::openTx(CTransaction & tx,
     bool peg_whitelisted = IsPegWhiteListed(tx, mapInputs);
     bool peg_ok = false;
 
+    // need to collect all fees fractions from all tx in the block
+    if (!calculateFeesFractions(pblockindex, feesFractions, nFeesValue)) {
+        // peg violation?
+    }
+    
     QTime timePegChecks = QTime::currentTime();
     if (tx.IsCoinStake()) {
         uint64_t nCoinAge = 0;
@@ -546,11 +551,6 @@ void TxDetailsWidget::openTx(CTransaction & tx,
         inputMinedDemo->setData(COL_INP_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         inputMinedDemo->setData(COL_INP_VALUE, BlockchainModel::ValueForCopy, qlonglong(nDemoSubsidy));
         ui->txInputs->addTopLevelItem(inputMinedDemo);
-
-        // need to collect all fees fractions from all tx in the block
-        if (!calculateFeesFractions(pblockindex, feesFractions, nFeesValue)) {
-            // peg violation?
-        }
 
         QStringList rowFees;
         rowFees << "Fees";  // idx, 0

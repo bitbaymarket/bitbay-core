@@ -747,8 +747,9 @@ bool AcceptToMemoryPool(CTxMemPool& pool,
         // There is a similar check in CreateNewBlock() to prevent creating
         // invalid blocks, however allowing such transactions into the mempool
         // can be exploited as a DoS attack.
+        MapFractions mapOutputsFractionsUnused;
         if (!tx.ConnectInputs(mapInputs, mapInputsFractions,
-                              mapUnused, mapOutputsFractions,
+                              mapUnused, mapOutputsFractionsUnused,
                               feesFractions,
                               CDiskTxPos(1,1,1), pindexBest, false, false,
                               MANDATORY_SCRIPT_VERIFY_FLAGS))

@@ -166,22 +166,29 @@ bool CalculateBlockPegIndex(CBlockIndex* pindex)
 int CBlockIndex::GetNextPegSupplyIndex() const
 {
     int nNextHeight = nHeight+1;
+    int nPegInterval = PEG_INTERVAL;
+    
+    if (TestNet()) {
+        if (nNextHeight >= 10000) {
+            nPegInterval = PEG_INTERVAL_TESTNET1;
+        }
+    }
     
     if (nNextHeight < nPegStartHeight) {
         return 0;
     }
-    if (nNextHeight % PEG_INTERVAL != 0) {
+    if (nNextHeight % nPegInterval != 0) {
         return nPegSupplyIndex;
     }
 
-    // back to 2 intervals and -1 to count voice of back-third interval, as votes sum at PEG_INTERVAL-1
+    // back to 2 intervals and -1 to count voice of back-third interval, as votes sum at nPegInterval-1
     auto usevotesindex = this;
-    while (usevotesindex->nHeight > (nNextHeight - PEG_INTERVAL*2 -1))
+    while (usevotesindex->nHeight > (nNextHeight - nPegInterval*2 -1))
         usevotesindex = usevotesindex->pprev;
 
     // back to 3 intervals and -1 for votes calculations of 2x and 3x
     auto prevvotesindex = this;
-    while (prevvotesindex->nHeight > (nNextHeight - PEG_INTERVAL*3 -1))
+    while (prevvotesindex->nHeight > (nNextHeight - nPegInterval*3 -1))
         prevvotesindex = prevvotesindex->pprev;
 
     int inflate = usevotesindex->nPegVotesInflate;
@@ -217,6 +224,14 @@ int CBlockIndex::GetNextPegSupplyIndex() const
 
 bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& pegdb)
 {
+    int nPegInterval = PEG_INTERVAL;
+    
+    if (TestNet()) {
+        if (pindex->nHeight >= 10000) {
+            nPegInterval = PEG_INTERVAL_TESTNET1;
+        }
+    }
+    
     if (!cblock.IsProofOfStake() || pindex->nHeight < nPegStartHeight) {
         pindex->nPegVotesInflate =0;
         pindex->nPegVotesDeflate =0;
@@ -224,7 +239,7 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& 
         return true;
     }
 
-    if (pindex->nHeight % PEG_INTERVAL == 0) {
+    if (pindex->nHeight % nPegInterval == 0) {
         pindex->nPegVotesInflate =0;
         pindex->nPegVotesDeflate =0;
         pindex->nPegVotesNochange =0;

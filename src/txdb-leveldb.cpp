@@ -634,6 +634,7 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                 return error("LoadBlockIndex() : peg TxnBegin failed");
 
             // back to nPegStartHeight
+            CBlockIndex* pblockindexPegFail = nullptr;
             CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
             while (pblockindex->nHeight > nPegStartHeight)
                 pblockindex = pblockindex->pprev;
@@ -667,6 +668,7 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     return error("ReadFromDisk() : block read failed");
                 
                 CFractions feesFractions;
+                MapFractions mapQueuedFractionsChanges;
                 for(CTransaction& tx : block.vtx) {
 
                     if (tx.IsCoinStake()) continue;
@@ -674,7 +676,6 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     MapPrevTx mapInputs;
                     MapFractions mapInputsFractions;
                     map<uint256, CTxIndex> mapUnused;
-                    MapFractions mapQueuedFractionsChanges;
                     vector<int> vOutputsTypes;
                     string sPegFailCause;
                     bool fInvalid = false;
@@ -689,11 +690,7 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                                                              vOutputsTypes,
                                                              sPegFailCause);
                     if (!peg_ok) {
-                        string err = "LoadBlockIndex() : peg violation at block ";
-                        err += std::to_string(pblockindex->nHeight);
-                        err += " ";
-                        err += sPegFailCause;
-                        return error(err.c_str());
+                        pblockindexPegFail = pblockindex;
                     }
 
                     // Write queued fractions changes
@@ -710,7 +707,6 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     MapPrevTx mapInputs;
                     MapFractions mapInputsFractions;
                     map<uint256, CTxIndex> mapUnused;
-                    MapFractions mapQueuedFractionsChanges;
                     vector<int> vOutputsTypes;
                     string sPegFailCause;
                     bool fInvalid = false;
@@ -746,21 +742,23 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                                                             vOutputsTypes,
                                                             sPegFailCause);
                     if (!peg_ok) {
-                        string err = "LoadBlockIndex() : peg violation at block ";
-                        err += std::to_string(pblockindex->nHeight);
-                        err += " ";
-                        err += sPegFailCause;
-                        return error(err.c_str());
-                    }
-                    
-                    // Write queued fractions changes
-                    for (MapFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
-                    {
-                        if (!pegdb.Write((*mi).first, (*mi).second))
-                            return error("LoadBlockIndex() : pegdb Write failed");
+                        pblockindexPegFail = pblockindex;
                     }
                 }
 
+                // if peg violation then no writing fraction and no write block index
+                // and break the loop to move best chain back to preivous
+                if (pblockindexPegFail) {
+                    break;
+                }
+                
+                // Write queued fractions changes
+                for (MapFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
+                {
+                    if (!pegdb.Write((*mi).first, (*mi).second))
+                        return error("LoadBlockIndex() : pegdb Write failed");
+                }
+                
                 if (!CalculateBlockPegVotes(block, pblockindex, pegdb))
                     return error("CalculateBlockPegVotes() : failed");
                 
@@ -784,6 +782,22 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
             
             if (!TxnCommit())
                 return error("LoadBlockIndex() : TxnCommit failed");
+            
+            if (pblockindexPegFail) {
+                auto pindexFork = pblockindexPegFail->pprev;
+                if (pindexFork)
+                {
+                    boost::this_thread::interruption_point();
+                    // Reorg back to the fork
+                    LogPrintf("LoadBlockIndex() : *** moving best chain pointer back to block %d\n", pindexFork->nHeight);
+                    CBlock block;
+                    if (!block.ReadFromDisk(pindexFork))
+                        return error("LoadBlockIndex() : block.ReadFromDisk failed");
+                    CTxDB txdb;
+                    CPegDB pegdb;
+                    block.SetBestChain(txdb, pegdb, pindexFork);
+                }
+            }
         }
     }
 

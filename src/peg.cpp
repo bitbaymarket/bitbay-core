@@ -152,42 +152,6 @@ bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb, LoadMsg load_msg) {
     return true;
 }
 
-bool CalculateVotesForPeg(CTxDB & ctxdb, CPegDB& pegdb, LoadMsg load_msg) {
-    if (!ctxdb.TxnBegin())
-        return error("CalculateVotesForPeg() : TxnBegin failed");
-
-    // now calculate peg votes
-    CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
-    while (pblockindex->nHeight > nPegStartHeight)
-        pblockindex = pblockindex->pprev;
-
-    CBlock block;
-    while (pblockindex && pblockindex->nHeight <= nBestHeight) {
-        uint256 hash = *pblockindex->phashBlock;
-        pblockindex = mapBlockIndex[hash];
-
-        if (pblockindex->nHeight % 10000 == 0) {
-            load_msg(std::string(" calculate votes: ")+std::to_string(pblockindex->nHeight));
-        }
-
-        // calc votes per block
-        block.ReadFromDisk(pblockindex, true);
-        CalculateBlockPegIndex(pblockindex);
-        CalculateBlockPegVotes(block, pblockindex, pegdb);
-        ctxdb.WriteBlockIndex(CDiskBlockIndex(pblockindex));
-
-        pblockindex = pblockindex->pnext;
-    }
-
-    if (!ctxdb.WritePegVotesAreReady(true))
-        return error("CalculateVotesForPeg() : flag write failed");
-
-    if (!ctxdb.TxnCommit())
-        return error("CalculateVotesForPeg() : TxnCommit failed");
-
-    return true;
-}
-
 bool CalculateBlockPegIndex(CBlockIndex* pindex)
 {
     if (!pindex->pprev) {

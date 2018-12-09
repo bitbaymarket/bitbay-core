@@ -205,9 +205,8 @@ public:
     bool WritePegStartHeight(int nHeight);
     bool ReadBlockIndexIsPegReady(bool& bReady);
     bool WriteBlockIndexIsPegReady(bool bReady);
-    bool ReadPegVotesAreReady(bool& bReady);
-    bool WritePegVotesAreReady(bool bReady);
-    bool UpdateBlocksForPeg(int nHeight, int& nBlocksChanged);
+    bool ReadPegCheck(int nCheck, bool& bReady);
+    bool WritePegCheck(int nCheck, bool bReady);
 private:
     bool LoadBlockIndexGuts();
 };

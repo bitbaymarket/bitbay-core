@@ -295,14 +295,14 @@ bool CTxDB::WriteBlockIndexIsPegReady(bool bReady)
     return Write(string("blockIndexIsPegReady"), bReady);
 }
 
-bool CTxDB::ReadPegVotesAreReady(bool& bReady)
+bool CTxDB::ReadPegCheck(int nCheck, bool& bReady)
 {
-    return Read(string("pegVotesAreReady"), bReady);
+    return Read(string("pegCheck")+std::to_string(nCheck), bReady);
 }
 
-bool CTxDB::WritePegVotesAreReady(bool bReady)
+bool CTxDB::WritePegCheck(int nCheck, bool bReady)
 {
-    return Write(string("pegVotesAreReady"), bReady);
+    return Write(string("pegCheck")+std::to_string(nCheck), bReady);
 }
 
 bool CTxDB::ReadBestInvalidTrust(CBigNum& bnBestInvalidTrust)
@@ -590,8 +590,8 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
             return error("WriteBlockIndexIsPegReady() : TxnBegin failed");
         if (!WriteBlockIndexIsPegReady(false))
             return error("WriteBlockIndexIsPegReady() : flag write failed");
-        if (!WritePegVotesAreReady(false))
-            return error("WritePegVotesAreReady() : flag write failed");
+        if (!WritePegCheck(PEG_DB_CHECK1, false))
+            return error("WritePegCheck() : flag write failed");
         if (!TxnCommit())
             return error("WriteBlockIndexIsPegReady() : TxnCommit failed");
     }
@@ -606,17 +606,6 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
             return error("LoadBlockIndex() : SetBlocksIndexesReadyForPeg failed");
     }
 
-    bool bVotesAreReady = false;
-    if (!ReadPegVotesAreReady(bVotesAreReady)) {
-        bVotesAreReady = false;
-    }
-
-    if (!bVotesAreReady) {
-        CPegDB pegdb("r");
-        if (!CalculateVotesForPeg(*this, pegdb, load_msg))
-            return error("LoadBlockIndex() : SetBlocksIndexesReadyForPeg failed");
-    }
-
     { // all is ready, store nPegStartHeight
         if (!TxnBegin())
             return error("WriteBlockIndexIsPegReady() : TxnBegin failed");
@@ -626,15 +615,21 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
             return error("WriteBlockIndexIsPegReady() : TxnCommit failed");
     }
 
-    // now process pegdb if not ready
+    // now process pegdb & votes if not ready
     {
         CPegDB pegdb("r+");
 
+        bool fPegCheck1 = false;
+        ReadPegCheck(PEG_DB_CHECK1, fPegCheck1);
+        
         int nPegStartHeightStored = 0;
         pegdb.ReadPegStartHeight(nPegStartHeightStored);
-        if (nPegStartHeightStored != nPegStartHeight) {
+        if (nPegStartHeightStored != nPegStartHeight || !fPegCheck1) {
             // reprocess from nPegStartHeight
 
+            if (!TxnBegin())
+                return error("LoadBlockIndex() : TxnBegin failed");
+            
             if (!pegdb.TxnBegin())
                 return error("LoadBlockIndex() : peg TxnBegin failed");
 
@@ -652,6 +647,11 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
 
                 if (pblockindex->nHeight % 100 == 0) {
                     load_msg(std::string(" process peg fractions: ")+std::to_string(pblockindex->nHeight));
+
+                    if (!TxnCommit())
+                        return error("LoadBlockIndex() : TxnCommit failed");
+                    if (!TxnBegin())
+                        return error("LoadBlockIndex() : TxnBegin failed");
                     
                     if (!pegdb.TxnCommit())
                         return error("LoadBlockIndex() : peg TxnCommit failed");
@@ -659,9 +659,13 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                         return error("LoadBlockIndex() : peg TxnBegin failed");
                 }
 
-                // calc votes per block
-                block.ReadFromDisk(pblockindex, true);
-
+                // at very beginning have peg supply index
+                if (!CalculateBlockPegIndex(pblockindex))
+                    return error("CalculateBlockPegIndex() : failed supply index computation");
+                
+                if (!block.ReadFromDisk(pblockindex, true))
+                    return error("ReadFromDisk() : block read failed");
+                
                 int idx = 0;
                 CFractions feesFractions;
                 for(CTransaction& tx : block.vtx) {
@@ -760,8 +764,17 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     }
                 }
 
+                if (!CalculateBlockPegVotes(block, pblockindex, pegdb))
+                    return error("CalculateBlockPegVotes() : failed");
+                
+                if (!WriteBlockIndex(CDiskBlockIndex(pblockindex)))
+                    return error("WriteBlockIndex() : write failed");
+                
                 pblockindex = pblockindex->pnext;
             }
+            
+            if (!WritePegCheck(PEG_DB_CHECK1, true))
+                return error("WritePegCheck() : flag write failed");
 
             if (!pegdb.WritePegStartHeight(nPegStartHeight))
                 return error("WritePegStartHeight() : peg start write failed");
@@ -771,9 +784,11 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
             
             if (!pegdb.TxnCommit())
                 return error("LoadBlockIndex() : peg TxnCommit failed");
+            
+            if (!TxnCommit())
+                return error("LoadBlockIndex() : TxnCommit failed");
         }
     }
-
 
     return true;
 }

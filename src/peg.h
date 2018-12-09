@@ -41,7 +41,8 @@ enum
     PEG_MAKETX_FREEZE_VALUE = 5590,
     PEG_MAKETX_VFREEZE_VALUE= 5590,
     PEG_MAKETX_FEE_INP_OUT  = 5000,
-    PEG_MAKETX_VOTE_VALUE   = 5554
+    PEG_MAKETX_VOTE_VALUE   = 5554,
+    PEG_DB_CHECK1           = 1         // testnet: fix for votes calculation
 };
 
 enum PegTxType {
@@ -125,9 +126,6 @@ struct FrozenTxOut {
 bool ReadWhitelistInfo();
 bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb,
                                  LoadMsg load_msg);
-bool CalculateVotesForPeg(CTxDB & ctxdb,
-                          CPegDB& pegdb,
-                          LoadMsg load_msg);
 bool CalculateBlockPegIndex(CBlockIndex* pindex);
 bool CalculateBlockPegVotes(const CBlock & cblock,
                             CBlockIndex* pindex,

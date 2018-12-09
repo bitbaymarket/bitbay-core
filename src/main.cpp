@@ -1696,9 +1696,21 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         int64_t nDemoSubsidy = 0;
         int64_t nCalculatedStakeReward = GetProofOfStakeReward(
                     pindex->pprev, nCoinAge, nFees, mapInputsFractions[fkey], nDemoSubsidy);
+        int64_t nCalculatedStakeRewardWithoutFee = GetProofOfStakeReward(
+                    pindex->pprev, nCoinAge, 0 /*nFees*/, mapInputsFractions[fkey], nDemoSubsidy);
 
         if (nStakeReward > nCalculatedStakeReward)
             return DoS(100, error("ConnectBlock() : coinstake pays too much(actual=%d vs calculated=%d)", nStakeReward, nCalculatedStakeReward));
+
+        string sPegFailCause;
+        vector<int> vOutputsTypes;
+        if (!CalculateStakingFractions(vtx[1], pindex,
+                                       mapInputs, mapInputsFractions,
+                                       mapQueuedChanges, mapQueuedFractionsChanges,
+                                       feesFractions, nCalculatedStakeRewardWithoutFee,
+                                       vOutputsTypes, sPegFailCause)) {
+            return DoS(100, error("ConnectBlock() : fail on calculations of stake fractions (cause=%s)", sPegFailCause.c_str()));
+        }
     }
 
     // ppcoin: track money supply and mint amount info

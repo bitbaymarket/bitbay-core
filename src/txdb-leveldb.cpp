@@ -666,7 +666,6 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                 if (!block.ReadFromDisk(pblockindex, true))
                     return error("ReadFromDisk() : block read failed");
                 
-                int idx = 0;
                 CFractions feesFractions;
                 for(CTransaction& tx : block.vtx) {
 
@@ -703,8 +702,6 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                         if (!pegdb.Write((*mi).first, (*mi).second))
                             return error("LoadBlockIndex() : pegdb Write failed");
                     }
-
-                    idx++;
                 }
 
                 if (block.vtx.size() >1 && block.vtx[1].IsCoinStake()) {

@@ -526,22 +526,24 @@ void TxDetailsWidget::openTx(CTransaction & tx,
                 inpStake = mapInputsFractions[fkey];
             }
         }
+        
+        int64_t nMined = nValueOut - nValueIn - nFeesValue;
 
         QStringList rowMined;
         rowMined << "Mined"; // idx, 0
         rowMined << "";      // tx, 1
         rowMined << "N/A";   // address, 2
-        rowMined << displayValue(nValueOut - nValueIn);
+        rowMined << displayValue(nMined);
 
         auto inputMined = new QTreeWidgetItem(rowMined);
         QVariant vfractions;
-        vfractions.setValue(CFractions(nValueOut - nValueIn, CFractions::STD));
+        vfractions.setValue(CFractions(nMined, CFractions::STD));
         inputMined->setData(COL_INP_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
         inputMined->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, peg_whitelisted
                             ? nSupply
                             : 0);
         inputMined->setData(COL_INP_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        inputMined->setData(COL_INP_VALUE, BlockchainModel::ValueForCopy, qlonglong(nValueOut - nValueIn));
+        inputMined->setData(COL_INP_VALUE, BlockchainModel::ValueForCopy, qlonglong(nMined));
         ui->txInputs->addTopLevelItem(inputMined);
 
         QStringList rowFees;

@@ -49,7 +49,7 @@ qint64 WalletModel::getBalance(const CCoinControl *coinControl) const
     {
         qint64 nBalance = 0;
         std::vector<COutput> vCoins;
-        wallet->AvailableCoins(vCoins, true, coinControl);
+        wallet->AvailableCoins(vCoins, true, true, coinControl);
         for(const COutput& out : vCoins) {
             if(out.fSpendable) {
                 nBalance += out.tx->vout[out.i].nValue;
@@ -68,7 +68,7 @@ qint64 WalletModel::getReserve(const CCoinControl *coinControl) const
     {
         qint64 nReserve = 0;
         std::vector<COutput> vCoins;
-        wallet->AvailableCoins(vCoins, true, coinControl);
+        wallet->AvailableCoins(vCoins, true, true, coinControl);
         for(const COutput& out : vCoins) {
             if(out.fSpendable && !out.IsFrozen(wallet->nLastBlockTime)) {
                 nReserve += out.tx->vOutFractions[out.i].Low(getPegSupplyIndex());
@@ -87,7 +87,7 @@ qint64 WalletModel::getLiquidity(const CCoinControl *coinControl) const
     {
         qint64 nLiquidity = 0;
         std::vector<COutput> vCoins;
-        wallet->AvailableCoins(vCoins, true, coinControl);
+        wallet->AvailableCoins(vCoins, true, true, coinControl);
         for(const COutput& out : vCoins) {
             if(out.fSpendable && !out.IsFrozen(wallet->nLastBlockTime)) {
                 nLiquidity += out.tx->vOutFractions[out.i].High(getPegSupplyIndex());
@@ -106,7 +106,7 @@ qint64 WalletModel::getFrozen(const CCoinControl *coinControl) const
     {
         qint64 nFrozen = 0;
         std::vector<COutput> vCoins;
-        wallet->AvailableCoins(vCoins, true, coinControl);
+        wallet->AvailableCoins(vCoins, true, true, coinControl);
         for(const COutput& out : vCoins) {
             if(out.fSpendable && out.IsFrozen(wallet->nLastBlockTime)) {
                 nFrozen += out.tx->vout[out.i].nValue;
@@ -627,7 +627,7 @@ void WalletModel::getOutputs(const std::vector<COutPoint>& vOutpoints, std::vect
 void WalletModel::listCoins(std::map<QString, std::vector<COutput> >& mapCoins) const
 {
     std::vector<COutput> vCoins;
-    wallet->AvailableCoins(vCoins);
+    wallet->AvailableCoins(vCoins, /*fOnlyConfirmed*/ true, /*fUseFrozenUnlocked*/ true, /*coinControl*/ NULL);
 
     LOCK2(cs_main, wallet->cs_wallet); // ListLockedCoins, mapWallet
 

@@ -1313,7 +1313,7 @@ int64_t CWallet::GetImmatureBalance() const
 }
 
 // populate vCoins with vector of available COutputs.
-void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const CCoinControl *coinControl) const
+void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, bool fUseFrozenUnlocked, const CCoinControl *coinControl) const
 {
     vCoins.clear();
 
@@ -1345,6 +1345,7 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                 (!coinControl || !coinControl->HasSelected() || coinControl->IsSelected((*it).first, i))) {
                     COutput cout(pcoin, i, nDepth, mine & MINE_SPENDABLE);
                     if (cout.IsFrozen(nLastBlockTime)) continue;
+                    if (cout.IsFrozenMark() && !fUseFrozenUnlocked) continue;
                     vCoins.push_back(cout);
                 }
             }
@@ -1875,15 +1876,23 @@ bool COutput::IsFrozen(unsigned int nLastBlockTime) const
     return fF || fV;
 }
 
+bool COutput::IsFrozenMark() const
+{
+    bool fF = tx->vOutFractions[i].nFlags & CFractions::NOTARY_F;
+    bool fV = tx->vOutFractions[i].nFlags & CFractions::NOTARY_V;
+    return fF || fV;
+}
+
 bool CWallet::SelectCoins(PegTxType txType,
                           int64_t nTargetValue, 
                           unsigned int nSpendTime, 
                           set<CSelectedCoin>& setCoinsRet, 
                           int64_t& nValueRet, 
+                          bool fUseFrozenUnlocked, 
                           const CCoinControl* coinControl) const
 {
     vector<COutput> vCoins;
-    AvailableCoins(vCoins, true, coinControl);
+    AvailableCoins(vCoins, true, fUseFrozenUnlocked, coinControl);
 
     // coin control -> return all selected outputs (we want all selected to go into the transaction for sure)
     if (coinControl && coinControl->HasSelected())
@@ -2069,8 +2078,13 @@ bool CWallet::CreateTransaction(PegTxType txType,
                 // Choose coins to use
                 set<CSelectedCoin> setCoins;
                 int64_t nValueIn = 0;
-                if (!SelectCoins(txType, nTotalValue, wtxNew.nTime, setCoins, nValueIn, coinControl))
-                    return false;
+                bool fUseFrozenUnlocked = false;
+                if (!SelectCoins(txType, nTotalValue, wtxNew.nTime, setCoins, nValueIn, fUseFrozenUnlocked, coinControl)) {
+                    fUseFrozenUnlocked = true;
+                    if (!SelectCoins(txType, nTotalValue, wtxNew.nTime, setCoins, nValueIn, fUseFrozenUnlocked, coinControl)) {
+                        return false;
+                    }
+                }
                 
                 nNumInputs = setCoins.size();
                 if (!nNumInputs) return false;

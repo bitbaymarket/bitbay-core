@@ -244,8 +244,8 @@ void CWallet::SetBestChain(const CBlockLocator& loc)
     {
         LOCK(cs_main);
         CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
-        if (pblockindex && pblockindex->nPegSupplyIndex != nLastPegSupplyIndex) {
-            nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
+        if (pblockindex && pblockindex->nPegSupplyIndex != nLastPegSupplyIndexToRecalc) {
+            nLastPegSupplyIndexToRecalc = pblockindex->nPegSupplyIndex;
             nLastBlockTime = pblockindex->nTime;
             MarkDirty();
         }

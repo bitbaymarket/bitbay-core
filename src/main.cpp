@@ -1429,7 +1429,7 @@ bool CTransaction::ConnectInputs(MapPrevTx inputs,
     }
 
     // Calculation of fractions is considered less expensive than
-    // signatures checks. For now it reports only about peg violations
+    // signatures checks. Same time collect all fees fractions.
     if (!IsCoinStake()) {
         string sPegFailCause;
         vector<int> vOutputsTypes;
@@ -1949,7 +1949,7 @@ bool CBlock::SetBestChain(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindexNew)
 
     // Update best block in wallet (so we can detect restored wallets)
     bool fIsInitialDownload = IsInitialBlockDownload();
-    if ((pindexNew->nHeight % 20160) == 0 || (!fIsInitialDownload && (pindexNew->nHeight % 144) == 0))
+    if ((pindexNew->nHeight % 20160) == 0 || (!fIsInitialDownload && (pindexNew->nHeight % 144) == 0) || (!fIsInitialDownload && (pindexNew->nHeight % PEG_INTERVAL_TESTNET1) == 0))
     {
         const CBlockLocator locator(pindexNew);
         g_signals.SetBestChain(locator);

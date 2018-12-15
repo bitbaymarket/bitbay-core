@@ -145,6 +145,7 @@ public:
     int64_t nTimeFirstKey;
     mutable uint256 nLastHashBestChain;
     mutable int nLastPegSupplyIndex = 0;
+    mutable int nLastPegSupplyIndexToRecalc = 0;
     mutable unsigned int nLastBlockTime = 0;
 
     // check whether we are allowed to upgrade (or already support) to the named feature

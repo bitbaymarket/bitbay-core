@@ -1282,6 +1282,22 @@ int64_t CWallet::GetFrozen() const
     return nTotal;
 }
 
+bool CWallet::GetRewardInfo(std::vector<RewardInfo> & rewardsInfo) const
+{
+    {
+        LOCK2(cs_main, cs_wallet);
+        for (map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
+        {
+            const CWalletTx* pcoin = &(*it).second;
+            if (pcoin->IsTrusted()) {
+                pcoin->GetRewardInfo(rewardsInfo);
+            }
+        }
+    }
+
+    return true;
+}
+
 int64_t CWallet::GetUnconfirmedBalance() const
 {
     int64_t nTotal = 0;

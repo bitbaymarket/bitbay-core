@@ -19,6 +19,7 @@ class COutPoint;
 class uint256;
 class CCoinControl;
 class CWalletTx;
+struct RewardInfo;
 
 QT_BEGIN_NAMESPACE
 class QTimer;
@@ -74,6 +75,7 @@ public:
     qint64 getStake() const;
     qint64 getUnconfirmedBalance() const;
     qint64 getImmatureBalance() const;
+    bool getRewardInfo(std::vector<RewardInfo> &) const;
     EncryptionStatus getEncryptionStatus() const;
 
     // Check address for validity
@@ -153,6 +155,7 @@ private:
     qint64 cachedImmatureBalance;
     EncryptionStatus cachedEncryptionStatus;
     int cachedNumBlocks;
+    std::vector<RewardInfo> cachedRewardsInfo;
 
     QTimer *pollTimer;
 
@@ -177,6 +180,11 @@ signals:
                         qint64 reserves, qint64 liquidity, qint64 frozen,
                         qint64 stake, qint64 unconfirmedBalance, qint64 immatureBalance);
 
+    // Signal that balance in wallet changed
+    void rewardsInfoChanged(qint64 reward5, qint64 reward10, qint64 reward20, qint64 reward40, 
+                            int count5, int count10, int count20, int count40,
+                            int stake5, int stake10, int stake20, int stake40);
+    
     // Encryption status of wallet changed
     void encryptionStatusChanged(int status);
 

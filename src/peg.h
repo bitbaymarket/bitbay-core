@@ -60,6 +60,14 @@ enum PegVoteType {
     PEG_VOTE_NOCHANGE   = 3
 };
 
+enum PegRewardType {
+    PEG_REWARD_5    = 0,
+    PEG_REWARD_10   = 1,
+    PEG_REWARD_20   = 2,
+    PEG_REWARD_40   = 3,
+    PEG_REWARD_LAST
+};
+
 extern std::string PEG_INFLATE_ADDR;
 extern std::string PEG_DEFLATE_ADDR;
 extern std::string PEG_NOCHANGE_ADDR;

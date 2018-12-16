@@ -119,6 +119,11 @@ qint64 WalletModel::getFrozen(const CCoinControl *coinControl) const
     return wallet->GetFrozen();
 }
 
+bool WalletModel::getRewardInfo(std::vector<RewardInfo> & vRewardInfo) const
+{
+    return wallet->GetRewardInfo(vRewardInfo);
+}
+
 qint64 WalletModel::getUnconfirmedBalance() const
 {
     return wallet->GetUnconfirmedBalance();
@@ -190,6 +195,43 @@ void WalletModel::checkBalanceChanged()
         emit balanceChanged(newBalance, 
                             newReserve, newLiquidity, newFrozen,
                             newStake, newUnconfirmedBalance, newImmatureBalance);
+    }
+    
+    vector<RewardInfo> vRewardsInfo;
+    vRewardsInfo.push_back({PEG_REWARD_5 ,0,0,0});
+    vRewardsInfo.push_back({PEG_REWARD_10,0,0,0});
+    vRewardsInfo.push_back({PEG_REWARD_20,0,0,0});
+    vRewardsInfo.push_back({PEG_REWARD_40,0,0,0});
+    getRewardInfo(vRewardsInfo);
+    
+    bool changed = false;
+    if (cachedRewardsInfo.size() != PEG_REWARD_LAST) {
+        cachedRewardsInfo = vRewardsInfo;
+        changed = true;
+    }
+    else {
+        for(int i=0; i<PEG_REWARD_LAST; i++) {
+            if (vRewardsInfo[i].amount != cachedRewardsInfo[i].amount) changed = true;
+            if (vRewardsInfo[i].count != cachedRewardsInfo[i].count) changed = true;
+            if (vRewardsInfo[i].stake != cachedRewardsInfo[i].stake) changed = true;
+        }
+    }
+    
+    if (changed) {
+        emit rewardsInfoChanged(vRewardsInfo[PEG_REWARD_5 ].amount,
+                                vRewardsInfo[PEG_REWARD_10].amount,
+                                vRewardsInfo[PEG_REWARD_20].amount,
+                                vRewardsInfo[PEG_REWARD_40].amount,
+                               
+                                vRewardsInfo[PEG_REWARD_5 ].count,
+                                vRewardsInfo[PEG_REWARD_10].count,
+                                vRewardsInfo[PEG_REWARD_20].count,
+                                vRewardsInfo[PEG_REWARD_40].count,
+                                
+                                vRewardsInfo[PEG_REWARD_5 ].stake,
+                                vRewardsInfo[PEG_REWARD_10].stake,
+                                vRewardsInfo[PEG_REWARD_20].stake,
+                                vRewardsInfo[PEG_REWARD_40].stake);
     }
 }
 

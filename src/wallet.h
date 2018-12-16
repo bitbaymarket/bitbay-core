@@ -74,6 +74,13 @@ public:
     )
 };
 
+struct RewardInfo {
+    PegRewardType type;
+    int64_t amount;
+    int count;
+    int stake;
+};
+
 /** A CWallet is an extension of a keystore, which also maintains a set of transactions and balances,
  * and provides the ability to create new transactions.
  */
@@ -219,6 +226,7 @@ public:
     int64_t GetStake() const;
     int64_t GetNewMint() const;
     int GetPegSupplyIndex() const;
+    bool GetRewardInfo(std::vector<RewardInfo> &) const;
     bool CreateTransaction(PegTxType txType, const std::vector<std::pair<CScript, int64_t> >& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey, int64_t& nFeeRet, const CCoinControl *coinControl=NULL, bool fTest=false);
     bool CreateTransaction(CScript scriptPubKey, int64_t nValue, CWalletTx& wtxNew, CReserveKey& reservekey, int64_t& nFeeRet, const CCoinControl *coinControl=NULL);
     bool CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);
@@ -435,20 +443,22 @@ public:
     int64_t nOrderPos;  // position in ordered transaction list
 
     // memory only
-    mutable bool fDebitCached;
-    mutable bool fCreditCached;
-    mutable bool fAvailableCreditCached;
-    mutable bool fAvailableFrozenCached;
-    mutable bool fAvailableReserveCached;
-    mutable bool fAvailableLiquidityCached;
-    mutable bool fChangeCached;
-    mutable int64_t nDebitCached;
-    mutable int64_t nCreditCached;
-    mutable int64_t nAvailableCreditCached;
-    mutable int64_t nAvailableFrozenCached;
-    mutable int64_t nAvailableReserveCached;
-    mutable int64_t nAvailableLiquidityCached;
-    mutable int64_t nChangeCached;
+    mutable bool fDebitCached               = false;
+    mutable bool fCreditCached              = false;
+    mutable bool fAvailableCreditCached     = false;
+    mutable bool fAvailableFrozenCached     = false;
+    mutable bool fAvailableReserveCached    = false;
+    mutable bool fAvailableLiquidityCached  = false;
+    mutable bool fChangeCached              = false;
+    mutable bool fRewardsInfoChached        = false;
+    mutable int64_t nDebitCached                = 0;
+    mutable int64_t nCreditCached               = 0;
+    mutable int64_t nAvailableCreditCached      = 0;
+    mutable int64_t nAvailableFrozenCached      = 0;
+    mutable int64_t nAvailableReserveCached     = 0;
+    mutable int64_t nAvailableLiquidityCached   = 0;
+    mutable int64_t nChangeCached               = 0;
+    mutable std::vector<RewardInfo> vRewardsInfoCached;
 
     CWalletTx()
     {
@@ -482,21 +492,12 @@ public:
         fFromMe = false;
         strFromAccount.clear();
         vfSpent.clear();
-        fDebitCached = false;
-        fCreditCached = false;
-        fAvailableCreditCached = false;
-        fAvailableFrozenCached = false;
-        fAvailableReserveCached = false;
-        fAvailableLiquidityCached = false;
-        fChangeCached = false;
-        nDebitCached = 0;
-        nCreditCached = 0;
-        nAvailableCreditCached = 0;
-        nAvailableFrozenCached = 0;
-        nAvailableReserveCached = 0;
-        nAvailableLiquidityCached = 0;
-        nChangeCached = 0;
         nOrderPos = -1;
+        vRewardsInfoCached.clear();
+        vRewardsInfoCached.push_back({PEG_REWARD_5 ,0,0,0});
+        vRewardsInfoCached.push_back({PEG_REWARD_10,0,0,0});
+        vRewardsInfoCached.push_back({PEG_REWARD_20,0,0,0});
+        vRewardsInfoCached.push_back({PEG_REWARD_40,0,0,0});
     }
 
     IMPLEMENT_SERIALIZE
@@ -574,6 +575,7 @@ public:
                 fAvailableFrozenCached = false;
                 fAvailableReserveCached = false;
                 fAvailableLiquidityCached = false;
+                fRewardsInfoChached = false;
             }
         }
         return fReturn;
@@ -589,6 +591,7 @@ public:
         fAvailableLiquidityCached = false;
         fDebitCached = false;
         fChangeCached = false;
+        fRewardsInfoChached = false;
     }
 
     void BindWallet(CWallet *pwalletIn)
@@ -609,6 +612,7 @@ public:
             fAvailableFrozenCached = false;
             fAvailableReserveCached = false;
             fAvailableLiquidityCached = false;
+            fRewardsInfoChached = false;
         }
     }
 
@@ -624,6 +628,7 @@ public:
             fAvailableFrozenCached = false;
             fAvailableReserveCached = false;
             fAvailableLiquidityCached = false;
+            fRewardsInfoChached = false;
         }
     }
 
@@ -769,6 +774,71 @@ public:
         nAvailableFrozenCached = nFrozen;
         fAvailableFrozenCached = true;
         return nFrozen;
+    }
+    
+    bool GetRewardInfo(std::vector<RewardInfo> & vRewardsInfo, bool fUseCache=true) const
+    {
+        if (vRewardsInfo.size() != PEG_REWARD_LAST)
+            return false;
+        
+        if (fUseCache && fRewardsInfoChached) {
+            for(int i=0; i< PEG_REWARD_LAST; i++) {
+                vRewardsInfo[i].count += vRewardsInfoCached[i].count;
+                vRewardsInfo[i].stake += vRewardsInfoCached[i].stake;
+                vRewardsInfo[i].amount += vRewardsInfoCached[i].amount;
+            }
+            return true;
+        }
+
+        // clean-up
+        for(int i=0; i< PEG_REWARD_LAST; i++) {
+            vRewardsInfoCached[i].count  = 0;
+            vRewardsInfoCached[i].stake  = 0;
+            vRewardsInfoCached[i].amount = 0;
+        }
+        int nSupply = pwallet->nLastPegSupplyIndex;
+        for (unsigned int i = 0; i < vout.size(); i++)
+        {
+            if (!IsSpent(i))
+            {
+                const CTxOut &txout = vout[i];
+                if (pwallet->IsMine(txout)) {
+                    bool fStake = IsCoinStake() && GetBlocksToMaturity() > 0 && GetDepthInMainChain() > 0;
+                        
+                    if (vOutFractions[i].nFlags & CFractions::NOTARY_V) {
+                        vRewardsInfoCached[PEG_REWARD_40].count++;
+                        vRewardsInfoCached[PEG_REWARD_40].amount += txout.nValue;
+                        if (fStake) vRewardsInfoCached[PEG_REWARD_40].stake++;
+                    }
+                    else if (vOutFractions[i].nFlags & CFractions::NOTARY_F) {
+                        vRewardsInfoCached[PEG_REWARD_20].count++;
+                        vRewardsInfoCached[PEG_REWARD_20].amount += txout.nValue;
+                        if (fStake) vRewardsInfoCached[PEG_REWARD_20].stake++;
+                    }
+                    else {
+                        int64_t reserve = vOutFractions[i].Low(nSupply);
+                        int64_t liquidity = vOutFractions[i].High(nSupply);
+                        if (liquidity < reserve) {
+                            vRewardsInfoCached[PEG_REWARD_10].count++;
+                            vRewardsInfoCached[PEG_REWARD_10].amount += txout.nValue;
+                            if (fStake) vRewardsInfoCached[PEG_REWARD_10].stake++;
+                        } else {
+                            vRewardsInfoCached[PEG_REWARD_5].count++;
+                            vRewardsInfoCached[PEG_REWARD_5].amount += txout.nValue;
+                            if (fStake) vRewardsInfoCached[PEG_REWARD_5].stake++;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // ready
+        for(int i=0; i< PEG_REWARD_LAST; i++) {
+            vRewardsInfo[i].count += vRewardsInfoCached[i].count;
+            vRewardsInfo[i].stake += vRewardsInfoCached[i].stake;
+            vRewardsInfo[i].amount += vRewardsInfoCached[i].amount;
+        }
+        return true;
     }
 
     int64_t GetChange() const

@@ -11,6 +11,9 @@
 #include "txdb.h"
 #include "peg.h"
 #include "guiutil.h"
+#include "walletmodel.h"
+#include "optionsmodel.h"
+#include "bitcoinunits.h"
 
 #include <QMenu>
 #include <QTime>
@@ -40,6 +43,45 @@ StakingPage::StakingPage(QWidget *parent) :
 
     ui->labelTitle->setFont(hfont);
     setStyleSheet("QRadioButton { background: none; }");
+    
+    ui->labelRewards->setFont(hfont);
+    QString header2 = R"(
+        QWidget {
+            padding-bottom:25px;
+        }
+    )";
+    ui->labelRewards->setStyleSheet(header2);
+    
+    QString white1 = R"(
+        QWidget {
+            background-color: rgb(255,255,255);
+            padding-left: 10px;
+            padding-right:10px;
+        }
+    )";
+    QString white2 = R"(
+        QWidget {
+            color: rgb(102,102,102);
+            background-color: rgb(255,255,255);
+            padding-left: 10px;
+            padding-right:10px;
+        }
+    )";
+
+    ui->label5Text      ->setStyleSheet(white2);
+    ui->label10Text     ->setStyleSheet(white2);
+    ui->label20Text     ->setStyleSheet(white2);
+    ui->label40Text     ->setStyleSheet(white2);
+
+    ui->label5Count     ->setStyleSheet(white1);
+    ui->label10Count    ->setStyleSheet(white1);
+    ui->label20Count    ->setStyleSheet(white1);
+    ui->label40Count    ->setStyleSheet(white1);
+    
+    ui->label5Amount    ->setStyleSheet(white1);
+    ui->label10Amount   ->setStyleSheet(white1);
+    ui->label20Amount   ->setStyleSheet(white1);
+    ui->label40Amount   ->setStyleSheet(white1);
     
     pollTimer = new QTimer(this);
     pollTimer->setInterval(30*1000);
@@ -132,3 +174,111 @@ void StakingPage::updatePegVoteType()
         pwalletMain->SetPegVoteType(PEG_VOTE_NOCHANGE);
     }
 }
+
+void StakingPage::setWalletModel(WalletModel *model)
+{
+    this->walletModel = model;
+    if(model && model->getOptionsModel())
+    {
+        vector<RewardInfo> vRewardsInfo;
+        vRewardsInfo.push_back({PEG_REWARD_5 ,0,0,0});
+        vRewardsInfo.push_back({PEG_REWARD_10,0,0,0});
+        vRewardsInfo.push_back({PEG_REWARD_20,0,0,0});
+        vRewardsInfo.push_back({PEG_REWARD_40,0,0,0});
+        model->getRewardInfo(vRewardsInfo);
+        
+        // Keep up to date with wallet
+        setAmounts(vRewardsInfo[PEG_REWARD_5 ].amount,
+                   vRewardsInfo[PEG_REWARD_10].amount,
+                   vRewardsInfo[PEG_REWARD_20].amount,
+                   vRewardsInfo[PEG_REWARD_40].amount,
+                   
+                   vRewardsInfo[PEG_REWARD_5 ].count,
+                   vRewardsInfo[PEG_REWARD_10].count,
+                   vRewardsInfo[PEG_REWARD_20].count,
+                   vRewardsInfo[PEG_REWARD_40].count,
+                   
+                   vRewardsInfo[PEG_REWARD_5 ].stake,
+                   vRewardsInfo[PEG_REWARD_10].stake,
+                   vRewardsInfo[PEG_REWARD_20].stake,
+                   vRewardsInfo[PEG_REWARD_40].stake);
+        connect(model, SIGNAL(rewardsInfoChanged(qint64,qint64,qint64,qint64, int,int,int,int, int,int,int,int)), 
+                this, SLOT(setAmounts(qint64,qint64,qint64,qint64, int,int,int,int, int,int,int,int)));
+
+        connect(model->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
+    }
+
+    // update the display unit, to not use the default ("BTC")
+    updateDisplayUnit();
+}
+
+void StakingPage::updateDisplayUnit()
+{
+    if(walletModel && walletModel->getOptionsModel())
+    {
+        vector<RewardInfo> vRewardsInfo;
+        vRewardsInfo.push_back({PEG_REWARD_5 ,0,0,0});
+        vRewardsInfo.push_back({PEG_REWARD_10,0,0,0});
+        vRewardsInfo.push_back({PEG_REWARD_20,0,0,0});
+        vRewardsInfo.push_back({PEG_REWARD_40,0,0,0});
+        walletModel->getRewardInfo(vRewardsInfo);
+        
+        setAmounts(vRewardsInfo[PEG_REWARD_5 ].amount,
+                   vRewardsInfo[PEG_REWARD_10].amount,
+                   vRewardsInfo[PEG_REWARD_20].amount,
+                   vRewardsInfo[PEG_REWARD_40].amount,
+                   
+                   vRewardsInfo[PEG_REWARD_5 ].count,
+                   vRewardsInfo[PEG_REWARD_10].count,
+                   vRewardsInfo[PEG_REWARD_20].count,
+                   vRewardsInfo[PEG_REWARD_40].count,
+                   
+                   vRewardsInfo[PEG_REWARD_5 ].stake,
+                   vRewardsInfo[PEG_REWARD_10].stake,
+                   vRewardsInfo[PEG_REWARD_20].stake,
+                   vRewardsInfo[PEG_REWARD_40].stake);
+    }
+}
+
+void StakingPage::setAmounts(qint64 reward5, qint64 reward10, qint64 reward20, qint64 reward40, 
+                             int count5, int count10, int count20, int count40,
+                             int stake5, int stake10, int stake20, int stake40)
+{
+    int unit = walletModel->getOptionsModel()->getDisplayUnit();
+    
+    current5Amount  = reward5;
+    current10Amount = reward10;
+    current20Amount = reward20;
+    current40Amount = reward40;
+
+    current5Count  = count5;
+    current10Count = count10;
+    current20Count = count20;
+    current40Count = count40;
+
+    current5Stake  = stake5;
+    current10Stake = stake10;
+    current20Stake = stake20;
+    current40Stake = stake40;
+    
+    ui->label5Amount->setText(BitcoinUnits::formatWithUnitForLabel(unit, reward5));
+    ui->label5Count->setText(tr("(%1)").arg(count5));
+    if (stake5)
+        ui->label5Count->setText(tr("(%1/%2)").arg(stake5).arg(count5));
+    
+    ui->label10Amount->setText(BitcoinUnits::formatWithUnitForLabel(unit, reward10));
+    ui->label10Count->setText(tr("(%1)").arg(count10));
+    if (stake10)
+        ui->label10Count->setText(tr("(%1/%2)").arg(stake10).arg(count10));
+    
+    ui->label20Amount->setText(BitcoinUnits::formatWithUnitForLabel(unit, reward20));
+    ui->label20Count->setText(tr("(%1)").arg(count20));
+    if (stake20)
+        ui->label20Count->setText(tr("(%1/%2)").arg(stake20).arg(count20));
+    
+    ui->label40Amount->setText(BitcoinUnits::formatWithUnitForLabel(unit, reward40));
+    ui->label40Count->setText(tr("(%1)").arg(count40));
+    if (stake40)
+        ui->label40Count->setText(tr("(%1/%2)").arg(stake40).arg(count40));
+}
+

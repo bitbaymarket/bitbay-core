@@ -2660,9 +2660,21 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
 
         nCredit += nReward;
     }
-
+    
+    vector<RewardInfo> vRewardsInfo;
+    vRewardsInfo.push_back({PEG_REWARD_5 ,0,0,0});
+    vRewardsInfo.push_back({PEG_REWARD_10,0,0,0});
+    vRewardsInfo.push_back({PEG_REWARD_20,0,0,0});
+    vRewardsInfo.push_back({PEG_REWARD_40,0,0,0});
+    
+    GetRewardInfo(vRewardsInfo);
+    int nOutCount = 0;
+    for(size_t i=0; i<vRewardsInfo.size(); i++) {
+        nOutCount += vRewardsInfo[i].count;
+    }
+    
     // The stake split is disabled if input has frozen marks, 
-    if (nCredit >= GetStakeSplitThreshold() && !fInputIsFrozen) {
+    if (nCredit >= GetStakeSplitThreshold() && !fInputIsFrozen && nOutCount < PEG_STAKE_SPLIT_NOUTS) {
         txNew.vout.push_back(CTxOut(0, txNew.vout[1].scriptPubKey)); //split stake
         txNew.vout[1].nValue = (nCredit / 2 / CENT) * CENT;
         txNew.vout[2].nValue = nCredit - txNew.vout[1].nValue;

@@ -68,6 +68,8 @@ StakingPage::StakingPage(QWidget *parent) :
     )";
 
     ui->labelRewards->setStyleSheet(white1);
+    ui->labelSplit->setStyleSheet(white1);
+    ui->labelSplitValue->setStyleSheet(white1);
     
     ui->label5Text      ->setStyleSheet(white2);
     ui->label10Text     ->setStyleSheet(white2);

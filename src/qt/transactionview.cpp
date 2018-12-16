@@ -47,9 +47,9 @@ TransactionView::TransactionView(QWidget *parent) :
     dateWidget = new QComboBox(this);
     dateWidget->setItemDelegate(new QStyledItemDelegate());
 #ifdef Q_OS_MAC
-    dateWidget->setFixedWidth(121);
+    dateWidget->setFixedWidth(181);
 #else
-    dateWidget->setFixedWidth(120);
+    dateWidget->setFixedWidth(180);
 #endif
     dateWidget->addItem(tr("All"), All);
     dateWidget->addItem(tr("Today"), Today);
@@ -177,7 +177,7 @@ void TransactionView::setModel(WalletModel *model)
         transactionView->verticalHeader()->hide();
 
         transactionView->horizontalHeader()->resizeSection(TransactionTableModel::Status, 23);
-        transactionView->horizontalHeader()->resizeSection(TransactionTableModel::Date, 120);
+        transactionView->horizontalHeader()->resizeSection(TransactionTableModel::Date, 180);
         transactionView->horizontalHeader()->resizeSection(TransactionTableModel::Type, 120);
         transactionView->horizontalHeader()->setResizeMode(TransactionTableModel::ToAddress, QHeaderView::Stretch);
         transactionView->horizontalHeader()->resizeSection(TransactionTableModel::Amount, 120);

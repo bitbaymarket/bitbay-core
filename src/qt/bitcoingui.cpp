@@ -829,7 +829,7 @@ void BitcoinGUI::updatePegInfo1Label()
     int peg_start = clientModel->getPegStartBlockNum();
     int votes_inflate, votes_deflate, votes_nochange;
     boost::tie(votes_inflate, votes_deflate, votes_nochange) = clientModel->getPegVotes();
-    lastBlockPegSupplyLabel->setText(tr("Peg supply index: %1, peg started: %2, peg votes:[%3,%4,%5]")
+    lastBlockPegSupplyLabel->setText(tr("Peg supply index: %1, peg started: %2, peg votes:[%3I,%4D,%5N]")
                                      .arg(clientModel->getPegSupplyIndex())
                                      .arg(peg_start >0 
                                           ? QString::number(peg_start)

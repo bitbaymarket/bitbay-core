@@ -342,6 +342,7 @@ void BlockchainPage::openBlock(uint256 hash)
     }
     ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Next",nbhash})));
     ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Previous",pbhash})));
+    ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"ChainTrust",QString::fromStdString(pblockindex->nChainTrust.ToString())})));
 
     CBlock block;
     block.ReadFromDisk(pblockindex, true);

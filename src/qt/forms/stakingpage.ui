@@ -313,7 +313,7 @@
             <item row="0" column="0" colspan="3">
              <widget class="QLabel" name="labelRewards">
               <property name="text">
-               <string>Rewards:</string>
+               <string>STAKE INPUTS</string>
               </property>
              </widget>
             </item>

@@ -25,7 +25,9 @@ void CTxMemPool::AddTransactionsUpdated(unsigned int n)
     nTransactionsUpdated += n;
 }
 
-bool CTxMemPool::addUnchecked(const uint256& hash, CTransaction &tx)
+bool CTxMemPool::addUnchecked(const uint256& hash, 
+                              CTransaction &tx, 
+                              MapFractions& mapFractions)
 {
     // Add to memory pool without checking anything.
     // Used by main.cpp AcceptToMemoryPool(), which DOES do
@@ -36,6 +38,13 @@ bool CTxMemPool::addUnchecked(const uint256& hash, CTransaction &tx)
         for (unsigned int i = 0; i < tx.vin.size(); i++)
             mapNextTx[tx.vin[i].prevout] = CInPoint(&mapTx[hash], i);
         nTransactionsUpdated++;
+        // store fractions
+        for (MapFractions::iterator mi = mapFractions.begin(); mi != mapFractions.end(); ++mi)
+        {
+            CDataStream fout(SER_DISK, CLIENT_VERSION);
+            (*mi).second.Pack(fout);
+            mapPackedFractions[(*mi).first] = fout.str();
+        }
     }
     return true;
 }
@@ -55,8 +64,13 @@ bool CTxMemPool::remove(const CTransaction &tx, bool fRecursive)
                         remove(*it->second.ptx, true);
                 }
             }
-            BOOST_FOREACH(const CTxIn& txin, tx.vin)
+            for(const CTxIn& txin : tx.vin) {
                 mapNextTx.erase(txin.prevout);
+            }
+            for(size_t i=0; i<tx.vout.size(); i++) {
+                auto fkey = uint320(hash, i);
+                mapPackedFractions.erase(fkey);
+            }
             mapTx.erase(hash);
             nTransactionsUpdated++;
         }
@@ -97,11 +111,22 @@ void CTxMemPool::queryHashes(std::vector<uint256>& vtxid)
         vtxid.push_back((*mi).first);
 }
 
-bool CTxMemPool::lookup(uint256 hash, CTransaction& result) const
+bool CTxMemPool::lookup(uint256 hash, CTransaction& result, MapFractions& mapFractions) const
 {
     LOCK(cs);
-    std::map<uint256, CTransaction>::const_iterator i = mapTx.find(hash);
-    if (i == mapTx.end()) return false;
-    result = i->second;
+    std::map<uint256, CTransaction>::const_iterator it = mapTx.find(hash);
+    if (it == mapTx.end()) return false;
+    result = it->second;
+    for(size_t i=0; i<result.vout.size(); i++) {
+        auto fkey = uint320(hash, i);
+        if (!mapPackedFractions.count(fkey)) 
+            return false;
+        string strValue = mapPackedFractions.at(fkey);
+        CFractions f(result.vout[i].nValue, CFractions::STD);
+        CDataStream finp(strValue.data(), strValue.data() + strValue.size(),
+                         SER_DISK, CLIENT_VERSION);
+        f.Unpack(finp);
+        mapFractions[fkey] = f;
+    }
     return true;
 }

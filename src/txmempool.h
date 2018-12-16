@@ -7,6 +7,7 @@
 
 #include "core.h"
 #include "sync.h"
+#include "peg.h"
 
 /*
  * CTxMemPool stores valid-according-to-the-current-best-chain
@@ -27,10 +28,11 @@ public:
     mutable CCriticalSection cs;
     std::map<uint256, CTransaction> mapTx;
     std::map<COutPoint, CInPoint> mapNextTx;
+    std::map<uint320, std::string> mapPackedFractions;
 
     CTxMemPool();
 
-    bool addUnchecked(const uint256& hash, CTransaction &tx);
+    bool addUnchecked(const uint256& hash, CTransaction &tx, MapFractions&);
     bool remove(const CTransaction &tx, bool fRecursive = false);
     bool removeConflicts(const CTransaction &tx);
     void clear();
@@ -50,7 +52,7 @@ public:
         return (mapTx.count(hash) != 0);
     }
 
-    bool lookup(uint256 hash, CTransaction& result) const;
+    bool lookup(uint256 hash, CTransaction& result, MapFractions&) const;
 };
 
 #endif /* BITCOIN_TXMEMPOOL_H */

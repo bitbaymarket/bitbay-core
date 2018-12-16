@@ -759,7 +759,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool,
     }
 
     // Store transaction in memory
-    pool.addUnchecked(hash, tx);
+    pool.addUnchecked(hash, tx, mapOutputsFractions);
 
     SyncWithWallets(tx, NULL, true, mapOutputsFractions);
 
@@ -895,7 +895,8 @@ bool GetTransaction(const uint256 &hash, CTransaction &tx, uint256 &hashBlock)
     {
         LOCK(cs_main);
         {
-            if (mempool.lookup(hash, tx))
+            MapFractions mapFractions;
+            if (mempool.lookup(hash, tx, mapFractions))
             {
                 return true;
             }
@@ -1281,14 +1282,10 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
         if (!fFound || txindex.pos == CDiskTxPos(1,1,1))
         {
             // Get prev tx from single transactions in memory
-            if (!mempool.lookup(prevout.hash, txPrev))
+            if (!mempool.lookup(prevout.hash, txPrev, finputsRet))
                 return error("FetchInputs() : %s mempool Tx prev not found %s", GetHash().ToString(),  prevout.hash.ToString());
             if (!fFound)
                 txindex.vSpent.resize(txPrev.vout.size());
-
-            //todo:peg:case when new mempool tx rely on outputs of tx in mempool
-            //todo:peg:reveal fractions via mempool, this is case for call from AcceptToMemoryPool
-            //todo:peg:if peg violated here, then error so tx is not accepted
         }
         else
         {
@@ -1313,16 +1310,21 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
             return DoS(100, error("FetchInputs() : %s prevout.n out of range %d %u %u prev tx %s\n%s", GetHash().ToString(), prevout.n, txPrev.vout.size(), txindex.vSpent.size(), prevout.hash.ToString(), txPrev.ToString()));
         }
         // Read previous fractions
-        CFractions& fractions = finputsRet[uint320(prevout.hash, prevout.n)];
-        if ((fBlock || fMiner) && mapTestFractionsPool.count(uint320(prevout.hash, prevout.n)))
+        auto fkey = uint320(prevout.hash, prevout.n);
+        if (finputsRet.count(fkey)) {
+            // Already filled from mempool
+            continue;
+        }
+        CFractions& fractions = finputsRet[fkey];
+        if ((fBlock || fMiner) && mapTestFractionsPool.count(fkey))
         {
             // Get fractions from current proposed changes
-            fractions = mapTestFractionsPool.find(uint320(prevout.hash, prevout.n))->second;
+            fractions = mapTestFractionsPool.find(fkey)->second;
         }
         else {
             //peg:todo: not to read before peg start, expensive to know tx height?
             fractions = CFractions(txPrev.vout[prevout.n].nValue, CFractions::VALUE);
-            if (!pegdb.Read(uint320(prevout.hash, prevout.n), fractions)) {
+            if (!pegdb.Read(fkey, fractions)) {
                 PegError("FetchInputs() : %s pegdb.Read/Unpack prev tx fractions %s failed", GetHash().ToString(),  prevout.hash.ToString());
                 //return DoS?
             }
@@ -3054,7 +3056,8 @@ void static ProcessGetData(CNode* pfrom)
                 }
                 if (!pushed && inv.type == MSG_TX) {
                     CTransaction tx;
-                    if (mempool.lookup(inv.hash, tx)) {
+                    MapFractions mf;
+                    if (mempool.lookup(inv.hash, tx, mf)) {
                         CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
                         ss.reserve(1000);
                         ss << tx;

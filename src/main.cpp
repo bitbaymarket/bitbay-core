@@ -1325,8 +1325,8 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
             //peg:todo: not to read before peg start, expensive to know tx height?
             fractions = CFractions(txPrev.vout[prevout.n].nValue, CFractions::VALUE);
             if (!pegdb.Read(fkey, fractions)) {
-                PegError("FetchInputs() : %s pegdb.Read/Unpack prev tx fractions %s failed", GetHash().ToString(),  prevout.hash.ToString());
-                //return DoS?
+                // pegdb Read can fail on Unpack
+                DoS(100, error("FetchInputs() : %s pegdb.Read/Unpack prev tx fractions %s failed", GetHash().ToString(),  prevout.hash.ToString()));
             }
         }
     }

@@ -177,30 +177,4 @@ bool CalculateStakingFractions(const CTransaction & tx,
                                std::vector<int>& vOutputsTypes,
                                std::string& sPegFailCause);
 
-#define PegFail(...) PegReport(__VA_ARGS__)
-#define PegReportf(...) PegReport(__VA_ARGS__)
-bool PegReport(const char* format);
-
-int PegPrintStr(const std::string &str);
-
-/* When we switch to C++11, this can be switched to variadic templates instead
- * of this macro-based construction (see tinyformat.h).
- */
-#define MAKE_PEG_LOG_FUNC(n)                                        \
-    /*   Log peg error and return false */                                        \
-    template<TINYFORMAT_ARGTYPES(n)>                                          \
-    static inline bool PegError(const char* format, TINYFORMAT_VARARGS(n))                     \
-    {                                                                         \
-        PegPrintStr("ERROR: " + tfm::format(format, TINYFORMAT_PASSARGS(n)) + "\n"); \
-        return false;                                                         \
-    }
-
-TINYFORMAT_FOREACH_ARGNUM(MAKE_PEG_LOG_FUNC)
-
-//static inline bool PegError(const char* format)
-//{
-//    PegPrintStr(std::string("ERROR: ") + format + "\n");
-//    return false;
-//}
-
 #endif

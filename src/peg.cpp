@@ -773,20 +773,6 @@ CFractions& CFractions::operator-=(const CFractions& b)
     return *this;
 }
 
-// temp:peg reporting
-
-bool PegReport(const char* format)
-{
-    LogPrintStr(std::string("ERROR: ") + format + "\n");
-    return false;
-}
-
-int PegPrintStr(const std::string &str)
-{
-    LogPrintStr("PEG:"+str);
-    return 0;
-}
-
 static string toAddress(const CScript& scriptPubKey,
                         bool* ptrIsNotary = nullptr,
                         string* ptrNotary = nullptr) {

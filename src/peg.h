@@ -44,7 +44,8 @@ enum
     PEG_MAKETX_FEE_INP_OUT  = 5000,
     PEG_MAKETX_VOTE_VALUE   = 5554,
     PEG_STAKE_SPLIT_NOUTS   = 400,
-    PEG_DB_CHECK1           = 1         // testnet: fix for votes calculation
+    PEG_DB_CHECK1           = 1,         // testnet: fix for votes calculation
+    PEG_DB_CHECK2           = 2          // testnet: fix for stake liquidity calculation
 };
 
 enum PegTxType {

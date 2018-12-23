@@ -1391,7 +1391,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
     map<string, CFractions> poolLiquidity;
 
     int nSupply = pindexBlock->nPegSupplyIndex;
-    set<string> setInputAddresses;
+    string sInputAddress;
     CFractions frInp(0, CFractions::STD);
     
     // only one input
@@ -1407,7 +1407,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
         int64_t nValue = txPrev.vout[prevout.n].nValue;
         nValueIn += nValue;
         auto sAddress = toAddress(txPrev.vout[prevout.n].scriptPubKey);
-        setInputAddresses.insert(sAddress);
+        sInputAddress = sAddress;
 
         auto fkey = uint320(prevout.hash, prevout.n);
         if (fInputs.find(fkey) == fInputs.end()) {
@@ -1439,17 +1439,20 @@ bool CalculateStakingFractions(const CTransaction & tx,
     }
 
     CFractions fStakeReward(nCalculatedStakeRewardWithoutFees, CFractions::STD);
-    frCommonLiquidity += fStakeReward;
-    frCommonLiquidity += feesFractions;
-    nLiquidityTotal += nCalculatedStakeRewardWithoutFees;
-    nLiquidityTotal += feesFractions.Total();
+    
+    frCommonLiquidity += fStakeReward.HighPart(nSupply, &nLiquidityTotal);
+    frCommonLiquidity += feesFractions.HighPart(nSupply, &nLiquidityTotal);
+
+    auto & frInputReserve = poolReserves[sInputAddress];
+    frInputReserve += fStakeReward.LowPart(nSupply, &nReservesTotal);
+    frInputReserve += feesFractions.LowPart(nSupply, &nReservesTotal);
     
     // Reveal outs destination type
     for (unsigned int i = 0; i < n_vout; i++)
     {
         vOutputsTypes[i] = PEG_DEST_OUT;
         std::string sAddress = toAddress(tx.vout[i].scriptPubKey);
-        if (setInputAddresses.count(sAddress) >0) {
+        if (sInputAddress == sAddress) {
             vOutputsTypes[i] = PEG_DEST_SELF;
         }
     }
@@ -1475,7 +1478,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
         auto sAddress = toAddress(tx.vout[i].scriptPubKey, &fNotary, &sNotary);
 
         // for output returning on same address and greater or equal value
-        if (nValue >= nValueIn && setInputAddresses.count(sAddress)) {
+        if (nValue >= nValueIn && sInputAddress == sAddress) {
             if (frInp.nFlags & CFractions::NOTARY_F) {
                 frOut.nFlags |= CFractions::NOTARY_F;
                 frOut.nLockTime = frInp.nLockTime;

@@ -650,6 +650,7 @@ CFractions CFractions::RatioPart(int64_t nPartValue,
     int idx = adjust_from;
     int64_t nAdjustValue = nPartValue - nPartValueSum;
     while(nAdjustValue >0) {
+        // todo:peg: review all possible cases if rounding mismatch with adjust_from
         if (fPart.f[idx] < f[idx]) {
             nAdjustValue--;
             fPart.f[idx]++;

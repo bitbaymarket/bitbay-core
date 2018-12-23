@@ -1444,7 +1444,7 @@ bool CTransaction::ConnectInputs(MapPrevTx inputs,
                                                  vOutputsTypes,
                                                  sPegFailCause);
         if (!peg_ok) {
-            return false;
+            return DoS(100, error("ConnectInputs() : fail on calculations of tx fractions (cause=%s)", sPegFailCause.c_str()));
         }
     }
 

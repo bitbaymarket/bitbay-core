@@ -1256,6 +1256,19 @@ bool CalculateStandardFractions(const CTransaction & tx,
         }
     }
 
+    // lets do some extra checks for totals
+    for (unsigned int i = 0; i < n_vout; i++)
+    {
+        auto fkey = uint320(tx.GetHash(), i);
+        auto f = mapTestFractionsPool[fkey];
+        int64_t nValue = tx.vout[i].nValue;
+        if (nValue != f.Total()) {
+            sFailCause = "P16: Total mismatch on output "+std::to_string(i);
+            fFailedPegOut = true;
+            break;
+        }
+    }
+    
     if (fFailedPegOut) {
         // while the peg system is in the testing mode:
         // for now remove failed fractions from pegdb

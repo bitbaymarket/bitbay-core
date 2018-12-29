@@ -36,6 +36,7 @@ install:
     sudo apt-get install -y libgl1-mesa-dev:i386                &&
     sudo apt-get install -y libminiupnpc-dev:i386               &&
     sudo apt-get install -y libfuse-dev:i386                    &&
+    sudo apt-get install -y libqrencode-dev:i386                &&
     sudo apt-get install -y qt59base:i386                       &&
     sudo apt-get install -y qt59tools:i386                      &&
     source /opt/qt59/bin/qt59-env.sh                            &&
@@ -52,6 +53,7 @@ install:
     sudo apt-get install -y libboost-thread-dev                 &&
     sudo apt-get install -y libssl-dev                          &&
     sudo apt-get install -y libminiupnpc-dev                    &&
+    sudo apt-get install -y libqrencode-dev                     &&
     sudo apt-get install -y qt59-meta-minimal                   &&
     sudo apt-get install -y qt59tools                           &&
     source /opt/qt59/bin/qt59-env.sh                            &&
@@ -63,6 +65,7 @@ install:
     brew install miniupnpc                                      &&
     brew install qt                                             &&
     brew link --force qt                                        &&
+    brew install qrencode                                       &&
     cd "$TRAVIS_BUILD_DIR"                                      &&
     curl -fsSL -o db-4.8.30.NC.tar.gz \
         $BASE1/db-4.8.30.NC.tar.gz                              &&
@@ -141,6 +144,7 @@ script:
         QMAKE_CFLAGS+=-m32 \
         QMAKE_CXXFLAGS+=-m32 \
         QMAKE_LFLAGS+=-m32 \
+	"USE_QRCODE=1" \
         bitbay-qt.pro &&
     make -j2;
   fi &&
@@ -148,6 +152,7 @@ script:
     qmake -v &&
     qmake \
         CICD=travis_x64 \
+	"USE_QRCODE=1" \
         bitbay-qt.pro &&
     make -j2;
   fi &&
@@ -155,6 +160,7 @@ script:
     qmake -v &&
     qmake \
         CICD=travis_mac \
+	"USE_QRCODE=1" \
         bitbay-qt.pro &&
     make -j2;
   fi &&

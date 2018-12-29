@@ -380,6 +380,10 @@ void SendCoinsDialog::clear()
         ui->comboBoxTxType->setCurrentIndex(0);
     
     ui->sendButton->setDefault(true);
+    
+    PegTxType nTxType = static_cast<PegTxType>(ui->comboBoxTxType->currentData().toInt());
+    ui->addButton->setEnabled(nTxType == PEG_MAKETX_SEND_RESERVE ||
+                              nTxType == PEG_MAKETX_SEND_LIQUIDITY);
 }
 
 void SendCoinsDialog::reject()

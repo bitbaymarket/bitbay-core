@@ -89,7 +89,7 @@ before_script:
 
 script:
 - cd "$TRAVIS_BUILD_DIR"
-- |
+- >
   if [[ $ARCH == "x86" ]]; then
     qmake -v &&
     qmake \
@@ -97,7 +97,7 @@ script:
         QMAKE_CFLAGS+=-m32 \
         QMAKE_CXXFLAGS+=-m32 \
         QMAKE_LFLAGS+=-m32 \
-	"USE_QRCODE=1" \
+        "USE_QRCODE=1" \
         bitbay-qt.pro &&
     make -j2;
   fi &&
@@ -105,7 +105,7 @@ script:
     qmake -v &&
     qmake \
         CICD=travis_x64 \
-	"USE_QRCODE=1" \
+        "USE_QRCODE=1" \
         bitbay-qt.pro &&
     make -j2;
   fi &&
@@ -113,7 +113,7 @@ script:
     qmake -v &&
     qmake \
         CICD=travis_mac \
-	"USE_QRCODE=1" \
+        "USE_QRCODE=1" \
         bitbay-qt.pro &&
     make -j2;
   fi

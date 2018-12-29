@@ -460,7 +460,7 @@ void QwtDial::drawNeedle( QPainter *painter ) const
 
     painter->save();
     painter->setRenderHint( QPainter::Antialiasing, true );
-    drawNeedle( painter, sr.center(), 0.5 * sr.width(),
+    drawNeedle( painter, sr.center(), 0.5 * sr.width()+10,
         scaleMap().transform( value() ) + 270.0, colorGroup );
     painter->restore();
 }

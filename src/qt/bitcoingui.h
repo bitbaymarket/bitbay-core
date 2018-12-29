@@ -20,6 +20,7 @@ class BlockchainPage;
 class SignVerifyMessageDialog;
 class Notificator;
 class RPCConsole;
+class ReserveMeter;
 
 QT_BEGIN_NAMESPACE
 class QLabel;
@@ -81,6 +82,10 @@ private:
     QLabel *labelBlocksIcon;
     QLabel *progressBarLabel;
     QProgressBar *progressBar;
+    ReserveMeter* reserveMeter;
+    QLabel *inflateLabel;
+    QLabel *deflateLabel;
+    QLabel *nochangeLabel;
 
     QMenuBar *appMenuBar;
     QAction *overviewAction;

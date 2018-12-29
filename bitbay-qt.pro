@@ -263,6 +263,7 @@ SOURCES += \
     src/pbkdf2.cpp
 
 QWT_CONFIG += QwtPlot
+QWT_CONFIG += QwtWidgets
 DEFINES += QWT_MOC_INCLUDE
 include(src/qt/qwt/qwt.pri)
 

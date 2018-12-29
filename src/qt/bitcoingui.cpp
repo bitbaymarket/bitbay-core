@@ -36,6 +36,7 @@
 #include "wallet.h"
 #include "init.h"
 #include "ui_interface.h"
+#include "qwt/reserve_meter.h"
 
 #ifdef Q_OS_MAC
 #include "macdockiconhandler.h"
@@ -189,6 +190,39 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     space12->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
     space12->setStyleSheet("QWidget { background-color: rgb(75,78,162); }");
     topHeaderLayout->addWidget(space12, 2,1);
+
+    auto l1 = new QLabel;
+    l1->setText(tr("Inflate: "));
+    l1->setAlignment(Qt::AlignRight);
+    l1->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    topHeaderLayout->addWidget(l1, 0,2);
+    auto l2 = new QLabel;
+    l2->setText(tr("Deflate: "));
+    l2->setAlignment(Qt::AlignRight);
+    l2->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    topHeaderLayout->addWidget(l2, 1,2);
+    auto l3 = new QLabel;
+    l3->setText(tr("No change: "));
+    l3->setAlignment(Qt::AlignRight);
+    l3->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    topHeaderLayout->addWidget(l3, 2,2);
+
+    inflateLabel = new QLabel;
+    inflateLabel->setText(tr(""));
+    inflateLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    topHeaderLayout->addWidget(inflateLabel, 0,3);
+    deflateLabel = new QLabel;
+    deflateLabel->setText(tr(""));
+    deflateLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    topHeaderLayout->addWidget(deflateLabel, 1,3);
+    nochangeLabel = new QLabel;
+    nochangeLabel->setText(tr(""));
+    nochangeLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    topHeaderLayout->addWidget(nochangeLabel, 2,3);
+    
+    reserveMeter = new ReserveMeter;
+    reserveMeter->setFixedSize(180,180);
+    topHeaderLayout->addWidget(reserveMeter, 0,4, 3,1);
     
     QWidget *centralWidget = new QWidget();
     QVBoxLayout *centralLayout = new QVBoxLayout(centralWidget);
@@ -826,17 +860,24 @@ void BitcoinGUI::updateNumBlocksLabel()
 
 void BitcoinGUI::updatePegInfo1Label() 
 {
+    int peg_supply = clientModel->getPegSupplyIndex();
     int peg_start = clientModel->getPegStartBlockNum();
     int votes_inflate, votes_deflate, votes_nochange;
     boost::tie(votes_inflate, votes_deflate, votes_nochange) = clientModel->getPegVotes();
-    lastBlockPegSupplyLabel->setText(tr("Peg supply index: %1, peg started: %2, peg votes:[%3I,%4D,%5N]")
-                                     .arg(clientModel->getPegSupplyIndex())
+    lastBlockPegSupplyLabel->setText(tr("Peg supply index: %1, peg started: %2")
+                                     .arg(peg_supply)
                                      .arg(peg_start >0 
                                           ? QString::number(peg_start)
-                                          : tr("none"))
-                                     .arg(votes_inflate)
-                                     .arg(votes_deflate)
-                                     .arg(votes_nochange));
+                                          : tr("none")));
+    inflateLabel->setText(tr("%1").arg(votes_inflate));
+    deflateLabel->setText(tr("%1").arg(votes_deflate));
+    nochangeLabel->setText(tr("%1").arg(votes_nochange));
+    double liquid = 100.0;
+    for(int i=0; i< peg_supply; i++) {
+        double f = liquid/100.0;
+        liquid -= f;
+    }
+    reserveMeter->setValue(100.0 - liquid);
 }
 
 QString BitcoinGUI::timeBehindText(int secs) 

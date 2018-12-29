@@ -847,59 +847,6 @@ bool IsPegWhiteListed(const CTransaction & tx,
     return false;
 }
 
-bool CalculateFractions(CTxDB& txdb,
-                        const CTransaction & tx,
-                        const CBlockIndex* pindexBlock,
-                        MapPrevTx & mapInputs,
-                        MapFractions& mapInputsFractions,
-                        map<uint256, CTxIndex>& mapTestPool,
-                        MapFractions& mapTestFractionsPool,
-                        CFractions& feesFractions,
-                        std::vector<int>& vOutputsTypes,
-                        std::string& sPegFailCause)
-{
-    bool peg_ok = false;
-    if (tx.IsCoinStake()) {
-        uint64_t nCoinAge = 0;
-        if (!tx.GetCoinAge(txdb, pindexBlock->pprev, nCoinAge)) {
-            //something went wrong
-            return false;
-        }
-        if (tx.vin.size() == 0) {
-            sPegFailCause = "No inputs for stake";
-            return false;
-        }
-        const COutPoint & prevout = tx.vin.front().prevout;
-        auto fkey = uint320(prevout.hash, prevout.n);
-        if (mapInputsFractions.find(fkey) == mapInputsFractions.end()) {
-            sPegFailCause = "No input fraction";
-            return false;
-        }
-        int64_t nDemoSubsidy = 0;
-        int64_t nCalculatedStakeRewardWithoutFees = GetProofOfStakeReward(
-                    pindexBlock->pprev, nCoinAge, 0 /*fees*/, mapInputsFractions[fkey], nDemoSubsidy);
-
-        peg_ok = CalculateStakingFractions(tx, pindexBlock,
-                                           mapInputs, mapInputsFractions,
-                                           mapTestPool, mapTestFractionsPool,
-                                           feesFractions,
-                                           nCalculatedStakeRewardWithoutFees,
-                                           vOutputsTypes,
-                                           sPegFailCause);
-    }
-    else {
-        peg_ok = CalculateStandardFractions(tx, 
-                                            pindexBlock->nPegSupplyIndex,
-                                            pindexBlock->nTime,
-                                            mapInputs, mapInputsFractions,
-                                            mapTestPool, mapTestFractionsPool,
-                                            feesFractions,
-                                            vOutputsTypes,
-                                            sPegFailCause);
-    }
-    return peg_ok;
-}
-
 bool CalculateStandardFractions(const CTransaction & tx,
                                 int nSupply,
                                 unsigned int nTime,
@@ -930,10 +877,6 @@ bool CalculateStandardFractions(const CTransaction & tx,
     bool fFreezeAll = false;
 
     set<string> setInputAddresses;
-
-    if (tx.GetHash().ToString().substr(0,3)=="e55") {
-        nValueIn = nReservesTotal + nLiquidityTotal;
-    }
 
     if (tx.IsCoinBase()) n_vin = 0;
     for (unsigned int i = 0; i < n_vin; i++)

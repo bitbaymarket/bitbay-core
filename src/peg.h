@@ -144,17 +144,6 @@ bool CalculateBlockPegVotes(const CBlock & cblock,
 
 bool IsPegWhiteListed(const CTransaction & tx, MapPrevTx & inputs);
 
-bool CalculateFractions(CTxDB& txdb,
-                        const CTransaction & tx,
-                        const CBlockIndex* pindexBlock,
-                        MapPrevTx & inputs,
-                        MapFractions& finputs,
-                        std::map<uint256, CTxIndex>& mapTestPool,
-                        MapFractions& mapTestFractionsPool,
-                        CFractions& feesFractions,
-                        std::vector<int>& vOutputsTypes,
-                        std::string& sPegFailCause);
-
 bool CalculateStandardFractions(const CTransaction & tx,
                                 int nSupply,
                                 unsigned int nTime,

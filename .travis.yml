@@ -28,10 +28,6 @@ matrix:
         - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
         - DEPLOY_FILE=bitbay-wallet-qt_linux32.tgz 
         - ARCH="x86"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env: DEPLOY_FILE=bitbayd_win.zip ARCH="mxe"
     - os: osx
       osx_image: xcode8.3
       compiler: clang

@@ -68,23 +68,29 @@ StakingPage::StakingPage(QWidget *parent) :
     )";
 
     ui->labelRewards->setStyleSheet(white1);
-    ui->labelSplit->setStyleSheet(white1);
-    ui->labelSplitValue->setStyleSheet(white1);
+    
+    ui->labelTotalText->setFont(tfont);
+    ui->labelTotalText->setStyleSheet(white1);
+    
     
     ui->label5Text      ->setStyleSheet(white2);
     ui->label10Text     ->setStyleSheet(white2);
     ui->label20Text     ->setStyleSheet(white2);
     ui->label40Text     ->setStyleSheet(white2);
+    ui->labelSplitText  ->setStyleSheet(white2);
 
     ui->label5Count     ->setStyleSheet(white1);
     ui->label10Count    ->setStyleSheet(white1);
     ui->label20Count    ->setStyleSheet(white1);
     ui->label40Count    ->setStyleSheet(white1);
+    ui->labelTotalCount ->setStyleSheet(white1);
     
     ui->label5Amount    ->setStyleSheet(white1);
     ui->label10Amount   ->setStyleSheet(white1);
     ui->label20Amount   ->setStyleSheet(white1);
     ui->label40Amount   ->setStyleSheet(white1);
+    ui->labelTotalAmount->setStyleSheet(white1);
+    ui->labelSplitValue ->setStyleSheet(white1);
     
     pollTimer = new QTimer(this);
     pollTimer->setInterval(30*1000);
@@ -243,16 +249,16 @@ void StakingPage::updateDisplayUnit()
     }
 }
 
-void StakingPage::setAmounts(qint64 reward5, qint64 reward10, qint64 reward20, qint64 reward40, 
+void StakingPage::setAmounts(qint64 amount5, qint64 amount10, qint64 amount20, qint64 amount40, 
                              int count5, int count10, int count20, int count40,
                              int stake5, int stake10, int stake20, int stake40)
 {
     int unit = walletModel->getOptionsModel()->getDisplayUnit();
     
-    current5Amount  = reward5;
-    current10Amount = reward10;
-    current20Amount = reward20;
-    current40Amount = reward40;
+    current5Amount  = amount5;
+    current10Amount = amount10;
+    current20Amount = amount20;
+    current40Amount = amount40;
 
     current5Count  = count5;
     current10Count = count10;
@@ -264,24 +270,36 @@ void StakingPage::setAmounts(qint64 reward5, qint64 reward10, qint64 reward20, q
     current20Stake = stake20;
     current40Stake = stake40;
     
-    ui->label5Amount->setText(BitcoinUnits::formatWithUnitForLabel(unit, reward5));
+    ui->label5Amount->setText(BitcoinUnits::formatWithUnitForLabel(unit, amount5));
     ui->label5Count->setText(tr("(%1)").arg(count5));
     if (stake5)
         ui->label5Count->setText(tr("(%1/%2)").arg(stake5).arg(count5));
     
-    ui->label10Amount->setText(BitcoinUnits::formatWithUnitForLabel(unit, reward10));
+    ui->label10Amount->setText(BitcoinUnits::formatWithUnitForLabel(unit, amount10));
     ui->label10Count->setText(tr("(%1)").arg(count10));
     if (stake10)
         ui->label10Count->setText(tr("(%1/%2)").arg(stake10).arg(count10));
     
-    ui->label20Amount->setText(BitcoinUnits::formatWithUnitForLabel(unit, reward20));
+    ui->label20Amount->setText(BitcoinUnits::formatWithUnitForLabel(unit, amount20));
     ui->label20Count->setText(tr("(%1)").arg(count20));
     if (stake20)
         ui->label20Count->setText(tr("(%1/%2)").arg(stake20).arg(count20));
     
-    ui->label40Amount->setText(BitcoinUnits::formatWithUnitForLabel(unit, reward40));
+    ui->label40Amount->setText(BitcoinUnits::formatWithUnitForLabel(unit, amount40));
     ui->label40Count->setText(tr("(%1)").arg(count40));
     if (stake40)
         ui->label40Count->setText(tr("(%1/%2)").arg(stake40).arg(count40));
+    
+    int count = count5+count10+count20+count40;
+    int stake = stake5+stake10+stake20+stake40;
+    qint64 amount = amount5+amount10+amount20+amount40;
+    
+    ui->labelSplitValue->setText(count > 400 ? tr("OFF") : tr("ON"));
+    
+    ui->labelTotalAmount->setText(BitcoinUnits::formatWithUnitForLabel(unit, amount));
+    ui->labelTotalCount->setText(tr("(%1)").arg(count));
+    if (stake)
+        ui->labelTotalCount->setText(tr("(%1/%2)").arg(stake).arg(count));
+    
 }
 

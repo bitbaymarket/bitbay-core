@@ -29,6 +29,8 @@ public:
     int getNumBlocks() const;
     int getNumBlocksAtStartup();
     int getPegSupplyIndex() const;
+    int getPegNextSupplyIndex() const;
+    int getPegNextNextSupplyIndex() const;
     int getPegStartBlockNum() const;
     boost::tuple<int,int,int> getPegVotes() const;
 

@@ -180,49 +180,83 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     lastBlockLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
     topHeaderLayout->addWidget(lastBlockLabel, 0,0);
 
-    lastBlockPegSupplyLabel = new QLabel;
-    lastBlockPegSupplyLabel->setText(tr("Peg supply index:"));
-    lastBlockPegSupplyLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
-    topHeaderLayout->addWidget(lastBlockPegSupplyLabel, 1,0);
-    
     QWidget* space12 = new QWidget();
     space12->setFixedHeight(70);
     space12->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
     space12->setStyleSheet("QWidget { background-color: rgb(75,78,162); }");
     topHeaderLayout->addWidget(space12, 2,1);
 
-    auto l1 = new QLabel;
-    l1->setText(tr("Inflate: "));
-    l1->setAlignment(Qt::AlignRight);
-    l1->setStyleSheet("QLabel { color: rgb(240,240,240); }");
-    topHeaderLayout->addWidget(l1, 0,2);
-    auto l2 = new QLabel;
-    l2->setText(tr("Deflate: "));
-    l2->setAlignment(Qt::AlignRight);
-    l2->setStyleSheet("QLabel { color: rgb(240,240,240); }");
-    topHeaderLayout->addWidget(l2, 1,2);
-    auto l3 = new QLabel;
-    l3->setText(tr("No change: "));
-    l3->setAlignment(Qt::AlignRight);
-    l3->setStyleSheet("QLabel { color: rgb(240,240,240); }");
-    topHeaderLayout->addWidget(l3, 2,2);
-
+    pegNowTextLabel = new QLabel;
+    pegNowTextLabel->setText(tr("Peg now - 200: "));
+    pegNowTextLabel->setAlignment(Qt::AlignRight);
+    pegNowTextLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    topHeaderLayout->addWidget(pegNowTextLabel, 0,2);
+    pegNextTextLabel = new QLabel;
+    pegNextTextLabel->setText(tr("200 - 400: "));
+    pegNextTextLabel->setAlignment(Qt::AlignRight);
+    pegNextTextLabel->setStyleSheet("QLabel { color: rgba(240,240,240, 192); }");
+    topHeaderLayout->addWidget(pegNextTextLabel, 1,2);
+    pegNextNextTextLabel = new QLabel;
+    pegNextNextTextLabel->setText(tr("400 - 600: "));
+    pegNextNextTextLabel->setAlignment(Qt::AlignRight);
+    pegNextNextTextLabel->setStyleSheet("QLabel { color: rgba(240,240,240, 128); }");
+    topHeaderLayout->addWidget(pegNextNextTextLabel, 2,2);
+    
+    pegNowLabel = new QLabel;
+    pegNowLabel->setText(tr(""));
+    pegNowLabel->setAlignment(Qt::AlignRight);
+    pegNowLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    topHeaderLayout->addWidget(pegNowLabel, 0,3);
+    pegNextLabel = new QLabel;
+    pegNextLabel->setText(tr(""));
+    pegNextLabel->setAlignment(Qt::AlignRight);
+    pegNextLabel->setStyleSheet("QLabel { color: rgba(240,240,240, 192); }");
+    topHeaderLayout->addWidget(pegNextLabel, 1,3);
+    pegNextNextLabel = new QLabel;
+    pegNextNextLabel->setText(tr(""));
+    pegNextNextLabel->setAlignment(Qt::AlignRight);
+    pegNextNextLabel->setStyleSheet("QLabel { color: rgba(240,240,240, 128); }");
+    topHeaderLayout->addWidget(pegNextNextLabel, 2,3);
+    
+    QWidget* space13 = new QWidget();
+    space13->setFixedHeight(10);
+    space13->setFixedWidth(50);
+    space13->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    space13->setStyleSheet("QWidget { background-color: rgb(75,78,162); }");
+    topHeaderLayout->addWidget(space13, 2,4);
+    
+    auto lv1 = new QLabel;
+    lv1->setText(tr("Inflate: "));
+    lv1->setAlignment(Qt::AlignRight);
+    lv1->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    topHeaderLayout->addWidget(lv1, 0,5);
+    auto lv2 = new QLabel;
+    lv2->setText(tr("Deflate: "));
+    lv2->setAlignment(Qt::AlignRight);
+    lv2->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    topHeaderLayout->addWidget(lv2, 1,5);
+    auto lv3 = new QLabel;
+    lv3->setText(tr("No change: "));
+    lv3->setAlignment(Qt::AlignRight);
+    lv3->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    topHeaderLayout->addWidget(lv3, 2,5);
+    
     inflateLabel = new QLabel;
     inflateLabel->setText(tr(""));
-    inflateLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
-    topHeaderLayout->addWidget(inflateLabel, 0,3);
+    inflateLabel->setStyleSheet("QLabel { color: #2da5e0; }");
+    topHeaderLayout->addWidget(inflateLabel, 0,6);
     deflateLabel = new QLabel;
     deflateLabel->setText(tr(""));
-    deflateLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
-    topHeaderLayout->addWidget(deflateLabel, 1,3);
+    deflateLabel->setStyleSheet("QLabel { color: #c06a15; }");
+    topHeaderLayout->addWidget(deflateLabel, 1,6);
     nochangeLabel = new QLabel;
     nochangeLabel->setText(tr(""));
     nochangeLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
-    topHeaderLayout->addWidget(nochangeLabel, 2,3);
+    topHeaderLayout->addWidget(nochangeLabel, 2,6);
     
     reserveMeter = new ReserveMeter;
     reserveMeter->setFixedSize(180,180);
-    topHeaderLayout->addWidget(reserveMeter, 0,4, 3,1);
+    topHeaderLayout->addWidget(reserveMeter, 0,7, 3,1);
     
     QWidget *centralWidget = new QWidget();
     QVBoxLayout *centralLayout = new QVBoxLayout(centralWidget);
@@ -860,15 +894,26 @@ void BitcoinGUI::updateNumBlocksLabel()
 
 void BitcoinGUI::updatePegInfo1Label() 
 {
+    int last_block_num = clientModel->getNumBlocks();
     int peg_supply = clientModel->getPegSupplyIndex();
+    int peg_next_supply = clientModel->getPegNextSupplyIndex();
+    int peg_next_next_supply = clientModel->getPegNextNextSupplyIndex();
     int peg_start = clientModel->getPegStartBlockNum();
+    Q_UNUSED(peg_start);
     int votes_inflate, votes_deflate, votes_nochange;
     boost::tie(votes_inflate, votes_deflate, votes_nochange) = clientModel->getPegVotes();
-    lastBlockPegSupplyLabel->setText(tr("Peg supply index: %1, peg started: %2")
-                                     .arg(peg_supply)
-                                     .arg(peg_start >0 
-                                          ? QString::number(peg_start)
-                                          : tr("none")));
+    int interval_num = last_block_num / PEG_INTERVAL_TESTNET1;
+    pegNowTextLabel->setText(tr("Peg now - %1: ")
+                             .arg((interval_num +1)*PEG_INTERVAL_TESTNET1-1));
+    pegNextTextLabel->setText(tr("%1 - %2: ")
+                              .arg((interval_num +1)*PEG_INTERVAL_TESTNET1)
+                              .arg((interval_num +2)*PEG_INTERVAL_TESTNET1-1));
+    pegNextNextTextLabel->setText(tr("%1 - %2: ")
+                              .arg((interval_num +2)*PEG_INTERVAL_TESTNET1)
+                              .arg((interval_num +3)*PEG_INTERVAL_TESTNET1-1));
+    pegNowLabel->setText(QString::number(peg_supply));
+    pegNextLabel->setText(QString::number(peg_next_supply));
+    pegNextNextLabel->setText(QString::number(peg_next_next_supply));
     inflateLabel->setText(tr("%1").arg(votes_inflate));
     deflateLabel->setText(tr("%1").arg(votes_deflate));
     nochangeLabel->setText(tr("%1").arg(votes_nochange));

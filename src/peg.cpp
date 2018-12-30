@@ -191,6 +191,16 @@ int CBlockIndex::GetNextPegSupplyIndex() const
     while (prevvotesindex->nHeight > (nNextHeight - nPegInterval*3 -1))
         prevvotesindex = prevvotesindex->pprev;
 
+    return ComputeNextPegSupplyIndex(nPegSupplyIndex, usevotesindex, prevvotesindex);
+}
+
+int CBlockIndex::ComputeNextPegSupplyIndex(int nPegBase,
+                                           const CBlockIndex* back2interval,
+                                           const CBlockIndex* back3interval) {
+    auto usevotesindex = back2interval;
+    auto prevvotesindex = back3interval;
+    int nNextPegSupplyIndex = nPegBase;
+    
     int inflate = usevotesindex->nPegVotesInflate;
     int deflate = usevotesindex->nPegVotesDeflate;
     int nochange = usevotesindex->nPegVotesNochange;
@@ -198,8 +208,6 @@ int CBlockIndex::GetNextPegSupplyIndex() const
     int inflate_prev = prevvotesindex->nPegVotesInflate;
     int deflate_prev = prevvotesindex->nPegVotesDeflate;
     int nochange_prev = prevvotesindex->nPegVotesNochange;
-
-    int nNextPegSupplyIndex = nPegSupplyIndex;
 
     if (deflate > inflate && deflate > nochange) {
         nNextPegSupplyIndex++;
@@ -214,7 +222,7 @@ int CBlockIndex::GetNextPegSupplyIndex() const
 
     // over max
     if (nNextPegSupplyIndex >= nPegMaxSupplyIndex)
-        nNextPegSupplyIndex = nPegSupplyIndex;
+        nNextPegSupplyIndex = nPegMaxSupplyIndex;
     // less min
     else if (nNextPegSupplyIndex <0)
         nNextPegSupplyIndex = 0;

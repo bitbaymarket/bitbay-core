@@ -75,7 +75,6 @@ private:
     BlockchainPage *infoPage;
 
     QLabel *lastBlockLabel;
-    QLabel *lastBlockPegSupplyLabel;
     QLabel *labelEncryptionIcon;
     QLabel *labelStakingIcon;
     QLabel *labelConnectionsIcon;
@@ -86,6 +85,12 @@ private:
     QLabel *inflateLabel;
     QLabel *deflateLabel;
     QLabel *nochangeLabel;
+    QLabel *pegNowTextLabel;
+    QLabel *pegNextTextLabel;
+    QLabel *pegNextNextTextLabel;
+    QLabel *pegNowLabel;
+    QLabel *pegNextLabel;
+    QLabel *pegNextNextLabel;
 
     QMenuBar *appMenuBar;
     QAction *overviewAction;

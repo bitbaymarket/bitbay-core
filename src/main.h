@@ -1117,6 +1117,9 @@ public:
     }
     
     int GetNextPegSupplyIndex() const;
+    static int ComputeNextPegSupplyIndex(int nPegBase, 
+                                         const CBlockIndex* back2interval,
+                                         const CBlockIndex* back3interval);
 
     unsigned int GetStakeEntropyBit() const
     {

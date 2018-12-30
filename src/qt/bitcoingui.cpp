@@ -1480,12 +1480,15 @@ void BitcoinGUI::ratesReplyFinished(QNetworkReply *reply)
     for(int i=0; i<records.size(); i++) {
         auto record = records.at(i);
         if (!record.isObject()) continue;
-        auto record_bay = record.toObject()["BAY"];
-        auto record_btc = record.toObject()["BTC"];
+        auto record_obj = record.toObject();
+        auto record_bay = record_obj["BAY"];
+        auto record_btc = record_obj["BTC"];
         if (!record_bay.isObject()) continue;
         if (!record_btc.isObject()) continue;
-        auto record_btc_price = record_btc.toObject()["price"];
-        auto record_bay_price = record_bay.toObject()["price"];
+        auto record_btc_obj = record_btc.toObject();
+        auto record_bay_obj = record_bay.toObject();
+        auto record_btc_price = record_btc_obj["price"];
+        auto record_bay_price = record_bay_obj["price"];
         if (!record_bay_price.isDouble()) continue;
         if (!record_btc_price.isDouble()) continue;
         bay_in_usd = record_bay_price.toDouble();

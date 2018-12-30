@@ -1433,18 +1433,20 @@ bool CTransaction::ConnectInputs(MapPrevTx inputs,
     // Calculation of fractions is considered less expensive than
     // signatures checks. Same time collect all fees fractions.
     if (!IsCoinStake()) {
-        string sPegFailCause;
-        vector<int> vOutputsTypes;
-        bool peg_ok = CalculateStandardFractions(*this, 
-                                                 pindexBlock->nPegSupplyIndex,
-                                                 pindexBlock->nTime,
-                                                 inputs, finputs,
-                                                 mapTestPool, mapTestFractionsPool,
-                                                 feesFractions,
-                                                 vOutputsTypes,
-                                                 sPegFailCause);
-        if (!peg_ok) {
-            return DoS(100, error("ConnectInputs() : fail on calculations of tx fractions (cause=%s)", sPegFailCause.c_str()));
+        if (pindexBlock->nHeight >= nPegStartHeight) {
+            string sPegFailCause;
+            vector<int> vOutputsTypes;
+            bool peg_ok = CalculateStandardFractions(*this, 
+                                                     pindexBlock->nPegSupplyIndex,
+                                                     pindexBlock->nTime,
+                                                     inputs, finputs,
+                                                     mapTestPool, mapTestFractionsPool,
+                                                     feesFractions,
+                                                     vOutputsTypes,
+                                                     sPegFailCause);
+            if (!peg_ok) {
+                return DoS(100, error("ConnectInputs() : fail on calculations of tx fractions (cause=%s)", sPegFailCause.c_str()));
+            }
         }
     }
 
@@ -1704,14 +1706,16 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         if (nStakeReward > nCalculatedStakeReward)
             return DoS(100, error("ConnectBlock() : coinstake pays too much(actual=%d vs calculated=%d)", nStakeReward, nCalculatedStakeReward));
 
-        string sPegFailCause;
-        vector<int> vOutputsTypes;
-        if (!CalculateStakingFractions(vtx[1], pindex,
-                                       mapInputs, mapInputsFractions,
-                                       mapQueuedChanges, mapQueuedFractionsChanges,
-                                       feesFractions, nCalculatedStakeRewardWithoutFee,
-                                       vOutputsTypes, sPegFailCause)) {
-            return DoS(100, error("ConnectBlock() : fail on calculations of stake fractions (cause=%s)", sPegFailCause.c_str()));
+        if (pindex->nHeight >= nPegStartHeight) {
+            string sPegFailCause;
+            vector<int> vOutputsTypes;
+            if (!CalculateStakingFractions(vtx[1], pindex,
+                                           mapInputs, mapInputsFractions,
+                                           mapQueuedChanges, mapQueuedFractionsChanges,
+                                           feesFractions, nCalculatedStakeRewardWithoutFee,
+                                           vOutputsTypes, sPegFailCause)) {
+                return DoS(100, error("ConnectBlock() : fail on calculations of stake fractions (cause=%s)", sPegFailCause.c_str()));
+            }
         }
     }
 

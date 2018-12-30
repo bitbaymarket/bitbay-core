@@ -697,12 +697,13 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                     if (!peg_ok) {
                         pblockindexPegFail = pblockindex;
                     }
-
-                    // Write queued fractions changes
-                    for (MapFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
-                    {
-                        if (!pegdb.Write((*mi).first, (*mi).second))
-                            return error("LoadBlockIndex() : pegdb Write failed");
+                    else {
+                        // Write queued fractions changes
+                        for (MapFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
+                        {
+                            if (!pegdb.Write((*mi).first, (*mi).second))
+                                return error("LoadBlockIndex() : pegdb Write failed");
+                        }
                     }
                 }
 

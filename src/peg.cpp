@@ -1343,7 +1343,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
         const COutPoint & prevout = tx.vin[i].prevout;
         CTransaction& txPrev = inputs[prevout.hash].second;
         if (prevout.n >= txPrev.vout.size()) {
-            sFailCause = "P02: Refered output out of range";
+            sFailCause = "PI02: Refered output out of range";
             return false;
         }
 
@@ -1354,13 +1354,13 @@ bool CalculateStakingFractions(const CTransaction & tx,
 
         auto fkey = uint320(prevout.hash, prevout.n);
         if (fInputs.find(fkey) == fInputs.end()) {
-            sFailCause = "P03: No input fractions found";
+            sFailCause = "PI03: No input fractions found";
             return false;
         }
 
         frInp = fInputs[fkey].Std();
         if (frInp.Total() != txPrev.vout[prevout.n].nValue) {
-            sFailCause = "P04: Input fraction total mismatches value";
+            sFailCause = "PI04: Input fraction total mismatches value";
             return false;
         }
 
@@ -1376,6 +1376,19 @@ bool CalculateStakingFractions(const CTransaction & tx,
         nLiquidityTotal += nLiquidityIn;
     }
 
+    // Check funds to be returned to same address
+    int64_t nValueReturn = 0;
+    for (unsigned int i = 0; i < n_vout; i++) {
+        std::string sAddress = toAddress(tx.vout[i].scriptPubKey);
+        if (sInputAddress == sAddress) {
+            nValueReturn += tx.vout[i].nValue;
+        }
+    }
+    if (nValueReturn < nValueIn) {
+        sFailCause = "PI05: No enough funds returned to input address";
+        return false;
+    }
+    
     CFractions frCommonLiquidity(0, CFractions::STD);
     for(const auto & item : poolLiquidity) {
         frCommonLiquidity += item.second;
@@ -1439,7 +1452,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
 
             if (nValueLeft > 0) {
                 if (nValueLeft > nCommonLiquidity) {
-                    sFailCause = "P13: No liquidity left";
+                    sFailCause = "PO01: No liquidity left";
                     fFailedPegOut = true;
                     break;
                 }
@@ -1466,7 +1479,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
 
                 if (nValueLeft > 0) {
                     if (nValueLeft > nCommonLiquidity) {
-                        sFailCause = "P14: No liquidity left";
+                        sFailCause = "PO02: No liquidity left";
                         fFailedPegOut = true;
                         break;
                     }
@@ -1476,7 +1489,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
             }
             else {
                 if (nValue > nCommonLiquidity) {
-                    sFailCause = "P15: No liquidity left";
+                    sFailCause = "PO03: No liquidity left";
                     fFailedPegOut = true;
                     break;
                 }

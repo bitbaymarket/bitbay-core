@@ -57,9 +57,10 @@ enum PegTxType {
 
 enum PegVoteType {
     PEG_VOTE_NONE       = 0,
-    PEG_VOTE_INFLATE    = 1,
-    PEG_VOTE_DEFLATE    = 2,
-    PEG_VOTE_NOCHANGE   = 3
+    PEG_VOTE_AUTO       = 1,
+    PEG_VOTE_INFLATE    = 2,
+    PEG_VOTE_DEFLATE    = 3,
+    PEG_VOTE_NOCHANGE   = 4
 };
 
 enum PegRewardType {

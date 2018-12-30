@@ -2684,6 +2684,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
     }
     
     // Add vote output
+    lastAutoPegVoteType = PEG_VOTE_NONE;
     if (voteType != PEG_VOTE_NONE) {
         txNew.vout.push_back(CTxOut(0, txNew.vout[1].scriptPubKey)); //add vote
         CScript scriptPubKey;
@@ -2694,7 +2695,22 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
             address = PEG_DEFLATE_ADDR;
         } else if (voteType == PEG_VOTE_NOCHANGE) {
             address = PEG_NOCHANGE_ADDR;
-        } 
+        } else if (voteType == PEG_VOTE_AUTO) {
+            if (dBayPeakPrice >0 && !vBayRates.empty()) {
+                double dLastBayPrice = vBayRates.back();
+                if ((dLastBayPrice * 1.05) < dBayPeakPrice) {
+                    address = PEG_DEFLATE_ADDR;
+                    lastAutoPegVoteType = PEG_VOTE_DEFLATE;
+                }
+                else if ((dLastBayPrice * 0.95) > dBayPeakPrice) {
+                    address = PEG_INFLATE_ADDR;
+                    lastAutoPegVoteType = PEG_VOTE_INFLATE;
+                }
+                else {
+                    lastAutoPegVoteType = PEG_VOTE_NONE;
+                }
+            }
+        }
         if (!CBitcoinAddress(address).IsValid()) {
             LogPrint("coinstake", "CreateCoinStake : vote address=%s is not valid\n", address);
         }
@@ -3366,3 +3382,78 @@ void CWallet::GetKeyBirthTimes(std::map<CKeyID, int64_t> &mapKeyBirth) const {
     for (std::map<CKeyID, CBlockIndex*>::const_iterator it = mapKeyFirstBlock.begin(); it != mapKeyFirstBlock.end(); it++)
         mapKeyBirth[it->first] = it->second->nTime - 7200; // block times can be 2h off
 }
+
+void CWallet::SetBayRates(std::vector<double> bay_rates) {
+    LOCK(cs_wallet); 
+    vBayRates = bay_rates;
+    
+    double dPeakRate = 0.;
+    
+    CPegDB pegdb("cr+");
+    bool ok = pegdb.ReadPegBayPeakRate(dPeakRate);
+    if (!ok) {
+        dPeakRate = 0.;
+    }
+    
+    if (dPeakRate == 0) {
+        // just max if no previous peak
+        for(double r : vBayRates) {
+            if (r>0) {
+                if (dPeakRate < r)
+                    dPeakRate = r;
+            }
+        }
+    }
+    
+    bool all_over_peak = true;
+    for(double r : vBayRates) {
+        if (r>0) {
+            if (dPeakRate < (r * 0.35)) {
+                // all ok if all
+            } else {
+                all_over_peak = false;
+            }
+        }
+    }
+    if (all_over_peak) {
+        dPeakRate *= 1.5;
+    }
+    
+    if (dPeakRate > 0) {
+        dBayPeakPrice = dPeakRate;
+        pegdb.TxnBegin();
+        pegdb.WritePegBayPeakRate(dPeakRate);
+        pegdb.TxnCommit();
+    }
+    pegdb.Close();
+}
+void CWallet::SetBtcRates(std::vector<double> btc_rates) {
+    LOCK(cs_wallet); 
+    vBtcRates = btc_rates;
+    
+    double dPeakRate = 0.;
+    
+    CPegDB pegdb("cr+");
+    bool ok = pegdb.ReadPegBayPeakRate(dPeakRate);
+    if (!ok) {
+        dPeakRate = 0.;
+    }
+    
+    for(double r : vBtcRates) {
+        if (r>0) {
+            // as min follow btc price as 1/100'000
+            double r_bay = r / 100000.;
+            if (dPeakRate < r_bay)
+                dPeakRate = r_bay;
+        }
+    }
+    
+    if (dPeakRate > 0) {
+        dBayPeakPrice = dPeakRate;
+        pegdb.TxnBegin();
+        pegdb.WritePegBayPeakRate(dPeakRate);
+        pegdb.TxnCommit();
+    }
+    pegdb.Close();
+}
+

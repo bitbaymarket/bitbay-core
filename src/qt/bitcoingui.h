@@ -65,6 +65,8 @@ private:
     WalletModel *walletModel;
 
     QNetworkAccessManager * netAccessManager;
+    std::vector<double> vFirstRetrievedBtcRates;
+    std::vector<double> vFirstRetrievedBayRates;
     
     QStackedWidget *centralStackedWidget;
 
@@ -242,7 +244,9 @@ private slots:
 
     /** called by a timer to check if fRequestShutdown has been set **/
     void detectShutdown();
-    
+
+    /** initiate request to retrieve rates */
+    void ratesRequestInitiate();
     /** called as retrieved all bytes for rates */
     void ratesReplyFinished(QNetworkReply *reply);
 };

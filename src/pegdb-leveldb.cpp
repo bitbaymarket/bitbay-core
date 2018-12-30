@@ -218,3 +218,14 @@ bool CPegDB::WritePegWhiteListHash(uint256 hash)
 {
     return Write(string("pegWhiteListHash"), hash);
 }
+
+bool CPegDB::ReadPegBayPeakRate(double& dRate)
+{
+    return Read(string("pegBayPeakRate"), dRate);
+}
+
+bool CPegDB::WritePegBayPeakRate(double dRate)
+{
+    return Write(string("pegBayPeakRate"), dRate);
+}
+

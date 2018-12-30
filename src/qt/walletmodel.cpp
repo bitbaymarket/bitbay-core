@@ -689,3 +689,13 @@ void WalletModel::listCoins(std::map<QString, std::vector<COutput> >& mapCoins) 
         mapCoins[CBitcoinAddress(address).ToString().c_str()].push_back(out);
     }
 }
+
+
+void WalletModel::setBayRates(std::vector<double> vRates) {
+    wallet->SetBayRates(vRates);
+}
+
+void WalletModel::setBtcRates(std::vector<double> vRates) {
+    wallet->SetBtcRates(vRates);
+}
+

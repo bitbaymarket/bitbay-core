@@ -534,12 +534,14 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     gotoOverviewPage();
     
     // Request rates
-    QNetworkRequest req_rates(QUrl("https://bitbaymarket.github.io/ratedb/rates1k.json"));
-    req_rates.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     netAccessManager = new QNetworkAccessManager(this);
     connect(netAccessManager, &QNetworkAccessManager::finished,
             this, &BitcoinGUI::ratesReplyFinished);
-    netAccessManager->get(req_rates);
+    ratesRequestInitiate();
+    
+    QTimer* timer = new QTimer(this);
+    connect(timer, SIGNAL(timeout()), this, SLOT(ratesRequestInitiate()));
+    timer->start(1000*60*15); // updates rates every 15 minutes
 }
 
 BitcoinGUI::~BitcoinGUI()
@@ -750,6 +752,15 @@ void BitcoinGUI::setWalletModel(WalletModel *walletModel)
 
         // Ask for passphrase if needed
         connect(walletModel, SIGNAL(requireUnlock()), this, SLOT(unlockWallet()));
+        
+        if (!vFirstRetrievedBayRates.empty()) {
+            walletModel->setBayRates(vFirstRetrievedBayRates);
+            vFirstRetrievedBayRates.clear();
+        }
+        if (!vFirstRetrievedBtcRates.empty()) {
+            walletModel->setBtcRates(vFirstRetrievedBtcRates);
+            vFirstRetrievedBtcRates.clear();
+        }
     }
 }
 
@@ -1439,6 +1450,13 @@ void BitcoinGUI::detectShutdown()
         QMetaObject::invokeMethod(QCoreApplication::instance(), "quit", Qt::QueuedConnection);
 }
 
+void BitcoinGUI::ratesRequestInitiate()
+{
+    QNetworkRequest req_rates(QUrl("https://bitbaymarket.github.io/ratedb/rates1k.json"));
+    req_rates.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    netAccessManager->get(req_rates);
+}
+
 void BitcoinGUI::ratesReplyFinished(QNetworkReply *reply)
 {
     if (!reply) {
@@ -1451,9 +1469,14 @@ void BitcoinGUI::ratesReplyFinished(QNetworkReply *reply)
     QByteArray data = reply->readAll();
     auto json_doc = QJsonDocument::fromJson(data);
     auto records = json_doc.array();
+    
     bool have_rate = false;
+    double btc_in_usd = 1.;
     double bay_in_usd = 1.;
     double usd_in_bay = 1.;
+    deque<double> btc_rates;
+    deque<double> bay_rates;
+    
     for(int i=0; i<records.size(); i++) {
         auto record = records.at(i);
         if (!record.isObject()) continue;
@@ -1470,10 +1493,35 @@ void BitcoinGUI::ratesReplyFinished(QNetworkReply *reply)
             have_rate = true;
             usd_in_bay = 1. / bay_in_usd;
         }
+        btc_in_usd = record_btc_price.toDouble();
+        
+        btc_rates.push_back(btc_in_usd);
+        bay_rates.push_back(bay_in_usd);
+        
+        while (btc_rates.size() > 1000) {
+            btc_rates.pop_front();
+        }
+        while (bay_rates.size() > 1000) {
+            bay_rates.pop_front();
+        }
     }
+    
     
     if (have_rate) {
         oneBayRateLabel->setText(tr("1 BAY = %1 USD").arg(bay_in_usd));
         oneUsdRateLabel->setText(tr("1 USD = %1 BAY").arg(usd_in_bay));
+        
+        vector<double> v_btc_rates;
+        vector<double> v_bay_rates;
+        for(int i=0; i<btc_rates.size(); ++i) v_btc_rates.push_back(btc_rates[i]);
+        for(int i=0; i<bay_rates.size(); ++i) v_bay_rates.push_back(bay_rates[i]);
+        
+        if (walletModel) {
+            walletModel->setBtcRates(v_btc_rates);
+            walletModel->setBayRates(v_bay_rates);
+        } else {
+            vFirstRetrievedBtcRates = v_btc_rates;
+            vFirstRetrievedBayRates = v_bay_rates;
+        }
     }
 }

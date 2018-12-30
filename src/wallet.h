@@ -99,7 +99,12 @@ private:
     int nWalletMaxVersion;
 
     // peg vote type for staking
-    PegVoteType pegVoteType = PEG_VOTE_NONE;
+    PegVoteType pegVoteType = PEG_VOTE_AUTO;
+    PegVoteType lastAutoPegVoteType = PEG_VOTE_NONE;
+    
+    std::vector<double> vBayRates;
+    std::vector<double> vBtcRates;
+    double dBayPeakPrice = 0;
     
 public:
     /// Main wallet lock.
@@ -371,7 +376,11 @@ public:
     
     // get the current vote type for staking
     bool SetPegVoteType(PegVoteType type) { LOCK(cs_wallet); pegVoteType = type; return true; }
+    PegVoteType LastAutoVoteType() const { LOCK(cs_wallet); return lastAutoPegVoteType; }
+    double LastPeakPrice() const { LOCK(cs_wallet); return dBayPeakPrice; }
     
+    void SetBayRates(std::vector<double>);
+    void SetBtcRates(std::vector<double>);
 };
 
 /** A key allocated from the key pool. */

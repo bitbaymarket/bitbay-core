@@ -134,6 +134,9 @@ public:
     void getOutputs(const std::vector<COutPoint>& vOutpoints, std::vector<COutput>& vOutputs);
     void listCoins(std::map<QString, std::vector<COutput> >& mapCoins) const;
 
+    void setBayRates(std::vector<double>);
+    void setBtcRates(std::vector<double>);
+    
 private:
     CWallet *wallet;
     bool fForceCheckBalanceChanged;

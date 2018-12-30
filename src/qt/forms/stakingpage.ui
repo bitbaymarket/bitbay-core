@@ -107,17 +107,17 @@
                 <string>Disable</string>
                </property>
                <property name="checked">
-                <bool>true</bool>
+                <bool>false</bool>
                </property>
               </widget>
              </item>
              <item row="0" column="0">
-              <widget class="QRadioButton" name="radioButton">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
+              <widget class="QRadioButton" name="radioButtonVoteAuto">
                <property name="text">
                 <string>Automatic (recommended)</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
                </property>
               </widget>
              </item>
@@ -510,6 +510,13 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>radioButtonVoteAuto</tabstop>
+  <tabstop>radioButtonVoteDeflate</tabstop>
+  <tabstop>radioButtonVoteInflate</tabstop>
+  <tabstop>radioButtonVoteNoChange</tabstop>
+  <tabstop>radioButtonVoteNone</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

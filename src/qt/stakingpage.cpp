@@ -98,6 +98,7 @@ StakingPage::StakingPage(QWidget *parent) :
     connect(pollTimer, SIGNAL(timeout()), this, SLOT(updateTimer()));
     
     connect(ui->radioButtonVoteNone, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
+    connect(ui->radioButtonVoteAuto, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
     connect(ui->radioButtonVoteInflate, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
     connect(ui->radioButtonVoteDeflate, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
     connect(ui->radioButtonVoteNoChange, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
@@ -175,6 +176,8 @@ void StakingPage::updatePegVoteType()
 {
     if (ui->radioButtonVoteNone->isChecked()) {
         pwalletMain->SetPegVoteType(PEG_VOTE_NONE);
+    } else if (ui->radioButtonVoteAuto->isChecked()) {
+        pwalletMain->SetPegVoteType(PEG_VOTE_AUTO);
     } else if (ui->radioButtonVoteInflate->isChecked()) {
         pwalletMain->SetPegVoteType(PEG_VOTE_INFLATE);
     } else if (ui->radioButtonVoteDeflate->isChecked()) {
@@ -301,5 +304,14 @@ void StakingPage::setAmounts(qint64 amount5, qint64 amount10, qint64 amount20, q
     if (stake)
         ui->labelTotalCount->setText(tr("(%1/%2)").arg(stake).arg(count));
     
+    double last_peak = pwalletMain->LastPeakPrice();
+    PegVoteType last_vote = pwalletMain->LastAutoVoteType();
+
+    ui->radioButtonVoteDeflate->setText(last_vote == PEG_VOTE_DEFLATE 
+                                        ? tr("Deflation (auto to %1)").arg(last_peak)
+                                        : tr("Deflation"));
+    ui->radioButtonVoteInflate->setText(last_vote == PEG_VOTE_INFLATE 
+                                        ? tr("Inflation (auto to %1)").arg(last_peak)
+                                        : tr("Inflation"));
 }
 

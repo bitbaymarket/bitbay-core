@@ -67,6 +67,12 @@
 #include <QToolButton>
 #include <QButtonGroup>
 
+#include <QNetworkReply>
+#include <QNetworkAccessManager>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonValue>
+
 #include <iostream>
 
 extern CWallet* pwalletMain;
@@ -180,6 +186,16 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     lastBlockLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
     topHeaderLayout->addWidget(lastBlockLabel, 0,0);
 
+    oneBayRateLabel = new QLabel;
+    oneBayRateLabel->setText(tr("1 BAY = ??? USD"));
+    oneBayRateLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    topHeaderLayout->addWidget(oneBayRateLabel, 1,0);
+
+    oneUsdRateLabel = new QLabel;
+    oneUsdRateLabel->setText(tr("1 USD = ??? BAY"));
+    oneUsdRateLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    topHeaderLayout->addWidget(oneUsdRateLabel, 2,0);
+    
     QWidget* space12 = new QWidget();
     space12->setFixedHeight(70);
     space12->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
@@ -516,6 +532,14 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     connect(receiveCoinsPage, SIGNAL(signMessage(QString)), this, SLOT(gotoSignMessageTab(QString)));
 
     gotoOverviewPage();
+    
+    // Request rates
+    QNetworkRequest req_rates(QUrl("https://bitbaymarket.github.io/ratedb/rates1k.json"));
+    req_rates.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    netAccessManager = new QNetworkAccessManager(this);
+    connect(netAccessManager, &QNetworkAccessManager::finished,
+            this, &BitcoinGUI::ratesReplyFinished);
+    netAccessManager->get(req_rates);
 }
 
 BitcoinGUI::~BitcoinGUI()
@@ -1413,4 +1437,43 @@ void BitcoinGUI::detectShutdown()
 {
     if (ShutdownRequested())
         QMetaObject::invokeMethod(QCoreApplication::instance(), "quit", Qt::QueuedConnection);
+}
+
+void BitcoinGUI::ratesReplyFinished(QNetworkReply *reply)
+{
+    if (!reply) {
+        return;
+    }
+    reply->deleteLater();
+    if (reply->error()) {
+        return;
+    }
+    QByteArray data = reply->readAll();
+    auto json_doc = QJsonDocument::fromJson(data);
+    auto records = json_doc.array();
+    bool have_rate = false;
+    double bay_in_usd = 1.;
+    double usd_in_bay = 1.;
+    for(int i=0; i<records.size(); i++) {
+        auto record = records.at(i);
+        if (!record.isObject()) continue;
+        auto record_bay = record["BAY"];
+        auto record_btc = record["BTC"];
+        if (!record_bay.isObject()) continue;
+        if (!record_btc.isObject()) continue;
+        auto record_btc_price = record_btc["price"];
+        auto record_bay_price = record_bay["price"];
+        if (!record_bay_price.isDouble()) continue;
+        if (!record_btc_price.isDouble()) continue;
+        bay_in_usd = record_bay_price.toDouble();
+        if (bay_in_usd >0) {
+            have_rate = true;
+            usd_in_bay = 1. / bay_in_usd;
+        }
+    }
+    
+    if (have_rate) {
+        oneBayRateLabel->setText(tr("1 BAY = %1 USD").arg(bay_in_usd));
+        oneUsdRateLabel->setText(tr("1 USD = %1 BAY").arg(usd_in_bay));
+    }
 }

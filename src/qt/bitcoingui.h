@@ -28,6 +28,8 @@ class QToolButton;
 class QModelIndex;
 class QProgressBar;
 class QStackedWidget;
+class QNetworkReply;
+class QNetworkAccessManager;
 QT_END_NAMESPACE
 
 /**
@@ -62,6 +64,8 @@ private:
     ClientModel *clientModel;
     WalletModel *walletModel;
 
+    QNetworkAccessManager * netAccessManager;
+    
     QStackedWidget *centralStackedWidget;
 
     OverviewPage *overviewPage;
@@ -75,6 +79,8 @@ private:
     BlockchainPage *infoPage;
 
     QLabel *lastBlockLabel;
+    QLabel *oneUsdRateLabel;
+    QLabel *oneBayRateLabel;
     QLabel *labelEncryptionIcon;
     QLabel *labelStakingIcon;
     QLabel *labelConnectionsIcon;
@@ -236,6 +242,9 @@ private slots:
 
     /** called by a timer to check if fRequestShutdown has been set **/
     void detectShutdown();
+    
+    /** called as retrieved all bytes for rates */
+    void ratesReplyFinished(QNetworkReply *reply);
 };
 
 #endif // BITCOINGUI_H

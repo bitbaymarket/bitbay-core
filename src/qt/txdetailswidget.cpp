@@ -334,6 +334,12 @@ void TxDetailsWidget::openTx(CTransaction & tx,
         topItem->setData(0, BlockchainModel::HashRole, vhash);
         ui->txValues->addTopLevelItem(topItem);
         ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Datetime",QString::fromStdString(DateTimeStrFormat(pblockindex->GetBlockTime()))})));
+        int nConfirmations = 0;
+        {
+            LOCK(cs_main);
+            nConfirmations = pindexBest->nHeight - pblockindex->nHeight + 1;
+        }
+        ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Confirmations",QString::number(nConfirmations)})));
         ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Hash",thash})));
     }
 

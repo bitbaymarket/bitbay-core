@@ -2522,6 +2522,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
                               CKey& key,
                               PegVoteType voteType)
 {
+    LOCK2(cs_main, cs_wallet);
     CBlockIndex* pindexPrev = pindexBest;
     CBigNum bnTargetPerCoinDay;
     bnTargetPerCoinDay.SetCompact(nBits);
@@ -3384,7 +3385,7 @@ void CWallet::GetKeyBirthTimes(std::map<CKeyID, int64_t> &mapKeyBirth) const {
 }
 
 void CWallet::SetBayRates(std::vector<double> bay_rates) {
-    LOCK(cs_wallet); 
+    LOCK2(cs_main, cs_wallet);
     vBayRates = bay_rates;
     
     double dPeakRate = 0.;
@@ -3428,7 +3429,7 @@ void CWallet::SetBayRates(std::vector<double> bay_rates) {
     pegdb.Close();
 }
 void CWallet::SetBtcRates(std::vector<double> btc_rates) {
-    LOCK(cs_wallet); 
+    LOCK2(cs_main, cs_wallet);
     vBtcRates = btc_rates;
     
     double dPeakRate = 0.;

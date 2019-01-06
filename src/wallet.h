@@ -812,29 +812,50 @@ public:
             {
                 const CTxOut &txout = vout[i];
                 if (pwallet->IsMine(txout)) {
+                    bool fConfirmed = GetDepthInMainChain() >= nStakeMinConfirmations;
                     bool fStake = IsCoinStake() && GetBlocksToMaturity() > 0 && GetDepthInMainChain() > 0;
                         
                     if (vOutFractions[i].nFlags & CFractions::NOTARY_V) {
-                        vRewardsInfoCached[PEG_REWARD_40].count++;
-                        vRewardsInfoCached[PEG_REWARD_40].amount += txout.nValue;
-                        if (fStake) vRewardsInfoCached[PEG_REWARD_40].stake++;
+                        if (fStake) {
+                            vRewardsInfoCached[PEG_REWARD_40].count++;
+                            vRewardsInfoCached[PEG_REWARD_40].amount += txout.nValue;
+                            vRewardsInfoCached[PEG_REWARD_40].stake++;
+                        } else if (fConfirmed) {
+                            vRewardsInfoCached[PEG_REWARD_40].count++;
+                            vRewardsInfoCached[PEG_REWARD_40].amount += txout.nValue;
+                        }
                     }
                     else if (vOutFractions[i].nFlags & CFractions::NOTARY_F) {
-                        vRewardsInfoCached[PEG_REWARD_20].count++;
-                        vRewardsInfoCached[PEG_REWARD_20].amount += txout.nValue;
-                        if (fStake) vRewardsInfoCached[PEG_REWARD_20].stake++;
+                        if (fStake) {
+                            vRewardsInfoCached[PEG_REWARD_20].count++;
+                            vRewardsInfoCached[PEG_REWARD_20].amount += txout.nValue;
+                            vRewardsInfoCached[PEG_REWARD_20].stake++;
+                        } else if (fConfirmed) {
+                            vRewardsInfoCached[PEG_REWARD_20].count++;
+                            vRewardsInfoCached[PEG_REWARD_20].amount += txout.nValue;
+                        }
                     }
                     else {
                         int64_t reserve = vOutFractions[i].Low(nSupply);
                         int64_t liquidity = vOutFractions[i].High(nSupply);
                         if (liquidity < reserve) {
-                            vRewardsInfoCached[PEG_REWARD_10].count++;
-                            vRewardsInfoCached[PEG_REWARD_10].amount += txout.nValue;
-                            if (fStake) vRewardsInfoCached[PEG_REWARD_10].stake++;
+                            if (fStake) {
+                                vRewardsInfoCached[PEG_REWARD_10].count++;
+                                vRewardsInfoCached[PEG_REWARD_10].amount += txout.nValue;
+                                vRewardsInfoCached[PEG_REWARD_10].stake++;
+                            } else if (fConfirmed) {
+                                vRewardsInfoCached[PEG_REWARD_10].count++;
+                                vRewardsInfoCached[PEG_REWARD_10].amount += txout.nValue;
+                            }
                         } else {
-                            vRewardsInfoCached[PEG_REWARD_5].count++;
-                            vRewardsInfoCached[PEG_REWARD_5].amount += txout.nValue;
-                            if (fStake) vRewardsInfoCached[PEG_REWARD_5].stake++;
+                            if (fStake) {
+                                vRewardsInfoCached[PEG_REWARD_5].count++;
+                                vRewardsInfoCached[PEG_REWARD_5].amount += txout.nValue;
+                                vRewardsInfoCached[PEG_REWARD_5].stake++;
+                            } else if (fConfirmed) {
+                                vRewardsInfoCached[PEG_REWARD_5].count++;
+                                vRewardsInfoCached[PEG_REWARD_5].amount += txout.nValue;
+                            }
                         }
                     }
                 }

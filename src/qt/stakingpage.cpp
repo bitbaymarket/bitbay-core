@@ -297,7 +297,7 @@ void StakingPage::setAmounts(qint64 amount5, qint64 amount10, qint64 amount20, q
     int stake = stake5+stake10+stake20+stake40;
     qint64 amount = amount5+amount10+amount20+amount40;
     
-    ui->labelSplitValue->setText(count > PEG_STAKE_SPLIT_NOUTS ? tr("OFF") : tr("ON"));
+    ui->labelSplitValue->setText(count >= PEG_STAKE_SPLIT_NOUTS ? tr("OFF") : tr("ON"));
     
     ui->labelTotalAmount->setText(BitcoinUnits::formatWithUnitForLabel(unit, amount));
     ui->labelTotalCount->setText(tr("(%1)").arg(count));

@@ -1048,6 +1048,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
     CBlockIndex* pindex = pindexStart;
     {
         LOCK2(cs_main, cs_wallet);
+        CPegDB pegdb("r");
         while (pindex)
         {
             // no need to read and scan block, if block was created before
@@ -1058,11 +1059,17 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             }
 
             CBlock block;
-            //TODO:PEG read fractions from disk
             MapFractions mapOutputFractions;
             block.ReadFromDisk(pindex, true);
-            BOOST_FOREACH(CTransaction& tx, block.vtx)
+            for(const CTransaction& tx : block.vtx)
             {
+                auto hash = tx.GetHash();
+                for(size_t i =0; i< tx.vout.size(); i++) {
+                    auto fkey = uint320(hash, i);
+                    CFractions& fractions = mapOutputFractions[fkey];
+                    fractions = CFractions(tx.vout[i].nValue, CFractions::STD);
+                    pegdb.Read(fkey, fractions);
+                }
                 if (AddToWalletIfInvolvingMe(tx, &block, fUpdate, mapOutputFractions))
                     ret++;
             }

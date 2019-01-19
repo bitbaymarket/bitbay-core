@@ -279,7 +279,7 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
                 continue;
 
             // Transaction fee
-            int64_t nMinFee = GetMinFee(tx, nBlockSize, GMF_BLOCK);
+            int64_t nMinFee = GetMinFee(tx, nHeight, nBlockSize, GMF_BLOCK);
 
             // Skip free transactions if we're past the minimum block size:
             if (fSortedByFee && (dFeePerKb < nMinTxFee) && (nBlockSize + nTxSize >= nBlockMinSize))

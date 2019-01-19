@@ -230,7 +230,11 @@ enum GetMinFee_mode
 
 typedef std::map<uint256, std::pair<CTxIndex, CTransaction> > MapPrevTx;
 
-int64_t GetMinFee(const CTransaction& tx, unsigned int nBlockSize = 1, enum GetMinFee_mode mode = GMF_BLOCK, unsigned int nBytes = 0);
+int64_t GetMinFee(const CTransaction& tx, 
+                  int nHeight, 
+                  unsigned int nBlockSize, 
+                  enum GetMinFee_mode mode, 
+                  unsigned int nBytes = 0);
 
 /** The basic transaction that is broadcasted on the network and contained in
  * blocks.  A transaction can contain multiple inputs and outputs.

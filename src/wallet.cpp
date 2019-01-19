@@ -2407,9 +2407,7 @@ bool CWallet::CreateTransaction(PegTxType txType,
 
                 // Check that enough fee is included
                 int64_t nPayFee = nTransactionFee * (1 + (int64_t)nBytes / 1000);
-                int64_t nMinFee1 = GetMinFee(wtxNew, 1, GMF_SEND, nBytes);
-                int64_t nMinFee2 = PEG_MAKETX_FEE_INP_OUT * (wtxNew.vin.size()+wtxNew.vout.size());
-                int64_t nMinFee = max(nMinFee1, nMinFee2);
+                int64_t nMinFee = GetMinFee(wtxNew, pindexBest->nHeight, 1, GMF_SEND, nBytes);
 
                 if (nFeeRet < max(nPayFee, nMinFee))
                 {

@@ -1054,8 +1054,8 @@ int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev, int64_t nCoinAge, i
                     nDemoSubsidy = COIN * 20;
                 }
                 else {
-                    int64_t reserve = inp.Low(pindexPrev->GetNextPegSupplyIndex());
-                    int64_t liquidity = inp.High(pindexPrev->GetNextPegSupplyIndex());
+                    int64_t reserve = inp.Low(pindexPrev->GetNextBlockPegSupplyIndex());
+                    int64_t liquidity = inp.High(pindexPrev->GetNextBlockPegSupplyIndex());
                     if (liquidity < reserve) {
                         nDemoSubsidy = COIN * 10;
                     } else {

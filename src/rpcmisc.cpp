@@ -74,6 +74,36 @@ Value getinfo(const Array& params, bool fHelp)
     return obj;
 }
 
+Value getpeginfo(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+            "getpeginfo\n"
+            "Returns an object containing peg state info.");
+
+    Object peg;
+    int nPegInterval = PEG_INTERVAL;
+    if (TestNet()) {
+        nPegInterval = PEG_INTERVAL_TESTNET1;
+    }
+    peg.push_back(Pair("steps", PEG_SIZE));
+    peg.push_back(Pair("interval", nPegInterval));
+    peg.push_back(Pair("startingblock", nPegStartHeight));
+    peg.push_back(Pair("pegfeeperinput", PEG_MAKETX_FEE_INP_OUT));
+    peg.push_back(Pair("subpremiumrating", PEG_SUBPREMIUM_RATING));
+    if (!vPegWhitelist.empty() && !fPegWhitelistAll) {
+        Array list;
+        for(string addr : vPegWhitelist) {
+            list.push_back(addr);
+        }
+        peg.push_back(Pair("whitelist", list));
+    }
+    peg.push_back(Pair("pegsupplyindex", pindexBest->nPegSupplyIndex));
+    peg.push_back(Pair("nextpegsupplyindex", pindexBest->GetNextIntervalPegSupplyIndex()));
+    peg.push_back(Pair("nextnextpegsupplyindex", pindexBest->GetNextNextIntervalPegSupplyIndex()));
+    return peg;
+}
+
 #ifdef ENABLE_WALLET
 class DescribeAddressVisitor : public boost::static_visitor<Object>
 {
@@ -227,16 +257,4 @@ Value verifymessage(const Array& params, bool fHelp)
         return false;
 
     return (pubkey.GetID() == keyID);
-}
-
-Value getpeginfo(const Array& params, bool fHelp)
-{
-    if (fHelp || params.size() != 0)
-        throw runtime_error(
-            "getpeginfo\n"
-            "Returns height of block starting the peg.");
-
-    Object obj;
-    obj.push_back(Pair("startheight", nPegStartHeight));
-    return obj;
 }

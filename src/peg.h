@@ -22,6 +22,7 @@ typedef std::map<uint256, std::pair<CTxIndex, CTransaction> > MapPrevTx;
 extern int nPegStartHeight;
 extern int nPegMaxSupplyIndex;
 extern bool fPegWhitelistAll;
+extern std::set<std::string> vPegWhitelist;
 extern uint256 pegWhiteListHash;
 
 // functors for messagings
@@ -43,6 +44,7 @@ enum
     PEG_MAKETX_VFREEZE_VALUE= 5590,
     PEG_MAKETX_FEE_INP_OUT  = 5000,
     PEG_MAKETX_VOTE_VALUE   = 5554,
+    PEG_SUBPREMIUM_RATING   = 200,
     PEG_DB_CHECK1           = 1,         // testnet: fix for votes calculation
     PEG_DB_CHECK2           = 2          // testnet: fix for stake liquidity calculation
 };

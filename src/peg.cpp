@@ -40,7 +40,7 @@ using namespace boost;
 int nPegStartHeight = 1837000;
 int nPegMaxSupplyIndex = 1198;
 bool fPegWhitelistAll = false;
-static set<string> vPegWhitelist;
+set<std::string> vPegWhitelist;
 uint256 pegWhiteListHash = 0;
 
 std::string PEG_INFLATE_ADDR    = "bNyZrPLQAMPvYedrVLDcBSd8fbLdNgnRPz";
@@ -159,11 +159,11 @@ bool CalculateBlockPegIndex(CBlockIndex* pindex)
         return true;
     }
     
-    pindex->nPegSupplyIndex = pindex->pprev->GetNextPegSupplyIndex();
+    pindex->nPegSupplyIndex = pindex->pprev->GetNextBlockPegSupplyIndex();
     return true;
 }
 
-int CBlockIndex::GetNextPegSupplyIndex() const
+int CBlockIndex::GetNextBlockPegSupplyIndex() const
 {
     int nNextHeight = nHeight+1;
     int nPegInterval = PEG_INTERVAL;
@@ -192,6 +192,64 @@ int CBlockIndex::GetNextPegSupplyIndex() const
         prevvotesindex = prevvotesindex->pprev;
 
     return ComputeNextPegSupplyIndex(nPegSupplyIndex, usevotesindex, prevvotesindex);
+}
+
+int CBlockIndex::GetNextIntervalPegSupplyIndex() const
+{
+    if (nHeight < nPegStartHeight) {
+        return 0;
+    }
+    
+    int nPegInterval = PEG_INTERVAL;
+    if (TestNet()) {
+        if (nHeight >= 10000) {
+            nPegInterval = PEG_INTERVAL_TESTNET1;
+        }
+    }
+    
+    int nCurrentInterval = nHeight / nPegInterval;
+    int nCurrentIntervalStart = nCurrentInterval * nPegInterval;
+
+    // back to 2 intervals and -1 to count voice of back-third interval, as votes sum at nPegInterval-1
+    auto usevotesindex = this;
+    while (usevotesindex->nHeight > (nCurrentIntervalStart - nPegInterval*1 -1))
+        usevotesindex = usevotesindex->pprev;
+
+    // back to 3 intervals and -1 for votes calculations of 2x and 3x
+    auto prevvotesindex = this;
+    while (prevvotesindex->nHeight > (nCurrentIntervalStart - nPegInterval*2 -1))
+        prevvotesindex = prevvotesindex->pprev;
+
+    return CBlockIndex::ComputeNextPegSupplyIndex(nPegSupplyIndex, usevotesindex, prevvotesindex);
+}
+
+int CBlockIndex::GetNextNextIntervalPegSupplyIndex() const
+{
+    if (nHeight < nPegStartHeight) {
+        return 0;
+    }
+    
+    int nPegInterval = PEG_INTERVAL;
+    if (TestNet()) {
+        if (nHeight >= 10000) {
+            nPegInterval = PEG_INTERVAL_TESTNET1;
+        }
+    }
+    
+    int nCurrentInterval = nHeight / nPegInterval;
+    int nCurrentIntervalStart = nCurrentInterval * nPegInterval;
+
+    // back to 2 intervals and -1 to count voice of back-third interval, as votes sum at nPegInterval-1
+    auto usevotesindex = this;
+    while (usevotesindex->nHeight > (nCurrentIntervalStart - nPegInterval*0 -1))
+        usevotesindex = usevotesindex->pprev;
+
+    // back to 3 intervals and -1 for votes calculations of 2x and 3x
+    auto prevvotesindex = this;
+    while (prevvotesindex->nHeight > (nCurrentIntervalStart - nPegInterval*1 -1))
+        prevvotesindex = prevvotesindex->pprev;
+
+    return CBlockIndex::ComputeNextPegSupplyIndex(GetNextIntervalPegSupplyIndex(), usevotesindex, prevvotesindex);
 }
 
 // #NOTE15

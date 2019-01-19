@@ -1120,7 +1120,9 @@ public:
         nFlags = flags;
     }
     
-    int GetNextPegSupplyIndex() const;
+    int GetNextBlockPegSupplyIndex() const;
+    int GetNextIntervalPegSupplyIndex() const;
+    int GetNextNextIntervalPegSupplyIndex() const;
     static int ComputeNextPegSupplyIndex(int nPegBase, 
                                          const CBlockIndex* back2interval,
                                          const CBlockIndex* back3interval);

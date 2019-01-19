@@ -55,66 +55,14 @@ int ClientModel::getPegNextSupplyIndex() const
 {
     LOCK(cs_main);
     CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
-    
-    int nCurrentHeight = pblockindex->nHeight;
-    if (nCurrentHeight < nPegStartHeight) {
-        return 0;
-    }
-    
-    int nPegInterval = PEG_INTERVAL;
-    if (TestNet()) {
-        if (nCurrentHeight >= 10000) {
-            nPegInterval = PEG_INTERVAL_TESTNET1;
-        }
-    }
-    
-    int nCurrentInterval = nCurrentHeight / nPegInterval;
-    int nCurrentIntervalStart = nCurrentInterval * nPegInterval;
-
-    // back to 2 intervals and -1 to count voice of back-third interval, as votes sum at nPegInterval-1
-    auto usevotesindex = pblockindex;
-    while (usevotesindex->nHeight > (nCurrentIntervalStart - nPegInterval*1 -1))
-        usevotesindex = usevotesindex->pprev;
-
-    // back to 3 intervals and -1 for votes calculations of 2x and 3x
-    auto prevvotesindex = pblockindex;
-    while (prevvotesindex->nHeight > (nCurrentIntervalStart - nPegInterval*2 -1))
-        prevvotesindex = prevvotesindex->pprev;
-
-    return CBlockIndex::ComputeNextPegSupplyIndex(pblockindex->nPegSupplyIndex, usevotesindex, prevvotesindex);
+    return pblockindex->GetNextIntervalPegSupplyIndex();
 }
 
 int ClientModel::getPegNextNextSupplyIndex() const
 {
     LOCK(cs_main);
     CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
-    
-    int nCurrentHeight = pblockindex->nHeight;
-    if (nCurrentHeight < nPegStartHeight) {
-        return 0;
-    }
-    
-    int nPegInterval = PEG_INTERVAL;
-    if (TestNet()) {
-        if (nCurrentHeight >= 10000) {
-            nPegInterval = PEG_INTERVAL_TESTNET1;
-        }
-    }
-    
-    int nCurrentInterval = nCurrentHeight / nPegInterval;
-    int nCurrentIntervalStart = nCurrentInterval * nPegInterval;
-
-    // back to 2 intervals and -1 to count voice of back-third interval, as votes sum at nPegInterval-1
-    auto usevotesindex = pblockindex;
-    while (usevotesindex->nHeight > (nCurrentIntervalStart - nPegInterval*0 -1))
-        usevotesindex = usevotesindex->pprev;
-
-    // back to 3 intervals and -1 for votes calculations of 2x and 3x
-    auto prevvotesindex = pblockindex;
-    while (prevvotesindex->nHeight > (nCurrentIntervalStart - nPegInterval*1 -1))
-        prevvotesindex = prevvotesindex->pprev;
-
-    return CBlockIndex::ComputeNextPegSupplyIndex(getPegNextSupplyIndex(), usevotesindex, prevvotesindex);
+    return pblockindex->GetNextNextIntervalPegSupplyIndex();
 }
 
 int ClientModel::getPegStartBlockNum() const 

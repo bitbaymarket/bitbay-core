@@ -77,7 +77,6 @@ StakingPage::StakingPage(QWidget *parent) :
     ui->label10Text     ->setStyleSheet(white2);
     ui->label20Text     ->setStyleSheet(white2);
     ui->label40Text     ->setStyleSheet(white2);
-    ui->labelSplitText  ->setStyleSheet(white2);
 
     ui->label5Count     ->setStyleSheet(white1);
     ui->label10Count    ->setStyleSheet(white1);
@@ -90,7 +89,6 @@ StakingPage::StakingPage(QWidget *parent) :
     ui->label20Amount   ->setStyleSheet(white1);
     ui->label40Amount   ->setStyleSheet(white1);
     ui->labelTotalAmount->setStyleSheet(white1);
-    ui->labelSplitValue ->setStyleSheet(white1);
     
     pollTimer = new QTimer(this);
     pollTimer->setInterval(30*1000);
@@ -296,8 +294,6 @@ void StakingPage::setAmounts(qint64 amount5, qint64 amount10, qint64 amount20, q
     int count = count5+count10+count20+count40;
     int stake = stake5+stake10+stake20+stake40;
     qint64 amount = amount5+amount10+amount20+amount40;
-    
-    ui->labelSplitValue->setText(count >= PEG_STAKE_SPLIT_NOUTS ? tr("OFF") : tr("ON"));
     
     ui->labelTotalAmount->setText(BitcoinUnits::formatWithUnitForLabel(unit, amount));
     ui->labelTotalCount->setText(tr("(%1)").arg(count));

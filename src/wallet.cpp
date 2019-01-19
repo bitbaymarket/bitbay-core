@@ -2639,8 +2639,6 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
     if (nCredit == 0 || nCredit > nBalance - nReserveBalance)
         return false;
 
-    bool fInputIsFrozen = false;
-    
     // Calculate coin age reward
     {
         uint64_t nCoinAge;
@@ -2655,9 +2653,6 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         if (!pegdb.Read(fkey, fractions)) {
             //todo:peg: fail if previout after pegstart, so it should have fractions
         }
-        
-        if (fractions.nFlags & CFractions::NOTARY_F) fInputIsFrozen = true;
-        if (fractions.nFlags & CFractions::NOTARY_V) fInputIsFrozen = true;
         
         int64_t nDemoSubsidy = 0; 
         int64_t nReward = GetProofOfStakeReward(pindexPrev, nCoinAge, nFees, fractions, nDemoSubsidy);
@@ -2678,16 +2673,8 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
     for(size_t i=0; i<vRewardsInfo.size(); i++) {
         nOutCount += vRewardsInfo[i].count;
     }
-    
-    // The stake split is disabled if input has frozen marks, 
-    if (nCredit >= GetStakeSplitThreshold() && !fInputIsFrozen && nOutCount < PEG_STAKE_SPLIT_NOUTS) {
-        txNew.vout.push_back(CTxOut(0, txNew.vout[1].scriptPubKey)); //split stake
-        txNew.vout[1].nValue = (nCredit / 2 / CENT) * CENT;
-        txNew.vout[2].nValue = nCredit - txNew.vout[1].nValue;
-    }
-    else {
-        txNew.vout[1].nValue = nCredit;
-    }
+
+    txNew.vout[1].nValue = nCredit;
     
     // Add vote output
     lastAutoPegVoteType = PEG_VOTE_NONE;

@@ -1,0 +1,67 @@
+#NOTE1 (in code: main.cpp)
+This is the part logic that is not be the same in Python and C++. Because c++ 
+peg calculations are implemented to follow ConnectInputs() routines then all
+fractions calculations will follow reorganizations of blocks and new fractions 
+of same transactions will be replaced in pegdb.
+
+#NOTE2 (in code: main.cpp)
+This section scans for reorganizations. Same references as #NOTE1.
+
+#NOTE3 (in code: txmempool.h)
+Note that mempool now does not wipe transactions which does not fit peg. (todo)
+
+#NOTE4
+In C++ implemented via following same idea of transactions pools - ref example
+map<uint256, CTxIndex>& mapTestPool argument in CTransaction::ConnectInputs()
+For peg logics, added same following fractions pools - map<uint320, CFractions>.
+Fractions pools always follow transactions pools and ensure fractions 
+calculations happens in sync of transactions computations.
+
+#NOTE5 (in code: peg.cpp)
+
+#NOTE6 (in code: peg.cpp)
+Note that referenced logic is located in two calls:
+CalculateStandardFractions()
+CalculateStakingFractions()
+(note: separated due internal logic of calls of checks during ConnectBlock())
+
+#NOTE7 (in code: peg.cpp)
+
+#NOTE8 (in code: peg.cpp)
+No direct call equivalent, but referencing:
+CFractions::RatioPart()
+CFractions::MoveRatioPartTo()
+which do same in the context of logic.
+
+#NOTE9 (in code: main.cpp)
+
+#NOTE10
+Peg leveldb uses uint320 key for fractions keys: (uint256 txid, uint64 out)
+No refereces by addresses now.
+
+#NOTE11
+TODO
+
+#NOTE12
+TODO
+
+#NOTE13 (in code: main.cpp, txdb-leveldb.cpp)
+
+#NOTE14
+TODO (implementation)
+
+#NOTE15 (in code: peg.cpp)
+Currently represented by CBlockIndex::ComputeNextPegSupplyIndex() only which 
+allows to show future peg supply index for next intervals in gui
+
+#NOTE16
+TODO (rateliquidity implementation)
+
+#NOTE17
+TODO
+Currently represented by CBlockIndex::ComputeNextPegSupplyIndex() only which 
+allows to show future peg supply index for next intervals in gui
+
+#NOTE18 (in code: bitcoingui.cpp)
+todo: "auto" voting needs improvements regarding historical peaks and increases
+due to inflation in system

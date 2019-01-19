@@ -582,7 +582,8 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
         CPegDB pegdb;
         block.SetBestChain(txdb, pegdb, pindexFork);
     }
-
+    
+    // #NOTE13
     int nPegStartHeightStored = 0;
     ReadPegStartHeight(nPegStartHeightStored);
     if (nPegStartHeightStored != nPegStartHeight) {

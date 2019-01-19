@@ -1459,6 +1459,7 @@ void BitcoinGUI::ratesRequestInitiate()
 
 void BitcoinGUI::ratesReplyFinished(QNetworkReply *reply)
 {
+    // #NOTE18
     if (!reply) {
         return;
     }

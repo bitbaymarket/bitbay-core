@@ -194,6 +194,7 @@ int CBlockIndex::GetNextPegSupplyIndex() const
     return ComputeNextPegSupplyIndex(nPegSupplyIndex, usevotesindex, prevvotesindex);
 }
 
+// #NOTE15
 int CBlockIndex::ComputeNextPegSupplyIndex(int nPegBase,
                                            const CBlockIndex* back2interval,
                                            const CBlockIndex* back3interval) {
@@ -608,6 +609,7 @@ static int64_t RatioPart(int64_t nValue,
 
 /** Take a part as ration part/total where part is also value (sum fraction)
  *  Returned fractions are also adjusted for part for rounding differences.
+ *  #NOTE8
  */
 CFractions CFractions::RatioPart(int64_t nPartValue,
                                  int64_t nTotalValue,
@@ -675,6 +677,7 @@ CFractions CFractions::RatioPart(int64_t nPartValue,
 /** Take a part as ration part/total where part is also value (sum fraction)
  *  Add taken part into destination fractions. Adjusted from adjust_from.
  *  Returns not completed amount (if source("this") has no enough)
+ *  #NOTE8
  */
 int64_t CFractions::MoveRatioPartTo(int64_t nValueToMove,
                                     int adjust_from,
@@ -962,7 +965,8 @@ bool CalculateStandardFractions(const CTransaction & tx,
             bool fNotaryF = boost::starts_with(sNotary, "**F**");
             bool fNotaryV = boost::starts_with(sNotary, "**V**");
             bool fNotaryL = boost::starts_with(sNotary, "**L**");
-
+            
+            // #NOTE5
             if (fNotary && (fNotaryF || fNotaryV || fNotaryL)) {
                 bool fSharedFreeze = false;
                 auto sOutputDef = sNotary.substr(5 /*length **F** */);
@@ -1065,6 +1069,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
         nLiquidityTotal += nLiquidityIn;
     }
 
+    // #NOTE6
     CFractions frCommonLiquidity(0, CFractions::STD);
     for(const auto & item : poolLiquidity) {
         frCommonLiquidity += item.second;
@@ -1100,6 +1105,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
         bool fNotary = false;
         auto sAddress = toAddress(tx.vout[i].scriptPubKey, &fNotary, &sNotary);
 
+        // #NOTE7
         if (fFreezeAll && poolFrozen.count(i)) {
 
             if (poolFrozen[i].fractions.Total() >0) {

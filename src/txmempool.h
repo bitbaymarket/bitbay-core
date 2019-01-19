@@ -28,7 +28,7 @@ public:
     mutable CCriticalSection cs;
     std::map<uint256, CTransaction> mapTx;
     std::map<COutPoint, CInPoint> mapNextTx;
-    std::map<uint320, std::string> mapPackedFractions;
+    std::map<uint320, std::string> mapPackedFractions; // #NOTE3
 
     CTxMemPool();
 

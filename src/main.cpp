@@ -1038,6 +1038,7 @@ int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev, int64_t nCoinAge, i
     if (IsProtocolV3(pindexPrev->nTime)) {
         if (IsProtocolVS(pindexPrev->nTime)) {
             if (IsProtocolVP((pindexPrev->nHeight+1))) {
+                // #NOTE9
                 nSubsidy = COIN * 20;
                 if (inp.nFlags & CFractions::NOTARY_V) {
                     nDemoSubsidy = COIN * 40;
@@ -1432,6 +1433,7 @@ bool CTransaction::ConnectInputs(MapPrevTx inputs,
 
     // Calculation of fractions is considered less expensive than
     // signatures checks. Same time collect all fees fractions.
+    // #NOTE1, #NOTE2
     if (!IsCoinStake()) {
         if (pindexBlock->nHeight >= nPegStartHeight) {
             string sPegFailCause;
@@ -2678,6 +2680,7 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
     //
     CTxDB txdb("cr+");
     {
+        // #NOTE13
         if (!TestNet() && !ReadWhitelistInfo())
             return error("LoadBlockIndex() : peg Whitelist read failed");
 

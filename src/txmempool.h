@@ -35,6 +35,7 @@ public:
     bool addUnchecked(const uint256& hash, CTransaction &tx, MapFractions&);
     bool remove(const CTransaction &tx, bool fRecursive = false);
     bool removeConflicts(const CTransaction &tx);
+    void reviewOnPegChange();
     void clear();
     void queryHashes(std::vector<uint256>& vtxid);
     unsigned int GetTransactionsUpdated() const;

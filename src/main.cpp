@@ -1996,6 +1996,16 @@ bool CBlock::SetBestChain(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindexNew)
         if (nUpgraded > 100/2)
             // strMiscWarning is read by GetWarnings(), called by Qt and the JSON-RPC code to warn the user:
             strMiscWarning = _("Warning: This version is obsolete, upgrade required!");
+        
+        if (pindexBest->nHeight > nPegStartHeight) {
+            int nPegInterval = PEG_INTERVAL;
+            if (TestNet()) {
+                nPegInterval = PEG_INTERVAL_TESTNET1;
+            }
+            if (pindexBest->nHeight % nPegInterval == 0) {
+                mempool.reviewOnPegChange();
+            }
+        }
     }
 
     std::string strCmd = GetArg("-blocknotify", "");
@@ -2665,7 +2675,7 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
     if (TestNet())
     {
         nStakeMinConfirmations = 10;
-        nCoinbaseMaturity = 10; // test maturity is 10 blocks
+        nCoinbaseMaturity = 10; // testnet maturity is 10 blocks
         nPegStartHeight = 6000;
         fPegWhitelistAll = true;
         pegWhiteListHash = 0;

@@ -27,7 +27,7 @@ public:
     // Destroys the underlying shared global state accessed by this TxDB.
     void Close();
 
-    bool ReadFractions(uint320 txout, CFractions &);
+    bool ReadFractions(uint320 txout, CFractions &, bool must_have =false);
     bool WriteFractions(uint320 txout, const CFractions &);
 
 private:

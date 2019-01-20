@@ -180,9 +180,14 @@ bool CPegDB::ScanBatch(const CDataStream &key, string *value, bool *deleted) con
     return scanner.foundEntry;
 }
 
-bool CPegDB::ReadFractions(uint320 txout, CFractions & f) {
+bool CPegDB::ReadFractions(uint320 txout, CFractions & f, bool must_have) {
     std::string strValue;
     if (!ReadStr(txout, strValue)) {
+        if (must_have) {
+            // Have a flag indicating that pegdb should have these
+            // fractions, otherwise it indicates the pegdb fail
+            return false;
+        }
         // Returns true indicating this output is not in pegdb
         // Such output is supposed to be before the pegstart or pruned
         return true;

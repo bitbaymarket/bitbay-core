@@ -895,6 +895,21 @@ int CTxIndex::GetHeightInMainChain(unsigned int* vtxidx, uint256 txhash, uint256
     return pindex->nHeight;
 }
 
+int CTxIndex::GetHeight() const
+{
+    // Read block header
+    CBlock block;
+    if (!block.ReadFromDisk(pos.nFile, pos.nBlockPos, false))
+        return 0;
+    // Find the block in the index
+    uint256 bhash = block.GetHash();
+    map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(bhash);
+    if (mi == mapBlockIndex.end()) return 0;
+    CBlockIndex* pindex = (*mi).second;
+    if (!pindex) return 0;
+    return pindex->nHeight;
+}
+
 
 // Return transaction in tx, and if it was found inside a block, its hash is placed in hashBlock
 bool GetTransaction(const uint256 &hash, CTransaction &tx, uint256 &hashBlock)
@@ -1315,7 +1330,13 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
             // Revisit this if/when transaction replacement is implemented and allows
             // adding inputs:
             fInvalid = true;
-            return DoS(100, error("FetchInputs() : %s prevout.n out of range %d %u %u prev tx %s\n%s", GetHash().ToString(), prevout.n, txPrev.vout.size(), txindex.vSpent.size(), prevout.hash.ToString(), txPrev.ToString()));
+            return DoS(100, error("FetchInputs() : %s prevout.n out of range %d %u %u prev tx %s\n%s", 
+                                  GetHash().ToString(), 
+                                  prevout.n, 
+                                  txPrev.vout.size(), 
+                                  txindex.vSpent.size(), 
+                                  prevout.hash.ToString(), 
+                                  txPrev.ToString()));
         }
         // Read previous fractions
         auto fkey = uint320(prevout.hash, prevout.n);
@@ -1330,11 +1351,15 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
             fractions = mapTestFractionsPool.find(fkey)->second;
         }
         else {
-            //peg:todo: not to read before peg start, expensive to know tx height?
+            // Know the height
+            bool fMustHaveFractions = false;
+            int nHeight = txindex.GetHeight();
+            if (nHeight >= nPegStartHeight) {
+                fMustHaveFractions = true;
+            }
             fractions = CFractions(txPrev.vout[prevout.n].nValue, CFractions::VALUE);
-            if (!pegdb.ReadFractions(fkey, fractions)) {
-                // pegdb Read can fail on Unpack
-                DoS(100, error("FetchInputs() : %s pegdb.Read/Unpack prev tx fractions %s failed", GetHash().ToString(),  prevout.hash.ToString()));
+            if (!pegdb.ReadFractions(fkey, fractions, fMustHaveFractions)) {
+                throw std::runtime_error("CTransaction::FetchInputs() : pegdb.ReadFractions not found");
             }
         }
     }

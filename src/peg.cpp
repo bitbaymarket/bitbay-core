@@ -328,7 +328,7 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& 
         CFractions fractions(0, CFractions::STD);
         const COutPoint & prevout = tx.vin[i].prevout;
         if (!pegdb.ReadFractions(uint320(prevout.hash, prevout.n), fractions)) {
-            continue;
+            return false;
         }
 
         int64_t nReserveWeight=0;

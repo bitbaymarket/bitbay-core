@@ -1749,8 +1749,9 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     // ppcoin: track money supply and mint amount info
     pindex->nMint = nValueOut - nValueIn + nFees;
     pindex->nMoneySupply = (pindex->pprev? pindex->pprev->nMoneySupply : 0) + nValueOut - nValueIn;
-    // bitbay: trac peg voting information
-    CalculateBlockPegVotes(*this, pindex, pegdb);
+    // peg voting information
+    if (!CalculateBlockPegVotes(*this, pindex, pegdb))
+        throw std::runtime_error("CBlock::ConnectBlock() : CalculateBlockPegVotes failed due to pegdb fail");
 
     if (!txdb.WriteBlockIndex(CDiskBlockIndex(pindex)))
         return error("Connect() : WriteBlockIndex for pindex failed");

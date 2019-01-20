@@ -84,7 +84,7 @@ Value getstakesubsidy(const Array& params, bool fHelp)
     CPegDB pegdb("r");
     auto fkey = uint320(prevout.hash, prevout.n);
     CFractions fractions(txPrev.vout[prevout.n].nValue, CFractions::VALUE);
-    if (!pegdb.Read(fkey, fractions)) {
+    if (!pegdb.ReadFractions(fkey, fractions)) {
         throw JSONRPCError(RPC_MISC_ERROR, "pegdb.Read/Unpack prev tx fractions failed");
     }
     

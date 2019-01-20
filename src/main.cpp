@@ -1332,7 +1332,7 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
         else {
             //peg:todo: not to read before peg start, expensive to know tx height?
             fractions = CFractions(txPrev.vout[prevout.n].nValue, CFractions::VALUE);
-            if (!pegdb.Read(fkey, fractions)) {
+            if (!pegdb.ReadFractions(fkey, fractions)) {
                 // pegdb Read can fail on Unpack
                 DoS(100, error("FetchInputs() : %s pegdb.Read/Unpack prev tx fractions %s failed", GetHash().ToString(),  prevout.hash.ToString()));
             }
@@ -1743,7 +1743,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     // Write queued fractions changes
     for (MapFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
     {
-        if (!pegdb.Write((*mi).first, (*mi).second))
+        if (!pegdb.WriteFractions((*mi).first, (*mi).second))
             return error("ConnectBlock() : pegdb Write failed");
     }
 

@@ -135,7 +135,7 @@ Value getliquidityrate(const Array& params, bool fHelp)
     CPegDB pegdb("r");
     auto fkey = uint320(txhash, nout);
     CFractions fractions(0, CFractions::VALUE);
-    if (!pegdb.Read(fkey, fractions)) {
+    if (!pegdb.ReadFractions(fkey, fractions)) {
         return obj;
     }
     fractions = fractions.Std();

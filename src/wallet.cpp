@@ -1068,7 +1068,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                     auto fkey = uint320(hash, i);
                     CFractions& fractions = mapOutputFractions[fkey];
                     fractions = CFractions(tx.vout[i].nValue, CFractions::STD);
-                    pegdb.Read(fkey, fractions);
+                    pegdb.ReadFractions(fkey, fractions);
                 }
                 if (AddToWalletIfInvolvingMe(tx, &block, fUpdate, mapOutputFractions))
                     ret++;
@@ -2650,7 +2650,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         const COutPoint & prevout = txNew.vin.front().prevout;
         auto fkey = uint320(prevout.hash, prevout.n);
         CFractions fractions(vwtxPrev[0]->vout[prevout.n].nValue, CFractions::VALUE);
-        if (!pegdb.Read(fkey, fractions)) {
+        if (!pegdb.ReadFractions(fkey, fractions)) {
             //todo:peg: fail if previout after pegstart, so it should have fractions
         }
         

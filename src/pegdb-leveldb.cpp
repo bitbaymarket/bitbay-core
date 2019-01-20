@@ -180,21 +180,18 @@ bool CPegDB::ScanBatch(const CDataStream &key, string *value, bool *deleted) con
     return scanner.foundEntry;
 }
 
-bool CPegDB::Read(uint320 txout, CFractions & f) {
+bool CPegDB::ReadFractions(uint320 txout, CFractions & f) {
     std::string strValue;
     if (!ReadStr(txout, strValue)) {
-        // For now returns true indicating this output is not in pegdb
-        // and supposed to be before the peg started, otherwise may
-        // need to know height of transction to compare with peg start
-        // to indicate pegdb fault.
-        uint256 txhash = txout.b1(); // todo
+        // Returns true indicating this output is not in pegdb
+        // Such output is supposed to be before the pegstart or pruned
         return true;
     }
     CDataStream finp(strValue.data(), strValue.data() + strValue.size(),
                      SER_DISK, CLIENT_VERSION);
     return f.Unpack(finp);
 }
-bool CPegDB::Write(uint320 txout, const CFractions & f) {
+bool CPegDB::WriteFractions(uint320 txout, const CFractions & f) {
     CDataStream fout(SER_DISK, CLIENT_VERSION);
     f.Pack(fout);
     return Write(txout, fout);
@@ -356,7 +353,7 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                         // Write queued fractions changes
                         for (MapFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
                         {
-                            if (!pegdb.Write((*mi).first, (*mi).second))
+                            if (!pegdb.WriteFractions((*mi).first, (*mi).second))
                                 return error("LoadBlockIndex() : pegdb Write failed");
                         }
                     }
@@ -416,7 +413,7 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                 // Write queued fractions changes
                 for (MapFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
                 {
-                    if (!pegdb.Write((*mi).first, (*mi).second))
+                    if (!pegdb.WriteFractions((*mi).first, (*mi).second))
                         return error("LoadBlockIndex() : pegdb Write failed");
                 }
                 

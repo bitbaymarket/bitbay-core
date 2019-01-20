@@ -213,6 +213,8 @@ public:
     bool ReadPegBayPeakRate(double& dRate);
     bool WritePegBayPeakRate(double dRate);
     
+    // load routine
+    bool LoadPegData(CTxDB& txdb, LoadMsg load_msg);
 };
 
 

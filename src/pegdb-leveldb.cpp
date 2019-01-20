@@ -17,6 +17,7 @@
 
 #include "kernel.h"
 #include "pegdb-leveldb.h"
+#include "txdb-leveldb.h"
 #include "util.h"
 #include "main.h"
 #include "chainparams.h"
@@ -229,3 +230,240 @@ bool CPegDB::WritePegBayPeakRate(double dRate)
     return Write(string("pegBayPeakRate"), dRate);
 }
 
+bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
+{
+    // #NOTE13
+    int nPegStartHeightStored = 0;
+    txdb.ReadPegStartHeight(nPegStartHeightStored);
+    if (nPegStartHeightStored != nPegStartHeight) {
+        if (!txdb.TxnBegin())
+            return error("WriteBlockIndexIsPegReady() : TxnBegin failed");
+        if (!txdb.WriteBlockIndexIsPegReady(false))
+            return error("WriteBlockIndexIsPegReady() : flag write failed");
+        if (!txdb.WritePegCheck(PEG_DB_CHECK1, false))
+            return error("WritePegCheck() : flag1 write failed");
+        if (!txdb.WritePegCheck(PEG_DB_CHECK2, false))
+            return error("WritePegCheck() : flag2 write failed");
+        if (!txdb.TxnCommit())
+            return error("WriteBlockIndexIsPegReady() : TxnCommit failed");
+    }
+
+    bool bBlockIndexIsPegReady = false;
+    if (!txdb.ReadBlockIndexIsPegReady(bBlockIndexIsPegReady)) {
+        bBlockIndexIsPegReady = false;
+    }
+
+    if (!bBlockIndexIsPegReady) {
+        if (!SetBlocksIndexesReadyForPeg(txdb, load_msg))
+            return error("LoadBlockIndex() : SetBlocksIndexesReadyForPeg failed");
+    }
+
+    { // all is ready, store nPegStartHeight
+        if (!txdb.TxnBegin())
+            return error("WriteBlockIndexIsPegReady() : TxnBegin failed");
+        if (!txdb.WritePegStartHeight(nPegStartHeight))
+            return error("WritePegStartHeight() : flag write failed");
+        if (!txdb.TxnCommit())
+            return error("WriteBlockIndexIsPegReady() : TxnCommit failed");
+    }
+
+    CPegDB & pegdb = *this;
+    // now process pegdb & votes if not ready
+    {
+        bool fPegCheck1 = false;
+        txdb.ReadPegCheck(PEG_DB_CHECK1, fPegCheck1);
+
+        bool fPegCheck2 = false;
+        txdb.ReadPegCheck(PEG_DB_CHECK2, fPegCheck2);
+        
+        int nPegStartHeightStored = 0;
+        pegdb.ReadPegStartHeight(nPegStartHeightStored);
+        if (nPegStartHeightStored != nPegStartHeight || !fPegCheck1 || !fPegCheck2) {
+            // reprocess from nPegStartHeight
+
+            if (!txdb.TxnBegin())
+                return error("LoadBlockIndex() : tx TxnBegin failed");
+            
+            if (!pegdb.TxnBegin())
+                return error("LoadBlockIndex() : peg TxnBegin failed");
+
+            // back to nPegStartHeight
+            CBlockIndex* pblockindexPegFail = nullptr;
+            CBlockIndex* pblockindex = nullptr;
+            if (mapBlockIndex.find(hashBestChain) != mapBlockIndex.end()) 
+                pblockindex = mapBlockIndex[hashBestChain];
+            while (pblockindex && pblockindex->nHeight > nPegStartHeight)
+                pblockindex = pblockindex->pprev;
+
+            CBlock block;
+            while (pblockindex && 
+                   pblockindex->nHeight >= nPegStartHeight && 
+                   pblockindex->nHeight <= nBestHeight) {
+                uint256 hash = *pblockindex->phashBlock;
+                pblockindex = mapBlockIndex[hash];
+
+                if (pblockindex->nHeight % 100 == 0) {
+                    load_msg(std::string(" process peg fractions: ")+std::to_string(pblockindex->nHeight));
+
+                    if (!txdb.TxnCommit())
+                        return error("LoadBlockIndex() : TxnCommit failed");
+                    if (!txdb.TxnBegin())
+                        return error("LoadBlockIndex() : TxnBegin failed");
+                    
+                    if (!pegdb.TxnCommit())
+                        return error("LoadBlockIndex() : peg TxnCommit failed");
+                    if (!pegdb.TxnBegin())
+                        return error("LoadBlockIndex() : peg TxnBegin failed");
+                }
+
+                // at very beginning have peg supply index
+                if (!CalculateBlockPegIndex(pblockindex))
+                    return error("CalculateBlockPegIndex() : failed supply index computation");
+                
+                if (!block.ReadFromDisk(pblockindex, true))
+                    return error("ReadFromDisk() : block read failed");
+                
+                CFractions feesFractions;
+                MapFractions mapQueuedFractionsChanges;
+                for(CTransaction& tx : block.vtx) {
+
+                    if (tx.IsCoinStake()) continue;
+
+                    MapPrevTx mapInputs;
+                    MapFractions mapInputsFractions;
+                    map<uint256, CTxIndex> mapUnused;
+                    vector<int> vOutputsTypes;
+                    string sPegFailCause;
+                    bool fInvalid = false;
+                    tx.FetchInputs(txdb, pegdb, 
+                                   mapUnused, mapQueuedFractionsChanges, 
+                                   false, false, 
+                                   mapInputs, mapInputsFractions, 
+                                   fInvalid);
+
+                    bool peg_ok = CalculateStandardFractions(tx, 
+                                                             pblockindex->nPegSupplyIndex,
+                                                             pblockindex->nTime,
+                                                             mapInputs, mapInputsFractions,
+                                                             mapUnused, mapQueuedFractionsChanges,
+                                                             feesFractions,
+                                                             vOutputsTypes,
+                                                             sPegFailCause);
+                    if (!peg_ok) {
+                        pblockindexPegFail = pblockindex;
+                    }
+                    else {
+                        // Write queued fractions changes
+                        for (MapFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
+                        {
+                            if (!pegdb.Write((*mi).first, (*mi).second))
+                                return error("LoadBlockIndex() : pegdb Write failed");
+                        }
+                    }
+                }
+
+                if (block.vtx.size() >1 && block.vtx[1].IsCoinStake()) {
+                    CTransaction& tx = block.vtx[1];
+
+                    MapPrevTx mapInputs;
+                    MapFractions mapInputsFractions;
+                    map<uint256, CTxIndex> mapUnused;
+                    vector<int> vOutputsTypes;
+                    string sPegFailCause;
+                    bool fInvalid = false;
+                    tx.FetchInputs(txdb, pegdb, mapUnused, mapQueuedFractionsChanges, false, false, mapInputs, mapInputsFractions, fInvalid);
+
+                    size_t n_vin = tx.vin.size();
+                    if (n_vin < 1) {
+                        return error((std::string("LoadBlockIndex() : pegdb failed: less than one input in stake: ")+std::to_string(pblockindex->nHeight)).c_str());
+                    }
+                    
+                    uint64_t nCoinAge = 0;
+                    if (!tx.GetCoinAge(txdb, pblockindex->pprev, nCoinAge)) {
+                        return error("LoadBlockIndex() : pegdb: GetCoinAge() failed");
+                    }
+                    
+                    const COutPoint & prevout = tx.vin[0].prevout;
+                    auto fkey = uint320(prevout.hash, prevout.n);
+                    if (mapInputsFractions.find(fkey) == mapInputsFractions.end()) {
+                        return error("LoadBlockIndex() : pegdb failed: no input fractions found");
+                    }
+                    
+                    int64_t nDemoSubsidy = 0;
+                    int64_t nStakeRewardWithoutFees = GetProofOfStakeReward(
+                                pblockindex->pprev, nCoinAge, 0 /*fees*/, 
+                                mapInputsFractions[fkey],
+                                nDemoSubsidy);
+
+                    bool peg_ok = CalculateStakingFractions(tx, pblockindex,
+                                                            mapInputs, mapInputsFractions,
+                                                            mapUnused, mapQueuedFractionsChanges,
+                                                            feesFractions,
+                                                            nStakeRewardWithoutFees,
+                                                            vOutputsTypes,
+                                                            sPegFailCause);
+                    if (!peg_ok) {
+                        pblockindexPegFail = pblockindex;
+                    }
+                }
+
+                // if peg violation then no writing fraction and no write block index
+                // and break the loop to move best chain back to preivous
+                if (pblockindexPegFail) {
+                    break;
+                }
+                
+                // Write queued fractions changes
+                for (MapFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
+                {
+                    if (!pegdb.Write((*mi).first, (*mi).second))
+                        return error("LoadBlockIndex() : pegdb Write failed");
+                }
+                
+                if (!CalculateBlockPegVotes(block, pblockindex, pegdb))
+                    return error("CalculateBlockPegVotes() : failed");
+                
+                if (!txdb.WriteBlockIndex(CDiskBlockIndex(pblockindex)))
+                    return error("WriteBlockIndex() : write failed");
+                
+                pblockindex = pblockindex->pnext;
+            }
+            
+            if (!txdb.WritePegCheck(PEG_DB_CHECK1, true))
+                return error("WritePegCheck() : flag1 write failed");
+
+            if (!txdb.WritePegCheck(PEG_DB_CHECK2, true))
+                return error("WritePegCheck() : flag2 write failed");
+            
+            if (!pegdb.WritePegStartHeight(nPegStartHeight))
+                return error("WritePegStartHeight() : peg start write failed");
+
+            if (!pegdb.WritePegWhiteListHash(pegWhiteListHash))
+                return error("WritePegStartHeight() : peg whitelist hash write failed");
+            
+            if (!pegdb.TxnCommit())
+                return error("LoadBlockIndex() : peg TxnCommit failed");
+            
+            if (!txdb.TxnCommit())
+                return error("LoadBlockIndex() : TxnCommit failed");
+            
+            if (pblockindexPegFail) {
+                auto pindexFork = pblockindexPegFail->pprev;
+                if (pindexFork)
+                {
+                    boost::this_thread::interruption_point();
+                    // Reorg back to the fork
+                    LogPrintf("LoadBlockIndex() : *** moving best chain pointer back to block %d\n", pindexFork->nHeight);
+                    CBlock block;
+                    if (!block.ReadFromDisk(pindexFork))
+                        return error("LoadBlockIndex() : block.ReadFromDisk failed");
+                    CTxDB txdb;
+                    CPegDB pegdb;
+                    block.SetBestChain(txdb, pegdb, pindexFork);
+                }
+            }
+        }
+    }
+
+    return true;
+}

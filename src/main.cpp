@@ -2724,6 +2724,10 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
     }
     if (!txdb.LoadBlockIndex(load_msg))
         return false;
+    
+    CPegDB pegdb("cr+");
+    if (!pegdb.LoadPegData(txdb, load_msg))
+        return false;
 
     //
     // Init with genesis block

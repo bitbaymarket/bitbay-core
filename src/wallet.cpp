@@ -1069,6 +1069,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                     CFractions& fractions = mapOutputFractions[fkey];
                     fractions = CFractions(tx.vout[i].nValue, CFractions::STD);
                     pegdb.ReadFractions(fkey, fractions);
+                    // if pruned, it is ok to use nValue dafault as it is spent
                 }
                 if (AddToWalletIfInvolvingMe(tx, &block, fUpdate, mapOutputFractions))
                     ret++;
@@ -2561,7 +2562,6 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
     int64_t nCredit = 0;
     CScript scriptPubKeyKernel;
     
-    CTxDB txdb("r");
     BOOST_FOREACH(PAIRTYPE(const CWalletTx*, unsigned int) pcoin, setCoins)
     {
         static int nMaxStakeSearchInterval = 60;
@@ -2650,8 +2650,8 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         const COutPoint & prevout = txNew.vin.front().prevout;
         auto fkey = uint320(prevout.hash, prevout.n);
         CFractions fractions(vwtxPrev[0]->vout[prevout.n].nValue, CFractions::VALUE);
-        if (!pegdb.ReadFractions(fkey, fractions)) {
-            //todo:peg: fail if previout after pegstart, so it should have fractions
+        if (!pegdb.ReadFractions(fkey, fractions, true /*must_have*/)) {
+            return false;
         }
         
         int64_t nDemoSubsidy = 0; 

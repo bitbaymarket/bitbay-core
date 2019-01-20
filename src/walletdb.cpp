@@ -354,6 +354,9 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                     fractions = CFractions(wtx.vout[i].nValue, CFractions::STD);
                     //peg:todo: if a case when previous tx is in wallet only (in mempool?)
                     pegdb.ReadFractions(fkey, fractions);
+                    // it is ok if fractions not read:
+                    // if pruned then the outputs is spent
+                    // if refer prev tx in wallet(mempool) - update later
                 }
                 wtx.BindWallet(pwallet);
             }

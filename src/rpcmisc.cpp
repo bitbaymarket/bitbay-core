@@ -11,6 +11,7 @@
 #include "rpcserver.h"
 #include "timedata.h"
 #include "util.h"
+#include "pegdb-leveldb.h"
 #ifdef ENABLE_WALLET
 #include "wallet.h"
 #include "walletdb.h"
@@ -21,6 +22,9 @@
 #include <boost/assign/list_of.hpp>
 #include "json/json_spirit_utils.h"
 #include "json/json_spirit_value.h"
+
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/split.hpp>
 
 using namespace std;
 using namespace boost;
@@ -102,6 +106,86 @@ Value getpeginfo(const Array& params, bool fHelp)
     peg.push_back(Pair("nextpegsupplyindex", pindexBest->GetNextIntervalPegSupplyIndex()));
     peg.push_back(Pair("nextnextpegsupplyindex", pindexBest->GetNextNextIntervalPegSupplyIndex()));
     return peg;
+}
+
+Value getliquidityrate(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "getliquidityrate <txhash:output> <pegsupplyindex>\n"
+            "Returns array containing rate info.");
+
+    string txhashnout = params[0].get_str();
+    vector<string> txhashnout_args;
+    boost::split(txhashnout_args, txhashnout, boost::is_any_of(":"));
+    
+    if (txhashnout_args.size() != 2) {
+        throw runtime_error(
+            "getliquidityrate <txhash:output> <pegsupplyindex>\n"
+            "First parameter should refer transaction output txhash:output");
+    }
+    string txhash_str = txhashnout_args.front();
+    int nout = std::stoi(txhashnout_args.back());
+    int supply = std::stoi(params[1].get_str());
+    
+    uint256 txhash;
+    txhash.SetHex(txhash_str);
+    
+    Object obj;
+    CPegDB pegdb("r");
+    auto fkey = uint320(txhash, nout);
+    CFractions fractions(0, CFractions::VALUE);
+    if (!pegdb.Read(fkey, fractions)) {
+        return obj;
+    }
+    fractions = fractions.Std();
+    
+    int64_t total = 0;
+    int highkey = 0;
+    for(int i=supply; i<PEG_SIZE; i++) {
+        total += fractions.f[i];
+        if (fractions.f[i] >0)
+            highkey = i;
+    }
+    
+    if (total == 0) {
+        return obj;
+    }
+    
+    double average = 0;
+    int multiplier = 1;
+    vector<double> periods;
+    for(int i=supply; i<=highkey; i++) {
+        double e = double(fractions.f[i])/double(total);
+        average += e;
+        while (true) {
+            if (multiplier >20) break;
+            if (average <= 0.1*multiplier) break;
+            if (periods.size() != size_t((multiplier-1)*2)) break;
+            
+            periods.push_back(i-supply);
+            periods.push_back(average);
+            multiplier += 1;
+        }
+    }
+    
+    while (periods.size() <18) {
+        periods.push_back(0);
+    }
+    
+    double average_f = 0;
+    for(int i=1; i<=18/2; i++) {
+        average_f += periods[i*2-1]*periods[i*2-2];
+    }
+    obj.push_back(Pair("rate", int(std::floor(average_f))));
+    
+    Object rates;
+    for(size_t i=0; i< periods.size()/2; i++) {
+        rates.push_back(Pair(std::to_string(int(periods[i*2])), periods[i*2+1]));
+    }
+    obj.push_back(Pair("periods", rates));
+    
+    return obj;
 }
 
 #ifdef ENABLE_WALLET

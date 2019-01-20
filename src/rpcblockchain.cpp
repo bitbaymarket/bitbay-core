@@ -374,9 +374,10 @@ Value getblockbynumber(const Array& params, bool fHelp)
             for(size_t i=0; i<tx.vout.size(); i++) {
                 auto fkey = uint320(tx.GetHash(), i);
                 CFractions fractions(0, CFractions::VALUE);
-                pegdb.ReadFractions(fkey, fractions);
-                if (fractions.Total() == tx.vout[i].nValue) {
-                    mapFractions[fkey] = fractions;
+                if (pegdb.ReadFractions(fkey, fractions)) {
+                    if (fractions.Total() == tx.vout[i].nValue) {
+                        mapFractions[fkey] = fractions;
+                    }
                 }
             }
         }

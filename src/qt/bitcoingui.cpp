@@ -203,7 +203,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     topHeaderLayout->addWidget(space12, 2,1);
 
     pegNowTextLabel = new QLabel;
-    pegNowTextLabel->setText(tr("Peg now - 200: "));
+    pegNowTextLabel->setText(tr("Peg index now - 200: "));
     pegNowTextLabel->setAlignment(Qt::AlignRight);
     pegNowTextLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
     topHeaderLayout->addWidget(pegNowTextLabel, 0,2);
@@ -220,17 +220,15 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     
     pegNowLabel = new QLabel;
     pegNowLabel->setText(tr(""));
-    pegNowLabel->setAlignment(Qt::AlignRight);
     pegNowLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    pegNowLabel->setMinimumWidth(20);
     topHeaderLayout->addWidget(pegNowLabel, 0,3);
     pegNextLabel = new QLabel;
     pegNextLabel->setText(tr(""));
-    pegNextLabel->setAlignment(Qt::AlignRight);
     pegNextLabel->setStyleSheet("QLabel { color: rgba(240,240,240, 192); }");
     topHeaderLayout->addWidget(pegNextLabel, 1,3);
     pegNextNextLabel = new QLabel;
     pegNextNextLabel->setText(tr(""));
-    pegNextNextLabel->setAlignment(Qt::AlignRight);
     pegNextNextLabel->setStyleSheet("QLabel { color: rgba(240,240,240, 128); }");
     topHeaderLayout->addWidget(pegNextNextLabel, 2,3);
     
@@ -260,6 +258,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     inflateLabel = new QLabel;
     inflateLabel->setText(tr(""));
     inflateLabel->setStyleSheet("QLabel { color: #2da5e0; }");
+    inflateLabel->setMinimumWidth(20);
     topHeaderLayout->addWidget(inflateLabel, 0,6);
     deflateLabel = new QLabel;
     deflateLabel->setText(tr(""));
@@ -938,7 +937,7 @@ void BitcoinGUI::updatePegInfo1Label()
     int votes_inflate, votes_deflate, votes_nochange;
     boost::tie(votes_inflate, votes_deflate, votes_nochange) = clientModel->getPegVotes();
     int interval_num = last_block_num / PEG_INTERVAL_TESTNET1;
-    pegNowTextLabel->setText(tr("Peg now - %1: ")
+    pegNowTextLabel->setText(tr("Peg index now - %1: ")
                              .arg((interval_num +1)*PEG_INTERVAL_TESTNET1-1));
     pegNextTextLabel->setText(tr("%1 - %2: ")
                               .arg((interval_num +1)*PEG_INTERVAL_TESTNET1)

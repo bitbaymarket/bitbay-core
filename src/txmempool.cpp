@@ -5,6 +5,7 @@
 
 #include "core.h"
 #include "txmempool.h"
+#include "txdb.h"
 #include "main.h" // for CTransaction
 
 using namespace std;
@@ -95,7 +96,56 @@ bool CTxMemPool::removeConflicts(const CTransaction &tx)
 
 void CTxMemPool::reviewOnPegChange()
 {
+    LOCK(cs);
+    vector<uint256> vRemove;
+    for (map<uint256, CTransaction>::iterator mi = mapTx.begin(); mi != mapTx.end(); ++mi) {
+        CTransaction& tx = (*mi).second;
+        
+        MapPrevTx mapInputs;
+        MapFractions mapInputsFractions;
+        map<uint256, CTxIndex> mapUnused;
+        MapFractions mapOutputsFractions;
+        CFractions feesFractions;
+        
+        {
+            CTxDB txdb("r");
+            CPegDB pegdb("r");
     
+            bool fInvalid = false;
+            if (!tx.FetchInputs(txdb, pegdb, 
+                                mapUnused, mapOutputsFractions, 
+                                false /*block*/, false /*miner*/, 
+                                mapInputs, mapInputsFractions, 
+                                fInvalid))
+            {
+                if (fInvalid) {
+                    vRemove.push_back((*mi).first);
+                    continue;
+                }
+            }
+        
+            string sPegFailCause;
+            vector<int> vOutputsTypes;
+            bool peg_ok = CalculateStandardFractions(tx, 
+                                                     pindexBest->nPegSupplyIndex,
+                                                     pindexBest->nTime,
+                                                     mapInputs, mapInputsFractions,
+                                                     mapUnused, mapOutputsFractions,
+                                                     feesFractions,
+                                                     vOutputsTypes,
+                                                     sPegFailCause);
+            if (!peg_ok) {
+                vRemove.push_back((*mi).first);
+            }
+        }
+    }
+    
+    for(uint256 hash : vRemove) {
+        std::map<uint256, CTransaction>::const_iterator it = mapTx.find(hash);
+        if (it == mapTx.end()) continue;
+        const CTransaction& tx = (*it).second;
+        remove(tx, true /*recursive*/);
+    }
 }
 
 void CTxMemPool::clear()

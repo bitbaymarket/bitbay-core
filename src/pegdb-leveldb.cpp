@@ -337,11 +337,12 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                     vector<int> vOutputsTypes;
                     string sPegFailCause;
                     bool fInvalid = false;
-                    tx.FetchInputs(txdb, pegdb, 
+                    if (!tx.FetchInputs(txdb, pegdb, 
                                    mapUnused, mapQueuedFractionsChanges, 
                                    false, false, 
                                    mapInputs, mapInputsFractions, 
-                                   fInvalid);
+                                   fInvalid))
+                        return error("LoadBlockIndex() : FetchInputs/pegdb failed");
 
                     bool peg_ok = CalculateStandardFractions(tx, 
                                                              pblockindex->nPegSupplyIndex,
@@ -373,7 +374,8 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                     vector<int> vOutputsTypes;
                     string sPegFailCause;
                     bool fInvalid = false;
-                    tx.FetchInputs(txdb, pegdb, mapUnused, mapQueuedFractionsChanges, false, false, mapInputs, mapInputsFractions, fInvalid);
+                    if (!tx.FetchInputs(txdb, pegdb, mapUnused, mapQueuedFractionsChanges, false, false, mapInputs, mapInputsFractions, fInvalid))
+                        return error("LoadBlockIndex() : FetchInputs/pegdb failed (stake)");
 
                     size_t n_vin = tx.vin.size();
                     if (n_vin < 1) {
@@ -420,6 +422,29 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                 {
                     if (!pegdb.WriteFractions((*mi).first, (*mi).second))
                         return error("LoadBlockIndex() : pegdb Write failed");
+                }
+                
+                // Prune old spent fractions, back to index
+                int nHeightPrune = pblockindex->nHeight-PEG_PRUNE_INTERVAL;
+                if (nHeightPrune >0 && nHeightPrune >= nPegStartHeight) {
+                    auto pindexprune = pblockindex;
+                    while (pindexprune && pindexprune->nHeight > nHeightPrune)
+                        pindexprune = pindexprune->pprev;
+                    if (pindexprune) {
+                        CBlock blockprune;
+                        if (blockprune.ReadFromDisk(pindexprune->nFile, 
+                                                    pindexprune->nBlockPos, 
+                                                    true /*vtx*/)) {
+                            for(int i=0; i<blockprune.vtx.size(); i++) {
+                                const CTransaction& tx = blockprune.vtx[i];
+                                for (int j=0; j< tx.vin.size(); j++) {
+                                    COutPoint prevout = tx.vin[j].prevout;
+                                    auto fkey = uint320(prevout.hash, prevout.n);
+                                    pegdb.Erase(fkey);
+                                }
+                            }
+                        }
+                    }
                 }
                 
                 if (!CalculateBlockPegVotes(block, pblockindex, pegdb))

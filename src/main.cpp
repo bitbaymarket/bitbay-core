@@ -1267,7 +1267,8 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
                                bool fBlock, bool fMiner,
                                MapPrevTx& inputsRet,
                                MapFractions& finputsRet,
-                               bool& fInvalid)
+                               bool& fInvalid,
+                               bool fSkipPruned)
 {
     // FetchInputs can return false either because we just haven't seen some inputs
     // (in which case the transaction should be stored as an orphan)
@@ -1359,7 +1360,11 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
             }
             fractions = CFractions(txPrev.vout[prevout.n].nValue, CFractions::VALUE);
             if (!pegdb.ReadFractions(fkey, fractions, fMustHaveFractions)) {
-                throw std::runtime_error("CTransaction::FetchInputs() : pegdb.ReadFractions not found");
+                if (fSkipPruned) {
+                    finputsRet.erase(fkey);
+                    continue;
+                }
+                return false;
             }
         }
     }
@@ -1772,6 +1777,29 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         if (!pegdb.WriteFractions((*mi).first, (*mi).second))
             return error("ConnectBlock() : pegdb Write failed");
     }
+    
+    // Prune old spent fractions, back to index
+    int nHeightPrune = pindex->nHeight-PEG_PRUNE_INTERVAL;
+    if (nHeightPrune >0 && nHeightPrune >= nPegStartHeight) {
+        auto pindexprune = pindex;
+        while (pindexprune && pindexprune->nHeight > nHeightPrune)
+            pindexprune = pindexprune->pprev;
+        if (pindexprune) {
+            CBlock blockprune;
+            if (blockprune.ReadFromDisk(pindexprune->nFile, 
+                                        pindexprune->nBlockPos, 
+                                        true /*vtx*/)) {
+                for(int i=0; i<blockprune.vtx.size(); i++) {
+                    const CTransaction& tx = blockprune.vtx[i];
+                    for (int j=0; j< tx.vin.size(); j++) {
+                        COutPoint prevout = tx.vin[j].prevout;
+                        auto fkey = uint320(prevout.hash, prevout.n);
+                        pegdb.Erase(fkey);
+                    }
+                }
+            }
+        }
+    }
 
     // Update block index on disk without changing it in memory.
     // The memory index structure will be changed after the db commits.
@@ -1784,7 +1812,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     }
 
     // Watch for transactions paying to me
-    BOOST_FOREACH(CTransaction& tx, vtx)
+    for(CTransaction& tx : vtx)
         SyncWithWallets(tx, this, true, mapQueuedFractionsChanges);
 
     return true;

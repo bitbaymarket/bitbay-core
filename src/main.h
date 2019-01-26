@@ -411,7 +411,8 @@ public:
                      bool fBlock, bool fMiner,
                      MapPrevTx& inputsRet,
                      MapFractions& finputsRet,
-                     bool& fInvalid);
+                     bool& fInvalid,
+                     bool fSkipPruned = false);
 
     /** Sanity check previous transactions, then, if all checks succeed,
         mark them as spent by this transaction.

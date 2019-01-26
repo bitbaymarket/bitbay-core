@@ -2435,12 +2435,13 @@ bool CWallet::CreateTransaction(PegTxType txType,
             vector<int> vOutputsTypes;
             string sPegFailCause;
             bool fInvalid = false;
-            wtxNew.FetchInputs(txdb, 
-                               pegdb, 
-                               mapUnused, mapOutputFractions, 
-                               false, false, 
-                               mapInputs, mapInputsFractions, 
-                               fInvalid);
+            if (!wtxNew.FetchInputs(txdb, 
+                                    pegdb, 
+                                    mapUnused, mapOutputFractions, 
+                                    false, false, 
+                                    mapInputs, mapInputsFractions, 
+                                    fInvalid))
+                return false;
 
             bool peg_ok = CalculateStandardFractions(wtxNew, 
                                                      GetPegSupplyIndex(),

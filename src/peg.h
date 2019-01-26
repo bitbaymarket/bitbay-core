@@ -46,7 +46,8 @@ enum
     PEG_MAKETX_VOTE_VALUE   = 5554,
     PEG_SUBPREMIUM_RATING   = 200,
     PEG_DB_CHECK1           = 1,         // testnet: fix for votes calculation
-    PEG_DB_CHECK2           = 2          // testnet: fix for stake liquidity calculation
+    PEG_DB_CHECK2           = 2,         // testnet: fix for stake liquidity calculation
+    PEG_PRUNE_INTERVAL      = 10000
 };
 
 enum PegTxType {

@@ -267,7 +267,12 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
 
         vector<int> vOutputsTypes;
         bool fInvalid = false;
-        tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid);
+        tx.FetchInputs(txdb, pegdb, 
+                       mapUnused, mapFractionsUnused, 
+                       false, false, 
+                       mapInputs, mapInputsFractions, 
+                       fInvalid,
+                       true /*skip pruned*/);
 
         int64_t nTxValueIn = tx.GetValueIn(mapInputs);
         int64_t nTxValueOut = tx.GetValueOut();
@@ -324,6 +329,7 @@ void TxDetailsWidget::openTx(CTransaction & tx,
     CTxDB txdb("r");
     CPegDB pegdb("r");
 
+    bool pruned = false;
     ui->txValues->clear();
     if (pblockindex) {
         QString thash = QString::fromStdString(hash.ToString());
@@ -341,6 +347,9 @@ void TxDetailsWidget::openTx(CTransaction & tx,
         }
         ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Confirmations",QString::number(nConfirmations)})));
         ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Hash",thash})));
+        if (pblockindex->nHeight <= nBestHeight-PEG_PRUNE_INTERVAL) {
+            pruned = true;
+        }
     }
 
     QString txtype = tr("Transaction");
@@ -366,7 +375,12 @@ void TxDetailsWidget::openTx(CTransaction & tx,
     vector<int> vOutputsTypes;
     string sPegFailCause;
     bool fInvalid = false;
-    tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs, mapInputsFractions, fInvalid);
+    tx.FetchInputs(txdb, pegdb, 
+                   mapUnused, mapFractionsUnused, 
+                   false, false, 
+                   mapInputs, mapInputsFractions, 
+                   fInvalid,
+                   true /*skip pruned*/);
     int msecsFetchInputs = timeFetchInputs.msecsTo(QTime::currentTime());
 
     int64_t nReserveIn = 0;
@@ -598,6 +612,17 @@ void TxDetailsWidget::openTx(CTransaction & tx,
     CTxIndex txindex;
     txdb.ReadTxIndex(hash, txindex);
 
+    if (pruned) {
+        for (unsigned int i = 0; i < n_vout; i++)
+        {
+            auto fkey = uint320(hash, i);
+            CFractions fractions(tx.vout[i].nValue, CFractions::STD);
+            if (pegdb.ReadFractions(fkey, fractions, true /*must_have*/)) {
+                mapFractionsUnused[fkey] = fractions;
+            }
+        }
+    }
+    
     ui->txOutputs->clear();
     for (unsigned int i = 0; i < n_vout; i++)
     {
@@ -717,7 +742,9 @@ void TxDetailsWidget::openTx(CTransaction & tx,
                 QStringList({
                     "Peg Checks",
                     peg_whitelisted
-                        ? peg_ok ? "OK" : "FAIL ("+QString::fromStdString(sPegFailCause)+")"
+                        ? peg_ok ? "OK" 
+                                : pruned ? "SKIP (pruned)" 
+                                : "FAIL ("+QString::fromStdString(sPegFailCause)+")"
                         : "Not Whitelisted"
                 })
     );

@@ -1586,4 +1586,42 @@ bool CalculateStakingFractions(const CTransaction & tx,
     return true;
 }
 
+void PrunePegForBlock(const CBlock& blockprune, CPegDB& pegdb)
+{
+    for(int i=0; i<blockprune.vtx.size(); i++) {
+        const CTransaction& tx = blockprune.vtx[i];
+        for (int j=0; j< tx.vin.size(); j++) {
+            COutPoint prevout = tx.vin[j].prevout;
+            auto fkey = uint320(prevout.hash, prevout.n);
+            pegdb.Erase(fkey);
+        }
+        if (!tx.IsCoinStake()) 
+            continue;
+        
+        for (int j=0; j< tx.vout.size(); j++) {
+            CTxOut out = tx.vout[j];
+            const CScript& scriptPubKey = out.scriptPubKey;
+    
+            txnouttype type;
+            vector<CTxDestination> addresses;
+            int nRequired;
+    
+            if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired))
+                continue;
+    
+            bool voted = false;
+            for(const CTxDestination& addr : addresses) {
+                std::string str_addr = CBitcoinAddress(addr).ToString();
+                if (str_addr == PEG_INFLATE_ADDR) { voted = true; }
+                else if (str_addr == PEG_DEFLATE_ADDR) { voted = true; }
+                else if (str_addr == PEG_NOCHANGE_ADDR) { voted = true; }
+            }
+            if (!voted) 
+                continue;
+            
+            auto fkey = uint320(tx.GetHash(), j);
+            pegdb.Erase(fkey);
+        }
+    }
+}
 

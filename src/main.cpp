@@ -1789,14 +1789,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
             if (blockprune.ReadFromDisk(pindexprune->nFile, 
                                         pindexprune->nBlockPos, 
                                         true /*vtx*/)) {
-                for(int i=0; i<blockprune.vtx.size(); i++) {
-                    const CTransaction& tx = blockprune.vtx[i];
-                    for (int j=0; j< tx.vin.size(); j++) {
-                        COutPoint prevout = tx.vin[j].prevout;
-                        auto fkey = uint320(prevout.hash, prevout.n);
-                        pegdb.Erase(fkey);
-                    }
-                }
+                PrunePegForBlock(blockprune, pegdb);
             }
         }
     }

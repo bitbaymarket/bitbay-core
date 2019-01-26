@@ -720,23 +720,28 @@ void TxDetailsWidget::openTx(CTransaction & tx,
                                       displayValue(nLiquidityIn).length())));
     auto sValueIn = displayValueR(nValueIn, nValueMaxLen);
     auto sValueOut = displayValueR(nValueOut, nValueMaxLen);
-    auto sReserveIn = displayValueR(nReserveIn, nValueMaxLen);
-    auto sLiquidityIn = displayValueR(nLiquidityIn, nValueMaxLen);
 
     auto twiValueIn = new QTreeWidgetItem(QStringList({"Value In",sValueIn}));
     auto twiValueOut = new QTreeWidgetItem(QStringList({"Value Out",sValueOut}));
-    auto twiReserves = new QTreeWidgetItem(QStringList({"Reserves",sReserveIn}));
-    auto twiLiquidity = new QTreeWidgetItem(QStringList({"Liquidity",sLiquidityIn}));
 
     twiValueIn->setData(1, BlockchainModel::ValueForCopy, qlonglong(nValueIn));
     twiValueOut->setData(1, BlockchainModel::ValueForCopy, qlonglong(nValueOut));
-    twiReserves->setData(1, BlockchainModel::ValueForCopy, qlonglong(nReserveIn));
-    twiLiquidity->setData(1, BlockchainModel::ValueForCopy, qlonglong(nLiquidityIn));
 
     ui->txValues->addTopLevelItem(twiValueIn);
     ui->txValues->addTopLevelItem(twiValueOut);
-    ui->txValues->addTopLevelItem(twiReserves);
-    ui->txValues->addTopLevelItem(twiLiquidity);
+    if (!pruned) {
+        auto sReserveIn = displayValueR(nReserveIn, nValueMaxLen);
+        auto sLiquidityIn = displayValueR(nLiquidityIn, nValueMaxLen);
+        
+        auto twiReserves = new QTreeWidgetItem(QStringList({"Reserves",sReserveIn}));
+        auto twiLiquidity = new QTreeWidgetItem(QStringList({"Liquidity",sLiquidityIn}));
+        
+        twiReserves->setData(1, BlockchainModel::ValueForCopy, qlonglong(nReserveIn));
+        twiLiquidity->setData(1, BlockchainModel::ValueForCopy, qlonglong(nLiquidityIn));
+        
+        ui->txValues->addTopLevelItem(twiReserves);
+        ui->txValues->addTopLevelItem(twiLiquidity);
+    }
 
     auto twiPegChecks = new QTreeWidgetItem(
                 QStringList({
@@ -749,7 +754,9 @@ void TxDetailsWidget::openTx(CTransaction & tx,
                 })
     );
     ui->txValues->addTopLevelItem(twiPegChecks);
-    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Peg Checks Time",QString::number(msecsPegChecks)+" msecs"})));
+    if (!pruned) {
+        ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Peg Checks Time",QString::number(msecsPegChecks)+" msecs"})));
+    }
     ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Fetch Inputs Time",QString::number(msecsFetchInputs)+" msecs (can be cached)"})));
 
     if (!tx.IsCoinBase() && !tx.IsCoinStake() /*&& nValueOut < nValueIn*/) {

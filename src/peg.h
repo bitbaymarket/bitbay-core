@@ -168,5 +168,6 @@ bool CalculateStakingFractions(const CTransaction & tx,
                                int64_t nCalculatedStakeRewardWithoutFees,
                                std::vector<int>& vOutputsTypes,
                                std::string& sPegFailCause);
+void PrunePegForBlock(const CBlock&, CPegDB&);
 
 #endif

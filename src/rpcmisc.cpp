@@ -108,6 +108,55 @@ Value getpeginfo(const Array& params, bool fHelp)
     return peg;
 }
 
+Value getfractions(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "getfractions <txhash:output>\n"
+            "Returns array containing rate info.");
+
+    string txhashnout = params[0].get_str();
+    vector<string> txhashnout_args;
+    boost::split(txhashnout_args, txhashnout, boost::is_any_of(":"));
+    
+    if (txhashnout_args.size() != 2) {
+        throw runtime_error(
+            "getfractions <txhash:output>\n"
+            "First parameter should refer transaction output txhash:output");
+    }
+    string txhash_str = txhashnout_args.front();
+    int nout = std::stoi(txhashnout_args.back());
+    
+    uint256 txhash;
+    txhash.SetHex(txhash_str);
+    
+    Object obj;
+    CPegDB pegdb("r");
+    auto fkey = uint320(txhash, nout);
+    CFractions fractions(0, CFractions::VALUE);
+    if (!pegdb.ReadFractions(fkey, fractions)) {
+        return obj;
+    }
+    fractions = fractions.Std();
+    
+    Array f;
+    int64_t total = 0;
+    for(int i=0; i<PEG_SIZE; i++) {
+        total += fractions.f[i];
+        f.push_back(fractions.f[i]);
+    }
+    
+    string flags;
+    if (fractions.nFlags & CFractions::NOTARY_F) flags = "F";
+    if (fractions.nFlags & CFractions::NOTARY_V) flags = "V";
+    
+    obj.push_back(Pair("total", total));
+    obj.push_back(Pair("flags", flags));
+    obj.push_back(Pair("values", f));
+    
+    return obj;
+}
+
 Value getliquidityrate(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 2)

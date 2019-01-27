@@ -48,6 +48,9 @@ Value getinfo(const Array& params, bool fHelp)
     if (pwalletMain) {
         obj.push_back(Pair("walletversion", pwalletMain->GetVersion()));
         obj.push_back(Pair("balance",       ValueFromAmount(pwalletMain->GetBalance())));
+        obj.push_back(Pair("liquidity",     ValueFromAmount(pwalletMain->GetLiquidity())));
+        obj.push_back(Pair("reserve",       ValueFromAmount(pwalletMain->GetReserve())));
+        obj.push_back(Pair("frozen",        ValueFromAmount(pwalletMain->GetFrozen())));
         obj.push_back(Pair("newmint",       ValueFromAmount(pwalletMain->GetNewMint())));
         obj.push_back(Pair("stake",         ValueFromAmount(pwalletMain->GetStake())));
     }

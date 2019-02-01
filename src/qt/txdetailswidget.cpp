@@ -253,6 +253,7 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
     MapFractions mapFractionsUnused;
     string sPegFailCause;
 
+    bool ok = true;
     for (CTransaction & tx : block.vtx) {
 
         if (tx.IsCoinBase()) continue;
@@ -291,11 +292,12 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
                                                  vOutputsTypes,
                                                  sPegFailCause);
 
-        if (!peg_ok)
-            return false;
+        if (!peg_ok) {
+            ok = false;
+        }
     }
 
-    return true;
+    return ok;
 }
 
 void TxDetailsWidget::openTx(uint256 blockhash, uint txidx)
@@ -322,6 +324,10 @@ void TxDetailsWidget::openTx(CTransaction & tx,
                              int nSupply, 
                              unsigned int nTime)
 {
+    ui->txValues->clear();
+    ui->txInputs->clear();
+    ui->txOutputs->clear();
+    
     LOCK(cs_main);
 
     uint256 hash = tx.GetHash();
@@ -330,7 +336,6 @@ void TxDetailsWidget::openTx(CTransaction & tx,
     CPegDB pegdb("r");
 
     bool pruned = false;
-    ui->txValues->clear();
     if (pblockindex) {
         QString thash = QString::fromStdString(hash.ToString());
         QString sheight = QString("%1-%2").arg(pblockindex->nHeight).arg(txidx);
@@ -395,8 +400,10 @@ void TxDetailsWidget::openTx(CTransaction & tx,
 
     // need to collect all fees fractions from all tx in the block
     if (tx.IsCoinStake() && !calculateFeesFractions(pblockindex, feesFractions, nFeesValue)) {
-        ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Error","Failed to calculate fees fractions"})));
-        return;
+        if (!pruned) {
+            ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Error","Failed to calculate fees fractions"})));
+            return;
+        }
     }
     
     QTime timePegChecks = QTime::currentTime();
@@ -462,7 +469,6 @@ void TxDetailsWidget::openTx(CTransaction & tx,
     
     // gui
 
-    ui->txInputs->clear();
     QSet<QString> sAddresses;
     for (unsigned int i = 0; i < n_vin; i++)
     {
@@ -623,7 +629,6 @@ void TxDetailsWidget::openTx(CTransaction & tx,
         }
     }
     
-    ui->txOutputs->clear();
     for (unsigned int i = 0; i < n_vout; i++)
     {
         QStringList row;

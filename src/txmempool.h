@@ -36,6 +36,8 @@ public:
     bool remove(const CTransaction &tx, bool fRecursive = false);
     bool removeConflicts(const CTransaction &tx);
     void reviewOnPegChange();
+    void reviewOnPegChange(CTransaction&, 
+                           std::vector<uint256>& vRemove);
     void clear();
     void queryHashes(std::vector<uint256>& vtxid);
     unsigned int GetTransactionsUpdated() const;

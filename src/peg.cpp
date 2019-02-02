@@ -1588,9 +1588,9 @@ bool CalculateStakingFractions(const CTransaction & tx,
 
 void PrunePegForBlock(const CBlock& blockprune, CPegDB& pegdb)
 {
-    for(int i=0; i<blockprune.vtx.size(); i++) {
+    for(size_t i=0; i<blockprune.vtx.size(); i++) {
         const CTransaction& tx = blockprune.vtx[i];
-        for (int j=0; j< tx.vin.size(); j++) {
+        for (size_t j=0; j< tx.vin.size(); j++) {
             COutPoint prevout = tx.vin[j].prevout;
             auto fkey = uint320(prevout.hash, prevout.n);
             pegdb.Erase(fkey);
@@ -1598,7 +1598,7 @@ void PrunePegForBlock(const CBlock& blockprune, CPegDB& pegdb)
         if (!tx.IsCoinStake()) 
             continue;
         
-        for (int j=0; j< tx.vout.size(); j++) {
+        for (size_t j=0; j< tx.vout.size(); j++) {
             CTxOut out = tx.vout[j];
             const CScript& scriptPubKey = out.scriptPubKey;
     

@@ -56,6 +56,7 @@ public:
     }
 
     bool lookup(uint256 hash, CTransaction& result, MapFractions&) const;
+    bool lookup(uint256 hash, size_t n, CFractions&) const;
 };
 
 #endif /* BITCOIN_TXMEMPOOL_H */

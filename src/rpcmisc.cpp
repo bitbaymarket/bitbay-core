@@ -137,7 +137,7 @@ Value getfractions(const Array& params, bool fHelp)
     CPegDB pegdb("r");
     auto fkey = uint320(txhash, nout);
     CFractions fractions(0, CFractions::VALUE);
-    if (!pegdb.ReadFractions(fkey, fractions)) {
+    if (!pegdb.ReadFractions(fkey, fractions, true)) {
         if (!mempool.lookup(txhash, nout, fractions)) {
             return obj;
         }

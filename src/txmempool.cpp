@@ -235,3 +235,19 @@ bool CTxMemPool::lookup(uint256 hash, CTransaction& result, MapFractions& mapFra
     }
     return true;
 }
+
+bool CTxMemPool::lookup(uint256 hash, size_t n, CFractions& f) const
+{
+    std::map<uint256, CTransaction>::const_iterator it = mapTx.find(hash);
+    if (it == mapTx.end()) return false;
+    CTransaction result = it->second;
+    auto fkey = uint320(hash, n);
+    if (!mapPackedFractions.count(fkey)) 
+        return false;
+    string strValue = mapPackedFractions.at(fkey);
+    f = CFractions(result.vout[n].nValue, CFractions::STD);
+    CDataStream finp(strValue.data(), strValue.data() + strValue.size(),
+                     SER_DISK, CLIENT_VERSION);
+    f.Unpack(finp);
+    return true;
+}

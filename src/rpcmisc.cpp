@@ -240,6 +240,34 @@ Value getliquidityrate(const Array& params, bool fHelp)
     return obj;
 }
 
+Value getliquiditycheck(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "getliquiditycheck <txhash:output>\n"
+            "Returns array containing check info.");
+
+    string txhashnout = params[0].get_str();
+    vector<string> txhashnout_args;
+    boost::split(txhashnout_args, txhashnout, boost::is_any_of(":"));
+    
+    if (txhashnout_args.size() != 2) {
+        throw runtime_error(
+            "getliquiditycheck <txhash:output> <pegsupplyindex>\n"
+            "First parameter should refer transaction output txhash:output");
+    }
+    string txhash_str = txhashnout_args.front();
+    int nout = std::stoi(txhashnout_args.back());
+    int supply = std::stoi(params[1].get_str());
+    
+    uint256 txhash;
+    txhash.SetHex(txhash_str);
+    
+    Object obj;
+    
+    return obj;
+}
+
 #ifdef ENABLE_WALLET
 class DescribeAddressVisitor : public boost::static_visitor<Object>
 {

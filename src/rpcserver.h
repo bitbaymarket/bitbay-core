@@ -182,6 +182,5 @@ extern json_spirit::Value getcheckpoint(const json_spirit::Array& params, bool f
 extern json_spirit::Value getpeginfo(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getfractions(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getliquidityrate(const json_spirit::Array& params, bool fHelp);
-extern json_spirit::Value getliquiditycheck(const json_spirit::Array& params, bool fHelp);
 
 #endif

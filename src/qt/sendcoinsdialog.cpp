@@ -123,11 +123,13 @@ void SendCoinsDialog::setModel(WalletModel *model)
             }
         }
 
+        vector<CFrozenCoinInfo> frozenCoins;
+        int64_t nFrozen = model->getFrozen(NULL, &frozenCoins);
         setBalance(model->getBalance(), 
-                   model->getReserve(), model->getLiquidity(), model->getFrozen(),
+                   model->getReserve(), model->getLiquidity(), nFrozen, frozenCoins,
                    model->getStake(), model->getUnconfirmedBalance(), model->getImmatureBalance());
-        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64, qint64, qint64, qint64, qint64)),
-                this, SLOT(setBalance(qint64, qint64, qint64, qint64, qint64, qint64, qint64)));
+        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64, qint64, std::vector<CFrozenCoinInfo>, qint64, qint64, qint64)),
+                this, SLOT(setBalance(qint64, qint64, qint64, qint64, std::vector<CFrozenCoinInfo>, qint64, qint64, qint64)));
         connect(model->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
 
         // Coin Control
@@ -497,9 +499,13 @@ bool SendCoinsDialog::handleURI(const QString &uri)
 
 void SendCoinsDialog::setBalance(qint64 balance, 
                                  qint64 reserves, qint64 liquidity, qint64 frozen,
+                                 vector<CFrozenCoinInfo> frozenCoins,
                                  qint64 stake, qint64 unconfirmedBalance, qint64 immatureBalance)
 {
     Q_UNUSED(stake);
+    Q_UNUSED(frozen);
+    Q_UNUSED(balance);
+    Q_UNUSED(frozenCoins);
     Q_UNUSED(unconfirmedBalance);
     Q_UNUSED(immatureBalance);
 
@@ -513,7 +519,9 @@ void SendCoinsDialog::setBalance(qint64 balance,
 
 void SendCoinsDialog::updateDisplayUnit()
 {
-    setBalance(model->getBalance(), model->getReserve(), model->getLiquidity(), model->getFrozen(), 0, 0, 0);
+    vector<CFrozenCoinInfo> frozenCoins;
+    int64_t nFrozen = model->getFrozen(NULL, &frozenCoins);
+    setBalance(model->getBalance(), model->getReserve(), model->getLiquidity(), nFrozen, frozenCoins, 0, 0, 0);
 }
 
 // Coin Control: copy label "Quantity" to clipboard

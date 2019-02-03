@@ -3,6 +3,7 @@
 
 #include <QDialog>
 #include <QString>
+#include "walletmodel.h"
 
 namespace Ui {
     class SendCoinsDialog;
@@ -48,6 +49,7 @@ public slots:
     void updateRemoveEnabled();
     void setBalance(qint64 balance, 
                     qint64 reserves, qint64 liquidity, qint64 frozen,
+                    std::vector<CFrozenCoinInfo> frozenCoins,
                     qint64 stake, qint64 unconfirmedBalance, qint64 immatureBalance);
 
 private:

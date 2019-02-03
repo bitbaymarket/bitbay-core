@@ -1,5 +1,6 @@
 #include "overviewpage.h"
 #include "ui_overviewpage.h"
+#include "ui_frozeninfodialog.h"
 
 #include "clientmodel.h"
 #include "walletmodel.h"
@@ -10,12 +11,6 @@
 #include "guiutil.h"
 #include "guiconstants.h"
 #include "peg.h"
-
-#include "qwt/qwt_plot.h"
-#include "qwt/qwt_plot_curve.h"
-#include "qwt/qwt_plot_barchart.h"
-#include "qwt/qwt_plot_layout.h"
-#include "qwt/qwt_scale_widget.h"
 
 #include <QAbstractItemDelegate>
 #include <QPainter>
@@ -179,6 +174,7 @@ OverviewPage::OverviewPage(QWidget *parent) :
     ui->labelImmature           ->setStyleSheet(white1);
     ui->labelTotal              ->setStyleSheet(white1);
 
+    connect(ui->labelFrozenText, SIGNAL(linkActivated(QString)), this, SLOT(openFrozenCoinsInfo()));
     connect(ui->listTransactions, SIGNAL(clicked(QModelIndex)), this, SLOT(handleTransactionClicked(QModelIndex)));
 
     // init "out of sync" warning labels
@@ -188,15 +184,6 @@ OverviewPage::OverviewPage(QWidget *parent) :
     // start with displaying the "out of sync" warnings
     showOutOfSyncWarning(true);
 
-    // temp, show fractions
-    {
-        QwtPlot * fplot = new QwtPlot;
-        QVBoxLayout *fvbox = new QVBoxLayout;
-        fvbox->setMargin(0);
-        fvbox->addWidget(fplot);
-        ui->widgetFractions->setLayout(fvbox);
-        ui->widgetFractions->setVisible(false);
-    }
 }
 
 void OverviewPage::handleTransactionClicked(const QModelIndex &index)
@@ -212,6 +199,7 @@ OverviewPage::~OverviewPage()
 
 void OverviewPage::setBalance(qint64 balance, 
                               qint64 reserve, qint64 liquidity, qint64 frozen,
+                              vector<CFrozenCoinInfo> frozenCoins,
                               qint64 stake, qint64 unconfirmedBalance, qint64 immatureBalance)
 {
     int unit = walletModel->getOptionsModel()->getDisplayUnit();
@@ -219,6 +207,7 @@ void OverviewPage::setBalance(qint64 balance,
     currentReserve = reserve;
     currentLiquidity = liquidity;
     currentFrozen = frozen;
+    currentFrozenCoins = frozenCoins;
     currentStake = stake;
     currentUnconfirmedBalance = unconfirmedBalance;
     currentImmatureBalance = immatureBalance;
@@ -266,11 +255,13 @@ void OverviewPage::setWalletModel(WalletModel *model)
         ui->listTransactions->setModelColumn(TransactionTableModel::ToAddress);
 
         // Keep up to date with wallet
+        vector<CFrozenCoinInfo> frozenCoins;
+        int64_t nFrozen = model->getFrozen(NULL, &frozenCoins);
         setBalance(model->getBalance(), 
-                   model->getReserve(), model->getLiquidity(), model->getFrozen(),
+                   model->getReserve(), model->getLiquidity(), nFrozen, frozenCoins,
                    model->getStake(), model->getUnconfirmedBalance(), model->getImmatureBalance());
-        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64, qint64, qint64, qint64, qint64)), 
-                this, SLOT(setBalance(qint64, qint64, qint64, qint64, qint64, qint64, qint64)));
+        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64, qint64, std::vector<CFrozenCoinInfo>, qint64, qint64, qint64)), 
+                this, SLOT(setBalance(qint64, qint64, qint64, qint64, std::vector<CFrozenCoinInfo>, qint64, qint64, qint64)));
 
         connect(model->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
     }
@@ -284,7 +275,7 @@ void OverviewPage::updateDisplayUnit()
     if(walletModel && walletModel->getOptionsModel())
     {
         if(currentBalance != -1)
-            setBalance(currentBalance, currentReserve, currentLiquidity, currentFrozen,
+            setBalance(currentBalance, currentReserve, currentLiquidity, currentFrozen, currentFrozenCoins,
                        walletModel->getStake(), currentUnconfirmedBalance, currentImmatureBalance);
 
         // Update txdelegate->unit with the current unit
@@ -304,4 +295,66 @@ void OverviewPage::showOutOfSyncWarning(bool fShow)
 {
     ui->labelWalletStatus->setVisible(fShow);
     ui->labelTransactionsStatus->setVisible(fShow);
+}
+
+static QString timeBehindText(int secs) 
+{
+    QString time_behind_text;
+    const int MINUTE_IN_SECONDS = 60;
+    const int HOUR_IN_SECONDS = 60*60;
+    const int DAY_IN_SECONDS = 24*60*60;
+    const int WEEK_IN_SECONDS = 7*24*60*60;
+    const int YEAR_IN_SECONDS = 31556952; // Average length of year in Gregorian calendar
+   
+    if(secs < 2*MINUTE_IN_SECONDS) 
+    {
+        time_behind_text = QObject::tr("%n second(s)","",secs);
+    }
+    else if(secs < 2*HOUR_IN_SECONDS) 
+    {
+        time_behind_text = QObject::tr("%n minute(s)","",secs/MINUTE_IN_SECONDS);
+    }
+    else if(secs < 2*DAY_IN_SECONDS)
+    {
+        time_behind_text = QObject::tr("%n hour(s)","",secs/HOUR_IN_SECONDS);
+    }
+    else if(secs < 2*WEEK_IN_SECONDS)
+    {
+        time_behind_text = QObject::tr("%n day(s)","",secs/DAY_IN_SECONDS);
+    }
+    else if(secs < YEAR_IN_SECONDS)
+    {
+        time_behind_text = QObject::tr("%n week(s)","",secs/WEEK_IN_SECONDS);
+    }
+    else
+    {
+        int years = secs / YEAR_IN_SECONDS;
+        int remainder = secs % YEAR_IN_SECONDS;
+        time_behind_text = QObject::tr("%1 and %2")
+                .arg(QObject::tr("%n year(s)", "", years))
+                .arg(QObject::tr("%n week(s)","", remainder/WEEK_IN_SECONDS));
+    }
+    return time_behind_text;
+}
+
+void OverviewPage::openFrozenCoinsInfo()
+{
+    QDialog dlg(this);
+    Ui::FrozenInfoDialog ui;
+    ui.setupUi(&dlg);
+    ui.frozen->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    ui.frozen->header()->setSectionResizeMode(1, QHeaderView::Stretch);
+    ui.frozen->header()->setSectionResizeMode(2, QHeaderView::Stretch);
+    vector<CFrozenCoinInfo> frozenCoins;
+    walletModel->getFrozen(NULL, &frozenCoins);
+    for (const auto & coin : frozenCoins) {
+        QStringList cells;
+        int secs = coin.nLockTime - QDateTime::currentDateTimeUtc().toTime_t();
+        cells << BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), coin.nValue);
+        cells << QString::fromStdString(DateTimeStrFormat(coin.nLockTime));
+        cells << timeBehindText(secs);
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.frozen->addTopLevelItem(twi);
+    }
+    dlg.exec();
 }

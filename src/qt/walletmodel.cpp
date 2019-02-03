@@ -100,7 +100,8 @@ qint64 WalletModel::getLiquidity(const CCoinControl *coinControl) const
     return wallet->GetLiquidity();
 }
 
-qint64 WalletModel::getFrozen(const CCoinControl *coinControl) const
+qint64 WalletModel::getFrozen(const CCoinControl *coinControl, 
+                              vector<CFrozenCoinInfo> *frozenCoins) const
 {
     if (coinControl)
     {
@@ -110,13 +111,22 @@ qint64 WalletModel::getFrozen(const CCoinControl *coinControl) const
         for(const COutput& out : vCoins) {
             if(out.fSpendable && out.IsFrozen(wallet->nLastBlockTime)) {
                 nFrozen += out.tx->vout[out.i].nValue;
+                if (frozenCoins) {
+                    CFrozenCoinInfo fcoin;
+                    fcoin.txhash = out.tx->GetHash();
+                    fcoin.n = out.i;
+                    fcoin.nValue = out.tx->vout[out.i].nValue;
+                    fcoin.nFlags = out.tx->vOutFractions[out.i].nFlags;
+                    fcoin.nLockTime = out.tx->vOutFractions[out.i].nLockTime;
+                    frozenCoins->push_back(fcoin);
+                }
             }
         }
 
         return nFrozen;
     }
 
-    return wallet->GetFrozen();
+    return wallet->GetFrozen(frozenCoins);
 }
 
 bool WalletModel::getRewardInfo(std::vector<RewardInfo> & vRewardInfo) const
@@ -174,26 +184,34 @@ void WalletModel::pollBalanceChanged()
 
 void WalletModel::checkBalanceChanged()
 {
+    vector<CFrozenCoinInfo> newFrozenCoins;
     qint64 newBalance = getBalance();
     qint64 newReserve = getReserve();
     qint64 newLiquidity = getLiquidity();
-    qint64 newFrozen = getFrozen();
+    qint64 newFrozen = getFrozen(NULL, &newFrozenCoins);
     qint64 newStake = getStake();
     qint64 newUnconfirmedBalance = getUnconfirmedBalance();
     qint64 newImmatureBalance = getImmatureBalance();
 
-    if(cachedBalance != newBalance || cachedReserve != newReserve || cachedLiquidity != newLiquidity || cachedFrozen != newFrozen ||
-            cachedStake != newStake || cachedUnconfirmedBalance != newUnconfirmedBalance || cachedImmatureBalance != newImmatureBalance)
+    if(cachedBalance != newBalance || 
+            cachedReserve != newReserve || 
+            cachedLiquidity != newLiquidity || 
+            cachedFrozen != newFrozen || 
+            cachedFrozenCoins != newFrozenCoins ||
+            cachedStake != newStake || 
+            cachedUnconfirmedBalance != newUnconfirmedBalance || 
+            cachedImmatureBalance != newImmatureBalance)
     {
         cachedBalance = newBalance;
         cachedReserve = newReserve;
         cachedLiquidity = newLiquidity;
         cachedFrozen = newFrozen;
+        cachedFrozenCoins = newFrozenCoins;
         cachedStake = newStake;
         cachedUnconfirmedBalance = newUnconfirmedBalance;
         cachedImmatureBalance = newImmatureBalance;
         emit balanceChanged(newBalance, 
-                            newReserve, newLiquidity, newFrozen,
+                            newReserve, newLiquidity, newFrozen, newFrozenCoins,
                             newStake, newUnconfirmedBalance, newImmatureBalance);
     }
     

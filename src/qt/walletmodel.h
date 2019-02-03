@@ -2,10 +2,12 @@
 #define WALLETMODEL_H
 
 #include <QObject>
+#include <QVector>
 #include <vector>
 #include <map>
 
 #include "peg.h"
+#include "wallet.h"
 #include "allocators.h" /* for SecureString */
 
 class OptionsModel;
@@ -19,6 +21,7 @@ class COutPoint;
 class uint256;
 class CCoinControl;
 class CWalletTx;
+struct CFrozenCoinInfo;
 struct RewardInfo;
 
 QT_BEGIN_NAMESPACE
@@ -71,7 +74,8 @@ public:
     qint64 getBalance(const CCoinControl *coinControl=NULL) const;
     qint64 getReserve(const CCoinControl *coinControl=NULL) const;
     qint64 getLiquidity(const CCoinControl *coinControl=NULL) const;
-    qint64 getFrozen(const CCoinControl *coinControl=NULL) const;
+    qint64 getFrozen(const CCoinControl *coinControl=NULL, 
+                     std::vector<CFrozenCoinInfo> *pFrozenCoins=NULL) const;
     qint64 getStake() const;
     qint64 getUnconfirmedBalance() const;
     qint64 getImmatureBalance() const;
@@ -159,6 +163,7 @@ private:
     EncryptionStatus cachedEncryptionStatus;
     int cachedNumBlocks;
     std::vector<RewardInfo> cachedRewardsInfo;
+    std::vector<CFrozenCoinInfo> cachedFrozenCoins;
 
     QTimer *pollTimer;
 
@@ -181,6 +186,7 @@ signals:
     // Signal that balance in wallet changed
     void balanceChanged(qint64 balance, 
                         qint64 reserves, qint64 liquidity, qint64 frozen,
+                        std::vector<CFrozenCoinInfo>,
                         qint64 stake, qint64 unconfirmedBalance, qint64 immatureBalance);
 
     // Signal that balance in wallet changed

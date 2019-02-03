@@ -110,7 +110,8 @@ FORMS += \
     $$PWD/forms/askpassphrasedialog.ui \
     $$PWD/forms/rpcconsole.ui \
     $$PWD/forms/optionsdialog.ui \
-    $$PWD/forms/fractionsdialog.ui
+    $$PWD/forms/fractionsdialog.ui \
+    $$PWD/forms/frozeninfodialog.ui \
 
 contains(USE_QRCODE, 1) {
     HEADERS += $$PWD/qrcodedialog.h

@@ -706,7 +706,8 @@ int CWallet::GetPegSupplyIndex() const
     return nLastPegSupplyIndex;
 }
 
-int64_t CWallet::GetFrozen(uint256 txhash, long n, const CTxOut& txout) const
+int64_t CWallet::GetFrozen(uint256 txhash, long n, const CTxOut& txout,
+                           std::vector<CFrozenCoinInfo>* pFrozenCoins) const
 {
     if (!MoneyRange(txout.nValue))
         throw std::runtime_error("CWallet::GetReserve() : value out of range");
@@ -731,8 +732,18 @@ int64_t CWallet::GetFrozen(uint256 txhash, long n, const CTxOut& txout) const
                 bool fV = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_V;
                 fF &= wtx.vOutFractions[n].nLockTime >= nLastBlockTime;
                 fV &= wtx.vOutFractions[n].nLockTime >= nLastBlockTime;
-                if (fF || fV)
+                if (fF || fV) {
+                    if (pFrozenCoins) {
+                        CFrozenCoinInfo fcoin;
+                        fcoin.txhash = wtx.GetHash();
+                        fcoin.n = n;
+                        fcoin.nValue = wtx.vout[n].nValue;
+                        fcoin.nFlags = wtx.vOutFractions[n].nFlags;
+                        fcoin.nLockTime = wtx.vOutFractions[n].nLockTime;
+                        pFrozenCoins->push_back(fcoin);
+                    }
                     return wtx.vout[n].nValue;
+                }
             }
         }
     }
@@ -1273,7 +1284,7 @@ int64_t CWallet::GetLiquidity() const
     return nTotal;
 }
 
-int64_t CWallet::GetFrozen() const
+int64_t CWallet::GetFrozen(vector<CFrozenCoinInfo> * pFrozenCoins) const
 {
     int64_t nTotal = 0;
     {
@@ -1282,7 +1293,7 @@ int64_t CWallet::GetFrozen() const
         {
             const CWalletTx* pcoin = &(*it).second;
             if (pcoin->IsTrusted()) {
-                nTotal += pcoin->GetAvailableFrozen();
+                nTotal += pcoin->GetAvailableFrozen(true, pFrozenCoins);
             }
         }
     }

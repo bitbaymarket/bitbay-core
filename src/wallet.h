@@ -81,6 +81,23 @@ struct RewardInfo {
     int stake;
 };
 
+class CFrozenCoinInfo
+{
+public:
+    uint256 txhash;
+    int n;
+    int64_t nValue;
+    uint64_t nFlags;
+    uint64_t nLockTime;
+    bool operator==(const CFrozenCoinInfo & b) const {
+        return txhash==b.txhash &&
+                n==b.n &&
+                nValue==b.nValue &&
+                nFlags==b.nFlags &&
+                nLockTime==b.nFlags;
+    }
+};
+
 /** A CWallet is an extension of a keystore, which also maintains a set of transactions and balances,
  * and provides the ability to create new transactions.
  */
@@ -223,7 +240,7 @@ public:
     void ResendWalletTransactions(bool fForce = false);
     int64_t GetBalance() const;
     int64_t GetReserve() const;
-    int64_t GetFrozen() const;
+    int64_t GetFrozen(std::vector<CFrozenCoinInfo>* pFrozenCoins =NULL) const;
     int64_t GetLiquidity() const;
     int64_t GetUnconfirmedBalance() const;
     int64_t GetImmatureBalance() const;
@@ -266,7 +283,8 @@ public:
             throw std::runtime_error("CWallet::GetCredit() : value out of range");
         return (IsMine(txout) ? txout.nValue : 0);
     }
-    int64_t GetFrozen(uint256 txhash, long nOut, const CTxOut& txout) const;
+    int64_t GetFrozen(uint256 txhash, long nOut, const CTxOut& txout,
+                      std::vector<CFrozenCoinInfo>* pFrozenCoins=NULL) const;
     int64_t GetReserve(uint256 txhash, long nOut, const CTxOut& txout) const;
     int64_t GetLiquidity(uint256 txhash, long nOut, const CTxOut& txout) const;
     bool IsChange(const CTxOut& txout) const;
@@ -467,6 +485,7 @@ public:
     mutable int64_t nAvailableLiquidityCached   = 0;
     mutable int64_t nChangeCached               = 0;
     mutable std::vector<RewardInfo> vRewardsInfoCached;
+    mutable std::vector<CFrozenCoinInfo> vFrozenCoinInfoCached;
 
     CWalletTx()
     {
@@ -506,6 +525,7 @@ public:
         vRewardsInfoCached.push_back({PEG_REWARD_10,0,0,0});
         vRewardsInfoCached.push_back({PEG_REWARD_20,0,0,0});
         vRewardsInfoCached.push_back({PEG_REWARD_40,0,0,0});
+        vFrozenCoinInfoCached.clear();
     }
 
     IMPLEMENT_SERIALIZE
@@ -756,29 +776,43 @@ public:
         return nLiquidity;
     }
     
-    int64_t GetAvailableFrozen(bool fUseCache=true) const
+    int64_t GetAvailableFrozen(bool fUseCache=true, 
+                               std::vector<CFrozenCoinInfo>* pFrozenCoins=NULL) const
     {
         // Must wait until coinbase is safely deep enough in the chain before valuing it
         if ((IsCoinBase() || IsCoinStake()) && GetBlocksToMaturity() > 0)
             return 0;
 
-        if (fUseCache && fAvailableFrozenCached)
+        if (fUseCache && fAvailableFrozenCached) {
+            if (pFrozenCoins) {
+                for (auto fcoin : vFrozenCoinInfoCached) {
+                    pFrozenCoins->push_back(fcoin);
+                }
+            }
             return nAvailableFrozenCached;
+        }
 
         int64_t nFrozen = 0;
+        std::vector<CFrozenCoinInfo> vFrozenCoinInfo;
         for (unsigned int i = 0; i < vout.size(); i++)
         {
             if (!IsSpent(i))
             {
                 const CTxOut &txout = vout[i];
                 if (pwallet->IsMine(txout)) {
-                    nFrozen += pwallet->GetFrozen(GetHash(), i, txout);
+                    nFrozen += pwallet->GetFrozen(GetHash(), i, txout, &vFrozenCoinInfo);
                     if (!MoneyRange(nFrozen))
                         throw std::runtime_error("CWalletTx::GetAvailableReserve() : value out of range");
                 }
             }
         }
 
+        if (pFrozenCoins) {
+            for (auto fcoin : vFrozenCoinInfo) {
+                pFrozenCoins->push_back(fcoin);
+            }
+        }
+        vFrozenCoinInfoCached = vFrozenCoinInfo;
         nAvailableFrozenCached = nFrozen;
         fAvailableFrozenCached = true;
         return nFrozen;

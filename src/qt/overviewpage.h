@@ -2,6 +2,8 @@
 #define OVERVIEWPAGE_H
 
 #include <QWidget>
+#include "walletmodel.h"
+#include "wallet.h"
 
 namespace Ui {
     class OverviewPage;
@@ -31,6 +33,7 @@ public:
 public slots:
     void setBalance(qint64 balance, 
                     qint64 reserves, qint64 liquidity, qint64 frozen, 
+                    std::vector<CFrozenCoinInfo> frozenCoins,
                     qint64 stake, qint64 unconfirmedBalance, qint64 immatureBalance);
 
 signals:
@@ -47,6 +50,7 @@ private:
     qint64 currentStake;
     qint64 currentUnconfirmedBalance;
     qint64 currentImmatureBalance;
+    std::vector<CFrozenCoinInfo> currentFrozenCoins;
 
     TxViewDelegate *txdelegate;
     TransactionFilterProxy *filter;
@@ -55,6 +59,7 @@ private slots:
     void updateDisplayUnit();
     void handleTransactionClicked(const QModelIndex &index);
     void updateAlerts(const QString &warnings);
+    void openFrozenCoinsInfo();
 };
 
 #endif // OVERVIEWPAGE_H

@@ -166,7 +166,6 @@ public:
     void AvailableCoinsForStaking(std::vector<COutput>& vCoins, unsigned int nSpendTime) const;
     void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed, bool fUseFrozenUnlocked, const CCoinControl *coinControl) const;
     bool SelectCoinsMinConf(PegTxType txType, int64_t nTargetValue, unsigned int nSpendTime, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins, std::set<CSelectedCoin>& setCoinsRet, int64_t& nValueRet) const;
-    bool SelectCoinsMinConfByCoinAge(PegTxType txType, int64_t nTargetValue, unsigned int nSpendTime, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins, std::set<CSelectedCoin>& setCoinsRet, int64_t& nValueRet) const;
 
     // keystore implementation
     // Generate a new key

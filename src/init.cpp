@@ -37,7 +37,6 @@ CWallet* pwalletMain = NULL;
 #endif
 CClientUIInterface uiInterface;
 bool fConfChange;
-bool fMinimizeCoinAge;
 unsigned int nNodeLifespan;
 unsigned int nDerivationMethodIndex;
 unsigned int nMinerSleep;
@@ -436,7 +435,6 @@ bool AppInit2(boost::thread_group& threadGroup)
 #endif
 
     fConfChange = GetBoolArg("-confchange", false);
-    fMinimizeCoinAge = GetBoolArg("-minimizecoinage", false);
 
 #ifdef ENABLE_WALLET
     if (mapArgs.count("-mininput"))

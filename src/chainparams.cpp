@@ -146,6 +146,11 @@ public:
         convertSeed6(vFixedSeeds, pnSeed6_main, ARRAYLEN(pnSeed6_main));
 
         nLastPOWBlock = 10000;
+        
+        sPegInflateAddr    = "bNyZrPLQAMPvYedrVLDcBSd8fbLdNgnRPz";
+        sPegDeflateAddr    = "bNyZrP2SbrV6v5HqeBoXZXZDE2e4fe6STo";
+        sPegNochangeAddr   = "bNyZrPeFFNP6GFJZCkE82DDN7JC4K5Vrkk";
+        
     }
 
     virtual const CBlock& GenesisBlock() const { return genesis; }
@@ -206,10 +211,13 @@ public:
         base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x35)(0x87)(0xCF).convert_to_container<std::vector<unsigned char> >();
         base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x35)(0x83)(0x94).convert_to_container<std::vector<unsigned char> >();
 
-
         convertSeed6(vFixedSeeds, pnSeed6_test, ARRAYLEN(pnSeed6_test));
 
         nLastPOWBlock = 0x7fffffff;
+        
+        sPegInflateAddr    = "n29zWn5WYvU6WRLBMvK49i2eoFRkxMMCdV";
+        sPegDeflateAddr    = "mzbVXs9bQtS7i82gXrKEGEhWUvJRStNtRh";
+        sPegNochangeAddr   = "mzCbx5ioAgyndeiMeDAPjFgp3xjUaiYvma";
     }
     virtual Network NetworkID() const { return CChainParams::TESTNET; }
 };

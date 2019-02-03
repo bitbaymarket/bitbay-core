@@ -69,6 +69,11 @@ public:
     virtual const vector<CAddress>& FixedSeeds() const = 0;
     int RPCPort() const { return nRPCPort; }
     int LastPOWBlock() const { return nLastPOWBlock; }
+    
+    string PegInflateAddr() const { return sPegInflateAddr; }
+    string PegDeflateAddr() const { return sPegDeflateAddr; }
+    string PegNochangeAddr()  const { return sPegNochangeAddr; }
+    
 protected:
     CChainParams() {};
 
@@ -85,6 +90,11 @@ protected:
     vector<CDNSSeedData> vSeeds;
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
     int nLastPOWBlock;
+    
+    string sPegInflateAddr;
+    string sPegDeflateAddr;
+    string sPegNochangeAddr;
+    
 };
 
 /**

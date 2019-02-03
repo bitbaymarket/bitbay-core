@@ -2818,10 +2818,6 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
         nPegStartHeight = 6000;
         fPegWhitelistAll = true;
         pegWhiteListHash = 0;
-        
-        PEG_INFLATE_ADDR    = "n29zWn5WYvU6WRLBMvK49i2eoFRkxMMCdV";
-        PEG_DEFLATE_ADDR    = "mzbVXs9bQtS7i82gXrKEGEhWUvJRStNtRh";
-        PEG_NOCHANGE_ADDR   = "mzCbx5ioAgyndeiMeDAPjFgp3xjUaiYvma";
     }
 
     //

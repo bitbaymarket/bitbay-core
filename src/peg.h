@@ -50,6 +50,9 @@ enum
     PEG_PRUNE_INTERVAL      = 10000
 };
 
+//extern int PEG_FROZEN_TIME;
+//extern int PEG_VFROZEN_TIME;
+
 enum PegTxType {
     PEG_MAKETX_SEND_RESERVE     = 0,
     PEG_MAKETX_SEND_LIQUIDITY   = 1,
@@ -72,10 +75,6 @@ enum PegRewardType {
     PEG_REWARD_40   = 3,
     PEG_REWARD_LAST
 };
-
-extern std::string PEG_INFLATE_ADDR;
-extern std::string PEG_DEFLATE_ADDR;
-extern std::string PEG_NOCHANGE_ADDR;
 
 class CFractions {
 public:

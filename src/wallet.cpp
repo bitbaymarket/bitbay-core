@@ -2415,24 +2415,25 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         CScript scriptPubKey;
         string address = "";
         if (voteType == PEG_VOTE_INFLATE) {
-            address = PEG_INFLATE_ADDR;
+            address = Params().PegInflateAddr();
         } else if (voteType == PEG_VOTE_DEFLATE) {
-            address = PEG_DEFLATE_ADDR;
+            address = Params().PegDeflateAddr();
         } else if (voteType == PEG_VOTE_NOCHANGE) {
-            address = PEG_NOCHANGE_ADDR;
+            address = Params().PegNochangeAddr();
         } else if (voteType == PEG_VOTE_AUTO) {
             if (dBayPeakPrice >0 && !vBayRates.empty()) {
                 double dLastBayPrice = vBayRates.back();
                 if ((dLastBayPrice * 1.05) < dBayPeakPrice) {
-                    address = PEG_DEFLATE_ADDR;
+                    address = Params().PegDeflateAddr();
                     lastAutoPegVoteType = PEG_VOTE_DEFLATE;
                 }
                 else if ((dLastBayPrice * 0.95) > dBayPeakPrice) {
-                    address = PEG_INFLATE_ADDR;
+                    address = Params().PegInflateAddr();
                     lastAutoPegVoteType = PEG_VOTE_INFLATE;
                 }
                 else {
-                    lastAutoPegVoteType = PEG_VOTE_NONE;
+                    address = Params().PegNochangeAddr();
+                    lastAutoPegVoteType = PEG_VOTE_NOCHANGE;
                 }
             }
         }

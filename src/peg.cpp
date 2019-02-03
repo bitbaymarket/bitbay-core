@@ -43,10 +43,6 @@ bool fPegWhitelistAll = false;
 set<std::string> vPegWhitelist;
 uint256 pegWhiteListHash = 0;
 
-std::string PEG_INFLATE_ADDR    = "bNyZrPLQAMPvYedrVLDcBSd8fbLdNgnRPz";
-std::string PEG_DEFLATE_ADDR    = "bNyZrP2SbrV6v5HqeBoXZXZDE2e4fe6STo";
-std::string PEG_NOCHANGE_ADDR   = "bNyZrPeFFNP6GFJZCkE82DDN7JC4K5Vrkk";
-
 static string sBurnAddress =
     "bJnV8J5v74MGctMyVSVPfGu1mGQ9nMTiB3";
 
@@ -376,17 +372,17 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& 
         bool voted = false;
         for(const CTxDestination& addr : addresses) {
             std::string str_addr = CBitcoinAddress(addr).ToString();
-            if (str_addr == PEG_INFLATE_ADDR) {
+            if (str_addr == Params().PegInflateAddr()) {
                 pindex->nPegVotesInflate += nVoteWeight;
                 voted = true;
                 break;
             }
-            else if (str_addr == PEG_DEFLATE_ADDR) {
+            else if (str_addr == Params().PegDeflateAddr()) {
                 pindex->nPegVotesDeflate += nVoteWeight;
                 voted = true;
                 break;
             }
-            else if (str_addr == PEG_NOCHANGE_ADDR) {
+            else if (str_addr == Params().PegNochangeAddr()) {
                 pindex->nPegVotesNochange += nVoteWeight;
                 voted = true;
                 break;
@@ -1629,9 +1625,9 @@ void PrunePegForBlock(const CBlock& blockprune, CPegDB& pegdb)
             bool voted = false;
             for(const CTxDestination& addr : addresses) {
                 std::string str_addr = CBitcoinAddress(addr).ToString();
-                if (str_addr == PEG_INFLATE_ADDR) { voted = true; }
-                else if (str_addr == PEG_DEFLATE_ADDR) { voted = true; }
-                else if (str_addr == PEG_NOCHANGE_ADDR) { voted = true; }
+                if (str_addr == Params().PegInflateAddr()) { voted = true; }
+                else if (str_addr == Params().PegDeflateAddr()) { voted = true; }
+                else if (str_addr == Params().PegNochangeAddr()) { voted = true; }
             }
             if (!voted) 
                 continue;

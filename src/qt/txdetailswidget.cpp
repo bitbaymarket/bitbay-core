@@ -163,13 +163,13 @@ static QString scriptToAddress(const CScript& scriptPubKey,
         for(const CTxDestination& addr : addresses) {
             std::string str_addr = CBitcoinAddress(addr).ToString();
             if (show_alias) {
-                if (str_addr == PEG_INFLATE_ADDR) {
+                if (str_addr == Params().PegInflateAddr()) {
                     str_addr = "peginflate";
                 }
-                else if (str_addr == PEG_DEFLATE_ADDR) {
+                else if (str_addr == Params().PegDeflateAddr()) {
                     str_addr = "pegdeflate";
                 }
-                else if (str_addr == PEG_NOCHANGE_ADDR) {
+                else if (str_addr == Params().PegNochangeAddr()) {
                     str_addr = "pegnochange";
                 }
             }

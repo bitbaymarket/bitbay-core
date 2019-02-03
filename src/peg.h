@@ -30,8 +30,6 @@ typedef std::function<void(const std::string &)> LoadMsg;
 
 enum
 {
-    PEG_INTERVAL            = 200,
-    PEG_INTERVAL_TESTNET1   = 20,
     PEG_RATE                = 100,
     PEG_SIZE                = 1200,
     PEG_MAKETX_FREEZE_VALUE = 5590,

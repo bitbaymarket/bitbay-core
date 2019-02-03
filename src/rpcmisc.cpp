@@ -90,10 +90,7 @@ Value getpeginfo(const Array& params, bool fHelp)
             "Returns an object containing peg state info.");
 
     Object peg;
-    int nPegInterval = PEG_INTERVAL;
-    if (TestNet()) {
-        nPegInterval = PEG_INTERVAL_TESTNET1;
-    }
+    int nPegInterval = Params().PegInterval(nBestHeight);
     peg.push_back(Pair("steps", PEG_SIZE));
     peg.push_back(Pair("interval", nPegInterval));
     peg.push_back(Pair("startingblock", nPegStartHeight));

@@ -162,13 +162,7 @@ bool CalculateBlockPegIndex(CBlockIndex* pindex)
 int CBlockIndex::GetNextBlockPegSupplyIndex() const
 {
     int nNextHeight = nHeight+1;
-    int nPegInterval = PEG_INTERVAL;
-    
-    if (TestNet()) {
-        if (nNextHeight >= 10000) {
-            nPegInterval = PEG_INTERVAL_TESTNET1;
-        }
-    }
+    int nPegInterval = Params().PegInterval(nNextHeight);
     
     if (nNextHeight < nPegStartHeight) {
         return 0;
@@ -196,13 +190,7 @@ int CBlockIndex::GetNextIntervalPegSupplyIndex() const
         return 0;
     }
     
-    int nPegInterval = PEG_INTERVAL;
-    if (TestNet()) {
-        if (nHeight >= 10000) {
-            nPegInterval = PEG_INTERVAL_TESTNET1;
-        }
-    }
-    
+    int nPegInterval = Params().PegInterval(nHeight);
     int nCurrentInterval = nHeight / nPegInterval;
     int nCurrentIntervalStart = nCurrentInterval * nPegInterval;
 
@@ -225,13 +213,7 @@ int CBlockIndex::GetNextNextIntervalPegSupplyIndex() const
         return 0;
     }
     
-    int nPegInterval = PEG_INTERVAL;
-    if (TestNet()) {
-        if (nHeight >= 10000) {
-            nPegInterval = PEG_INTERVAL_TESTNET1;
-        }
-    }
-    
+    int nPegInterval = Params().PegInterval(nHeight);
     int nCurrentInterval = nHeight / nPegInterval;
     int nCurrentIntervalStart = nCurrentInterval * nPegInterval;
 
@@ -287,13 +269,7 @@ int CBlockIndex::ComputeNextPegSupplyIndex(int nPegBase,
 
 bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& pegdb)
 {
-    int nPegInterval = PEG_INTERVAL;
-    
-    if (TestNet()) {
-        if (pindex->nHeight >= 10000) {
-            nPegInterval = PEG_INTERVAL_TESTNET1;
-        }
-    }
+    int nPegInterval = Params().PegInterval(pindex->nHeight);
     
     if (!cblock.IsProofOfStake() || pindex->nHeight < nPegStartHeight) {
         pindex->nPegVotesInflate =0;

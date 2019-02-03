@@ -945,15 +945,16 @@ void BitcoinGUI::updatePegInfo1Label()
     Q_UNUSED(peg_start);
     int votes_inflate, votes_deflate, votes_nochange;
     boost::tie(votes_inflate, votes_deflate, votes_nochange) = clientModel->getPegVotes();
-    int interval_num = last_block_num / PEG_INTERVAL_TESTNET1;
+    int peg_interval = Params().PegInterval(last_block_num);
+    int interval_num = last_block_num / peg_interval;
     pegNowTextLabel->setText(tr("Peg index now - %1: ")
-                             .arg((interval_num +1)*PEG_INTERVAL_TESTNET1-1));
+                             .arg((interval_num +1)*peg_interval-1));
     pegNextTextLabel->setText(tr("%1 - %2: ")
-                              .arg((interval_num +1)*PEG_INTERVAL_TESTNET1)
-                              .arg((interval_num +2)*PEG_INTERVAL_TESTNET1-1));
+                              .arg((interval_num +1)*peg_interval)
+                              .arg((interval_num +2)*peg_interval-1));
     pegNextNextTextLabel->setText(tr("%1 - %2: ")
-                              .arg((interval_num +2)*PEG_INTERVAL_TESTNET1)
-                              .arg((interval_num +3)*PEG_INTERVAL_TESTNET1-1));
+                              .arg((interval_num +2)*peg_interval)
+                              .arg((interval_num +3)*peg_interval-1));
     pegNowLabel->setText(QString::number(peg_supply));
     pegNextLabel->setText(QString::number(peg_next_supply));
     pegNextNextLabel->setText(QString::number(peg_next_next_supply));

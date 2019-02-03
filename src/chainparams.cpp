@@ -58,22 +58,15 @@ public:
         nMaxReorganizationDepth = 100;
         bnProofOfWorkLimit = CBigNum(~uint256(0) >> 20);
 
-        // Build the genesis block. Note that the output of the genesis coinbase cannot
-        // be spent as it did not originally exist in the database.
-        //
-        //CBlock(hash=000001faef25dec4fbcf906e6242621df2c183bf232f263d0ba5b101911e4563, ver=1, hashPrevBlock=0000000000000000000000000000000000000000000000000000000000000000, hashMerkleRoot=12630d16a97f24b287c8c2594dda5fb98c9e6c70fc61d44191931ea2aa08dc90, nTime=1393221600, nBits=1e0fffff, nNonce=164482, vtx=1, vchBlockSig=)
-        //  Coinbase(hash=12630d16a9, nTime=1393221600, ver=1, vin.size=1, vout.size=1, nLockTime=0)
-        //    CTxIn(COutPoint(0000000000, 4294967295), coinbase 00012a24323020466562203230313420426974636f696e2041544d7320636f6d6520746f20555341)
-        //    CTxOut(empty)
-        //  vMerkleTree: 12630d16a9
-
-        //Change the text and nTime below if you wish to make a new genesis
         const char* pszTimestamp = "BitBay gonna make an Impact on the altcoin market never seen before";
         CTransaction txNew;
         txNew.nTime = 1414351032;
         txNew.vin.resize(1);
         txNew.vout.resize(1);
-        txNew.vin[0].scriptSig = CScript() << 0 << CBigNum(42) << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
+        txNew.vin[0].scriptSig = CScript() 
+                << 0 
+                << CBigNum(42) 
+                << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
         txNew.vout[0].SetEmpty();
         genesis.vtx.push_back(txNew);
         genesis.hashPrevBlock = 0;
@@ -82,25 +75,6 @@ public:
         genesis.nTime    = 1414351032;
         genesis.nBits    = bnProofOfWorkLimit.GetCompact();
         genesis.nNonce   = 1491418;
-
-        // Uncommenting this will make a new genesis which you can change the info above
-        //uint256 hashTarget = CBigNum().SetCompact(genesis.nBits).getuint256();
-        //printf("Making genesis");
-        //while (genesis.GetHash() > hashTarget)
-        //{
-        //  ++genesis.nNonce;
-        //  if (genesis.nNonce == 0)
-        //             {
-        //                  printf("NONCE WRAPPED, incrementing time");
-        //                  ++genesis.nTime;
-        //             }
-        //}
-        //printf("genesis.GetHash() == %s\n", genesis.GetHash().ToString().c_str());
-        //printf("genesis.hashMerkleRoot == %s\n", genesis.hashMerkleRoot.ToString().c_str());
-        //printf("genesis.nTime = %u \n", genesis.nTime);
-        //printf("genesis.nNonce = %u \n", genesis.nNonce);
-        //hashGenesisBlock = genesis.GetHash();
-        //assert(hashGenesisBlock == uint256("0x0"));
 
         hashGenesisBlock = genesis.GetHash();
         assert(hashGenesisBlock == uint256("0x0000075685d3be1f253ce777174b1594354e79954d2a32a6f77fe9cba00e6467"));
@@ -153,6 +127,8 @@ public:
         
         nPegFrozenTime  = (3600 * 24 * 30);
         nPegVFrozenTime = (3600 * 24 * 30 *4);
+        
+        nPegInterval = 200;
     }
 
     virtual const CBlock& GenesisBlock() const { return genesis; }
@@ -224,7 +200,14 @@ public:
         nPegFrozenTime  = (3600 * 24);
         nPegVFrozenTime = (3600 * 24 *4);
     }
-    virtual Network NetworkID() const { return CChainParams::TESTNET; }
+    Network NetworkID() const override { return CChainParams::TESTNET; }
+    int PegInterval(int nHeight) const override { 
+        if (nHeight >= 10000) {
+            // at block 10K switch to 20 blocks interval
+            return 20;
+        }
+        return nPegInterval; 
+    } 
 };
 static CTestNetParams *testNetParams = nullptr;
 

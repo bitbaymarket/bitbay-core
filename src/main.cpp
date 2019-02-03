@@ -2028,7 +2028,10 @@ bool CBlock::SetBestChain(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindexNew)
 
     // Update best block in wallet (so we can detect restored wallets)
     bool fIsInitialDownload = IsInitialBlockDownload();
-    if ((pindexNew->nHeight % 20160) == 0 || (!fIsInitialDownload && (pindexNew->nHeight % 144) == 0) || (!fIsInitialDownload && (pindexNew->nHeight % PEG_INTERVAL_TESTNET1) == 0))
+    int nPegInterval = Params().PegInterval(pindexNew->nHeight);
+    if ((pindexNew->nHeight % 20160) == 0 || 
+            (!fIsInitialDownload && (pindexNew->nHeight % 144) == 0) || 
+            (!fIsInitialDownload && (pindexNew->nHeight % nPegInterval) == 0))
     {
         const CBlockLocator locator(pindexNew);
         g_signals.SetBestChain(locator);
@@ -2069,10 +2072,6 @@ bool CBlock::SetBestChain(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindexNew)
             strMiscWarning = _("Warning: This version is obsolete, upgrade required!");
         
         if (pindexBest->nHeight > nPegStartHeight) {
-            int nPegInterval = PEG_INTERVAL;
-            if (TestNet()) {
-                nPegInterval = PEG_INTERVAL_TESTNET1;
-            }
             if (pindexBest->nHeight % nPegInterval == 0) {
                 mempool.reviewOnPegChange();
             }

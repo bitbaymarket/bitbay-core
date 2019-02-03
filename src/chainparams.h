@@ -77,8 +77,10 @@ public:
     int PegFrozenTime() const { return nPegFrozenTime; }
     int PegVFrozenTime() const { return nPegVFrozenTime; }
     
+    virtual int PegInterval(int /*nHeight*/) const { return nPegInterval; } 
+    
 protected:
-    CChainParams() {};
+    CChainParams() {}
 
     uint256 hashGenesisBlock;
     MessageStartChars pchMessageStart;
@@ -100,6 +102,8 @@ protected:
     
     int nPegFrozenTime;
     int nPegVFrozenTime;
+    
+    int nPegInterval;
 };
 
 /**

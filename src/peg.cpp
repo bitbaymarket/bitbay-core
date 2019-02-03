@@ -920,12 +920,10 @@ bool CalculateStandardFractions(const CTransaction & tx,
                                 map<uint256, CTxIndex>& mapTestPool,
                                 MapFractions& mapTestFractionsPool,
                                 CFractions& feesFractions,
-                                std::vector<int>& vOutputsTypes,
                                 std::string& sFailCause)
 {
     size_t n_vin = tx.vin.size();
     size_t n_vout = tx.vout.size();
-    vOutputsTypes.resize(n_vout);
 
     if (!IsPegWhiteListed(tx, mapInputs)) {
         sFailCause = "PI01: Not whitelisted";
@@ -1127,16 +1125,6 @@ bool CalculateStandardFractions(const CTransaction & tx,
     CFractions frCommonLiquidity(0, CFractions::STD);
     for(const auto & item : poolLiquidity) {
         frCommonLiquidity += item.second;
-    }
-
-    // Reveal outs destination type
-    for (unsigned int i = 0; i < n_vout; i++)
-    {
-        vOutputsTypes[i] = PEG_DEST_OUT;
-        std::string sAddress = toAddress(tx.vout[i].scriptPubKey);
-        if (setInputAddresses.count(sAddress) >0) {
-            vOutputsTypes[i] = PEG_DEST_SELF;
-        }
     }
 
     int64_t nValueOut = 0;
@@ -1374,12 +1362,10 @@ bool CalculateStakingFractions(const CTransaction & tx,
                                MapFractions& mapTestFractionsPool,
                                const CFractions& feesFractions,
                                int64_t nCalculatedStakeRewardWithoutFees,
-                               std::vector<int>& vOutputsTypes,
                                std::string& sFailCause)
 {
     size_t n_vin = tx.vin.size();
     size_t n_vout = tx.vout.size();
-    vOutputsTypes.resize(n_vout);
 
     if (!IsPegWhiteListed(tx, inputs)) {
         sFailCause = "Not whitelisted";
@@ -1473,16 +1459,6 @@ bool CalculateStakingFractions(const CTransaction & tx,
     frInputReserve += fStakeReward.LowPart(nSupply, &nReservesTotal);
     frInputReserve += feesFractions.LowPart(nSupply, &nReservesTotal);
     
-    // Reveal outs destination type
-    for (unsigned int i = 0; i < n_vout; i++)
-    {
-        vOutputsTypes[i] = PEG_DEST_OUT;
-        std::string sAddress = toAddress(tx.vout[i].scriptPubKey);
-        if (sInputAddress == sAddress) {
-            vOutputsTypes[i] = PEG_DEST_SELF;
-        }
-    }
-
     int64_t nValueOut = 0;
     int64_t nCommonLiquidity = nLiquidityTotal;
 

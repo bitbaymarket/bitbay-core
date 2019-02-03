@@ -165,14 +165,12 @@ void CTxMemPool::reviewOnPegChange(CTransaction& tx,
         }
     
         string sPegFailCause;
-        vector<int> vOutputsTypes;
         bool peg_ok = CalculateStandardFractions(tx, 
                                                  pindexBest->nPegSupplyIndex,
                                                  pindexBest->nTime,
                                                  mapInputs, mapInputsFractions,
                                                  mapUnused, mapOutputsFractions,
                                                  feesFractions,
-                                                 vOutputsTypes,
                                                  sPegFailCause);
         if (!peg_ok) {
             vRemove.push_back(hash);

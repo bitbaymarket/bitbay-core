@@ -467,14 +467,12 @@ Value validaterawtransaction(const Array& params, bool fHelp)
     }
 
     string sPegFailCause;
-    vector<int> vOutputsTypes;
     bool peg_ok = CalculateStandardFractions(tx,
                                              supply,
                                              tx.nTime,
                                              mapInputs, mapInputsFractions,
                                              mapUnused, mapOutputsFractions,
                                              feesFractions,
-                                             vOutputsTypes,
                                              sPegFailCause);
     if (!peg_ok) {
         Object result;

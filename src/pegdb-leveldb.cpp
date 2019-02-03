@@ -334,7 +334,6 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                     MapPrevTx mapInputs;
                     MapFractions mapInputsFractions;
                     map<uint256, CTxIndex> mapUnused;
-                    vector<int> vOutputsTypes;
                     string sPegFailCause;
                     bool fInvalid = false;
                     if (!tx.FetchInputs(txdb, pegdb, 
@@ -350,7 +349,6 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                                                              mapInputs, mapInputsFractions,
                                                              mapUnused, mapQueuedFractionsChanges,
                                                              feesFractions,
-                                                             vOutputsTypes,
                                                              sPegFailCause);
                     if (!peg_ok) {
                         pblockindexPegFail = pblockindex;
@@ -371,7 +369,6 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                     MapPrevTx mapInputs;
                     MapFractions mapInputsFractions;
                     map<uint256, CTxIndex> mapUnused;
-                    vector<int> vOutputsTypes;
                     string sPegFailCause;
                     bool fInvalid = false;
                     if (!tx.FetchInputs(txdb, pegdb, mapUnused, mapQueuedFractionsChanges, false, false, mapInputs, mapInputsFractions, fInvalid))
@@ -404,7 +401,6 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                                                             mapUnused, mapQueuedFractionsChanges,
                                                             feesFractions,
                                                             nStakeRewardWithoutFees,
-                                                            vOutputsTypes,
                                                             sPegFailCause);
                     if (!peg_ok) {
                         pblockindexPegFail = pblockindex;

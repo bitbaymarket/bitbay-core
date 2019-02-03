@@ -2163,7 +2163,6 @@ bool CWallet::CreateTransaction(PegTxType txType,
             map<uint256, CTxIndex> mapUnused;
             MapFractions mapOutputFractions;
             CFractions feesFractions;
-            vector<int> vOutputsTypes;
             string sPegFailCause;
             bool fInvalid = false;
             if (!wtxNew.FetchInputs(txdb, 
@@ -2180,7 +2179,7 @@ bool CWallet::CreateTransaction(PegTxType txType,
                                                      mapInputs, mapInputsFractions,
                                                      mapUnused, mapOutputFractions,
                                                      feesFractions,
-                                                     vOutputsTypes,sPegFailCause);
+                                                     sPegFailCause);
             if (!peg_ok)
                 return false;
             

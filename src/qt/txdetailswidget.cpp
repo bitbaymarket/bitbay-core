@@ -266,7 +266,6 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
         if (!txdb.ContainsTx(hash))
             return false;
 
-        vector<int> vOutputsTypes;
         bool fInvalid = false;
         tx.FetchInputs(txdb, pegdb, 
                        mapUnused, mapFractionsUnused, 
@@ -289,7 +288,6 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
                                                  mapInputs, mapInputsFractions,
                                                  mapUnused, mapFractionsUnused,
                                                  feesFractions,
-                                                 vOutputsTypes,
                                                  sPegFailCause);
 
         if (!peg_ok) {
@@ -377,7 +375,6 @@ void TxDetailsWidget::openTx(CTransaction & tx,
     MapFractions mapFractionsUnused;
     CFractions feesFractions(0, CFractions::STD);
     int64_t nFeesValue = 0;
-    vector<int> vOutputsTypes;
     string sPegFailCause;
     bool fInvalid = false;
     tx.FetchInputs(txdb, pegdb, 
@@ -430,7 +427,6 @@ void TxDetailsWidget::openTx(CTransaction & tx,
                                            mapUnused, mapFractionsUnused,
                                            feesFractions,
                                            nStakeRewardWithoutFees,
-                                           vOutputsTypes,
                                            sPegFailCause);
     }
     else {
@@ -440,7 +436,6 @@ void TxDetailsWidget::openTx(CTransaction & tx,
                                             mapInputs, mapInputsFractions,
                                             mapUnused, mapFractionsUnused,
                                             feesFractions,
-                                            vOutputsTypes,
                                             sPegFailCause);
     }
     int msecsPegChecks = timePegChecks.msecsTo(QTime::currentTime());

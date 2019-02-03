@@ -147,7 +147,6 @@ bool CalculateStandardFractions(const CTransaction & tx,
                                 std::map<uint256, CTxIndex>& mapTestPool,
                                 MapFractions& mapTestFractionsPool,
                                 CFractions& feesFractions,
-                                std::vector<int>& vOutputsTypes,
                                 std::string& sPegFailCause);
 
 bool CalculateStakingFractions(const CTransaction & tx,
@@ -158,7 +157,6 @@ bool CalculateStakingFractions(const CTransaction & tx,
                                MapFractions& mapTestFractionsPool,
                                const CFractions& feesFractions,
                                int64_t nCalculatedStakeRewardWithoutFees,
-                               std::vector<int>& vOutputsTypes,
                                std::string& sPegFailCause);
 void PrunePegForBlock(const CBlock&, CPegDB&);
 

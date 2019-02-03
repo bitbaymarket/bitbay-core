@@ -1478,14 +1478,12 @@ bool CTransaction::ConnectInputs(MapPrevTx inputs,
     if (!IsCoinStake()) {
         if (pindexBlock->nHeight >= nPegStartHeight) {
             string sPegFailCause;
-            vector<int> vOutputsTypes;
             bool peg_ok = CalculateStandardFractions(*this, 
                                                      pindexBlock->nPegSupplyIndex,
                                                      pindexBlock->nTime,
                                                      inputs, finputs,
                                                      mapTestPool, mapTestFractionsPool,
                                                      feesFractions,
-                                                     vOutputsTypes,
                                                      sPegFailCause);
             if (!peg_ok) {
                 return DoS(100, error("ConnectInputs() : fail on calculations of tx fractions (cause=%s)", sPegFailCause.c_str()));
@@ -1751,12 +1749,11 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
 
         if (pindex->nHeight >= nPegStartHeight) {
             string sPegFailCause;
-            vector<int> vOutputsTypes;
             if (!CalculateStakingFractions(vtx[1], pindex,
                                            mapInputs, mapInputsFractions,
                                            mapQueuedChanges, mapQueuedFractionsChanges,
                                            feesFractions, nCalculatedStakeRewardWithoutFee,
-                                           vOutputsTypes, sPegFailCause)) {
+                                           sPegFailCause)) {
                 return DoS(100, error("ConnectBlock() : fail on calculations of stake fractions (cause=%s)", sPegFailCause.c_str()));
             }
         }

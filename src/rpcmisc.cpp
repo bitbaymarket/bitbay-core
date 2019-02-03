@@ -11,6 +11,7 @@
 #include "rpcserver.h"
 #include "timedata.h"
 #include "util.h"
+#include "txdb-leveldb.h"
 #include "pegdb-leveldb.h"
 #ifdef ENABLE_WALLET
 #include "wallet.h"
@@ -397,4 +398,84 @@ Value verifymessage(const Array& params, bool fHelp)
         return false;
 
     return (pubkey.GetID() == keyID);
+}
+
+Value validaterawtransaction(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 4)
+        throw runtime_error(
+            "signrawtransaction <hex string> <pegsupplyindex>\n"
+            "Validate the transaction (serialized, hex-encoded).\n"
+            "Second optional argument is peg supply level for the validation of \n"
+            "the transaction with peg system.\n"
+            "Returns json object with keys:\n"
+            "  complete : 1 if transaction bypassed all peg checks\n"
+            );
+
+    RPCTypeCheck(params, list_of(str_type)(int_type), true);
+
+    vector<unsigned char> txData(ParseHex(params[0].get_str()));
+    CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
+    vector<CTransaction> txVariants;
+    while (!ssData.empty())
+    {
+        try {
+            CTransaction tx;
+            ssData >> tx;
+            txVariants.push_back(tx);
+        }
+        catch (std::exception &e) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+        }
+    }
+
+    if (txVariants.empty())
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Missing transaction");
+
+    int supply = std::stoi(params[1].get_str());
+
+    // tx will end up with all the checks; it
+    // starts as a clone of the rawtx:
+    CTransaction tx(txVariants[0]);
+
+    // Fetch previous transactions (inputs):
+    MapPrevTx mapInputs;
+    MapFractions mapInputsFractions;
+    CTxDB txdb("r");
+    CPegDB pegdb("r");
+    map<uint256, CTxIndex> mapUnused;
+    MapFractions mapOutputsFractions;
+    CFractions feesFractions;
+    bool fInvalid;
+
+    if (!tx.FetchInputs(txdb, pegdb,
+                        mapUnused, mapOutputsFractions,
+                        false, false,
+                        mapInputs, mapInputsFractions, fInvalid)) {
+        Object result;
+        result.push_back(Pair("complete", false));
+        result.push_back(Pair("cause", "Can not fetch transaction inputs"));
+        return result;
+    }
+
+    string sPegFailCause;
+    vector<int> vOutputsTypes;
+    bool peg_ok = CalculateStandardFractions(tx,
+                                             supply,
+                                             tx.nTime,
+                                             mapInputs, mapInputsFractions,
+                                             mapUnused, mapOutputsFractions,
+                                             feesFractions,
+                                             vOutputsTypes,
+                                             sPegFailCause);
+    if (!peg_ok) {
+        Object result;
+        result.push_back(Pair("complete", false));
+        result.push_back(Pair("cause", sPegFailCause.c_str()));
+        return result;
+    }
+
+    Object result;
+    result.push_back(Pair("complete", true));
+    return result;
 }

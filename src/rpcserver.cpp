@@ -249,6 +249,7 @@ static const CRPCCommand vRPCCommands[] =
     { "getpeginfo",             &getpeginfo,             true,      false,     false },
     { "getfractions",           &getfractions,           true,      false,     false },
     { "getliquidityrate",       &getliquidityrate,       true,      false,     false },
+    { "validaterawtransaction", &validaterawtransaction, true,      false,     false },
 
 #ifdef ENABLE_WALLET
     { "getmininginfo",          &getmininginfo,          true,      false,     false },

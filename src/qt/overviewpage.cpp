@@ -354,6 +354,9 @@ void OverviewPage::openFrozenCoinsInfo()
         cells << QString::fromStdString(DateTimeStrFormat(coin.nLockTime));
         cells << timeBehindText(secs);
         QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        auto f = twi->font(0);
+        f.setBold(true);
+        twi->setFont(0, f);
         ui.frozen->addTopLevelItem(twi);
     }
     dlg.exec();

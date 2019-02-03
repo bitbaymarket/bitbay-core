@@ -34,8 +34,6 @@ enum
     PEG_INTERVAL_TESTNET1   = 20,
     PEG_RATE                = 100,
     PEG_SIZE                = 1200,
-    PEG_DEST_OUT            = 1,
-    PEG_DEST_SELF           = 2,
     PEG_MAKETX_FREEZE_VALUE = 5590,
     PEG_MAKETX_VFREEZE_VALUE= 5590,
     PEG_MAKETX_FEE_INP_OUT  = 5000,

@@ -184,16 +184,19 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     lastBlockLabel = new QLabel;
     lastBlockLabel->setText(tr("Last block:"));
     lastBlockLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    lastBlockLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     topHeaderLayout->addWidget(lastBlockLabel, 0,0);
 
     oneBayRateLabel = new QLabel;
     oneBayRateLabel->setText(tr("1 BAY = ??? USD"));
     oneBayRateLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    oneBayRateLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     topHeaderLayout->addWidget(oneBayRateLabel, 1,0);
 
     oneUsdRateLabel = new QLabel;
     oneUsdRateLabel->setText(tr("1 USD = ??? BAY"));
     oneUsdRateLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    oneUsdRateLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     topHeaderLayout->addWidget(oneUsdRateLabel, 2,0);
     
     QWidget* space12 = new QWidget();
@@ -204,32 +207,35 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
 
     pegNowTextLabel = new QLabel;
     pegNowTextLabel->setText(tr("Peg index now - 200: "));
-    pegNowTextLabel->setAlignment(Qt::AlignRight);
+    pegNowTextLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     pegNowTextLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
     topHeaderLayout->addWidget(pegNowTextLabel, 0,2);
     pegNextTextLabel = new QLabel;
     pegNextTextLabel->setText(tr("200 - 400: "));
-    pegNextTextLabel->setAlignment(Qt::AlignRight);
+    pegNextTextLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     pegNextTextLabel->setStyleSheet("QLabel { color: rgba(240,240,240, 192); }");
     topHeaderLayout->addWidget(pegNextTextLabel, 1,2);
     pegNextNextTextLabel = new QLabel;
     pegNextNextTextLabel->setText(tr("400 - 600: "));
-    pegNextNextTextLabel->setAlignment(Qt::AlignRight);
+    pegNextNextTextLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     pegNextNextTextLabel->setStyleSheet("QLabel { color: rgba(240,240,240, 128); }");
     topHeaderLayout->addWidget(pegNextNextTextLabel, 2,2);
     
     pegNowLabel = new QLabel;
     pegNowLabel->setText(tr(""));
     pegNowLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    pegNowLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     pegNowLabel->setMinimumWidth(20);
     topHeaderLayout->addWidget(pegNowLabel, 0,3);
     pegNextLabel = new QLabel;
     pegNextLabel->setText(tr(""));
     pegNextLabel->setStyleSheet("QLabel { color: rgba(240,240,240, 192); }");
+    pegNextLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     topHeaderLayout->addWidget(pegNextLabel, 1,3);
     pegNextNextLabel = new QLabel;
     pegNextNextLabel->setText(tr(""));
     pegNextNextLabel->setStyleSheet("QLabel { color: rgba(240,240,240, 128); }");
+    pegNextNextLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     topHeaderLayout->addWidget(pegNextNextLabel, 2,3);
     
     QWidget* space13 = new QWidget();
@@ -241,37 +247,40 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     
     auto lv1 = new QLabel;
     lv1->setText(tr("Inflate: "));
-    lv1->setAlignment(Qt::AlignRight);
+    lv1->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     lv1->setStyleSheet("QLabel { color: rgb(240,240,240); }");
     topHeaderLayout->addWidget(lv1, 0,5);
     auto lv2 = new QLabel;
     lv2->setText(tr("Deflate: "));
-    lv2->setAlignment(Qt::AlignRight);
+    lv2->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     lv2->setStyleSheet("QLabel { color: rgb(240,240,240); }");
     topHeaderLayout->addWidget(lv2, 1,5);
     auto lv3 = new QLabel;
     lv3->setText(tr("No change: "));
-    lv3->setAlignment(Qt::AlignRight);
+    lv3->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     lv3->setStyleSheet("QLabel { color: rgb(240,240,240); }");
     topHeaderLayout->addWidget(lv3, 2,5);
     
     inflateLabel = new QLabel;
     inflateLabel->setText(tr(""));
     inflateLabel->setStyleSheet("QLabel { color: #2da5e0; }");
+    inflateLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     inflateLabel->setMinimumWidth(20);
     topHeaderLayout->addWidget(inflateLabel, 0,6);
     deflateLabel = new QLabel;
     deflateLabel->setText(tr(""));
     deflateLabel->setStyleSheet("QLabel { color: #c06a15; }");
+    deflateLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     topHeaderLayout->addWidget(deflateLabel, 1,6);
     nochangeLabel = new QLabel;
     nochangeLabel->setText(tr(""));
     nochangeLabel->setStyleSheet("QLabel { color: rgb(240,240,240); }");
+    nochangeLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     topHeaderLayout->addWidget(nochangeLabel, 2,6);
     
-    reserveMeter = new ReserveMeter;
-    reserveMeter->setFixedSize(180,180);
-    topHeaderLayout->addWidget(reserveMeter, 0,7, 3,1);
+    liquidMeter = new ReserveMeter;
+    liquidMeter->setFixedSize(180,180);
+    topHeaderLayout->addWidget(liquidMeter, 0,7, 3,1);
     
     QWidget *centralWidget = new QWidget();
     QVBoxLayout *centralLayout = new QVBoxLayout(centralWidget);
@@ -956,7 +965,7 @@ void BitcoinGUI::updatePegInfo1Label()
         double f = liquid/100.0;
         liquid -= f;
     }
-    reserveMeter->setValue(100.0 - liquid);
+    liquidMeter->setValue(liquid);
 }
 
 QString BitcoinGUI::timeBehindText(int secs) 

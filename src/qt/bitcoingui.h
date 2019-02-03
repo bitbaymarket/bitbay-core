@@ -89,7 +89,7 @@ private:
     QLabel *labelBlocksIcon;
     QLabel *progressBarLabel;
     QProgressBar *progressBar;
-    ReserveMeter* reserveMeter;
+    ReserveMeter* liquidMeter;
     QLabel *inflateLabel;
     QLabel *deflateLabel;
     QLabel *nochangeLabel;

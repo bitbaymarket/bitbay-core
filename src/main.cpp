@@ -2444,7 +2444,7 @@ bool CBlock::AcceptBlock()
                 }
 
                 // go to the parent block
-                last = pindexPrev->pprev;
+                last = last->pprev;
             }
         }
     }

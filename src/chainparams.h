@@ -74,6 +74,9 @@ public:
     string PegDeflateAddr() const { return sPegDeflateAddr; }
     string PegNochangeAddr()  const { return sPegNochangeAddr; }
     
+    int PegFrozenTime() const { return nPegFrozenTime; }
+    int PegVFrozenTime() const { return nPegVFrozenTime; }
+    
 protected:
     CChainParams() {};
 
@@ -95,6 +98,8 @@ protected:
     string sPegDeflateAddr;
     string sPegNochangeAddr;
     
+    int nPegFrozenTime;
+    int nPegVFrozenTime;
 };
 
 /**

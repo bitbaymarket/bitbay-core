@@ -1168,13 +1168,13 @@ bool CalculateStandardFractions(const CTransaction & tx,
             else {
                 if (poolFrozen[i].fractions.nFlags & CFractions::NOTARY_V) {
                     frOut.nFlags |= CFractions::NOTARY_V;
-                    frOut.nLockTime = nTime + PEG_VFROZEN_TIME;
+                    frOut.nLockTime = nTime + Params().PegVFrozenTime();
                     frCommonLiquidity.MoveRatioPartTo(nValue, nSupply, frOut);
                     nCommonLiquidity -= nValue;
                 }
                 else if (poolFrozen[i].fractions.nFlags & CFractions::NOTARY_F) {
                     frOut.nFlags |= CFractions::NOTARY_F;
-                    frOut.nLockTime = nTime + PEG_FROZEN_TIME;
+                    frOut.nLockTime = nTime + Params().PegFrozenTime();
 
                     vector<string> vAddresses;
                     auto sFrozenAddress = poolFrozen[i].sAddress;

@@ -151,6 +151,8 @@ public:
         sPegDeflateAddr    = "bNyZrP2SbrV6v5HqeBoXZXZDE2e4fe6STo";
         sPegNochangeAddr   = "bNyZrPeFFNP6GFJZCkE82DDN7JC4K5Vrkk";
         
+        nPegFrozenTime  = (3600 * 24 * 30);
+        nPegVFrozenTime = (3600 * 24 * 30 *4);
     }
 
     virtual const CBlock& GenesisBlock() const { return genesis; }
@@ -218,6 +220,9 @@ public:
         sPegInflateAddr    = "n29zWn5WYvU6WRLBMvK49i2eoFRkxMMCdV";
         sPegDeflateAddr    = "mzbVXs9bQtS7i82gXrKEGEhWUvJRStNtRh";
         sPegNochangeAddr   = "mzCbx5ioAgyndeiMeDAPjFgp3xjUaiYvma";
+        
+        nPegFrozenTime  = (3600 * 24);
+        nPegVFrozenTime = (3600 * 24 *4);
     }
     virtual Network NetworkID() const { return CChainParams::TESTNET; }
 };

@@ -131,6 +131,21 @@ Value getfractions(const Array& params, bool fHelp)
     uint256 txhash;
     txhash.SetHex(txhash_str);
     
+    int supply = pindexBest ? pindexBest->nPegSupplyIndex : 0;
+    
+    uint nTxNum = 0;
+    uint256 blockhash;
+    {
+        CTxDB txdb("r");
+        CTxIndex txindex;
+        if (txdb.ReadTxIndex(txhash, txindex)) {
+            txindex.GetHeightInMainChain(&nTxNum, txhash, &blockhash);
+            if (mapBlockIndex.count(blockhash)) {
+                supply = mapBlockIndex[blockhash]->nPegSupplyIndex;
+            }
+        }
+    }
+    
     Object obj;
     CPegDB pegdb("r");
     auto fkey = uint320(txhash, nout);
@@ -144,17 +159,27 @@ Value getfractions(const Array& params, bool fHelp)
     
     Array f;
     int64_t total = 0;
+    int64_t reserve = 0;
+    int64_t liquidity = 0;
     for(int i=0; i<PEG_SIZE; i++) {
         total += fractions.f[i];
+        if (i<supply) reserve += fractions.f[i];
+        if (i>=supply) liquidity += fractions.f[i];
         f.push_back(fractions.f[i]);
     }
     
+    int lock = 0;
     string flags;
     if (fractions.nFlags & CFractions::NOTARY_F) flags = "F";
     if (fractions.nFlags & CFractions::NOTARY_V) flags = "V";
+    if (!flags.empty()) lock = fractions.nLockTime;
     
     obj.push_back(Pair("total", total));
+    obj.push_back(Pair("reserve", reserve));
+    obj.push_back(Pair("liquidity", liquidity));
+    obj.push_back(Pair("supply", supply));
     obj.push_back(Pair("flags", flags));
+    obj.push_back(Pair("lock", lock));
     obj.push_back(Pair("values", f));
     
     return obj;

@@ -412,8 +412,6 @@ Value validaterawtransaction(const Array& params, bool fHelp)
             "  complete : 1 if transaction bypassed all peg checks\n"
             );
 
-    RPCTypeCheck(params, list_of(str_type)(int_type), true);
-
     vector<unsigned char> txData(ParseHex(params[0].get_str()));
     CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
     vector<CTransaction> txVariants;
@@ -433,6 +431,16 @@ Value validaterawtransaction(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Missing transaction");
 
     int supply = std::stoi(params[1].get_str());
+    if (supply <0) {
+        throw runtime_error(
+            "signrawtransaction <hex string> <pegsupplyindex>\n"
+            "pegsupplyindex below zero");
+    }
+    if (supply > nPegMaxSupplyIndex) {
+        throw runtime_error(
+            "signrawtransaction <hex string> <pegsupplyindex>\n"
+            "pegsupplyindex above maximum possible");
+    }
 
     // tx will end up with all the checks; it
     // starts as a clone of the rawtx:

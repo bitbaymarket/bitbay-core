@@ -329,7 +329,7 @@ void QwtDial::paintEvent( QPaintEvent *event )
     }
 
     const QRect r = contentsRect();
-    if ( r.size() != d_data->pixmapCache.size() && d_data->valueCache != value() )
+    if ( r.size() != d_data->pixmapCache.size() || d_data->valueCache != value() )
     {
         d_data->valueCache = value();
         d_data->pixmapCache = QwtPainter::backingStore( this, r.size() );

@@ -426,7 +426,7 @@ Value validaterawtransaction(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 4)
         throw runtime_error(
-            "signrawtransaction <hex string> <pegsupplyindex>\n"
+            "validaterawtransaction <hex string> <pegsupplyindex>\n"
             "Validate the transaction (serialized, hex-encoded).\n"
             "Second optional argument is peg supply level for the validation of \n"
             "the transaction with peg system.\n"
@@ -455,12 +455,12 @@ Value validaterawtransaction(const Array& params, bool fHelp)
     int supply = std::stoi(params[1].get_str());
     if (supply <0) {
         throw runtime_error(
-            "signrawtransaction <hex string> <pegsupplyindex>\n"
+            "validaterawtransaction <hex string> <pegsupplyindex>\n"
             "pegsupplyindex below zero");
     }
     if (supply > nPegMaxSupplyIndex) {
         throw runtime_error(
-            "signrawtransaction <hex string> <pegsupplyindex>\n"
+            "validaterawtransaction <hex string> <pegsupplyindex>\n"
             "pegsupplyindex above maximum possible");
     }
 

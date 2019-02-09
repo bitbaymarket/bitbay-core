@@ -342,13 +342,14 @@ void BlockchainPage::openBlock(uint256 hash)
     if (pblockindex->pnext) {
         nbhash = QString::fromStdString(pblockindex->pnext->GetBlockHash().ToString());
     }
-    ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Next",nbhash})));
-    ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Previous",pbhash})));
-    ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Block Trust",QString::fromStdString(pblockindex->GetBlockTrust().ToString())})));
-    ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Chain Trust",QString::fromStdString(pblockindex->nChainTrust.ToString())})));
-
     CBlock block;
     block.ReadFromDisk(pblockindex, true);
+
+    ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Next",nbhash})));
+    ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Previous",pbhash})));
+    ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Version",QString::number(block.nVersion)})));
+    ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Block Trust",QString::fromStdString(pblockindex->GetBlockTrust().ToString())})));
+    ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Chain Trust",QString::fromStdString(pblockindex->nChainTrust.ToString())})));
 
     int idx = 0;
     for(const CTransaction & tx : block.vtx) {

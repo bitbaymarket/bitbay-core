@@ -925,7 +925,6 @@ public:
         BLOCK_STAKE_ENTROPY  = (1 << 1), // entropy bit for stake modifier
         BLOCK_STAKE_MODIFIER = (1 << 2), // regenerated stake modifier
         BLOCK_PEG            = (1 << 3), // block with peg
-        BLOCK_PEG_WFAIL      = (1 << 4), // temp:remove_on_release: peg check fail for whitelist
     };
 
     uint64_t nStakeModifier; // hash modifier for proof-of-stake

@@ -954,7 +954,7 @@ boost::filesystem::path GetDefaultDataDir()
     // Unix: ~/.bitbay
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "BitBayPeg2";
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "BitBay";
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -966,10 +966,10 @@ boost::filesystem::path GetDefaultDataDir()
     // Mac
     pathRet /= "Library/Application Support";
     fs::create_directory(pathRet);
-    return pathRet / "BitBayPeg2";
+    return pathRet / "BitBay";
 #else
     // Unix
-    return pathRet / ".bitbaypeg2";
+    return pathRet / ".bitbay";
 #endif
 #endif
 }

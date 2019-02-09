@@ -2392,7 +2392,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         const COutPoint & prevout = txNew.vin.front().prevout;
         auto fkey = uint320(prevout.hash, prevout.n);
         CFractions fractions(vwtxPrev[0]->vout[prevout.n].nValue, CFractions::VALUE);
-        if (!pegdb.ReadFractions(fkey, fractions, true /*must_have*/)) {
+        if (!pegdb.ReadFractions(fkey, fractions, false /*must_have*/)) {
             return false;
         }
         

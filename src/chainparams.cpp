@@ -129,6 +129,8 @@ public:
         nPegVFrozenTime = (3600 * 24 * 30 *4);
         
         nPegInterval = 200;
+        
+        hashPegActivationTx.SetHex("0b00aa061b47d833204ef8d7debfc911d08456119fb236a2e966488263044ff6");
     }
 
     virtual const CBlock& GenesisBlock() const { return genesis; }

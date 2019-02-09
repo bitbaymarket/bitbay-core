@@ -948,10 +948,10 @@ void BitcoinGUI::updatePegInfo1Label()
     int peg_interval = Params().PegInterval(last_block_num);
     int interval_num = last_block_num / peg_interval;
     if (fPegDemoMode) {
-        pegNowTextLabel->setText(tr("Peg index now - %1: ")
+        pegNowTextLabel->setText(tr("Peg demo now - %1: ")
                                  .arg((interval_num +1)*peg_interval-1));
     } else {
-        pegNowTextLabel->setText(tr("Peg demo now - %1: ")
+        pegNowTextLabel->setText(tr("Peg index now - %1: ")
                                  .arg((interval_num +1)*peg_interval-1));
     }
     pegNextTextLabel->setText(tr("%1 - %2: ")

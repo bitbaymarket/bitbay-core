@@ -148,7 +148,7 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles);
 bool CheckProofOfWork(uint256 hash, unsigned int nBits);
 unsigned int GetNextTargetRequired(const CBlockIndex* pindexLast, bool fProofOfStake);
 int64_t GetProofOfWorkReward(int64_t nFees);
-int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev, int64_t nCoinAge, int64_t nFees, const CFractions& inp, int64_t& nDemoSubsidy);
+int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev, int64_t nCoinAge, int64_t nFees, const CFractions& inp);
 bool IsInitialBlockDownload();
 bool IsConfirmedInNPrevBlocks(const CTxIndex& txindex, const CBlockIndex* pindexFrom, int nMaxDepth, int& nActualDepth);
 std::string GetWarnings(std::string strFor);
@@ -619,7 +619,7 @@ class CBlock
 {
 public:
     // header
-    static const int CURRENT_VERSION = 7;
+    static const int CURRENT_VERSION = 8;
     int nVersion;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;

@@ -88,8 +88,7 @@ Value getstakesubsidy(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_MISC_ERROR, "pegdb.ReadFractions/Unpack prev tx fractions failed");
     }
     
-    int64_t nDemoSubsidy = 0;
-    return (uint64_t)GetProofOfStakeReward(pindexBest, nCoinAge, 0, fractions, nDemoSubsidy);
+    return (uint64_t)GetProofOfStakeReward(pindexBest, nCoinAge, 0, fractions);
 }
 
 Value getmininginfo(const Array& params, bool fHelp)

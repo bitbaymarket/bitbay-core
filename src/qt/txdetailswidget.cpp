@@ -418,9 +418,8 @@ void TxDetailsWidget::openTx(CTransaction & tx,
                 inpStake = mapInputsFractions[fkey];
             }
         }
-        int64_t nDemoSubsidy = 0;
         int64_t nStakeRewardWithoutFees = GetProofOfStakeReward(
-                    pblockindex->pprev, nCoinAge, 0 /*fees*/, inpStake, nDemoSubsidy);
+                    pblockindex->pprev, nCoinAge, 0 /*fees*/, inpStake);
         
         peg_ok = CalculateStakingFractions(tx, pblockindex,
                                            mapInputs, mapInputsFractions,

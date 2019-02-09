@@ -1053,49 +1053,49 @@ int64_t GetProofOfWorkReward(int64_t nFees)
 }
 
 // miner's coin stake reward
-int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev, int64_t nCoinAge, int64_t nFees, const CFractions& inp, int64_t& nDemoSubsidy)
+int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev, 
+                              int64_t nCoinAge, /*for old protocols*/
+                              int64_t nFees, 
+                              const CFractions& inp)
 {
     int64_t nSubsidy;
     if (IsProtocolV3(pindexPrev->nTime)) {
         if (IsProtocolVS(pindexPrev->nTime)) {
             if (IsProtocolVP((pindexPrev->nHeight+1))) {
                 // #NOTE9
-                nSubsidy = COIN * 20;
                 if (inp.nFlags & CFractions::NOTARY_V) {
-                    nDemoSubsidy = COIN * 40;
+                    nSubsidy = COIN * 40;
                 }
                 else if (inp.nFlags & CFractions::NOTARY_F) {
-                    nDemoSubsidy = COIN * 20;
+                    nSubsidy = COIN * 20;
                 }
                 else {
                     int64_t reserve = inp.Low(pindexPrev->GetNextBlockPegSupplyIndex());
                     int64_t liquidity = inp.High(pindexPrev->GetNextBlockPegSupplyIndex());
                     if (liquidity < reserve) {
-                        nDemoSubsidy = COIN * 10;
+                        nSubsidy = COIN * 10;
                     } else {
-                        nDemoSubsidy = COIN * 5;
+                        nSubsidy = COIN * 5;
                     }
+                }
+                
+                // in demo mode revert to 20
+                if (fPegDemoMode) {
+                    nSubsidy = COIN * 20;
                 }
             }
             else {
                 nSubsidy = COIN * 20;
-                nDemoSubsidy = nSubsidy;
             }
         }
         else {
             nSubsidy = COIN * 3 / 2;
-            nDemoSubsidy = nSubsidy;
         }
     }
     else {
         nSubsidy = nCoinAge * COIN_YEAR_REWARD * 33 / (365 * 33 + 8);
-        nDemoSubsidy = nSubsidy;
     }
 
-    if (TestNet()) {
-        nSubsidy = nDemoSubsidy;
-    }
-    
     LogPrint("creation", "GetProofOfStakeReward(): create=%s nCoinAge=%d\n", FormatMoney(nSubsidy), nCoinAge);
 
     return nSubsidy + nFees;
@@ -1733,11 +1733,10 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         if (mapInputsFractions.find(fkey) == mapInputsFractions.end()) {
             return error("ConnectBlock() : no input fractions found");
         }
-        int64_t nDemoSubsidy = 0;
         int64_t nCalculatedStakeReward = GetProofOfStakeReward(
-                    pindex->pprev, nCoinAge, nFees, mapInputsFractions[fkey], nDemoSubsidy);
+                    pindex->pprev, nCoinAge, nFees, mapInputsFractions[fkey]);
         int64_t nCalculatedStakeRewardWithoutFee = GetProofOfStakeReward(
-                    pindex->pprev, nCoinAge, 0 /*nFees*/, mapInputsFractions[fkey], nDemoSubsidy);
+                    pindex->pprev, nCoinAge, 0 /*nFees*/, mapInputsFractions[fkey]);
 
         if (nStakeReward > nCalculatedStakeReward)
             return DoS(100, error("ConnectBlock() : coinstake pays too much(actual=%d vs calculated=%d)", nStakeReward, nCalculatedStakeReward));

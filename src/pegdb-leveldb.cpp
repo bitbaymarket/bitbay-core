@@ -390,11 +390,9 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                         return error("LoadBlockIndex() : pegdb failed: no input fractions found");
                     }
                     
-                    int64_t nDemoSubsidy = 0;
                     int64_t nStakeRewardWithoutFees = GetProofOfStakeReward(
                                 pblockindex->pprev, nCoinAge, 0 /*fees*/, 
-                                mapInputsFractions[fkey],
-                                nDemoSubsidy);
+                                mapInputsFractions[fkey]);
 
                     bool peg_ok = CalculateStakingFractions(tx, pblockindex,
                                                             mapInputs, mapInputsFractions,

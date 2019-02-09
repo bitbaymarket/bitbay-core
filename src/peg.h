@@ -21,6 +21,7 @@ typedef std::map<uint256, std::pair<CTxIndex, CTransaction> > MapPrevTx;
 
 extern int nPegStartHeight;
 extern int nPegMaxSupplyIndex;
+extern bool fPegIsActivatedViaTx;
 extern bool fPegDemoMode;
 extern std::set<std::string> vPegWhitelist;
 extern uint256 pegWhiteListHash;

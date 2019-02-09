@@ -199,6 +199,8 @@ public:
         
         nPegFrozenTime  = (3600 * 24);
         nPegVFrozenTime = (3600 * 24 *4);
+        
+        hashPegActivationTx.SetHex("b380b0340d5a2f716422866fce63bf47446e40e41b0cf2d3b76dd6e7d8fa6be4");
     }
     Network NetworkID() const override { return CChainParams::TESTNET; }
     int PegInterval(int nHeight) const override { 

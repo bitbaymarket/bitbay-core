@@ -212,6 +212,16 @@ bool CPegDB::WritePegStartHeight(int nHeight)
     return Write(string("pegStartHeight"), nHeight);
 }
 
+bool CPegDB::ReadPegTxActivated(bool& fActivated)
+{
+    return Read(string("pegTxActivated"), fActivated);
+}
+
+bool CPegDB::WritePegTxActivated(bool fActivated)
+{
+    return Write(string("pegTxActivated"), fActivated);
+}
+
 bool CPegDB::ReadPegWhiteListHash(uint256& hash)
 {
     return Read(string("pegWhiteListHash"), hash);
@@ -234,20 +244,50 @@ bool CPegDB::WritePegBayPeakRate(double dRate)
 
 bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
 {
+    // For Peg System activated via TX
+    CTxIndex txindex;
+    if (txdb.ReadTxIndex(Params().PegActivationTxhash(), txindex)) {
+        LogPrintf("LoadPegData() : peg activation tx is found\n");
+        uint nTxNum = 0;
+        uint256 blockhash;
+        int nTxHeight = txindex.GetHeightInMainChain(&nTxNum, Params().PegActivationTxhash(), &blockhash);
+        LogPrintf("LoadPegData() : peg activation tx is height: %d\n", nTxHeight);
+        if (nTxHeight >0) {
+            if (nTxHeight < nBestHeight - 100) {
+                LogPrintf("LoadPegData() : peg activation tx is deep: %d\n", nBestHeight - nTxHeight);
+                int nPegToStart = ((nTxHeight+500)/1000 +1) * 1000; 
+                nPegStartHeight = nPegToStart;
+                fPegIsActivatedViaTx = true;
+                LogPrintf("LoadPegData() : peg to start: %d\n", nPegToStart);
+                if (!txdb.TxnBegin())
+                    return error("WriteBlockIndexIsPegReady() : TxnBegin failed");
+                if (!txdb.WritePegStartHeight(nPegStartHeight))
+                    return error("WritePegStartHeight() : flag write failed");
+                if (!txdb.TxnCommit())
+                    return error("WriteBlockIndexIsPegReady() : TxnCommit failed");
+                if (nPegStartHeight > nBestHeight) {
+                    strMiscWarning = "Warning : Peg system has activation at block: "+std::to_string(nPegStartHeight);
+                }
+            }
+        }
+    }
+    
     // #NOTE13
-    int nPegStartHeightStored = 0;
-    txdb.ReadPegStartHeight(nPegStartHeightStored);
-    if (nPegStartHeightStored != nPegStartHeight) {
-        if (!txdb.TxnBegin())
-            return error("WriteBlockIndexIsPegReady() : TxnBegin failed");
-        if (!txdb.WriteBlockIndexIsPegReady(false))
-            return error("WriteBlockIndexIsPegReady() : flag write failed");
-        if (!txdb.WritePegCheck(PEG_DB_CHECK1, false))
-            return error("WritePegCheck() : flag1 write failed");
-        if (!txdb.WritePegCheck(PEG_DB_CHECK2, false))
-            return error("WritePegCheck() : flag2 write failed");
-        if (!txdb.TxnCommit())
-            return error("WriteBlockIndexIsPegReady() : TxnCommit failed");
+    {
+        int nPegStartHeightStored = 0;
+        txdb.ReadPegStartHeight(nPegStartHeightStored);
+        if (nPegStartHeightStored != nPegStartHeight) {
+            if (!txdb.TxnBegin())
+                return error("WriteBlockIndexIsPegReady() : TxnBegin failed");
+            if (!txdb.WriteBlockIndexIsPegReady(false))
+                return error("WriteBlockIndexIsPegReady() : flag write failed");
+            if (!txdb.WritePegCheck(PEG_DB_CHECK1, false))
+                return error("WritePegCheck() : flag1 write failed");
+            if (!txdb.WritePegCheck(PEG_DB_CHECK2, false))
+                return error("WritePegCheck() : flag2 write failed");
+            if (!txdb.TxnCommit())
+                return error("WriteBlockIndexIsPegReady() : TxnCommit failed");
+        }
     }
 
     bool bBlockIndexIsPegReady = false;
@@ -325,11 +365,11 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                 if (!block.ReadFromDisk(pblockindex, true))
                     return error("ReadFromDisk() : block read failed");
                 
+                int64_t nFees = 0;
+                int64_t nStakeReward = 0;
                 CFractions feesFractions;
                 MapFractions mapQueuedFractionsChanges;
                 for(CTransaction& tx : block.vtx) {
-
-                    if (tx.IsCoinStake()) continue;
 
                     MapPrevTx mapInputs;
                     MapFractions mapInputsFractions;
@@ -343,6 +383,16 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                                    fInvalid))
                         return error("LoadBlockIndex() : FetchInputs/pegdb failed");
 
+                    int64_t nTxValueIn = tx.GetValueIn(mapInputs);
+                    int64_t nTxValueOut = tx.GetValueOut();
+                    
+                    if (!tx.IsCoinStake())
+                        nFees += nTxValueIn - nTxValueOut;
+                    if (tx.IsCoinStake())
+                        nStakeReward = nTxValueOut - nTxValueIn;
+
+                    if (tx.IsCoinStake()) continue;
+                    
                     bool peg_ok = CalculateStandardFractions(tx, 
                                                              pblockindex->nPegSupplyIndex,
                                                              pblockindex->nTime,
@@ -390,9 +440,16 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                         return error("LoadBlockIndex() : pegdb failed: no input fractions found");
                     }
                     
+                    int64_t nCalculatedStakeReward = GetProofOfStakeReward(
+                                pblockindex->pprev, nCoinAge, nFees, 
+                                mapInputsFractions[fkey]);
                     int64_t nStakeRewardWithoutFees = GetProofOfStakeReward(
                                 pblockindex->pprev, nCoinAge, 0 /*fees*/, 
                                 mapInputsFractions[fkey]);
+                    
+                    if (nStakeReward > nCalculatedStakeReward) {
+                        pblockindexPegFail = pblockindex;
+                    }
 
                     bool peg_ok = CalculateStakingFractions(tx, pblockindex,
                                                             mapInputs, mapInputsFractions,
@@ -451,7 +508,10 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
             
             if (!pegdb.WritePegStartHeight(nPegStartHeight))
                 return error("WritePegStartHeight() : peg start write failed");
-
+            
+            if (!pegdb.WritePegTxActivated(fPegIsActivatedViaTx))
+                return error("WritePegTxActivated() : peg txactivated write failed");
+            
             if (!pegdb.WritePegWhiteListHash(pegWhiteListHash))
                 return error("WritePegStartHeight() : peg whitelist hash write failed");
             

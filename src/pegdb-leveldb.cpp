@@ -248,7 +248,7 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
     CTxIndex txindex;
     if (txdb.ReadTxIndex(Params().PegActivationTxhash(), txindex)) {
         LogPrintf("LoadPegData() : peg activation tx is found\n");
-        uint nTxNum = 0;
+        unsigned int nTxNum = 0;
         uint256 blockhash;
         int nTxHeight = txindex.GetHeightInMainChain(&nTxNum, Params().PegActivationTxhash(), &blockhash);
         LogPrintf("LoadPegData() : peg activation tx is height: %d\n", nTxHeight);

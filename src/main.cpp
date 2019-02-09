@@ -1831,7 +1831,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         CTxIndex txindex;
         if (txdb.ReadTxIndex(Params().PegActivationTxhash(), txindex)) {
             LogPrintf("ConnectBlock() : peg activation tx is found\n");
-            uint nTxNum = 0;
+            unsigned int nTxNum = 0;
             uint256 blockhash;
             int nTxHeight = txindex.GetHeightInMainChain(&nTxNum, Params().PegActivationTxhash(), &blockhash);
             LogPrintf("ConnectBlock() : peg activation tx has height: %d\n", nTxHeight);

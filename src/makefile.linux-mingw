@@ -5,11 +5,11 @@
 TARGET_PLATFORM:=i686
 #TARGET_PLATFORM:=x86_64
 
-DEPSDIR:=/usr/lib/mxe/usr/i686-w64-mingw32.static
-CC:=/usr/lib/mxe/usr/bin/i686-w64-mingw32.static-gcc
-CXX:=/usr/lib/mxe/usr/bin/i686-w64-mingw32.static-g++
-RANLIB=/usr/lib/mxe/usr/bin/i686-w64-mingw32.static-ranlib
-STRIP=/usr/lib/mxe/usr/bin/i686-w64-mingw32.static-strip
+DEPSDIR:=/mxe/usr/i686-w64-mingw32.static
+CC:=/mxe/usr/bin/i686-w64-mingw32.static-gcc
+CXX:=/mxe/usr/bin/i686-w64-mingw32.static-g++
+RANLIB=/mxe/usr/bin/i686-w64-mingw32.static-ranlib
+STRIP=/mxe/usr/bin/i686-w64-mingw32.static-strip
 
 USE_UPNP:=0
 USE_WALLET:=1

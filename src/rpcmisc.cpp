@@ -96,7 +96,7 @@ Value getpeginfo(const Array& params, bool fHelp)
     peg.push_back(Pair("startingblock", nPegStartHeight));
     peg.push_back(Pair("pegfeeperinput", PEG_MAKETX_FEE_INP_OUT));
     peg.push_back(Pair("subpremiumrating", PEG_SUBPREMIUM_RATING));
-    if (!vPegWhitelist.empty() && !fPegWhitelistAll) {
+    if (!vPegWhitelist.empty()) {
         Array list;
         for(string addr : vPegWhitelist) {
             list.push_back(addr);

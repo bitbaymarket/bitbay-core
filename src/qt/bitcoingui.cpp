@@ -947,20 +947,34 @@ void BitcoinGUI::updatePegInfo1Label()
     boost::tie(votes_inflate, votes_deflate, votes_nochange) = clientModel->getPegVotes();
     int peg_interval = Params().PegInterval(last_block_num);
     int interval_num = last_block_num / peg_interval;
-    pegNowTextLabel->setText(tr("Peg index now - %1: ")
-                             .arg((interval_num +1)*peg_interval-1));
+    if (fPegDemoMode) {
+        pegNowTextLabel->setText(tr("Peg index now - %1: ")
+                                 .arg((interval_num +1)*peg_interval-1));
+    } else {
+        pegNowTextLabel->setText(tr("Peg demo now - %1: ")
+                                 .arg((interval_num +1)*peg_interval-1));
+    }
     pegNextTextLabel->setText(tr("%1 - %2: ")
                               .arg((interval_num +1)*peg_interval)
                               .arg((interval_num +2)*peg_interval-1));
     pegNextNextTextLabel->setText(tr("%1 - %2: ")
-                              .arg((interval_num +2)*peg_interval)
-                              .arg((interval_num +3)*peg_interval-1));
-    pegNowLabel->setText(QString::number(peg_supply));
-    pegNextLabel->setText(QString::number(peg_next_supply));
-    pegNextNextLabel->setText(QString::number(peg_next_next_supply));
-    inflateLabel->setText(tr("%1").arg(votes_inflate));
-    deflateLabel->setText(tr("%1").arg(votes_deflate));
-    nochangeLabel->setText(tr("%1").arg(votes_nochange));
+                                  .arg((interval_num +2)*peg_interval)
+                                  .arg((interval_num +3)*peg_interval-1));
+    if (last_block_num < nPegStartHeight) {
+        pegNowLabel->setText("off");
+        pegNextLabel->setText("off");
+        pegNextNextLabel->setText("off");
+        inflateLabel->setText("off");
+        deflateLabel->setText("off");
+        nochangeLabel->setText("off");
+    } else {
+        pegNowLabel->setText(QString::number(peg_supply));
+        pegNextLabel->setText(QString::number(peg_next_supply));
+        pegNextNextLabel->setText(QString::number(peg_next_next_supply));
+        inflateLabel->setText(tr("%1").arg(votes_inflate));
+        deflateLabel->setText(tr("%1").arg(votes_deflate));
+        nochangeLabel->setText(tr("%1").arg(votes_nochange));
+    }
     double liquid = 100.0;
     for(int i=0; i< peg_supply; i++) {
         double f = liquid/100.0;

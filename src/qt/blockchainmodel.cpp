@@ -130,12 +130,18 @@ QVariant BlockchainModel::data(const QModelIndex &index, int role) const
             return bhash.left(4)+"..."+bhash.right(4);
         }
         case Votes: {
-            return tr("[%1I,%2D,%3N]").
+            int n = priv->height-index.row();
+            if (n<nPegStartHeight) 
+                return "";
+            return tr("%1I,%2D,%3N").
                     arg(obj->nPegVotesInflate).
                     arg(obj->nPegVotesDeflate).
                     arg(obj->nPegVotesNochange);
         }
         case Peg: {
+            int n = priv->height-index.row();
+            if (n<nPegStartHeight) 
+                return "";
             return tr("%1").arg(obj->nPegSupplyIndex);
         }
         case Mined: {

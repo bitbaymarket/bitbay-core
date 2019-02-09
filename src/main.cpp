@@ -2807,7 +2807,7 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
         nStakeMinConfirmations = 10;
         nCoinbaseMaturity = 10; // testnet maturity is 10 blocks
         nPegStartHeight = 6000;
-        fPegWhitelistAll = true;
+        fPegDemoMode = false;
         pegWhiteListHash = 0;
     }
 
@@ -2817,8 +2817,9 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
     CTxDB txdb("cr+");
     {
         // #NOTE13
-        if (!TestNet() && !ReadWhitelistInfo())
-            return error("LoadBlockIndex() : peg Whitelist read failed");
+        if (!TestNet() && !ReadWhitelistInfo()) {
+            //return error("LoadBlockIndex() : peg Whitelist read failed");
+        }
 
         // ensure pegdb is created
         int nPegStartHeightStored = 0;

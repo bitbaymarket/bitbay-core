@@ -39,7 +39,7 @@ using namespace boost;
 
 int nPegStartHeight = 1000000000; // 1G blocks as high number
 int nPegMaxSupplyIndex = 1198;
-bool fPegWhitelistAll = false;
+bool fPegDemoMode = false;
 set<std::string> vPegWhitelist;
 uint256 pegWhiteListHash = 0;
 
@@ -64,11 +64,6 @@ bool ReadWhitelistInfo() {
             fHasAddresses = true;
             input += line;
         }
-        if (boost::starts_with(line, "all")) {
-            fPegWhitelistAll = true;
-            fHasAddresses = true;
-            input += line;
-        }
         if (boost::starts_with(line, "#")) {
             char * pEnd = nullptr;
             auto sPegStartHeight = line.c_str()+1;
@@ -87,6 +82,8 @@ bool ReadWhitelistInfo() {
     CDataStream ss(SER_GETHASH, 0);
     ss << input;
     pegWhiteListHash = Hash(ss.begin(), ss.end());
+    
+    fPegDemoMode = true;
     
     return true;
 }
@@ -868,7 +865,7 @@ static string toAddress(const CScript& scriptPubKey,
 bool IsPegWhiteListed(const CTransaction & tx,
                       MapPrevTx & inputs)
 {
-    if (fPegWhitelistAll)
+    if (!fPegDemoMode)
         return true;
     
     size_t n_vin = tx.vin.size();
@@ -882,8 +879,9 @@ bool IsPegWhiteListed(const CTransaction & tx,
         }
 
         auto sAddress = toAddress(txPrev.vout[prevout.n].scriptPubKey);
-        if (vPegWhitelist.count(sAddress))
+        if (vPegWhitelist.count(sAddress)) {
             return true;
+        }
     }
     return false;
 }

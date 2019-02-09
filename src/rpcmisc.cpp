@@ -133,7 +133,7 @@ Value getfractions(const Array& params, bool fHelp)
     
     int supply = pindexBest ? pindexBest->nPegSupplyIndex : 0;
     
-    uint nTxNum = 0;
+    unsigned int nTxNum = 0;
     uint256 blockhash;
     {
         CTxDB txdb("r");

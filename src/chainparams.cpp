@@ -272,7 +272,7 @@ void SelectParams(CChainParams::Network network) {
 
 bool SelectParamsFromCommandLine() {
     bool fRegTest = GetBoolArg("-regtest", false);
-    bool fTestNet = true; //GetBoolArg("-testnet", false);
+    bool fTestNet = GetBoolArg("-testnet", false);
 
     if (fTestNet && fRegTest) {
         return false;

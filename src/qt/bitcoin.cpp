@@ -179,10 +179,10 @@ int main(int argc, char *argv[])
     // as it is used to locate QSettings)
     app.setOrganizationName("BitBay");
     //XXX app.setOrganizationDomain("");
-    //if(GetBoolArg("-testnet", false)) // Separate UI settings for testnet
+    if(GetBoolArg("-testnet", false)) // Separate UI settings for testnet
         app.setApplicationName("BitBay-Qt-testnet");
-    //else
-    //    app.setApplicationName("BitBay-Qt");
+    else
+        app.setApplicationName("BitBay-Qt");
 
     // ... then GUI settings:
     OptionsModel optionsModel;

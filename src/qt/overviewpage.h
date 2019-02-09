@@ -58,6 +58,7 @@ private:
 private slots:
     void updateDisplayUnit();
     void handleTransactionClicked(const QModelIndex &index);
+    void updateAlerts();
     void updateAlerts(const QString &warnings);
     void openFrozenCoinsInfo();
 };

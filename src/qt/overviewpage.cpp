@@ -14,6 +14,7 @@
 
 #include <QAbstractItemDelegate>
 #include <QPainter>
+#include <QTimer>
 
 #define DECORATION_SIZE 64
 #define NUM_ITEMS 8
@@ -234,6 +235,10 @@ void OverviewPage::setClientModel(ClientModel *model)
         // Show warning if this is a prerelease version
         connect(model, SIGNAL(alertsChanged(QString)), this, SLOT(updateAlerts(QString)));
         updateAlerts(model->getStatusBarWarnings());
+        QTimer* alertsTimer = new QTimer(this);
+        alertsTimer->setInterval(1000*60*5); // 5 min
+        alertsTimer->start();
+        connect(alertsTimer, SIGNAL(timeout()), this, SLOT(updateAlerts()));
     }
 }
 
@@ -283,6 +288,12 @@ void OverviewPage::updateDisplayUnit()
 
         ui->listTransactions->update();
     }
+}
+
+void OverviewPage::updateAlerts()
+{
+    if (clientModel)
+        updateAlerts(clientModel->getStatusBarWarnings());
 }
 
 void OverviewPage::updateAlerts(const QString &warnings)

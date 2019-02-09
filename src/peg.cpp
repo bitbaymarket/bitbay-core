@@ -39,6 +39,7 @@ using namespace boost;
 
 int nPegStartHeight = 1000000000; // 1G blocks as high number
 int nPegMaxSupplyIndex = 1198;
+bool fPegIsActivatedViaTx = false;
 bool fPegDemoMode = false;
 set<std::string> vPegWhitelist;
 uint256 pegWhiteListHash = 0;

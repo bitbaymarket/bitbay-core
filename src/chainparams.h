@@ -78,6 +78,7 @@ public:
     int PegVFrozenTime() const { return nPegVFrozenTime; }
     
     virtual int PegInterval(int /*nHeight*/) const { return nPegInterval; } 
+    uint256 PegActivationTxhash() const { return hashPegActivationTx; }
     
 protected:
     CChainParams() {}
@@ -104,6 +105,7 @@ protected:
     int nPegVFrozenTime;
     
     int nPegInterval;
+    uint256 hashPegActivationTx;
 };
 
 /**

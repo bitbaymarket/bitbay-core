@@ -1826,6 +1826,38 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     for(CTransaction& tx : vtx)
         SyncWithWallets(tx, this, true, mapQueuedFractionsChanges);
 
+    // Watch for peg activation transaction
+    if (!fPegIsActivatedViaTx && pindex->nHeight % 10 == 0) {
+        CTxIndex txindex;
+        if (txdb.ReadTxIndex(Params().PegActivationTxhash(), txindex)) {
+            LogPrintf("ConnectBlock() : peg activation tx is found\n");
+            uint nTxNum = 0;
+            uint256 blockhash;
+            int nTxHeight = txindex.GetHeightInMainChain(&nTxNum, Params().PegActivationTxhash(), &blockhash);
+            LogPrintf("ConnectBlock() : peg activation tx has height: %d\n", nTxHeight);
+            if (nTxHeight >0) {
+                if (nTxHeight < pindex->nHeight - 100) {
+                    LogPrintf("ConnectBlock() : peg activation tx is deep: %d\n", pindex->nHeight - nTxHeight);
+                    int nPegToStart = ((nTxHeight+500)/1000 +1) * 1000; 
+                    nPegStartHeight = nPegToStart;
+                    fPegIsActivatedViaTx = true;
+                    LogPrintf("ConnectBlock() : peg to start:%d\n", nPegToStart);
+                    if (!txdb.WritePegStartHeight(nPegStartHeight))
+                        return error("ConnectBlock() : peg start write failed (txdb)");
+                    if (!pegdb.WritePegStartHeight(nPegStartHeight))
+                        return error("ConnectBlock() : peg start write failed (pegdb)");
+                    if (!pegdb.WritePegTxActivated(fPegIsActivatedViaTx))
+                        return error("ConnectBlock() : peg txactivated write failed");
+                    if (!pegdb.WritePegWhiteListHash(pegWhiteListHash))
+                        return error("ConnectBlock() : peg whitelist hash write failed");
+                    if (nPegStartHeight > nBestHeight) {
+                        strMiscWarning = "Warning : Peg system has activation at block: "+std::to_string(nPegStartHeight);
+                    }
+                }
+            }
+        }
+    }
+    
     return true;
 }
 
@@ -2805,7 +2837,6 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
     {
         nStakeMinConfirmations = 10;
         nCoinbaseMaturity = 10; // testnet maturity is 10 blocks
-        nPegStartHeight = 6000;
         fPegDemoMode = false;
         pegWhiteListHash = 0;
     }
@@ -2817,10 +2848,11 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
     {
         // #NOTE13
         if (!TestNet() && !ReadWhitelistInfo()) {
-            //return error("LoadBlockIndex() : peg Whitelist read failed");
+            LogPrintf("LoadBlockIndex() : peg whitelist wasnt read\n");
         }
 
         // ensure pegdb is created
+        bool fPegTxActivated = false;
         int nPegStartHeightStored = 0;
         uint256 pegWhiteListHashStored = 0;
         {
@@ -2829,13 +2861,15 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
                 return error("LoadBlockIndex() : peg TxnBegin failed");
             if (!pegdb.TxnCommit())
                 return error("LoadBlockIndex() : peg TxnCommit failed");
+            pegdb.ReadPegTxActivated(fPegTxActivated);
             pegdb.ReadPegStartHeight(nPegStartHeightStored);
             pegdb.ReadPegWhiteListHash(pegWhiteListHashStored);
             pegdb.Close();
         }
         // and peg start matches
-        if (nPegStartHeightStored != nPegStartHeight ||
-            pegWhiteListHashStored != pegWhiteListHash) {
+        if (!fPegTxActivated && (
+                nPegStartHeightStored != nPegStartHeight ||
+                pegWhiteListHashStored != pegWhiteListHash)) {
             // remove previous db
             {
                 boost::filesystem::remove_all(GetDataDir() / "pegleveldb");

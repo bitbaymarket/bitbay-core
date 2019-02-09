@@ -1816,9 +1816,11 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     }
 
      // delete old entries
-    for (auto it = mapMainChainLastSpentOuts.begin(); it != mapMainChainLastSpentOuts.end(); ++it) {
+    for (auto it = mapMainChainLastSpentOuts.begin(); it != mapMainChainLastSpentOuts.end();) {
         if (it->second < pindex->nHeight - Params().MaxReorganizationDepth()) {
-            mapMainChainLastSpentOuts.erase(it->first);
+            it = mapMainChainLastSpentOuts.erase(it);
+        } else {
+            ++it;
         }
     }
     

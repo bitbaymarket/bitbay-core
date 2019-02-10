@@ -2433,6 +2433,8 @@ bool CBlock::AcceptBlock()
         if (fSpentInMainChain) {
             // If the stake input was already spent in the main chain
             // This orphan block should be not after or same the height of spent
+            // This is a case when owner of coins spent them on mainchain but
+            // keeps mining same input on sidechain
             for (CTxIn in : vtx[1].vin) {
                 auto it = mapMainChainLastSpentOuts.find(in.prevout);
                 if (it == mapMainChainLastSpentOuts.end()) {

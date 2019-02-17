@@ -732,7 +732,7 @@ void TxDetailsWidget::openTx(CTransaction & tx,
         auto sReserveIn = displayValueR(nReserveIn, nValueMaxLen);
         auto sLiquidityIn = displayValueR(nLiquidityIn, nValueMaxLen);
         
-        auto twiReserves = new QTreeWidgetItem(QStringList({"Reserves",sReserveIn}));
+        auto twiReserves = new QTreeWidgetItem(QStringList({"Reserve",sReserveIn}));
         auto twiLiquidity = new QTreeWidgetItem(QStringList({"Liquidity",sLiquidityIn}));
         
         twiReserves->setData(1, BlockchainModel::ValueForCopy, qlonglong(nReserveIn));

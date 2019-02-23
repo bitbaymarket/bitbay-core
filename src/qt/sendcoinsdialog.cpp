@@ -80,7 +80,6 @@ SendCoinsDialog::SendCoinsDialog(QWidget *parent) :
     
     QString white1 = R"(
         QWidget {
-            background-color: rgb(255,255,255);
             padding-left: 10px;
             padding-right:10px;
         }
@@ -88,7 +87,6 @@ SendCoinsDialog::SendCoinsDialog(QWidget *parent) :
     QString white2 = R"(
         QWidget {
             color: rgb(102,102,102);
-            background-color: rgb(255,255,255);
             padding-left: 10px;
             padding-right:10px;
         }

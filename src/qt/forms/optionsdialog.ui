@@ -79,7 +79,7 @@
        <item>
         <widget class="QLabel" name="reserveBalanceInfoLabel">
          <property name="text">
-          <string>Reserved amount does not participate in staking and is therefore spendable at any time.</string>
+          <string>Non-staking amount does not participate in staking and is therefore operable at any time.</string>
          </property>
          <property name="textFormat">
           <enum>Qt::PlainText</enum>
@@ -94,7 +94,7 @@
          <item>
           <widget class="QLabel" name="reserveBalanceLabel">
            <property name="text">
-            <string>Reserve</string>
+            <string>Non-staking amount</string>
            </property>
            <property name="textFormat">
             <enum>Qt::PlainText</enum>

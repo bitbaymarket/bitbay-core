@@ -111,6 +111,7 @@ public:
     int64_t Low(int supply) const;
     int64_t High(int supply) const;
     int64_t Total() const;
+    bool IsValid() const;
 
 private:
     void ToStd();

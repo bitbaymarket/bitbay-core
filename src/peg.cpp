@@ -527,6 +527,18 @@ CFractions CFractions::Std() const
     return fstd;
 }
 
+bool CFractions::IsValid() const 
+{
+    if (nFlags & VALUE)
+        return true;
+
+    for(int i=0;i<PEG_SIZE;i++) {
+        if (f[i] <0)
+            return false;
+    }
+    return true;
+}
+
 int64_t CFractions::Total() const
 {
     int64_t nValue =0;
@@ -1294,17 +1306,28 @@ bool CalculateStandardFractions(const CTransaction & tx,
             auto fkey = uint320(tx.GetHash(), i);
             auto f = mapTestFractionsPool[fkey];
             int64_t nValue = tx.vout[i].nValue;
-            if (nValue != f.Total()) {
+            if (nValue != f.Total() || !f.IsValid()) {
                 sFailCause = "P16: Total mismatch on output "+std::to_string(i);
                 fFailedPegOut = true;
                 break;
             }
         }
     }
+
+    // when finished all outputs, poolReserves and frCommonLiquidity are fees
+    int64_t nFee = nValueIn - nValueOut;
+    CFractions txFeeFractions(0, CFractions::STD);
+    txFeeFractions += frCommonLiquidity;
+    for(const auto & item : poolReserves) {
+        txFeeFractions += item.second;
+    }
+    if (nFee != txFeeFractions.Total() || !txFeeFractions.IsValid()) {
+        sFailCause = "P17: Total mismatch on fee fractions";
+        fFailedPegOut = true;
+    }
     
     if (fFailedPegOut) {
-        // while the peg system is in the testing mode:
-        // for now remove failed fractions from pegdb
+        // remove failed fractions from pool
         auto fkey = uint320(tx.GetHash(), nLatestPegOut);
         if (mapTestFractionsPool.count(fkey)) {
             auto it = mapTestFractionsPool.find(fkey);
@@ -1312,18 +1335,14 @@ bool CalculateStandardFractions(const CTransaction & tx,
         }
         return false;
     }
+
+    feesFractions += txFeeFractions;
     
     // now all outputs are ready, place them as inputs for next tx in the list
     for (unsigned int i = 0; i < n_vout; i++)
     {
         auto fkey = uint320(tx.GetHash(), i);
         mapInputsFractions[fkey] = mapTestFractionsPool[fkey];
-    }
-
-    // when finished all outputs, poolReserves and frCommonLiquidity are fees
-    feesFractions += frCommonLiquidity;
-    for(const auto & item : poolReserves) {
-        feesFractions += item.second;
     }
 
     return true;
@@ -1527,7 +1546,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
             auto fkey = uint320(tx.GetHash(), i);
             auto f = mapTestFractionsPool[fkey];
             int64_t nValue = tx.vout[i].nValue;
-            if (nValue != f.Total()) {
+            if (nValue != f.Total() || !f.IsValid()) {
                 sFailCause = "PO04: Total mismatch on output "+std::to_string(i);
                 fFailedPegOut = true;
                 break;

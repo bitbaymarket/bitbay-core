@@ -181,7 +181,7 @@ Value listunspent(const Array& params, bool fHelp)
     if (params.size() > 2)
     {
         Array inputs = params[2].get_array();
-        BOOST_FOREACH(Value& input, inputs)
+        for(Value& input : inputs)
         {
             CBitcoinAddress address(input.get_str());
             if (!address.IsValid())
@@ -196,7 +196,7 @@ Value listunspent(const Array& params, bool fHelp)
     vector<COutput> vecOutputs;
     assert(pwalletMain != NULL);
     pwalletMain->AvailableCoins(vecOutputs, false, true, NULL);
-    BOOST_FOREACH(const COutput& out, vecOutputs)
+    for(const COutput& out : vecOutputs)
     {
         if (out.nDepth < nMinDepth || out.nDepth > nMaxDepth)
             continue;
@@ -236,6 +236,14 @@ Value listunspent(const Array& params, bool fHelp)
             }
         }
         entry.push_back(Pair("amount",ValueFromAmount(nValue)));
+        if (pindexBest && out.tx->vOutFractions.size() > out.i) {
+            int nSupply = pindexBest->nPegSupplyIndex;
+            const CFractions & fractions = out.tx->vOutFractions[out.i];
+            if (fractions.Total() == nValue) {
+                entry.push_back(Pair("reserve", ValueFromAmount(fractions.Low(nSupply))));
+                entry.push_back(Pair("liquidity", ValueFromAmount(fractions.High(nSupply))));
+            }
+        }
         entry.push_back(Pair("confirmations",out.nDepth));
         entry.push_back(Pair("spendable", out.fSpendable));
         results.push_back(entry);

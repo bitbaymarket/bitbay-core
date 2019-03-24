@@ -25,13 +25,13 @@ extern void TxToJSON(const CTransaction& tx,
                      int nSupply,
                      json_spirit::Object& entry);
 
-static void accountingDeprecationCheck()
+static void accountingIsActiveCheck()
 {
     if (!GetBoolArg("-enableaccounts", false))
         throw runtime_error(
-            "Accounting API is deprecated and will be removed in future.\n"
-            "It can easily result in negative or odd balances if misused or misunderstood, which has happened in the field.\n"
-            "If you still want to enable it, add to your config file enableaccounts=1\n");
+            "Accounting API is disabled.\n"
+            "If you want to enable it, add to your config file enableaccounts=1\n"
+            "Same time staking must be disabled, add to your config file staking=0\n");
 
     if (GetBoolArg("-staking", true))
         throw runtime_error("If you want to use accounting API, staking must be disabled, add to your config file staking=0\n");
@@ -418,7 +418,7 @@ Value getreceivedbyaccount(const Array& params, bool fHelp)
             "getreceivedbyaccount <account> [minconf=1]\n"
             "Returns the total amount received by addresses with <account> in transactions with at least [minconf] confirmations.");
 
-    accountingDeprecationCheck();
+    accountingIsActiveCheck();
 
     // Minimum confirmations
     int nMinDepth = 1;
@@ -526,7 +526,7 @@ Value getbalance(const Array& params, bool fHelp)
         return  ValueFromAmount(nBalance);
     }
 
-    accountingDeprecationCheck();
+    accountingIsActiveCheck();
 
     string strAccount = AccountFromValue(params[0]);
 
@@ -543,7 +543,7 @@ Value movecmd(const Array& params, bool fHelp)
             "move <fromaccount> <toaccount> <amount> [minconf=1] [comment]\n"
             "Move from one account in your wallet to another.");
 
-    accountingDeprecationCheck();
+    accountingIsActiveCheck();
 
     string strFrom = AccountFromValue(params[0]);
     string strTo = AccountFromValue(params[1]);
@@ -959,7 +959,7 @@ Value listreceivedbyaccount(const Array& params, bool fHelp)
             "  \"amount\" : total amount received by addresses with this account\n"
             "  \"confirmations\" : number of confirmations of the most recent transaction included");
 
-    accountingDeprecationCheck();
+    accountingIsActiveCheck();
 
     return ListReceived(params, true);
 }
@@ -1125,7 +1125,7 @@ Value listaccounts(const Array& params, bool fHelp)
             "listaccounts [minconf=1]\n"
             "Returns Object that has account names as keys, account balances as values.");
 
-    accountingDeprecationCheck();
+    accountingIsActiveCheck();
 
     int nMinDepth = 1;
     if (params.size() > 0)

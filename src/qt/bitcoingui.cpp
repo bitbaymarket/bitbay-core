@@ -1540,8 +1540,8 @@ void BitcoinGUI::ratesReplyFinished(QNetworkReply *reply)
         
         vector<double> v_btc_rates;
         vector<double> v_bay_rates;
-        for(int i=0; i<btc_rates.size(); ++i) v_btc_rates.push_back(btc_rates[i]);
-        for(int i=0; i<bay_rates.size(); ++i) v_bay_rates.push_back(bay_rates[i]);
+        for(size_t i=0; i<btc_rates.size(); ++i) v_btc_rates.push_back(btc_rates[i]);
+        for(size_t i=0; i<bay_rates.size(); ++i) v_bay_rates.push_back(bay_rates[i]);
         
         if (walletModel) {
             walletModel->setBtcRates(v_btc_rates);

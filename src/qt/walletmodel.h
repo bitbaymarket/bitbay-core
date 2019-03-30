@@ -21,7 +21,7 @@ class COutPoint;
 class uint256;
 class CCoinControl;
 class CWalletTx;
-struct CFrozenCoinInfo;
+class CFrozenCoinInfo;
 struct RewardInfo;
 
 QT_BEGIN_NAMESPACE

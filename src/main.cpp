@@ -51,6 +51,7 @@ CBigNum bnProofOfStakeLimit(~uint256(0) >> 20);
 CBigNum bnProofOfStakeLimitV2(~uint256(0) >> 48);
 
 int nStakeMinConfirmations = 120;
+int nRecommendedConfirmations = 10;
 unsigned int nStakeMinAge = 2 * 60 * 60; // 2 hours
 unsigned int nModifierInterval = 10 * 60; // time to elapse before new modifier is computed
 

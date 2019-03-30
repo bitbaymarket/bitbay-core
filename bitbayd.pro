@@ -1,23 +1,38 @@
 TEMPLATE = app
-TARGET = bitbay-wallet-qt
+TARGET = bitbayd
 VERSION = 2.1.0
+
+exists(bitbay-local.pri) {
+    include(bitbay-local.pri)
+}
+
+CONFIG += wallet
+
+exchange {
+	CONFIG += qt
+	QT -= gui
+} else {
+	CONFIG -= qt
+	INCLUDEPATH += build
+}
 
 # mac builds
 include(bitbay-mac.pri)
 
 INCLUDEPATH += src src/json src/qt $$PWD
-QT += network
 DEFINES += ENABLE_WALLET
 DEFINES += ENABLE_PEG_DEMO
 DEFINES += BOOST_THREAD_USE_LIB
 DEFINES += BOOST_SPIRIT_THREADSAFE
 DEFINES += BOOST_NO_CXX11_SCOPED_ENUMS
+CONFIG += console
 CONFIG += no_include_pwd
 CONFIG += thread
 CONFIG += c++11
 
-QT += widgets
-DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0
+greaterThan(QT_MAJOR_VERSION, 4) {
+    DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0
+}
 
 # for boost 1.37, add -mt to the boost libraries
 # use: qmake BOOST_LIB_SUFFIX=-mt
@@ -52,14 +67,6 @@ QMAKE_LFLAGS *= -fstack-protector-all --param ssp-buffer-size=1
 #win32:QMAKE_LFLAGS *= -Wl,--dynamicbase -Wl,--nxcompat
 #win32:QMAKE_LFLAGS += -static-libgcc -static-libstdc++
 
-# use: qmake "USE_QRCODE=1"
-# libqrencode (http://fukuchi.org/works/qrencode/index.en.html) must be installed for support
-contains(USE_QRCODE, 1) {
-    message(Building with QRCode support)
-    DEFINES += USE_QRCODE
-    LIBS += -lqrencode
-}
-
 # use: qmake "USE_UPNP=1" ( enabled by default; default)
 #  or: qmake "USE_UPNP=0" (disabled by default)
 #  or: qmake "USE_UPNP=-" (not supported)
@@ -75,21 +82,6 @@ contains(USE_UPNP, -) {
     INCLUDEPATH += $$MINIUPNPC_INCLUDE_PATH
     LIBS += $$join(MINIUPNPC_LIB_PATH,,-L,) -lminiupnpc
     win32:LIBS += -liphlpapi
-}
-
-# use: qmake "USE_DBUS=1" or qmake "USE_DBUS=0"
-linux:count(USE_DBUS, 0) {
-    USE_DBUS=1
-}
-contains(USE_DBUS, 1) {
-    message(Building with DBUS (Freedesktop notifications) support)
-    DEFINES += USE_DBUS
-    QT += dbus
-}
-
-contains(BITBAY_NEED_QT_PLUGINS, 1) {
-    DEFINES += BITBAY_NEED_QT_PLUGINS
-    QTPLUGIN += qcncodecs qjpcodecs qtwcodecs qkrcodecs qtaccessiblewidgets
 }
 
 INCLUDEPATH += src/leveldb/include src/leveldb/helpers
@@ -146,35 +138,13 @@ QMAKE_CXXFLAGS_WARN_ON = -fdiagnostics-show-option -Wall -Wextra -Wno-ignored-qu
 #json lib
 include(src/json/json.pri)
 
-#qt gui
-include(src/qt/qt.pri)
-
 #core
 include(src/core.pri)
 
-QWT_CONFIG += QwtPlot
-QWT_CONFIG += QwtWidgets
-DEFINES += QWT_MOC_INCLUDE
-include(src/qt/qwt/qwt.pri)
+SOURCES += \
+	src/bitcoind.cpp \
 
 CODECFORTR = UTF-8
-
-isEmpty(QMAKE_LRELEASE) {
-    win32:QMAKE_LRELEASE = $$[QT_INSTALL_BINS]\\lrelease.exe
-    else:QMAKE_LRELEASE = $$[QT_INSTALL_BINS]/lrelease
-}
-isEmpty(QM_DIR):QM_DIR = $$PWD/src/qt/locale
-# automatically build translations, so they can be included in resource file
-TSQM.name = lrelease ${QMAKE_FILE_IN}
-TSQM.input = TRANSLATIONS
-TSQM.output = $$QM_DIR/${QMAKE_FILE_BASE}.qm
-TSQM.commands = $$QMAKE_LRELEASE ${QMAKE_FILE_IN} -qm ${QMAKE_FILE_OUT}
-TSQM.CONFIG = no_link
-QMAKE_EXTRA_COMPILERS += TSQM
-
-# "Other files" to show in Qt Creator
-OTHER_FILES += \
-    doc/*.rst doc/*.txt doc/README README.md res/bitcoin-qt.rc
 
 # platform specific defaults, if not overridden on command line
 isEmpty(BOOST_LIB_SUFFIX) {
@@ -224,20 +194,29 @@ windows:!contains(MINGW_THREAD_BUGFIX, 0) {
 
 macx:LIBS += -framework Foundation -framework ApplicationServices -framework AppKit
 macx:DEFINES += MAC_OSX MSG_NOSIGNAL=0
-macx:TARGET = "BitBay-Wallet-Qt"
-#macx:QMAKE_CFLAGS_THREAD += -pthread
-#macx:QMAKE_LFLAGS_THREAD += -pthread
-#macx:QMAKE_CXXFLAGS_THREAD += -pthread
-macx:QMAKE_INFO_PLIST = share/qt/Info.plist
+macx:TARGET = "bitbayd"
 
 # Set libraries and includes at end, to use platform-defined defaults if not overridden
-INCLUDEPATH += $$BOOST_INCLUDE_PATH $$BDB_INCLUDE_PATH $$OPENSSL_INCLUDE_PATH $$QRENCODE_INCLUDE_PATH
-LIBS += $$join(BOOST_LIB_PATH,,-L,) $$join(BDB_LIB_PATH,,-L,) $$join(OPENSSL_LIB_PATH,,-L,) $$join(QRENCODE_LIB_PATH,,-L,)
-LIBS += $$join(OPENSSL_LIB_PATH,,-L,) -lssl -lcrypto -ldb$$BDB_LIB_SUFFIX -ldb_cxx$$BDB_LIB_SUFFIX
+INCLUDEPATH += $$BDB_INCLUDE_PATH 
+INCLUDEPATH += $$BOOST_INCLUDE_PATH 
+INCLUDEPATH += $$OPENSSL_INCLUDE_PATH
+
+LIBS += $$join(BDB_LIB_PATH,,-L,) 
+LIBS += $$join(BOOST_LIB_PATH,,-L,) 
+LIBS += $$join(OPENSSL_LIB_PATH,,-L,)
+LIBS += -lssl -lcrypto 
+LIBS += -ldb$$BDB_LIB_SUFFIX 
+LIBS += -ldb_cxx$$BDB_LIB_SUFFIX
+
 # -lgdi32 has to happen after -lcrypto (see  #681)
 windows:LIBS += -lws2_32 -lshlwapi -lmswsock -lole32 -loleaut32 -luuid -lgdi32
-LIBS += -lboost_system$$BOOST_LIB_SUFFIX -lboost_filesystem$$BOOST_LIB_SUFFIX -lboost_program_options$$BOOST_LIB_SUFFIX -lboost_thread$$BOOST_THREAD_LIB_SUFFIX
+
+LIBS += -lboost_system$$BOOST_LIB_SUFFIX 
+LIBS += -lboost_filesystem$$BOOST_LIB_SUFFIX 
+LIBS += -lboost_program_options$$BOOST_LIB_SUFFIX 
+LIBS += -lboost_thread$$BOOST_THREAD_LIB_SUFFIX
 windows:LIBS += -lboost_chrono$$BOOST_LIB_SUFFIX
+
 #message($$LIBS)
 
 contains(RELEASE, 1) {
@@ -252,8 +231,6 @@ contains(RELEASE, 1) {
     LIBS += -lrt -ldl
 }
 
-system($$QMAKE_LRELEASE -silent $$_PRO_FILE_)
-
 DISTFILES += \
     src/makefile.bsd \
     src/makefile.linux-mingw \
@@ -263,8 +240,4 @@ DISTFILES += \
     src/makefile.unix \
     .travis.yml \
     .appveyor.yml
-
-exists(bitbay-qt-local.pri) {
-    include(bitbay-qt-local.pri)
-}
 

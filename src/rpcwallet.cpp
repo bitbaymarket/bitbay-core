@@ -25,6 +25,11 @@ extern void TxToJSON(const CTransaction& tx,
                      int nSupply,
                      json_spirit::Object& entry);
 
+static bool accountingIsActive()
+{
+    return GetBoolArg("-enableaccounts", false);
+}
+
 static void accountingIsActiveCheck()
 {
     if (!GetBoolArg("-enableaccounts", false))
@@ -418,8 +423,6 @@ Value getreceivedbyaccount(const Array& params, bool fHelp)
             "getreceivedbyaccount <account> [minconf=1]\n"
             "Returns the total amount received by addresses with <account> in transactions with at least [minconf] confirmations.");
 
-    accountingIsActiveCheck();
-
     // Minimum confirmations
     int nMinDepth = 1;
     if (params.size() > 1)
@@ -438,7 +441,7 @@ Value getreceivedbyaccount(const Array& params, bool fHelp)
         if (wtx.IsCoinBase() || wtx.IsCoinStake() || !IsFinalTx(wtx))
             continue;
 
-        BOOST_FOREACH(const CTxOut& txout, wtx.vout)
+        for(const CTxOut& txout : wtx.vout)
         {
             CTxDestination address;
             if (ExtractDestination(txout.scriptPubKey, address) && IsMine(*pwalletMain, address) && setAddress.count(address))
@@ -839,7 +842,7 @@ Value ListReceived(const Array& params, bool fByAccounts)
         if (nDepth < nMinDepth)
             continue;
 
-        BOOST_FOREACH(const CTxOut& txout, wtx.vout)
+        for(const CTxOut& txout : wtx.vout)
         {
             CTxDestination address;
             if (!ExtractDestination(txout.scriptPubKey, address))
@@ -861,7 +864,7 @@ Value ListReceived(const Array& params, bool fByAccounts)
     // Reply
     Array ret;
     map<string, tallyitem> mapAccountTally;
-    BOOST_FOREACH(const PAIRTYPE(CBitcoinAddress, string)& item, pwalletMain->mapAddressBook)
+    for (const std::pair<const CBitcoinAddress, string> & item: pwalletMain->mapAddressBook) 
     {
         const CBitcoinAddress& address = item.first;
         const string& strAccount = item.second;
@@ -958,8 +961,6 @@ Value listreceivedbyaccount(const Array& params, bool fHelp)
             "  \"account\" : the account of the receiving addresses\n"
             "  \"amount\" : total amount received by addresses with this account\n"
             "  \"confirmations\" : number of confirmations of the most recent transaction included");
-
-    accountingIsActiveCheck();
 
     return ListReceived(params, true);
 }
@@ -1125,14 +1126,14 @@ Value listaccounts(const Array& params, bool fHelp)
             "listaccounts [minconf=1]\n"
             "Returns Object that has account names as keys, account balances as values.");
 
-    accountingIsActiveCheck();
+    bool accounting_on = accountingIsActive();
 
     int nMinDepth = 1;
     if (params.size() > 0)
         nMinDepth = params[0].get_int();
 
     map<string, int64_t> mapAccountBalances;
-    BOOST_FOREACH(const PAIRTYPE(CTxDestination, string)& entry, pwalletMain->mapAddressBook) {
+    for(const pair<CTxDestination, string>& entry : pwalletMain->mapAddressBook) {
         if (IsMine(*pwalletMain, entry.first)) // This address belongs to me
             mapAccountBalances[entry.second] = 0;
     }
@@ -1149,26 +1150,40 @@ Value listaccounts(const Array& params, bool fHelp)
             continue;
         wtx.GetAmounts(listReceived, listSent, nFee, strSentAccount);
         mapAccountBalances[strSentAccount] -= nFee;
-        BOOST_FOREACH(const PAIRTYPE(CTxDestination, int64_t)& s, listSent)
+        for(const pair<CTxDestination, int64_t>& s : listSent) {
             mapAccountBalances[strSentAccount] -= s.second;
+        }
         if (nDepth >= nMinDepth && wtx.GetBlocksToMaturity() == 0)
         {
-            BOOST_FOREACH(const PAIRTYPE(CTxDestination, int64_t)& r, listReceived)
+            for(const pair<CTxDestination, int64_t>& r : listReceived) {
                 if (pwalletMain->mapAddressBook.count(r.first))
                     mapAccountBalances[pwalletMain->mapAddressBook[r.first]] += r.second;
                 else
                     mapAccountBalances[""] += r.second;
+            }
         }
     }
 
     list<CAccountingEntry> acentries;
     CWalletDB(pwalletMain->strWalletFile).ListAccountCreditDebit("*", acentries);
-    BOOST_FOREACH(const CAccountingEntry& entry, acentries)
+    for(const CAccountingEntry& entry : acentries) {
         mapAccountBalances[entry.strAccount] += entry.nCreditDebit;
+    }
 
     Object ret;
-    BOOST_FOREACH(const PAIRTYPE(string, int64_t)& accountBalance, mapAccountBalances) {
-        ret.push_back(Pair(accountBalance.first, ValueFromAmount(accountBalance.second)));
+    for(const pair<string, int64_t>& accountBalance : mapAccountBalances) {
+        Object ret_balance;
+        Array ret_addresses;
+        set<CTxDestination> setAddress;
+        GetAccountAddresses(accountBalance.first, setAddress);
+        for(const CTxDestination & address : setAddress) {
+            ret_addresses.push_back(CBitcoinAddress(address).ToString());
+        }
+        ret_balance.push_back(Pair("address", ret_addresses));
+        if (accounting_on) {
+            ret_balance.push_back(Pair("balance", ValueFromAmount(accountBalance.second)));
+        }
+        ret.push_back(Pair(accountBalance.first, ret_balance));
     }
     return ret;
 }

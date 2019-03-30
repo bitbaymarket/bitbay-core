@@ -79,6 +79,7 @@ SOURCES += \
     $$PWD/rpcwallet.cpp \
     $$PWD/rpcblockchain.cpp \
     $$PWD/rpcrawtransaction.cpp \
+    $$PWD/rpcexchange.cpp \
     $$PWD/timedata.cpp \
     $$PWD/crypter.cpp \
     $$PWD/protocol.cpp \

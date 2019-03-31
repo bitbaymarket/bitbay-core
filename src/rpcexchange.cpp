@@ -60,14 +60,14 @@ Value registerdeposit(const Array& params, bool fHelp)
              throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack pegdata");
         }
         if (frBalance.High(balance_supply) != balance_liquid) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
+            throw JSONRPCError(RPC_MISC_ERROR, 
                                strprintf("Provided liquid balance %d does not match pegdata %d of balance supply %d",
                                          balance_liquid,
                                          frBalance.High(balance_supply),
                                          balance_supply));
         }
         if (frBalance.Low(balance_supply) != balance_reserve) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
+            throw JSONRPCError(RPC_MISC_ERROR, 
                                strprintf("Provided reserve balance %d does not match pegdata %d of balance supply %d",
                                          balance_reserve,
                                          frBalance.Low(balance_supply),
@@ -168,14 +168,14 @@ Value updatepegbalances(const Array& params, bool fHelp)
              throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack pegdata");
         }
         if (frBalance.High(balance_supply) != balance_liquid) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
+            throw JSONRPCError(RPC_MISC_ERROR, 
                                strprintf("Provided liquid balance %d does not match pegdata %d of balance supply %d",
                                          balance_liquid,
                                          frBalance.High(balance_supply),
                                          balance_supply));
         }
         if (frBalance.Low(balance_supply) != balance_reserve) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
+            throw JSONRPCError(RPC_MISC_ERROR, 
                                strprintf("Provided reserve balance %d does not match pegdata %d of balance supply %d",
                                          balance_reserve,
                                          frBalance.Low(balance_supply),
@@ -202,6 +202,138 @@ Value updatepegbalances(const Array& params, bool fHelp)
     result.push_back(Pair("liquid", frBalance.High(nSupply)));
     result.push_back(Pair("reserve", frBalance.Low(nSupply)));
     result.push_back(Pair("pegdata", EncodeBase64(fout.str())));
+    
+    return result;
+}
+
+Value takereservefrom(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 5)
+        throw runtime_error(
+            "takereservefrom <reserve> <balance_liquid> <balance_reserve> <balance_pegdata> <balance_pegsupply>\n"
+            );
+    
+    int64_t take_reserve = params[0].get_int64();
+    int64_t balance_liquid = params[1].get_int64();
+    int64_t balance_reserve = params[2].get_int64();
+    string balance_pegdata64 = params[3].get_str();
+    int balance_supply = params[4].get_int();
+    
+    CFractions frBalance(balance_liquid+balance_reserve, CFractions::VALUE);
+
+    string pegdata = DecodeBase64(balance_pegdata64);
+    CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                     SER_DISK, CLIENT_VERSION);
+    if (!frBalance.Unpack(finp)) {
+         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack pegdata");
+    }
+    if (frBalance.High(balance_supply) != balance_liquid) {
+        throw JSONRPCError(RPC_MISC_ERROR, 
+                           strprintf("Provided liquid balance %d does not match pegdata %d of balance supply %d",
+                                     balance_liquid,
+                                     frBalance.High(balance_supply),
+                                     balance_supply));
+    }
+    if (frBalance.Low(balance_supply) != balance_reserve) {
+        throw JSONRPCError(RPC_MISC_ERROR, 
+                           strprintf("Provided reserve balance %d does not match pegdata %d of balance supply %d",
+                                     balance_reserve,
+                                     frBalance.Low(balance_supply),
+                                     balance_supply));
+    }
+    if (balance_reserve < take_reserve) {
+        throw JSONRPCError(RPC_MISC_ERROR, 
+                           strprintf("Not enough reserve %d on balance to take %d",
+                                     balance_reserve,
+                                     take_reserve));
+    }
+
+    frBalance = frBalance.Std();
+    CFractions frReserve = frBalance.LowPart(balance_supply, nullptr);
+    CFractions frTake = frReserve.RatioPart(take_reserve, balance_reserve, 0);
+    frBalance -= frTake;
+    
+    Object result;
+        
+    int64_t nBalance = frBalance.Total();
+    
+    CDataStream fout_taken(SER_DISK, CLIENT_VERSION);
+    frTake.Pack(fout_taken);
+    CDataStream fout_balance(SER_DISK, CLIENT_VERSION);
+    frBalance.Pack(fout_balance);
+
+    result.push_back(Pair("supply", balance_supply));
+    result.push_back(Pair("value", nBalance));
+    result.push_back(Pair("liquid", frBalance.High(balance_supply)));
+    result.push_back(Pair("reserve", frBalance.Low(balance_supply)));
+    result.push_back(Pair("pegdata", EncodeBase64(fout_balance.str())));
+    result.push_back(Pair("taken", EncodeBase64(fout_taken.str())));
+    
+    return result;
+}
+
+Value takeliquidfrom(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 5)
+        throw runtime_error(
+            "takeliquidfrom <liquid> <balance_liquid> <balance_reserve> <balance_pegdata> <balance_pegsupply>\n"
+            );
+    
+    int64_t take_liquid = params[0].get_int64();
+    int64_t balance_liquid = params[1].get_int64();
+    int64_t balance_reserve = params[2].get_int64();
+    string balance_pegdata64 = params[3].get_str();
+    int balance_supply = params[4].get_int();
+    
+    CFractions frBalance(balance_liquid+balance_reserve, CFractions::VALUE);
+
+    string pegdata = DecodeBase64(balance_pegdata64);
+    CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                     SER_DISK, CLIENT_VERSION);
+    if (!frBalance.Unpack(finp)) {
+         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack pegdata");
+    }
+    if (frBalance.High(balance_supply) != balance_liquid) {
+        throw JSONRPCError(RPC_MISC_ERROR, 
+                           strprintf("Provided liquid balance %d does not match pegdata %d of balance supply %d",
+                                     balance_liquid,
+                                     frBalance.High(balance_supply),
+                                     balance_supply));
+    }
+    if (frBalance.Low(balance_supply) != balance_reserve) {
+        throw JSONRPCError(RPC_MISC_ERROR, 
+                           strprintf("Provided reserve balance %d does not match pegdata %d of balance supply %d",
+                                     balance_reserve,
+                                     frBalance.Low(balance_supply),
+                                     balance_supply));
+    }
+    if (balance_liquid < take_liquid) {
+        throw JSONRPCError(RPC_MISC_ERROR, 
+                           strprintf("Not enough liquid %d on balance to take %d",
+                                     balance_liquid,
+                                     take_liquid));
+    }
+
+    frBalance = frBalance.Std();
+    CFractions frLiquid = frBalance.HighPart(balance_supply, nullptr);
+    CFractions frTake = frLiquid.RatioPart(take_liquid, balance_liquid, balance_supply);
+    frBalance -= frTake;
+    
+    Object result;
+        
+    int64_t nBalance = frBalance.Total();
+    
+    CDataStream fout_taken(SER_DISK, CLIENT_VERSION);
+    frTake.Pack(fout_taken);
+    CDataStream fout_balance(SER_DISK, CLIENT_VERSION);
+    frBalance.Pack(fout_balance);
+
+    result.push_back(Pair("supply", balance_supply));
+    result.push_back(Pair("value", nBalance));
+    result.push_back(Pair("liquid", frBalance.High(balance_supply)));
+    result.push_back(Pair("reserve", frBalance.Low(balance_supply)));
+    result.push_back(Pair("pegdata", EncodeBase64(fout_balance.str())));
+    result.push_back(Pair("taken", EncodeBase64(fout_taken.str())));
     
     return result;
 }

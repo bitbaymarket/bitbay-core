@@ -51,22 +51,22 @@ Value registerdeposit(const Array& params, bool fHelp)
     string balance_pegdata64 = params[3].get_str();
     int balance_supply = params[4].get_int();
     
-    CFractions balance_fractions(balance_liquid+balance_reserve, CFractions::VALUE);
+    CFractions frBalance(balance_liquid+balance_reserve, CFractions::VALUE);
     if ((balance_liquid+balance_reserve) >0) {
         string pegdata = DecodeBase64(balance_pegdata64);
         CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
                          SER_DISK, CLIENT_VERSION);
-        if (!balance_fractions.Unpack(finp)) {
+        if (!frBalance.Unpack(finp)) {
              throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack pegdata");
         }
-        if (balance_fractions.High(balance_supply) != balance_liquid) {
+        if (frBalance.High(balance_supply) != balance_liquid) {
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Provided liquid balance does not match pegdata");
         }
-        if (balance_fractions.Low(balance_supply) != balance_reserve) {
+        if (frBalance.Low(balance_supply) != balance_reserve) {
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Provided reserve balance does not match pegdata");
         }
     }
-    balance_fractions = balance_fractions.Std();
+    frBalance = frBalance.Std();
     
     uint256 txhash;
     txhash.SetHex(sTxid);
@@ -92,6 +92,7 @@ Value registerdeposit(const Array& params, bool fHelp)
     int nPegInterval = Params().PegInterval(nHeight);
     int nNextHeight = (nHeight / nPegInterval +1) * nPegInterval;
     int nRegisterHeight = std::max(nNextHeight, nHeight + nRecommendedConfirmations);
+    int nCycleNow = nBestHeight / nPegInterval;
 
     if (nDepth < nRecommendedConfirmations) {
         result.push_back(Pair("deposited", false));
@@ -107,31 +108,32 @@ Value registerdeposit(const Array& params, bool fHelp)
         return result;
     }
 
-    int supply = pindexBest ? pindexBest->nPegSupplyIndex : 0;
+    int nSupply = pindexBest ? pindexBest->nPegSupplyIndex : 0;
     
     CPegDB pegdb("r");
     auto fkey = uint320(txhash, nout);
-    CFractions deposit_fractions(tx.vout[nout].nValue, CFractions::VALUE);
-    if (!pegdb.ReadFractions(fkey, deposit_fractions, false)) {
+    CFractions frDeposit(tx.vout[nout].nValue, CFractions::VALUE);
+    if (!pegdb.ReadFractions(fkey, frDeposit, false)) {
         result.push_back(Pair("deposited", false));
         result.push_back(Pair("atblock", nRegisterHeight));
         result.push_back(Pair("status", "No peg data read failed"));
         return result;
     }
     
-    deposit_fractions = deposit_fractions.Std();
-    balance_fractions += deposit_fractions;
-    int64_t balance_value = balance_fractions.Total();
+    frDeposit = frDeposit.Std();
+    frBalance += frDeposit;
+    int64_t nBalance = frBalance.Total();
     
     CDataStream fout(SER_DISK, CLIENT_VERSION);
-    deposit_fractions.Pack(fout);
+    frDeposit.Pack(fout);
 
     result.push_back(Pair("deposited", true));
     result.push_back(Pair("atblock", nRegisterHeight));
-    result.push_back(Pair("supply", supply));
-    result.push_back(Pair("value", balance_value));
-    result.push_back(Pair("liquid", balance_fractions.High(supply)));
-    result.push_back(Pair("reserve", balance_fractions.Low(supply)));
+    result.push_back(Pair("supply", nSupply));
+    result.push_back(Pair("cycle", nCycleNow));
+    result.push_back(Pair("value", nBalance));
+    result.push_back(Pair("liquid", frBalance.High(nSupply)));
+    result.push_back(Pair("reserve", frBalance.Low(nSupply)));
     result.push_back(Pair("pegdata", EncodeBase64(fout.str())));
     result.push_back(Pair("status", "Registered"));
     

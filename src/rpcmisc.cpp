@@ -91,7 +91,9 @@ Value getpeginfo(const Array& params, bool fHelp)
 
     Object peg;
     int nPegInterval = Params().PegInterval(nBestHeight);
+    int nCycle = nBestHeight / nPegInterval;
     peg.push_back(Pair("steps", PEG_SIZE));
+    peg.push_back(Pair("cycle", nCycle));
     peg.push_back(Pair("interval", nPegInterval));
     peg.push_back(Pair("startingblock", nPegStartHeight));
     peg.push_back(Pair("pegfeeperinput", PEG_MAKETX_FEE_INP_OUT));

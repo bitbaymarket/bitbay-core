@@ -28,7 +28,7 @@ Value registerdeposit(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 5)
         throw runtime_error(
-            "registerdeposit <txid:nout> <balance_liquid> <balance_reserve> <pegdata> <pegsupply>\n"
+            "registerdeposit <txid:nout> <balance_liquid> <balance_reserve> <balance_pegdata> <balance_pegsupply>\n"
             );
     
     string sTxout = params[0].get_str();
@@ -60,10 +60,18 @@ Value registerdeposit(const Array& params, bool fHelp)
              throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack pegdata");
         }
         if (frBalance.High(balance_supply) != balance_liquid) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Provided liquid balance does not match pegdata");
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
+                               strprintf("Provided liquid balance %d does not match pegdata %d of balance supply %d",
+                                         balance_liquid,
+                                         frBalance.High(balance_supply),
+                                         balance_supply));
         }
         if (frBalance.Low(balance_supply) != balance_reserve) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Provided reserve balance does not match pegdata");
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
+                               strprintf("Provided reserve balance %d does not match pegdata %d of balance supply %d",
+                                         balance_reserve,
+                                         frBalance.Low(balance_supply),
+                                         balance_supply));
         }
     }
     frBalance = frBalance.Std();
@@ -82,7 +90,6 @@ Value registerdeposit(const Array& params, bool fHelp)
     if (!tx.ReadFromDisk(txindex.pos)) {
         throw JSONRPCError(RPC_MISC_ERROR, "ReadFromDisk tx failed");
     }
-    
     if (nout <0 || size_t(nout) >= tx.vout.size()) {
         throw JSONRPCError(RPC_MISC_ERROR, "nout is out of index");
     }
@@ -125,7 +132,7 @@ Value registerdeposit(const Array& params, bool fHelp)
     int64_t nBalance = frBalance.Total();
     
     CDataStream fout(SER_DISK, CLIENT_VERSION);
-    frDeposit.Pack(fout);
+    frBalance.Pack(fout);
 
     result.push_back(Pair("deposited", true));
     result.push_back(Pair("atblock", nRegisterHeight));
@@ -139,4 +146,64 @@ Value registerdeposit(const Array& params, bool fHelp)
     
     return result;
 }
+
+Value updatepegbalances(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 4)
+        throw runtime_error(
+            "updatepegbalances <balance_liquid> <balance_reserve> <balance_pegdata> <balance_pegsupply>\n"
+            );
+    
+    int64_t balance_liquid = params[0].get_int64();
+    int64_t balance_reserve = params[1].get_int64();
+    string balance_pegdata64 = params[2].get_str();
+    int balance_supply = params[3].get_int();
+    
+    CFractions frBalance(balance_liquid+balance_reserve, CFractions::VALUE);
+    if ((balance_liquid+balance_reserve) >0) {
+        string pegdata = DecodeBase64(balance_pegdata64);
+        CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                         SER_DISK, CLIENT_VERSION);
+        if (!frBalance.Unpack(finp)) {
+             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack pegdata");
+        }
+        if (frBalance.High(balance_supply) != balance_liquid) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
+                               strprintf("Provided liquid balance %d does not match pegdata %d of balance supply %d",
+                                         balance_liquid,
+                                         frBalance.High(balance_supply),
+                                         balance_supply));
+        }
+        if (frBalance.Low(balance_supply) != balance_reserve) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
+                               strprintf("Provided reserve balance %d does not match pegdata %d of balance supply %d",
+                                         balance_reserve,
+                                         frBalance.Low(balance_supply),
+                                         balance_supply));
+        }
+    }
+    frBalance = frBalance.Std();
+    
+    Object result;
+    
+    int nPegInterval = Params().PegInterval(nBestHeight);
+    int nCycleNow = nBestHeight / nPegInterval;
+
+    int nSupply = pindexBest ? pindexBest->nPegSupplyIndex : 0;
+    
+    int64_t nBalance = frBalance.Total();
+    
+    CDataStream fout(SER_DISK, CLIENT_VERSION);
+    frBalance.Pack(fout);
+
+    result.push_back(Pair("supply", nSupply));
+    result.push_back(Pair("cycle", nCycleNow));
+    result.push_back(Pair("value", nBalance));
+    result.push_back(Pair("liquid", frBalance.High(nSupply)));
+    result.push_back(Pair("reserve", frBalance.Low(nSupply)));
+    result.push_back(Pair("pegdata", EncodeBase64(fout.str())));
+    
+    return result;
+}
+
 #endif

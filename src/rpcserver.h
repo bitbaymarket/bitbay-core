@@ -185,5 +185,6 @@ extern json_spirit::Value getliquidityrate(const json_spirit::Array& params, boo
 extern json_spirit::Value validaterawtransaction(const json_spirit::Array& params, bool fHelp);
 
 extern json_spirit::Value registerdeposit(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value updatepegbalances(const json_spirit::Array& params, bool fHelp);
 
 #endif

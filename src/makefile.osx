@@ -85,6 +85,7 @@ OBJS= \
     obj/net.o \
     obj/protocol.o \
     obj/rpcclient.o \
+    obj/rpcexchange.o \
     obj/rpcprotocol.o \
     obj/rpcserver.o \
     obj/rpcmisc.o \

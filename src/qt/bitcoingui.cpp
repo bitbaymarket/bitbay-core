@@ -1475,7 +1475,11 @@ void BitcoinGUI::detectShutdown()
 
 void BitcoinGUI::ratesRequestInitiate()
 {
-    QNetworkRequest req_rates(QUrl("https://bitbaymarket.github.io/ratedb/rates1k.json"));
+    QUrl ratedb_url = QUrl("https://bitbaymarket.github.io/ratedb/rates1k.json");
+    if (TestNet()) {
+        ratedb_url = QUrl("https://bitbaymarket.github.io/ratedb-testnet/rates1k.json");
+    } 
+    QNetworkRequest req_rates(ratedb_url);
     req_rates.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     netAccessManager->get(req_rates);
 }

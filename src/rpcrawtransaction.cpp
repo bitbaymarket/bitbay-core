@@ -236,7 +236,7 @@ Value listunspent(const Array& params, bool fHelp)
             }
         }
         entry.push_back(Pair("amount",ValueFromAmount(nValue)));
-        if (pindexBest && out.tx->vOutFractions.size() > out.i) {
+        if (pindexBest && out.tx->vOutFractions.size() > size_t(out.i)) {
             int nSupply = pindexBest->nPegSupplyIndex;
             const CFractions & fractions = out.tx->vOutFractions[out.i];
             if (fractions.Total() == nValue) {

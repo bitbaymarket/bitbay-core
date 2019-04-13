@@ -60,18 +60,20 @@ Value registerdeposit(const Array& params, bool fHelp)
              throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack pegdata");
         }
         if (frBalance.High(balance_supply) != balance_liquid) {
-            throw JSONRPCError(RPC_MISC_ERROR, 
-                               strprintf("Provided liquid balance %d does not match pegdata %d of balance supply %d",
-                                         balance_liquid,
-                                         frBalance.High(balance_supply),
-                                         balance_supply));
+//            throw JSONRPCError(RPC_MISC_ERROR, 
+//                               strprintf("Provided liquid balance %d does not match pegdata %d of balance supply %d",
+//                                         balance_liquid,
+//                                         frBalance.High(balance_supply),
+//                                         balance_supply));
+            balance_liquid = frBalance.High(balance_supply);
         }
         if (frBalance.Low(balance_supply) != balance_reserve) {
-            throw JSONRPCError(RPC_MISC_ERROR, 
-                               strprintf("Provided reserve balance %d does not match pegdata %d of balance supply %d",
-                                         balance_reserve,
-                                         frBalance.Low(balance_supply),
-                                         balance_supply));
+//            throw JSONRPCError(RPC_MISC_ERROR, 
+//                               strprintf("Provided reserve balance %d does not match pegdata %d of balance supply %d",
+//                                         balance_reserve,
+//                                         frBalance.Low(balance_supply),
+//                                         balance_supply));
+            balance_reserve = frBalance.Low(balance_supply);
         }
     }
     frBalance = frBalance.Std();
@@ -168,18 +170,20 @@ Value updatepegbalances(const Array& params, bool fHelp)
              throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack pegdata");
         }
         if (frBalance.High(balance_supply) != balance_liquid) {
-            throw JSONRPCError(RPC_MISC_ERROR, 
-                               strprintf("Provided liquid balance %d does not match pegdata %d of balance supply %d",
-                                         balance_liquid,
-                                         frBalance.High(balance_supply),
-                                         balance_supply));
+//            throw JSONRPCError(RPC_MISC_ERROR, 
+//                               strprintf("Provided liquid balance %d does not match pegdata %d of balance supply %d",
+//                                         balance_liquid,
+//                                         frBalance.High(balance_supply),
+//                                         balance_supply));
+            balance_liquid = frBalance.High(balance_supply);
         }
         if (frBalance.Low(balance_supply) != balance_reserve) {
-            throw JSONRPCError(RPC_MISC_ERROR, 
-                               strprintf("Provided reserve balance %d does not match pegdata %d of balance supply %d",
-                                         balance_reserve,
-                                         frBalance.Low(balance_supply),
-                                         balance_supply));
+//            throw JSONRPCError(RPC_MISC_ERROR, 
+//                               strprintf("Provided reserve balance %d does not match pegdata %d of balance supply %d",
+//                                         balance_reserve,
+//                                         frBalance.Low(balance_supply),
+//                                         balance_supply));
+            balance_reserve = frBalance.Low(balance_supply);
         }
     }
     frBalance = frBalance.Std();
@@ -231,18 +235,20 @@ Value moveliquid(const Array& params, bool fHelp)
          throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'from' pegdata");
     }
     if (frSrc.High(supply) != src_liquid) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Provided liquid balance %d does not match pegdata %d of 'from' supply %d",
-                                     src_liquid,
-                                     frSrc.High(supply),
-                                     supply));
+//        throw JSONRPCError(RPC_MISC_ERROR, 
+//                           strprintf("Provided liquid balance %d does not match pegdata %d of 'from' supply %d",
+//                                     src_liquid,
+//                                     frSrc.High(supply),
+//                                     supply));
+        src_liquid = frSrc.High(supply);
     }
     if (frSrc.Low(supply) != src_reserve) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Provided reserve balance %d does not match pegdata %d of 'from' supply %d",
-                                     src_reserve,
-                                     frSrc.Low(supply),
-                                     supply));
+//        throw JSONRPCError(RPC_MISC_ERROR, 
+//                           strprintf("Provided reserve balance %d does not match pegdata %d of 'from' supply %d",
+//                                     src_reserve,
+//                                     frSrc.Low(supply),
+//                                     supply));
+        src_reserve = frSrc.Low(supply);
     }
     if (src_liquid < move_liquid) {
         throw JSONRPCError(RPC_MISC_ERROR, 
@@ -261,18 +267,20 @@ Value moveliquid(const Array& params, bool fHelp)
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'to' pegdata");
         }
         if (frDst.High(supply) != dst_liquid) {
-            throw JSONRPCError(RPC_MISC_ERROR, 
-                               strprintf("Provided liquid balance %d does not match pegdata %d of 'to' supply %d",
-                                         dst_liquid,
-                                         frDst.High(supply),
-                                         supply));
+//            throw JSONRPCError(RPC_MISC_ERROR, 
+//                               strprintf("Provided liquid balance %d does not match pegdata %d of 'to' supply %d",
+//                                         dst_liquid,
+//                                         frDst.High(supply),
+//                                         supply));
+            dst_liquid = frDst.High(supply);
         }
         if (frDst.Low(supply) != dst_reserve) {
-            throw JSONRPCError(RPC_MISC_ERROR, 
-                               strprintf("Provided reserve balance %d does not match pegdata %d of 'to' supply %d",
-                                         dst_reserve,
-                                         frDst.Low(supply),
-                                         supply));
+//            throw JSONRPCError(RPC_MISC_ERROR, 
+//                               strprintf("Provided reserve balance %d does not match pegdata %d of 'to' supply %d",
+//                                         dst_reserve,
+//                                         frDst.Low(supply),
+//                                         supply));
+            dst_reserve = frDst.Low(supply);
         }
     }
     
@@ -331,18 +339,20 @@ Value movereserve(const Array& params, bool fHelp)
          throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'from' pegdata");
     }
     if (frSrc.High(supply) != src_liquid) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Provided liquid balance %d does not match pegdata %d of 'from' supply %d",
-                                     src_liquid,
-                                     frSrc.High(supply),
-                                     supply));
+//        throw JSONRPCError(RPC_MISC_ERROR, 
+//                           strprintf("Provided liquid balance %d does not match pegdata %d of 'from' supply %d",
+//                                     src_liquid,
+//                                     frSrc.High(supply),
+//                                     supply));
+        src_liquid = frSrc.High(supply);
     }
     if (frSrc.Low(supply) != src_reserve) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Provided reserve balance %d does not match pegdata %d of 'from' supply %d",
-                                     src_reserve,
-                                     frSrc.Low(supply),
-                                     supply));
+//        throw JSONRPCError(RPC_MISC_ERROR, 
+//                           strprintf("Provided reserve balance %d does not match pegdata %d of 'from' supply %d",
+//                                     src_reserve,
+//                                     frSrc.Low(supply),
+//                                     supply));
+        src_reserve = frSrc.Low(supply);
     }
     if (src_reserve < move_reserve) {
         throw JSONRPCError(RPC_MISC_ERROR, 
@@ -361,18 +371,20 @@ Value movereserve(const Array& params, bool fHelp)
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'to' pegdata");
         }
         if (frDst.High(supply) != dst_liquid) {
-            throw JSONRPCError(RPC_MISC_ERROR, 
-                               strprintf("Provided liquid balance %d does not match pegdata %d of 'to' supply %d",
-                                         dst_liquid,
-                                         frDst.High(supply),
-                                         supply));
+//            throw JSONRPCError(RPC_MISC_ERROR, 
+//                               strprintf("Provided liquid balance %d does not match pegdata %d of 'to' supply %d",
+//                                         dst_liquid,
+//                                         frDst.High(supply),
+//                                         supply));
+            dst_liquid = frDst.High(supply);
         }
         if (frDst.Low(supply) != dst_reserve) {
-            throw JSONRPCError(RPC_MISC_ERROR, 
-                               strprintf("Provided reserve balance %d does not match pegdata %d of 'to' supply %d",
-                                         dst_reserve,
-                                         frDst.Low(supply),
-                                         supply));
+//            throw JSONRPCError(RPC_MISC_ERROR, 
+//                               strprintf("Provided reserve balance %d does not match pegdata %d of 'to' supply %d",
+//                                         dst_reserve,
+//                                         frDst.Low(supply),
+//                                         supply));
+            dst_reserve = frDst.Low(supply);
         }
     }
     

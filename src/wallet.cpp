@@ -3131,16 +3131,23 @@ void CWallet::SetBayRates(std::vector<double> bay_rates) {
         }
     }
     
-    bool all_over_peak = true;
+    int all_over_peak_in_serie = 0;
+    bool all_over_peak = false;
     for(double r : vBayRates) {
         if (r>0) {
             if (dPeakRate < (r * 0.35)) {
-                // all ok if all
+                all_over_peak_in_serie++;
             } else {
-                all_over_peak = false;
+                all_over_peak_in_serie = 0;
             }
         }
+        if (TestNet() && all_over_peak_in_serie >= 100) {
+            all_over_peak = true;
+        } else if (all_over_peak_in_serie >= 1000) {
+            all_over_peak = true;
+        }
     }
+    
     if (all_over_peak) {
         dPeakRate *= 1.5;
     }

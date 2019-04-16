@@ -49,6 +49,7 @@ BITCOIN_CORE_H = \
   timedata.h \
   script.h \
   sync.h \
+  txdb-leveldb.h \
   txmempool.h \
   util.h \
   hash.h \
@@ -99,6 +100,7 @@ libbitcoin_server_a_SOURCES = \
   timedata.cpp \
   script.cpp \
   sync.cpp \
+  txdb-leveldb.cpp \
   txmempool.cpp \
   util.cpp \
   hash.cpp \

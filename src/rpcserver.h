@@ -188,5 +188,6 @@ extern json_spirit::Value registerdeposit(const json_spirit::Array& params, bool
 extern json_spirit::Value updatepegbalances(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value moveliquid(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value movereserve(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value faucet(const json_spirit::Array& params, bool fHelp);
 
 #endif

@@ -472,7 +472,7 @@ public:
     mutable bool fDebitCached               = false;
     mutable bool fCreditCached              = false;
     mutable bool fAvailableCreditCached     = false;
-    mutable bool fAvailableFrozenCached     = false;
+    mutable uint64_t nLastTimeAvailableFrozenCached = 0;
     mutable bool fAvailableReserveCached    = false;
     mutable bool fAvailableLiquidityCached  = false;
     mutable bool fChangeCached              = false;
@@ -600,7 +600,7 @@ public:
                 vfSpent[i] = true;
                 fReturn = true;
                 fAvailableCreditCached = false;
-                fAvailableFrozenCached = false;
+                nLastTimeAvailableFrozenCached = 0;
                 fAvailableReserveCached = false;
                 fAvailableLiquidityCached = false;
                 fRewardsInfoChached = false;
@@ -614,7 +614,7 @@ public:
     {
         fCreditCached = false;
         fAvailableCreditCached = false;
-        fAvailableFrozenCached = false;
+        nLastTimeAvailableFrozenCached = 0;
         fAvailableReserveCached = false;
         fAvailableLiquidityCached = false;
         fDebitCached = false;
@@ -637,7 +637,7 @@ public:
         {
             vfSpent[nOut] = true;
             fAvailableCreditCached = false;
-            fAvailableFrozenCached = false;
+            nLastTimeAvailableFrozenCached = 0;
             fAvailableReserveCached = false;
             fAvailableLiquidityCached = false;
             fRewardsInfoChached = false;
@@ -653,7 +653,7 @@ public:
         {
             vfSpent[nOut] = false;
             fAvailableCreditCached = false;
-            fAvailableFrozenCached = false;
+            nLastTimeAvailableFrozenCached = 0;
             fAvailableReserveCached = false;
             fAvailableLiquidityCached = false;
             fRewardsInfoChached = false;
@@ -783,7 +783,8 @@ public:
         if ((IsCoinBase() || IsCoinStake()) && GetBlocksToMaturity() > 0)
             return 0;
 
-        if (fUseCache && fAvailableFrozenCached) {
+        uint64_t nLastTime = pindexBest ? pindexBest->nTime : 0;
+        if (fUseCache && (nLastTimeAvailableFrozenCached > 0 && nLastTime < nLastTimeAvailableFrozenCached)) {
             if (pFrozenCoins) {
                 for (auto fcoin : vFrozenCoinInfoCached) {
                     pFrozenCoins->push_back(fcoin);
@@ -793,6 +794,7 @@ public:
         }
 
         int64_t nFrozen = 0;
+        uint64_t nMinLockTime = 0;
         std::vector<CFrozenCoinInfo> vFrozenCoinInfo;
         for (unsigned int i = 0; i < vout.size(); i++)
         {
@@ -806,6 +808,15 @@ public:
                 }
             }
         }
+        
+        if (!vFrozenCoinInfo.empty()) {
+            nMinLockTime = vFrozenCoinInfo.front().nLockTime;
+        }
+        for (auto fcoin : vFrozenCoinInfo) {
+            if (fcoin.nLockTime < nMinLockTime) {
+                nMinLockTime = fcoin.nLockTime;
+            }
+        }
 
         if (pFrozenCoins) {
             for (auto fcoin : vFrozenCoinInfo) {
@@ -814,7 +825,7 @@ public:
         }
         vFrozenCoinInfoCached = vFrozenCoinInfo;
         nAvailableFrozenCached = nFrozen;
-        fAvailableFrozenCached = true;
+        nLastTimeAvailableFrozenCached = nMinLockTime;
         return nFrozen;
     }
     

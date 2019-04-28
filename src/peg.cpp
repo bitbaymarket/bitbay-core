@@ -575,6 +575,13 @@ int64_t CFractions::High(int supply) const
     return nValue;
 }
 
+int64_t CFractions::Change(int src_supply, int dst_supply) const
+{
+    int64_t nValueSrc = High(src_supply);
+    int64_t nValueDst = High(dst_supply);
+    return nValueDst - nValueSrc;
+}
+
 void CFractions::ToStd()
 {
     if ((nFlags & VALUE) == 0)

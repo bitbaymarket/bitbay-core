@@ -110,6 +110,7 @@ public:
 
     int64_t Low(int supply) const;
     int64_t High(int supply) const;
+    int64_t Change(int src_supply, int dst_supply) const;
     int64_t Total() const;
     bool IsValid() const;
 

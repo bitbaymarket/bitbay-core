@@ -26,9 +26,9 @@ using namespace json_spirit;
 #ifdef ENABLE_WALLET
 Value registerdeposit(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 2)
+    if (fHelp || params.size() != 3)
         throw runtime_error(
-            "registerdeposit <txid:nout> <balance_pegdata_base64>\n"
+            "registerdeposit <txid:nout> <balance_pegdata_base64> <exchange_pegdata_base64>\n"
             );
     
     string sTxout = params[0].get_str();
@@ -54,10 +54,23 @@ Value registerdeposit(const Array& params, bool fHelp)
         CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
                          SER_DISK, CLIENT_VERSION);
         if (!frBalance.Unpack(finp)) {
-             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack pegdata");
+             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack balance pegdata");
         }
     }
     frBalance = frBalance.Std();
+
+    string exchange_pegdata64 = params[2].get_str();
+    
+    CFractions frExchange(0, CFractions::VALUE);
+    if (!exchange_pegdata64.empty()) {
+        string pegdata = DecodeBase64(exchange_pegdata64);
+        CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                         SER_DISK, CLIENT_VERSION);
+        if (!frExchange.Unpack(finp)) {
+             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack exchange pegdata");
+        }
+    }
+    frExchange = frExchange.Std();
     
     uint256 txhash;
     txhash.SetHex(sTxid);
@@ -112,20 +125,30 @@ Value registerdeposit(const Array& params, bool fHelp)
     
     frDeposit = frDeposit.Std();
     frBalance += frDeposit;
-    int64_t nBalance = frBalance.Total();
+    frExchange += frDeposit;
     
-    CDataStream fout(SER_DISK, CLIENT_VERSION);
-    frBalance.Pack(fout);
+    int64_t nBalance = frBalance.Total();
+    int64_t nExchange = frExchange.Total();
+    
+    CDataStream foutBalance(SER_DISK, CLIENT_VERSION);
+    frBalance.Pack(foutBalance);
 
+    CDataStream foutExchange(SER_DISK, CLIENT_VERSION);
+    frExchange.Pack(foutExchange);
+    
     result.push_back(Pair("deposited", true));
+    result.push_back(Pair("status", "Registered"));
     result.push_back(Pair("atblock", nRegisterHeight));
     result.push_back(Pair("supply", nSupply));
     result.push_back(Pair("cycle", nCycleNow));
-    result.push_back(Pair("value", nBalance));
-    result.push_back(Pair("liquid", frBalance.High(nSupply)));
-    result.push_back(Pair("reserve", frBalance.Low(nSupply)));
-    result.push_back(Pair("pegdata", EncodeBase64(fout.str())));
-    result.push_back(Pair("status", "Registered"));
+    result.push_back(Pair("balance_value", nBalance));
+    result.push_back(Pair("balance_liquid", frBalance.High(nSupply)));
+    result.push_back(Pair("balance_reserve", frBalance.Low(nSupply)));
+    result.push_back(Pair("balance_pegdata", EncodeBase64(foutBalance.str())));
+    result.push_back(Pair("exchange_value", nExchange));
+    result.push_back(Pair("exchange_liquid", frExchange.High(nSupply)));
+    result.push_back(Pair("exchange_reserve", frExchange.Low(nSupply)));
+    result.push_back(Pair("exchange_pegdata", EncodeBase64(foutExchange.str())));
     
     return result;
 }

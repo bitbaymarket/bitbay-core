@@ -26,9 +26,9 @@ using namespace json_spirit;
 #ifdef ENABLE_WALLET
 Value registerdeposit(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 5)
+    if (fHelp || params.size() != 2)
         throw runtime_error(
-            "registerdeposit <txid:nout> <balance_liquid> <balance_reserve> <balance_pegdata> <balance_pegsupply>\n"
+            "registerdeposit <txid:nout> <balance_pegdata_base64>\n"
             );
     
     string sTxout = params[0].get_str();
@@ -36,7 +36,7 @@ Value registerdeposit(const Array& params, bool fHelp)
     boost::split(vTxoutArgs, sTxout, boost::is_any_of(":"));
     
     if (vTxoutArgs.size() != 2) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Txout is not recognized, no txid:nout");
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Txout is not recognized, format txid:nout");
     }
     
     string sTxid = vTxoutArgs[0];
@@ -46,34 +46,15 @@ Value registerdeposit(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Txout is not recognized, nout is not number");
     }
 
-    int64_t balance_liquid = params[1].get_int64();
-    int64_t balance_reserve = params[2].get_int64();
-    string balance_pegdata64 = params[3].get_str();
-    int balance_supply = params[4].get_int();
+    string balance_pegdata64 = params[1].get_str();
     
-    CFractions frBalance(balance_liquid+balance_reserve, CFractions::VALUE);
-    if ((balance_liquid+balance_reserve) >0) {
+    CFractions frBalance(0, CFractions::VALUE);
+    if (!balance_pegdata64.empty()) {
         string pegdata = DecodeBase64(balance_pegdata64);
         CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
                          SER_DISK, CLIENT_VERSION);
         if (!frBalance.Unpack(finp)) {
              throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack pegdata");
-        }
-        if (frBalance.High(balance_supply) != balance_liquid) {
-//            throw JSONRPCError(RPC_MISC_ERROR, 
-//                               strprintf("Provided liquid balance %d does not match pegdata %d of balance supply %d",
-//                                         balance_liquid,
-//                                         frBalance.High(balance_supply),
-//                                         balance_supply));
-            balance_liquid = frBalance.High(balance_supply);
-        }
-        if (frBalance.Low(balance_supply) != balance_reserve) {
-//            throw JSONRPCError(RPC_MISC_ERROR, 
-//                               strprintf("Provided reserve balance %d does not match pegdata %d of balance supply %d",
-//                                         balance_reserve,
-//                                         frBalance.Low(balance_supply),
-//                                         balance_supply));
-            balance_reserve = frBalance.Low(balance_supply);
         }
     }
     frBalance = frBalance.Std();
@@ -151,39 +132,20 @@ Value registerdeposit(const Array& params, bool fHelp)
 
 Value updatepegbalances(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 4)
+    if (fHelp || params.size() != 1)
         throw runtime_error(
-            "updatepegbalances <balance_liquid> <balance_reserve> <balance_pegdata> <balance_pegsupply>\n"
+            "updatepegbalances <balance_pegdata_base64>\n"
             );
     
-    int64_t balance_liquid = params[0].get_int64();
-    int64_t balance_reserve = params[1].get_int64();
-    string balance_pegdata64 = params[2].get_str();
-    int balance_supply = params[3].get_int();
+    string balance_pegdata64 = params[0].get_str();
     
-    CFractions frBalance(balance_liquid+balance_reserve, CFractions::VALUE);
-    if ((balance_liquid+balance_reserve) >0) {
+    CFractions frBalance(0, CFractions::VALUE);
+    if (!balance_pegdata64.empty()) {
         string pegdata = DecodeBase64(balance_pegdata64);
         CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
                          SER_DISK, CLIENT_VERSION);
         if (!frBalance.Unpack(finp)) {
              throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack pegdata");
-        }
-        if (frBalance.High(balance_supply) != balance_liquid) {
-//            throw JSONRPCError(RPC_MISC_ERROR, 
-//                               strprintf("Provided liquid balance %d does not match pegdata %d of balance supply %d",
-//                                         balance_liquid,
-//                                         frBalance.High(balance_supply),
-//                                         balance_supply));
-            balance_liquid = frBalance.High(balance_supply);
-        }
-        if (frBalance.Low(balance_supply) != balance_reserve) {
-//            throw JSONRPCError(RPC_MISC_ERROR, 
-//                               strprintf("Provided reserve balance %d does not match pegdata %d of balance supply %d",
-//                                         balance_reserve,
-//                                         frBalance.Low(balance_supply),
-//                                         balance_supply));
-            balance_reserve = frBalance.Low(balance_supply);
         }
     }
     frBalance = frBalance.Std();
@@ -212,75 +174,40 @@ Value updatepegbalances(const Array& params, bool fHelp)
 
 Value moveliquid(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 8)
+    if (fHelp || params.size() != 4)
         throw runtime_error(
-            "moveliquid <liquid> <src_liquid> <src_reserve> <src_pegdata> <dst_liquid> <dst_reserve> <dst_pegdata> <pegsupply>\n"
+            "moveliquid <liquid> <src_pegdata_base64> <dst_pegdata_base64> <pegsupply>\n"
             );
     
     int64_t move_liquid = params[0].get_int64();
-    int64_t src_liquid = params[1].get_int64();
-    int64_t src_reserve = params[2].get_int64();
-    string src_pegdata64 = params[3].get_str();
-    int64_t dst_liquid = params[4].get_int64();
-    int64_t dst_reserve = params[5].get_int64();
-    string dst_pegdata64 = params[6].get_str();
-    int supply = params[7].get_int();
+    string src_pegdata64 = params[1].get_str();
+    string dst_pegdata64 = params[2].get_str();
+    int supply = params[3].get_int();
     
-    CFractions frSrc(src_liquid+src_reserve, CFractions::VALUE);
+    CFractions frSrc(0, CFractions::VALUE);
 
     string src_pegdata = DecodeBase64(src_pegdata64);
     CDataStream src_finp(src_pegdata.data(), src_pegdata.data() + src_pegdata.size(),
                      SER_DISK, CLIENT_VERSION);
     if (!frSrc.Unpack(src_finp)) {
-         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'from' pegdata");
+         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'src' pegdata");
     }
-    if (frSrc.High(supply) != src_liquid) {
-//        throw JSONRPCError(RPC_MISC_ERROR, 
-//                           strprintf("Provided liquid balance %d does not match pegdata %d of 'from' supply %d",
-//                                     src_liquid,
-//                                     frSrc.High(supply),
-//                                     supply));
-        src_liquid = frSrc.High(supply);
-    }
-    if (frSrc.Low(supply) != src_reserve) {
-//        throw JSONRPCError(RPC_MISC_ERROR, 
-//                           strprintf("Provided reserve balance %d does not match pegdata %d of 'from' supply %d",
-//                                     src_reserve,
-//                                     frSrc.Low(supply),
-//                                     supply));
-        src_reserve = frSrc.Low(supply);
-    }
+    int64_t src_liquid = frSrc.High(supply);
     if (src_liquid < move_liquid) {
         throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Not enough liquid %d on 'from' to move %d",
+                           strprintf("Not enough liquid %d on 'src' to move %d",
                                      src_liquid,
                                      move_liquid));
     }
 
-    CFractions frDst(dst_liquid+dst_reserve, CFractions::VALUE);
+    CFractions frDst(0, CFractions::VALUE);
 
-    if (dst_liquid+dst_reserve != 0) {
+    if (!dst_pegdata64.empty()) {
         string dst_pegdata = DecodeBase64(dst_pegdata64);
         CDataStream dst_finp(dst_pegdata.data(), dst_pegdata.data() + dst_pegdata.size(),
                          SER_DISK, CLIENT_VERSION);
         if (!frDst.Unpack(dst_finp)) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'to' pegdata");
-        }
-        if (frDst.High(supply) != dst_liquid) {
-//            throw JSONRPCError(RPC_MISC_ERROR, 
-//                               strprintf("Provided liquid balance %d does not match pegdata %d of 'to' supply %d",
-//                                         dst_liquid,
-//                                         frDst.High(supply),
-//                                         supply));
-            dst_liquid = frDst.High(supply);
-        }
-        if (frDst.Low(supply) != dst_reserve) {
-//            throw JSONRPCError(RPC_MISC_ERROR, 
-//                               strprintf("Provided reserve balance %d does not match pegdata %d of 'to' supply %d",
-//                                         dst_reserve,
-//                                         frDst.Low(supply),
-//                                         supply));
-            dst_reserve = frDst.Low(supply);
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'dst' pegdata");
         }
     }
     
@@ -316,75 +243,40 @@ Value moveliquid(const Array& params, bool fHelp)
 
 Value movereserve(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 8)
+    if (fHelp || params.size() != 4)
         throw runtime_error(
-            "movereserve <reserve> <src_liquid> <src_reserve> <src_pegdata> <dst_liquid> <dst_reserve> <dst_pegdata> <pegsupply>\n"
+            "movereserve <reserve> <src_pegdata_base64> <dst_pegdata_base64> <pegsupply>\n"
             );
     
     int64_t move_reserve = params[0].get_int64();
-    int64_t src_liquid = params[1].get_int64();
-    int64_t src_reserve = params[2].get_int64();
-    string src_pegdata64 = params[3].get_str();
-    int64_t dst_liquid = params[4].get_int64();
-    int64_t dst_reserve = params[5].get_int64();
-    string dst_pegdata64 = params[6].get_str();
-    int supply = params[7].get_int();
+    string src_pegdata64 = params[1].get_str();
+    string dst_pegdata64 = params[2].get_str();
+    int supply = params[3].get_int();
     
-    CFractions frSrc(src_liquid+src_reserve, CFractions::VALUE);
+    CFractions frSrc(0, CFractions::VALUE);
 
     string src_pegdata = DecodeBase64(src_pegdata64);
     CDataStream src_finp(src_pegdata.data(), src_pegdata.data() + src_pegdata.size(),
                      SER_DISK, CLIENT_VERSION);
     if (!frSrc.Unpack(src_finp)) {
-         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'from' pegdata");
+         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'src' pegdata");
     }
-    if (frSrc.High(supply) != src_liquid) {
-//        throw JSONRPCError(RPC_MISC_ERROR, 
-//                           strprintf("Provided liquid balance %d does not match pegdata %d of 'from' supply %d",
-//                                     src_liquid,
-//                                     frSrc.High(supply),
-//                                     supply));
-        src_liquid = frSrc.High(supply);
-    }
-    if (frSrc.Low(supply) != src_reserve) {
-//        throw JSONRPCError(RPC_MISC_ERROR, 
-//                           strprintf("Provided reserve balance %d does not match pegdata %d of 'from' supply %d",
-//                                     src_reserve,
-//                                     frSrc.Low(supply),
-//                                     supply));
-        src_reserve = frSrc.Low(supply);
-    }
+    int64_t src_reserve = frSrc.Low(supply);
     if (src_reserve < move_reserve) {
         throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Not enough reserve %d on 'from' to move %d",
+                           strprintf("Not enough reserve %d on 'src' to move %d",
                                      src_reserve,
                                      move_reserve));
     }
 
-    CFractions frDst(dst_liquid+dst_reserve, CFractions::VALUE);
+    CFractions frDst(0, CFractions::VALUE);
 
-    if (dst_liquid+dst_reserve != 0) {
+    if (!dst_pegdata64.empty()) {
         string dst_pegdata = DecodeBase64(dst_pegdata64);
         CDataStream dst_finp(dst_pegdata.data(), dst_pegdata.data() + dst_pegdata.size(),
                          SER_DISK, CLIENT_VERSION);
         if (!frDst.Unpack(dst_finp)) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'to' pegdata");
-        }
-        if (frDst.High(supply) != dst_liquid) {
-//            throw JSONRPCError(RPC_MISC_ERROR, 
-//                               strprintf("Provided liquid balance %d does not match pegdata %d of 'to' supply %d",
-//                                         dst_liquid,
-//                                         frDst.High(supply),
-//                                         supply));
-            dst_liquid = frDst.High(supply);
-        }
-        if (frDst.Low(supply) != dst_reserve) {
-//            throw JSONRPCError(RPC_MISC_ERROR, 
-//                               strprintf("Provided reserve balance %d does not match pegdata %d of 'to' supply %d",
-//                                         dst_reserve,
-//                                         frDst.Low(supply),
-//                                         supply));
-            dst_reserve = frDst.Low(supply);
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'dst' pegdata");
         }
     }
     

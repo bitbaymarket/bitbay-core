@@ -375,7 +375,7 @@ Value faucet(const Array& params, bool fHelp)
     if (liquid >0) {
         PegTxType txType = PEG_MAKETX_SEND_LIQUIDITY;
         
-        std::vector<std::pair<CScript, int64_t> > vecSend;
+        vector<pair<CScript, int64_t> > vecSend;
         CScript scriptPubKey;
         scriptPubKey.SetDestination(address.Get());
         vecSend.push_back(make_pair(scriptPubKey, liquid));
@@ -403,7 +403,7 @@ Value faucet(const Array& params, bool fHelp)
     if (reserve >0) {
         PegTxType txType = PEG_MAKETX_SEND_RESERVE;
         
-        std::vector<std::pair<CScript, int64_t> > vecSend;
+        vector<pair<CScript, int64_t> > vecSend;
         CScript scriptPubKey;
         scriptPubKey.SetDestination(address.Get());
         vecSend.push_back(make_pair(scriptPubKey, reserve));
@@ -435,9 +435,38 @@ Value faucet(const Array& params, bool fHelp)
     return result;
 }
 
-static bool sortByAddress(const CSelectedCoin &lhs, const CSelectedCoin &rhs) { 
-    CScript lhs_script = lhs.tx->vout[lhs.i].scriptPubKey;
-    CScript rhs_script = rhs.tx->vout[rhs.i].scriptPubKey;
+class CCoinToUse
+{
+public:
+    uint256     txhash;
+    uint64_t    i;
+    int64_t     nValue;
+    int64_t     nAvailableValue;
+    CScript     scriptPubKey;
+
+    CCoinToUse() : i(0),nValue(0),nAvailableValue(0) {}
+    
+    friend bool operator<(const CCoinToUse &a, const CCoinToUse &b) { 
+        if (a.txhash < b.txhash) return true;
+        if (a.txhash == b.txhash && a.i < b.i) return true;
+        if (a.txhash == b.txhash && a.i == b.i && a.nValue < b.nValue) return true;
+        if (a.txhash == b.txhash && a.i == b.i && a.nValue == b.nValue && a.nAvailableValue < b.nAvailableValue) return true;
+        if (a.txhash == b.txhash && a.i == b.i && a.nValue == b.nValue && a.nAvailableValue == b.nAvailableValue && a.scriptPubKey < b.scriptPubKey) return true;
+        return false;
+    }
+    
+    IMPLEMENT_SERIALIZE
+    (
+        READWRITE(txhash);
+        READWRITE(i);
+        READWRITE(nValue);
+        READWRITE(scriptPubKey);
+    )
+};
+
+static bool sortByAddress(const CCoinToUse &lhs, const CCoinToUse &rhs) { 
+    CScript lhs_script = lhs.scriptPubKey;
+    CScript rhs_script = rhs.scriptPubKey;
     
     CTxDestination lhs_dst;
     CTxDestination rhs_dst;
@@ -463,21 +492,31 @@ static bool sortByDestination(const CTxDestination &lhs, const CTxDestination &r
 
 Value prepareliquidwithdraw(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 6)
+    if (fHelp || params.size() != 9)
         throw runtime_error(
-            "prepareliquidwithdraw <balance_pegdata_base64> <exchange_pegdata_base64> <amount_with_fee> <address> <supplynow> <supplynext>\n"
+            "prepareliquidwithdraw "
+                "<balance_pegdata_base64> "
+                "<exchange_pegdata_base64> "
+                "<distortion_pegdata_base64> "
+                "<amount_with_fee> "
+                "<address> "
+                "<supplynow> "
+                "<supplynext> "
+                "<consumed_inputs> "
+                "<provided_outputs>\n"
             );
     
     string balance_pegdata64 = params[0].get_str();
     string exchange_pegdata64 = params[1].get_str();
-    int64_t nAmountWithFee = params[2].get_int64();
+    string distortion_pegdata64 = params[2].get_str();
+    int64_t nAmountWithFee = params[3].get_int64();
 
-    CBitcoinAddress address(params[3].get_str());
+    CBitcoinAddress address(params[4].get_str());
     if (!address.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid BitBay address");
     
-    int nSupplyNow = params[4].get_int();
-    int nSupplyNext = params[5].get_int();
+    int nSupplyNow = params[5].get_int();
+    int nSupplyNext = params[6].get_int();
     
     CFractions frBalance(0, CFractions::VALUE);
     if (!balance_pegdata64.empty()) {
@@ -498,6 +537,16 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'exchange' pegdata");
         }
     }
+
+    CFractions frDistortion(0, CFractions::VALUE);
+    if (!distortion_pegdata64.empty()) {
+        string pegdata = DecodeBase64(distortion_pegdata64);
+        CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                         SER_DISK, CLIENT_VERSION);
+        if (!frDistortion.Unpack(finp)) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'distortion' pegdata");
+        }
+    }
     
     int64_t nBalanceLiquid = 0;
     CFractions frBalanceLiquid = frBalance.HighPart(nSupplyNext, &nBalanceLiquid);
@@ -509,6 +558,28 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     }
     CFractions frAmount = frBalanceLiquid.RatioPart(nAmountWithFee, nBalanceLiquid, nSupplyNext);
 
+    // inputs, outputs
+    string sConsumedInputs = params[7].get_str();
+    string sProvidedOutputs = params[8].get_str();
+
+    set<uint320> setConsumedInputs;
+    map<uint320,CCoinToUse> mapProvidedOutputs;
+    vector<string> vConsumedInputsArgs;
+    vector<string> vProvidedOutputsArgs;
+    boost::split(vConsumedInputsArgs, sConsumedInputs, boost::is_any_of(","));
+    boost::split(vProvidedOutputsArgs, sProvidedOutputs, boost::is_any_of(","));
+    for(string sConsumedInput : vConsumedInputsArgs) {
+        setConsumedInputs.insert(uint320(sConsumedInput));
+    }
+    for(string sProvidedOutput : vProvidedOutputsArgs) {
+        vector<unsigned char> outData(ParseHex(sProvidedOutput));
+        CDataStream ssData(outData, SER_NETWORK, PROTOCOL_VERSION);
+        CCoinToUse out;
+        try { ssData >> out; }
+        catch (std::exception &) { continue; }
+        mapProvidedOutputs[uint320(out.txhash, out.i)] = out;
+    }
+    
     if (!pindexBest) {
         throw JSONRPCError(RPC_MISC_ERROR, "Blockchain is not in sync");
     }
@@ -521,17 +592,58 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     // make list of 'rated' outputs, multimap with key 'distortion'
     // they are rated to be less distorted towards coins to withdraw
     
-    vector<COutput> vecOutputs;
+    map<uint320,CCoinToUse> mapAllOutputs = mapProvidedOutputs;
+    set<uint320> setWalletOutputs;
+    
     map<uint320,int64_t> mapAvailableLiquid;
-    multimap<double,COutput> ratedOutputs;
-    pwalletMain->AvailableCoins(vecOutputs, false, true, NULL);
-    for(const COutput& out : vecOutputs)
+    
+    vector<COutput> vecCoins;
+    pwalletMain->AvailableCoins(vecCoins, false, true, NULL);
+    for(const COutput& coin : vecCoins)
     {
-        auto txhash = out.tx->GetHash();
-        auto fkey = uint320(txhash, out.i);
+        auto txhash = coin.tx->GetHash();
+        auto fkey = uint320(txhash, coin.i);
+        setWalletOutputs.insert(fkey);
+        if (setConsumedInputs.count(fkey)) continue; // already used
+        CCoinToUse & out = mapAllOutputs[fkey];
+        out.i = coin.i;
+        out.txhash = txhash;
+        out.nValue = coin.tx->vout[coin.i].nValue;
+        out.scriptPubKey = coin.tx->vout[coin.i].scriptPubKey;
+    }
+    
+    // clean-up consumed, intersect with wallet
+    set<uint320> setConsumedInputsNew;
+    std::set_intersection(setConsumedInputs.begin(), setConsumedInputs.end(),
+                          setWalletOutputs.begin(), setWalletOutputs.end(),
+                          std::inserter(setConsumedInputsNew,setConsumedInputsNew.begin()));
+    sConsumedInputs.clear();
+    for(const uint320& fkey : setConsumedInputsNew) {
+        if (!sConsumedInputs.empty()) sConsumedInputs += ",";
+        sConsumedInputs += fkey.GetHex();
+    }
+    
+    // clean-up provided, remove what is already in wallet
+    map<uint320,CCoinToUse> mapProvidedOutputsNew;
+    for(const pair<uint320,CCoinToUse> & item : mapProvidedOutputs) {
+        if (setWalletOutputs.count(item.first)) continue;
+        mapProvidedOutputsNew.insert(item);
+    }
+    sProvidedOutputs.clear();
+    for(const pair<uint320,CCoinToUse> & item : mapProvidedOutputsNew) {
+        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+        ss << item.second;
+        if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
+        sProvidedOutputs += HexStr(ss.begin(), ss.end());
+    }
+    
+    // read avaialable coin fractions to rate
+    multimap<double,CCoinToUse> ratedOutputs;
+    for(const pair<uint320,CCoinToUse>& item : mapAllOutputs) {
+        uint320 fkey = item.first;
         CFractions frOut(0, CFractions::VALUE);
         if (!pegdb.ReadFractions(fkey, frOut, true)) {
-            if (!mempool.lookup(txhash, out.i, frOut)) {
+            if (!mempool.lookup(fkey.b1(), fkey.b2(), frOut)) {
                 continue;
             }
         }
@@ -540,26 +652,22 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         frOut = frOut.HighPart(nSupplyNext, &nAvailableLiquid);
         
         double distortion = frOut.Distortion(frAmount);
-        ratedOutputs.insert(std::pair<double,COutput>(distortion, out));
+        ratedOutputs.insert(pair<double,CCoinToUse>(distortion, item.second));
         mapAvailableLiquid[fkey] = nAvailableLiquid;
     }
 
-    set<CSelectedCoin> setCoins;
-    
+    // get available value for selected coins
+    set<CCoinToUse> setCoins;
     int64_t nLeftAmount = nAmountWithFee;
     auto it = ratedOutputs.begin();
     for (; it != ratedOutputs.end(); ++it) {
-        const COutput& out = (*it).second;
-        auto txhash = out.tx->GetHash();
+        CCoinToUse out = (*it).second;
+        auto txhash = out.txhash;
         auto fkey = uint320(txhash, out.i);
         
         nLeftAmount -= mapAvailableLiquid[fkey];
-        
-        CSelectedCoin coin;
-        coin.i = out.i;
-        coin.tx = out.tx;
-        coin.nAvailableValue = mapAvailableLiquid[fkey];
-        setCoins.insert(coin);
+        out.nAvailableValue = mapAvailableLiquid[fkey];
+        setCoins.insert(out);
         
         if (nLeftAmount <= 0) {
             break;
@@ -575,14 +683,13 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     int64_t nFeeRet = 1000000 /*temp fee*/;
     int64_t nAmount = nAmountWithFee - nFeeRet;
     
-    std::vector<std::pair<CScript, int64_t> > vecSend;
+    vector<pair<CScript, int64_t> > vecSend;
     CScript scriptPubKey;
     scriptPubKey.SetDestination(address.Get());
     vecSend.push_back(make_pair(scriptPubKey, nAmount));
     
     int64_t nValue = 0;
-    for(const pair<CScript, int64_t>& s : vecSend)
-    {
+    for(const pair<CScript, int64_t>& s : vecSend) {
         if (nValue < 0)
             return false;
         nValue += s.second;
@@ -596,8 +703,8 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     if (!nNumInputs) return false;
     
     // Inputs to be sorted by address
-    vector<CSelectedCoin> vCoins;
-    for(const CSelectedCoin& coin : setCoins) {
+    vector<CCoinToUse> vCoins;
+    for(const CCoinToUse& coin : setCoins) {
         vCoins.push_back(coin);
     }
     sort(vCoins.begin(), vCoins.end(), sortByAddress);
@@ -610,9 +717,9 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     map<CTxDestination, int64_t> mapInputValuesAt;
     map<CTxDestination, int64_t> mapTakeValuesAt;
     int64_t nValueToTakeFromChange = 0;
-    for(const CSelectedCoin& coin : vCoins) {
+    for(const CCoinToUse& coin : vCoins) {
         CTxDestination address;
-        if(!ExtractDestination(coin.tx->vout[coin.i].scriptPubKey, address))
+        if(!ExtractDestination(coin.scriptPubKey, address))
             continue;
         setInputAddresses.insert(address); // sorted due to vCoins
         mapAvailableValuesAt[address] = 0;
@@ -625,14 +732,14 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     }
     sort(vInputAddresses.begin(), vInputAddresses.end(), sortByDestination);
     // Input and available values can be filled in
-    for(const CSelectedCoin& coin : vCoins) {
+    for(const CCoinToUse& coin : vCoins) {
         CTxDestination address;
-        if(!ExtractDestination(coin.tx->vout[coin.i].scriptPubKey, address))
+        if(!ExtractDestination(coin.scriptPubKey, address))
             continue;
         int64_t& nValueAvailableAt = mapAvailableValuesAt[address];
         nValueAvailableAt += coin.nAvailableValue;
         int64_t& nValueInputAt = mapInputValuesAt[address];
-        nValueInputAt += coin.tx->vout[coin.i].nValue;
+        nValueInputAt += coin.nValue;
     }
             
     // vouts to the payees
@@ -645,9 +752,9 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     // Available values - liquidity
     // Compute values to take from each address (liquidity is common)
     int64_t nValueLeft = nValue;
-    for(const CSelectedCoin& coin : vCoins) {
+    for(const CCoinToUse& coin : vCoins) {
         CTxDestination address;
-        if(!ExtractDestination(coin.tx->vout[coin.i].scriptPubKey, address))
+        if(!ExtractDestination(coin.scriptPubKey, address))
             continue;
         int64_t nValueAvailable = coin.nAvailableValue;
         int64_t nValueTake = nValueAvailable;
@@ -680,8 +787,8 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     }
     
     // Fill vin
-    for(const CSelectedCoin& coin : vCoins) {
-        rawTx.vin.push_back(CTxIn(coin.tx->GetHash(),coin.i));
+    for(const CCoinToUse& coin : vCoins) {
+        rawTx.vin.push_back(CTxIn(coin.txhash,coin.i));
     }
     
     // Calculate peg
@@ -760,24 +867,35 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     }
     
     // get list of consumed inputs
-    string consumed_inputs;
     for (size_t i=0; i< rawTx.vin.size(); i++) {
         const COutPoint & prevout = rawTx.vin[i].prevout;
         auto fkey = uint320(prevout.hash, prevout.n);
-        if (!consumed_inputs.empty()) consumed_inputs += ",";
-        consumed_inputs += fkey.GetHex();
+        if (!sConsumedInputs.empty()) sConsumedInputs += ",";
+        sConsumedInputs += fkey.GetHex();
     }
-    // get list of provided outputs
-    string provided_outputs;
-    for (size_t i=1; i< rawTx.vout.size(); i++) { // skip 0 (withdraw)
-        auto fkey = uint320(rawTx.GetHash(), i);
-        if (!provided_outputs.empty()) provided_outputs += ",";
-        provided_outputs += fkey.GetHex();
+    // get list of provided outputs and save fractions
+    {
+        CPegDB pegdbrw;
+        for (size_t i=1; i< rawTx.vout.size(); i++) { // skip 0 (withdraw)
+            auto fkey = uint320(rawTx.GetHash(), i);
+            // save these outputs in pegdb, so they can be used in next withdraws
+            pegdbrw.WriteFractions(fkey, mapOutputFractions[fkey]);
+            // serialize to sProvidedOutputs
+            CCoinToUse out;
+            out.i = i;
+            out.txhash = rawTx.GetHash();
+            out.nValue = rawTx.vout[i].nValue;
+            out.scriptPubKey = rawTx.vout[i].scriptPubKey;
+            CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+            ss << out;
+            if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
+            sProvidedOutputs += HexStr(ss.begin(), ss.end());
+        }
     }
     
     frBalance -= frRequested;
     frExchange -= frRequested;
-    CFractions frDistortion = frRequested - frProcessed;
+    frDistortion += (frRequested - frProcessed);
     
     // first to consume distortion by balance
     // as computation were completed by nSupplyNext it may use fractions
@@ -813,6 +931,20 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
                                      frDistortion.Negative(nullptr).Total()));
     }
     int64_t nDistortion = frDistortion.Positive(nullptr).Total();
+    int64_t nDistortionLiquid = nDistortion;
+    int64_t nDistortionReserve = nDistortion;
+    CFractions frDistortionLiquid = frDistortion.HighPart(nSupplyNow, nullptr);
+    CFractions frDistortionReserve = frDistortion.LowPart(nSupplyNow, nullptr);
+    int64_t nDistortionLiquidNegative = 0;
+    int64_t nDistortionLiquidPositive = 0;
+    frDistortionLiquid.Negative(&nDistortionLiquidNegative);
+    frDistortionLiquid.Positive(&nDistortionLiquidPositive);
+    int64_t nDistortionReserveNegative = 0;
+    int64_t nDistortionReservePositive = 0;
+    frDistortionReserve.Negative(&nDistortionReserveNegative);
+    frDistortionReserve.Positive(&nDistortionReservePositive);
+    nDistortionLiquid = std::min(nDistortionLiquidPositive, -nDistortionLiquidNegative);
+    nDistortionReserve = std::min(nDistortionReservePositive, -nDistortionReserveNegative);
     
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << rawTx;
@@ -824,8 +956,11 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     result.push_back(Pair("txhash", txhash));
     result.push_back(Pair("rawtx", txstr));
 
-    result.push_back(Pair("consumed_inputs", consumed_inputs));
-    result.push_back(Pair("provided_outputs", provided_outputs));
+    result.push_back(Pair("consumed_inputs", sConsumedInputs));
+    result.push_back(Pair("provided_outputs", sProvidedOutputs));
+
+    result.push_back(Pair("created_on_supply", nSupplyNow));
+    result.push_back(Pair("broadcast_on_supply", nSupplyNext));
     
     CDataStream fout_balance(SER_DISK, CLIENT_VERSION);
     frBalance.Pack(fout_balance);
@@ -846,6 +981,8 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     CDataStream fout_distortion(SER_DISK, CLIENT_VERSION);
     frDistortion.Pack(fout_distortion);
     result.push_back(Pair("distortion_value", nDistortion));
+    result.push_back(Pair("distortion_liquid", nDistortionLiquid));
+    result.push_back(Pair("distortion_reserve", nDistortionReserve));
     result.push_back(Pair("distortion_pegdata", EncodeBase64(fout_distortion.str())));
     
     return result;

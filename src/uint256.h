@@ -844,6 +844,13 @@ public:
         b.from320(*this);
         return b;
     }
+    
+    uint64_t b2() const {
+        uint64_t b;
+        b = pn[8];
+        b += (uint64_t)pn[9] << 32;
+        return b;
+    }
 
     uint320& operator=(uint64_t b)
     {

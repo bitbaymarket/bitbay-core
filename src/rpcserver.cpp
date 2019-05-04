@@ -248,6 +248,7 @@ static const CRPCCommand vRPCCommands[] =
     { "gettxout",               &gettxout,               false,     false,     false },
     { "getpeginfo",             &getpeginfo,             true,      false,     false },
     { "getfractions",           &getfractions,           true,      false,     false },
+    { "getfractionsbase64",     &getfractionsbase64,     true,      false,     false },
     { "getliquidityrate",       &getliquidityrate,       true,      false,     false },
     { "validaterawtransaction", &validaterawtransaction, true,      false,     false },
 

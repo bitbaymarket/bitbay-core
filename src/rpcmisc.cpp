@@ -187,6 +187,44 @@ Value getfractions(const Array& params, bool fHelp)
     return obj;
 }
 
+Value getfractionsbase64(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "getfractionsbase64 <txhash:output>\n"
+            "Returns base64 string containing rate info.");
+
+    string txhashnout = params[0].get_str();
+    vector<string> txhashnout_args;
+    boost::split(txhashnout_args, txhashnout, boost::is_any_of(":"));
+    
+    if (txhashnout_args.size() != 2) {
+        throw runtime_error(
+            "getfractionsbase64 <txhash:output>\n"
+            "First parameter should refer transaction output txhash:output");
+    }
+    string txhash_str = txhashnout_args.front();
+    int nout = std::stoi(txhashnout_args.back());
+    
+    uint256 txhash;
+    txhash.SetHex(txhash_str);
+    
+    Object obj;
+    CPegDB pegdb("r");
+    auto fkey = uint320(txhash, nout);
+    CFractions fractions(0, CFractions::VALUE);
+    if (!pegdb.ReadFractions(fkey, fractions, true)) {
+        if (!mempool.lookup(txhash, nout, fractions)) {
+            return obj;
+        }
+    }
+    fractions = fractions.Std();
+    
+    CDataStream fout(SER_DISK, CLIENT_VERSION);
+    fractions.Pack(fout);
+    return EncodeBase64(fout.str());
+}
+
 Value getliquidityrate(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 2)

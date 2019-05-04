@@ -169,7 +169,7 @@ void CTxMemPool::reviewOnPegChange(CTransaction& tx,
                                                  pindexBest->nPegSupplyIndex,
                                                  pindexBest->nTime,
                                                  mapInputs, mapInputsFractions,
-                                                 mapUnused, mapOutputsFractions,
+                                                 mapOutputsFractions,
                                                  feesFractions,
                                                  sPegFailCause);
         if (!peg_ok) {

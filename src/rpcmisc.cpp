@@ -495,7 +495,7 @@ Value validaterawtransaction(const Array& params, bool fHelp)
                                              supply,
                                              tx.nTime,
                                              mapInputs, mapInputsFractions,
-                                             mapUnused, mapOutputsFractions,
+                                             mapOutputsFractions,
                                              feesFractions,
                                              sPegFailCause);
     if (!peg_ok) {

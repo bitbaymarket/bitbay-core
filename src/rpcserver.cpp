@@ -306,6 +306,7 @@ static const CRPCCommand vRPCCommands[] =
     { "updatepegbalances",      &updatepegbalances,      false,     false,     true },
     { "moveliquid",             &moveliquid,             false,     false,     true },
     { "movereserve",            &movereserve,            false,     false,     true },
+    { "prepareliquidwithdraw",  &prepareliquidwithdraw,  false,     false,     true },
     { "faucet",                 &faucet,                 false,     false,     true },
 #endif
 };

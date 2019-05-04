@@ -2179,7 +2179,7 @@ bool CWallet::CreateTransaction(PegTxType txType,
                                                      GetPegSupplyIndex(),
                                                      wtxNew.nTime,
                                                      mapInputs, mapInputsFractions,
-                                                     mapUnused, mapOutputFractions,
+                                                     mapOutputFractions,
                                                      feesFractions,
                                                      sPegFailCause);
             if (!peg_ok)

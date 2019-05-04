@@ -286,7 +286,7 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
                                                  pblockindex->nPegSupplyIndex,
                                                  pblockindex->nTime,
                                                  mapInputs, mapInputsFractions,
-                                                 mapUnused, mapFractionsUnused,
+                                                 mapFractionsUnused,
                                                  feesFractions,
                                                  sPegFailCause);
 
@@ -433,7 +433,7 @@ void TxDetailsWidget::openTx(CTransaction & tx,
                                             nSupply,
                                             nTime,
                                             mapInputs, mapInputsFractions,
-                                            mapUnused, mapFractionsUnused,
+                                            mapFractionsUnused,
                                             feesFractions,
                                             sPegFailCause);
     }

@@ -397,7 +397,7 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                                                              pblockindex->nPegSupplyIndex,
                                                              pblockindex->nTime,
                                                              mapInputs, mapInputsFractions,
-                                                             mapUnused, mapQueuedFractionsChanges,
+                                                             mapQueuedFractionsChanges,
                                                              feesFractions,
                                                              sPegFailCause);
                     if (!peg_ok) {

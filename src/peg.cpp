@@ -527,13 +527,25 @@ CFractions CFractions::Std() const
     return fstd;
 }
 
-bool CFractions::IsValid() const 
+bool CFractions::IsPositive() const 
 {
     if (nFlags & VALUE)
         return true;
 
     for(int i=0;i<PEG_SIZE;i++) {
         if (f[i] <0)
+            return false;
+    }
+    return true;
+}
+
+bool CFractions::IsNegative() const 
+{
+    if (nFlags & VALUE)
+        return false;
+
+    for(int i=0;i<PEG_SIZE;i++) {
+        if (f[i] >0)
             return false;
     }
     return true;
@@ -601,6 +613,34 @@ void CFractions::ToStd()
         v -= frac;
     }
 }
+
+CFractions CFractions::Positive(int64_t* total) const
+{
+    if ((nFlags & STD) == 0) {
+        return Std().Positive(total);
+    }
+    CFractions frPositive(0, CFractions::STD);
+    for(int i=0; i<PEG_SIZE; i++) {
+        if (f[i] <=0) continue; 
+        frPositive.f[i] = f[i];
+        if (total) *total += f[i];
+    }
+    return frPositive;
+}
+CFractions CFractions::Negative(int64_t* total) const
+{
+    if ((nFlags & STD) == 0) {
+        return Std().Negative(total);
+    }
+    CFractions frNegative(0, CFractions::STD);
+    for(int i=0; i<PEG_SIZE; i++) {
+        if (f[i] >=0) continue; 
+        frNegative.f[i] = f[i];
+        if (total) *total += f[i];
+    }
+    return frNegative;
+}
+
 
 CFractions CFractions::LowPart(int supply, int64_t* total) const
 {
@@ -832,6 +872,75 @@ CFractions& CFractions::operator-=(const CFractions& b)
     return *this;
 }
 
+CFractions CFractions::operator&(const CFractions& b) const
+{
+    CFractions a = *this;
+    for(int i=0; i<PEG_SIZE; i++) {
+        int64_t va = a.f[i];
+        int64_t vb = b.f[i];
+        if      (va >=0 && vb >=0) a.f[i] = std::min(va, vb);
+        else if (va >=0 && vb < 0) a.f[i] = 0;
+        else if (va < 0 && vb >=0) a.f[i] = 0;
+        else if (va < 0 && vb < 0) a.f[i] = std::max(va, vb);
+    }
+    return a;
+}
+
+CFractions CFractions::operator-() const
+{
+    CFractions a = *this;
+    for(int i=0; i<PEG_SIZE; i++) {
+        int64_t va = a.f[i];
+        a.f[i] = -va;
+    }
+    return a;
+}
+
+double CFractions::Distortion(const CFractions& b) const
+{
+    int64_t nTotalA = Total();
+    int64_t nTotalB = b.Total();
+    
+    if (nTotalA == nTotalB) {
+        
+        if (nTotalA == 0) {
+            return 0;
+        }
+        
+        int64_t nDiff = 0;
+        
+        for(int i=0; i<PEG_SIZE; i++) {
+            int64_t va = f[i];
+            int64_t vb = b.f[i];
+            if (va > vb) {
+                nDiff += (va - vb);
+            }
+        }
+        
+        return double(nDiff) / double(nTotalA);
+    }
+    
+    else if (nTotalA < nTotalB) {
+        if (nTotalA == 0) {
+            return nTotalB; // does not make sense to scale
+        }
+        
+        CFractions b1 = b.RatioPart(nTotalA, nTotalB, 0);
+        return Distortion(b1);
+    }
+    
+    else if (nTotalA > nTotalB) {
+        if (nTotalB == 0) {
+            return nTotalA; // does not make sense to scale
+        }
+        
+        CFractions a1 = RatioPart(nTotalB, nTotalA, 0);
+        return a1.Distortion(b);
+    }
+    
+    return 0;
+}
+
 static string toAddress(const CScript& scriptPubKey,
                         bool* ptrIsNotary = nullptr,
                         string* ptrNotary = nullptr) {
@@ -883,7 +992,7 @@ static string toAddress(const CScript& scriptPubKey,
 }
 
 bool IsPegWhiteListed(const CTransaction & tx,
-                      MapPrevTx & inputs)
+                      MapPrevTx & txInputs)
 {
     if (!fPegDemoMode)
         return true;
@@ -893,12 +1002,37 @@ bool IsPegWhiteListed(const CTransaction & tx,
     for (unsigned int i = 0; i < n_vin; i++)
     {
         const COutPoint & prevout = tx.vin[i].prevout;
-        CTransaction& txPrev = inputs[prevout.hash].second;
+        CTransaction& txPrev = txInputs[prevout.hash].second;
         if (prevout.n >= txPrev.vout.size()) {
             continue;
         }
-
+        
         auto sAddress = toAddress(txPrev.vout[prevout.n].scriptPubKey);
+        if (vPegWhitelist.count(sAddress)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool IsPegWhiteListed(const CTransaction & tx,
+                      MapPrevOut & inputs)
+{
+    if (!fPegDemoMode)
+        return true;
+    
+    size_t n_vin = tx.vin.size();
+    if (tx.IsCoinBase()) n_vin = 0;
+    for (unsigned int i = 0; i < n_vin; i++)
+    {
+        const COutPoint & prevout = tx.vin[i].prevout;
+        auto fkey = uint320(prevout.hash, prevout.n);
+        if (!inputs.count(fkey)) {
+            continue;
+        }
+        const CTxOut & prevtxout = inputs[fkey];
+        
+        auto sAddress = toAddress(prevtxout.scriptPubKey);
         if (vPegWhitelist.count(sAddress)) {
             return true;
         }
@@ -909,9 +1043,44 @@ bool IsPegWhiteListed(const CTransaction & tx,
 bool CalculateStandardFractions(const CTransaction & tx,
                                 int nSupply,
                                 unsigned int nTime,
-                                MapPrevTx & mapInputs,
+                                MapPrevTx & mapTxInputs,
                                 MapFractions& mapInputsFractions,
-                                map<uint256, CTxIndex>& mapTestPool,
+                                MapFractions& mapTestFractionsPool,
+                                CFractions& feesFractions,
+                                std::string& sFailCause)
+{
+    MapPrevOut mapInputs;
+    size_t n_vin = tx.vin.size();
+        
+    if (tx.IsCoinBase()) n_vin = 0;
+    for (unsigned int i = 0; i < n_vin; i++)
+    {
+        const COutPoint & prevout = tx.vin[i].prevout;
+        CTransaction& txPrev = mapTxInputs[prevout.hash].second;
+        if (prevout.n >= txPrev.vout.size()) {
+            sFailCause = "PI02: Refered output out of range";
+            return false;
+        }
+
+        auto fkey = uint320(prevout.hash, prevout.n);
+        mapInputs[fkey] = txPrev.vout[prevout.n];
+    }
+    
+    return CalculateStandardFractions(tx,
+                                      nSupply,
+                                      nTime,
+                                      mapInputs,
+                                      mapInputsFractions,
+                                      mapTestFractionsPool,
+                                      feesFractions,
+                                      sFailCause);
+}
+
+bool CalculateStandardFractions(const CTransaction & tx,
+                                int nSupply,
+                                unsigned int nTime,
+                                MapPrevOut & mapInputs,
+                                MapFractions& mapInputsFractions,
                                 MapFractions& mapTestFractionsPool,
                                 CFractions& feesFractions,
                                 std::string& sFailCause)
@@ -939,25 +1108,25 @@ bool CalculateStandardFractions(const CTransaction & tx,
     for (unsigned int i = 0; i < n_vin; i++)
     {
         const COutPoint & prevout = tx.vin[i].prevout;
-        CTransaction& txPrev = mapInputs[prevout.hash].second;
-        if (prevout.n >= txPrev.vout.size()) {
-            sFailCause = "PI02: Refered output out of range";
+        auto fkey = uint320(prevout.hash, prevout.n);
+        if (!mapInputs.count(fkey)) {
+            sFailCause = "PI02: Refered output is not found";
             return false;
         }
-
-        int64_t nValue = txPrev.vout[prevout.n].nValue;
+        const CTxOut & prevtxout = mapInputs[fkey];
+        
+        int64_t nValue = prevtxout.nValue;
         nValueIn += nValue;
-        auto sAddress = toAddress(txPrev.vout[prevout.n].scriptPubKey);
+        auto sAddress = toAddress(prevtxout.scriptPubKey);
         setInputAddresses.insert(sAddress);
 
-        auto fkey = uint320(prevout.hash, prevout.n);
         if (mapInputsFractions.find(fkey) == mapInputsFractions.end()) {
             sFailCause = "PI03: No input fractions found";
             return false;
         }
 
         auto frInp = mapInputsFractions[fkey].Std();
-        if (frInp.Total() != txPrev.vout[prevout.n].nValue) {
+        if (frInp.Total() != prevtxout.nValue) {
             sFailCause = "PI04: Input fraction total mismatches value";
             return false;
         }
@@ -1313,7 +1482,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
             auto fkey = uint320(tx.GetHash(), i);
             auto f = mapTestFractionsPool[fkey];
             int64_t nValue = tx.vout[i].nValue;
-            if (nValue != f.Total() || !f.IsValid()) {
+            if (nValue != f.Total() || !f.IsPositive()) {
                 sFailCause = "P16: Total mismatch on output "+std::to_string(i);
                 fFailedPegOut = true;
                 break;
@@ -1328,7 +1497,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
     for(const auto & item : poolReserves) {
         txFeeFractions += item.second;
     }
-    if (nFee != txFeeFractions.Total() || !txFeeFractions.IsValid()) {
+    if (nFee != txFeeFractions.Total() || !txFeeFractions.IsPositive()) {
         sFailCause = "P17: Total mismatch on fee fractions";
         fFailedPegOut = true;
     }
@@ -1553,7 +1722,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
             auto fkey = uint320(tx.GetHash(), i);
             auto f = mapTestFractionsPool[fkey];
             int64_t nValue = tx.vout[i].nValue;
-            if (nValue != f.Total() || !f.IsValid()) {
+            if (nValue != f.Total() || !f.IsPositive()) {
                 sFailCause = "PO04: Total mismatch on output "+std::to_string(i);
                 fFailedPegOut = true;
                 break;

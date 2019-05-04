@@ -15,9 +15,11 @@ class CTxDB;
 class CPegDB;
 class CBlock;
 class CBlockIndex;
+class CTxOut;
 class CTxIndex;
 class CTransaction;
 typedef std::map<uint256, std::pair<CTxIndex, CTransaction> > MapPrevTx;
+typedef std::map<uint320, CTxOut> MapPrevOut;
 
 extern int nPegStartHeight;
 extern int nPegMaxSupplyIndex;
@@ -94,12 +96,18 @@ public:
     bool Unpack(CDataStream &);
 
     CFractions Std() const;
+    CFractions Positive(int64_t* total) const;
+    CFractions Negative(int64_t* total) const;
     CFractions LowPart(int supply, int64_t* total) const;
     CFractions HighPart(int supply, int64_t* total) const;
     CFractions RatioPart(int64_t part, int64_t of_total, int adjust_from) const;
 
     CFractions& operator+=(const CFractions& b);
     CFractions& operator-=(const CFractions& b);
+    friend CFractions operator+(CFractions a, const CFractions& b) { a += b; return a; }
+    friend CFractions operator-(CFractions a, const CFractions& b) { a -= b; return a; }
+    CFractions operator&(const CFractions& b) const;
+    CFractions operator-() const;
 
     int64_t MoveRatioPartTo(int64_t nPartValue,
                             int adjust_from,
@@ -112,7 +120,9 @@ public:
     int64_t High(int supply) const;
     int64_t Change(int src_supply, int dst_supply) const;
     int64_t Total() const;
-    bool IsValid() const;
+    double Distortion(const CFractions& b) const;
+    bool IsPositive() const;
+    bool IsNegative() const;
 
 private:
     void ToStd();
@@ -137,13 +147,22 @@ bool CalculateBlockPegVotes(const CBlock & cblock,
                             CPegDB& pegdb);
 
 bool IsPegWhiteListed(const CTransaction & tx, MapPrevTx & inputs);
+bool IsPegWhiteListed(const CTransaction & tx, MapPrevOut & inputs);
 
 bool CalculateStandardFractions(const CTransaction & tx,
                                 int nSupply,
                                 unsigned int nTime,
                                 MapPrevTx & inputs,
                                 MapFractions& finputs,
-                                std::map<uint256, CTxIndex>& mapTestPool,
+                                MapFractions& mapTestFractionsPool,
+                                CFractions& feesFractions,
+                                std::string& sPegFailCause);
+
+bool CalculateStandardFractions(const CTransaction & tx,
+                                int nSupply,
+                                unsigned int nTime,
+                                MapPrevOut & inputs,
+                                MapFractions& finputs,
                                 MapFractions& mapTestFractionsPool,
                                 CFractions& feesFractions,
                                 std::string& sPegFailCause);

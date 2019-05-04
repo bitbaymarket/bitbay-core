@@ -1478,7 +1478,7 @@ bool CTransaction::ConnectInputs(MapPrevTx inputs,
                                                      pindexBlock->nPegSupplyIndex,
                                                      pindexBlock->nTime,
                                                      inputs, finputs,
-                                                     mapTestPool, mapTestFractionsPool,
+                                                     mapTestFractionsPool,
                                                      feesFractions,
                                                      sPegFailCause);
             if (!peg_ok) {

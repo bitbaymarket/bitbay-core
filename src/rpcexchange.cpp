@@ -562,6 +562,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     string sConsumedInputs = params[7].get_str();
     string sProvidedOutputs = params[8].get_str();
 
+    set<uint320> setAllOutputs;
     set<uint320> setConsumedInputs;
     map<uint320,CCoinToUse> mapProvidedOutputs;
     vector<string> vConsumedInputsArgs;
@@ -577,7 +578,10 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         CCoinToUse out;
         try { ssData >> out; }
         catch (std::exception &) { continue; }
-        mapProvidedOutputs[uint320(out.txhash, out.i)] = out;
+        auto fkey = uint320(out.txhash, out.i);
+        if (setConsumedInputs.count(fkey)) { continue; }
+        mapProvidedOutputs[fkey] = out;
+        setAllOutputs.insert(fkey);
     }
     
     if (!pindexBest) {
@@ -603,6 +607,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     {
         auto txhash = coin.tx->GetHash();
         auto fkey = uint320(txhash, coin.i);
+        setAllOutputs.insert(fkey);
         setWalletOutputs.insert(fkey);
         if (setConsumedInputs.count(fkey)) continue; // already used
         CCoinToUse & out = mapAllOutputs[fkey];
@@ -612,10 +617,10 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         out.scriptPubKey = coin.tx->vout[coin.i].scriptPubKey;
     }
     
-    // clean-up consumed, intersect with wallet
+    // clean-up consumed, intersect with (wallet+provided)
     set<uint320> setConsumedInputsNew;
     std::set_intersection(setConsumedInputs.begin(), setConsumedInputs.end(),
-                          setWalletOutputs.begin(), setWalletOutputs.end(),
+                          setAllOutputs.begin(), setAllOutputs.end(),
                           std::inserter(setConsumedInputsNew,setConsumedInputsNew.begin()));
     sConsumedInputs.clear();
     for(const uint320& fkey : setConsumedInputsNew) {
@@ -624,17 +629,13 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     }
     
     // clean-up provided, remove what is already in wallet
-    map<uint320,CCoinToUse> mapProvidedOutputsNew;
-    for(const pair<uint320,CCoinToUse> & item : mapProvidedOutputs) {
-        if (setWalletOutputs.count(item.first)) continue;
-        mapProvidedOutputsNew.insert(item);
-    }
-    sProvidedOutputs.clear();
-    for(const pair<uint320,CCoinToUse> & item : mapProvidedOutputsNew) {
-        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-        ss << item.second;
-        if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
-        sProvidedOutputs += HexStr(ss.begin(), ss.end());
+    {
+        map<uint320,CCoinToUse> mapProvidedOutputsNew;
+        for(const pair<uint320,CCoinToUse> & item : mapProvidedOutputs) {
+            if (setWalletOutputs.count(item.first)) continue;
+            mapProvidedOutputsNew.insert(item);
+        }
+        mapProvidedOutputs = mapProvidedOutputsNew;
     }
     
     // read avaialable coin fractions to rate
@@ -806,29 +807,42 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         const COutPoint & prevout = rawTx.vin[i].prevout;
         auto fkey = uint320(prevout.hash, prevout.n);
         
-        // Read txindex
-        CTxIndex& txindex = mapTxInputs[prevout.hash].first;
-        if (!txdb.ReadTxIndex(prevout.hash, txindex)) {
-            // todo prevout via input args
-            continue;
+        if (mapAllOutputs.count(fkey)) {
+            const CCoinToUse& coin = mapAllOutputs[fkey];
+            CTxOut out(coin.nValue, coin.scriptPubKey);
+            mapInputs[fkey] = out;
         }
-        // Read txPrev
-        CTransaction& txPrev = mapTxInputs[prevout.hash].second;
-        if (!txPrev.ReadFromDisk(txindex.pos)) {
-            // todo prevout via input args
-            continue;
-        }  
-        
-        if (prevout.n >= txPrev.vout.size()) {
-            // error?
-            continue;
+        else {
+            // Read txindex
+            CTxIndex& txindex = mapTxInputs[prevout.hash].first;
+            if (!txdb.ReadTxIndex(prevout.hash, txindex)) {
+                continue;
+            }
+            // Read txPrev
+            CTransaction& txPrev = mapTxInputs[prevout.hash].second;
+            if (!txPrev.ReadFromDisk(txindex.pos)) {
+                continue;
+            }  
+            
+            if (prevout.n >= txPrev.vout.size()) {
+                continue;
+            }
+            
+            mapInputs[fkey] = txPrev.vout[prevout.n];
         }
-
-        mapInputs[fkey] = txPrev.vout[prevout.n];
         
         CFractions& fractions = mapInputsFractions[fkey];
         fractions = CFractions(mapInputs[fkey].nValue, CFractions::VALUE);
         pegdb.ReadFractions(fkey, fractions);
+    }
+    
+    // signing the transaction to get it ready for broadcast
+    int nIn = 0;
+    for(const CCoinToUse& coin : vCoins) {
+        if (!SignSignature(*pwalletMain, coin.scriptPubKey, rawTx, nIn++)) {
+            throw JSONRPCError(RPC_MISC_ERROR, 
+                               strprintf("Fail on signing input (%d)", nIn-1));
+        }
     }
     
     bool peg_ok = CalculateStandardFractions(rawTx, 
@@ -844,7 +858,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
                            strprintf("Fail on calculations of tx fractions (cause=%s)",
                                      sPegFailCause.c_str()));
     }
-    
+        
     string txhash = rawTx.GetHash().GetHex();
     
     // without payment is the first out
@@ -870,15 +884,29 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     for (size_t i=0; i< rawTx.vin.size(); i++) {
         const COutPoint & prevout = rawTx.vin[i].prevout;
         auto fkey = uint320(prevout.hash, prevout.n);
+        if (mapProvidedOutputs.count(fkey)) mapProvidedOutputs.erase(fkey);
         if (!sConsumedInputs.empty()) sConsumedInputs += ",";
         sConsumedInputs += fkey.GetHex();
     }
+    
     // get list of provided outputs and save fractions
+    sProvidedOutputs.clear();
+    for(const pair<uint320,CCoinToUse> & item : mapProvidedOutputs) {
+        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+        ss << item.second;
+        if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
+        sProvidedOutputs += HexStr(ss.begin(), ss.end());
+    }
+    // get list of changes and add to current provided outputs
+    map<string, int64_t> mapTxChanges;
     {
         CPegDB pegdbrw;
         for (size_t i=1; i< rawTx.vout.size(); i++) { // skip 0 (withdraw)
-            auto fkey = uint320(rawTx.GetHash(), i);
+            // make map of change outputs
+            string txout = rawTx.GetHash().GetHex()+":"+itostr(i);
+            mapTxChanges[txout] = rawTx.vout[i].nValue;
             // save these outputs in pegdb, so they can be used in next withdraws
+            auto fkey = uint320(rawTx.GetHash(), i);
             pegdbrw.WriteFractions(fkey, mapOutputFractions[fkey]);
             // serialize to sProvidedOutputs
             CCoinToUse out;
@@ -970,6 +998,14 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     result.push_back(Pair("balance_nchange", frBalance.Change(nSupplyNow, nSupplyNext)));
     result.push_back(Pair("balance_pegdata", EncodeBase64(fout_balance.str())));
 
+    CDataStream fout_processed(SER_DISK, CLIENT_VERSION);
+    frProcessed.Pack(fout_processed);
+    result.push_back(Pair("processed_value", frProcessed.Total()));
+    result.push_back(Pair("processed_liquid", frProcessed.High(nSupplyNow)));
+    result.push_back(Pair("processed_reserve", frProcessed.Low(nSupplyNow)));
+    result.push_back(Pair("processed_nchange", frProcessed.Change(nSupplyNow, nSupplyNext)));
+    result.push_back(Pair("processed_pegdata", EncodeBase64(fout_processed.str())));
+    
     CDataStream fout_exchange(SER_DISK, CLIENT_VERSION);
     frExchange.Pack(fout_exchange);
     result.push_back(Pair("exchange_value", frExchange.Total()));
@@ -984,6 +1020,15 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     result.push_back(Pair("distortion_liquid", nDistortionLiquid));
     result.push_back(Pair("distortion_reserve", nDistortionReserve));
     result.push_back(Pair("distortion_pegdata", EncodeBase64(fout_distortion.str())));
+    
+    Array changes;
+    for(const pair<string, int64_t> & item : mapTxChanges) {
+        Object obj;
+        obj.push_back(Pair("txout", item.first));
+        obj.push_back(Pair("amount", item.second));
+        changes.push_back(obj);
+    }
+    result.push_back(Pair("changes", changes));
     
     return result;
 }

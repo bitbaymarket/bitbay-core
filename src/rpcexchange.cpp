@@ -158,9 +158,10 @@ Value registerdeposit(const Array& params, bool fHelp)
 
 Value updatepegbalances(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 1)
+    if (fHelp || (params.size() != 1 && params.size() != 3))
         throw runtime_error(
             "updatepegbalances <balance_pegdata_base64>\n"
+            "updatepegbalances <balance_pegdata_base64> <exchange_pegdata_base64> <distortion_pegdata_base64>\n"
             );
     
     string balance_pegdata64 = params[0].get_str();
@@ -171,31 +172,123 @@ Value updatepegbalances(const Array& params, bool fHelp)
         CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
                          SER_DISK, CLIENT_VERSION);
         if (!frBalance.Unpack(finp)) {
-             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack pegdata");
+             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'balance' pegdata");
         }
     }
+    
+    CFractions frExchange(0, CFractions::VALUE);
+    CFractions frDistortion(0, CFractions::VALUE);
+    if (params.size() == 3) {
+        string exchange_pegdata64 = params[1].get_str();
+        if (!exchange_pegdata64.empty()) {
+            string pegdata = DecodeBase64(exchange_pegdata64);
+            CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                             SER_DISK, CLIENT_VERSION);
+            if (!frExchange.Unpack(finp)) {
+                 throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'exchange' pegdata");
+            }
+        }
+        string distortion_pegdata64 = params[2].get_str();
+        if (!distortion_pegdata64.empty()) {
+            string pegdata = DecodeBase64(distortion_pegdata64);
+            CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                             SER_DISK, CLIENT_VERSION);
+            if (!frDistortion.Unpack(finp)) {
+                 throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'exchange' pegdata");
+            }
+        }
+    }
+    
     frBalance = frBalance.Std();
+    frExchange = frExchange.Std();
+    frDistortion = frDistortion.Std();
+
+    int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
+    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
+    
+    if (params.size() == 3) {
+        // consume distortion by balance
+        int64_t nDistortionPositive = 0;
+        int64_t nDistortionNegative = 0;
+        CFractions frDistortionPositive = frDistortion.Positive(&nDistortionPositive);
+        CFractions frDistortionNegative = frDistortion.Negative(&nDistortionNegative);
+        CFractions frDistortionNegativeConsume = frDistortionNegative & (-frBalance);
+        int64_t nDistortionNegativeConsume = frDistortionNegativeConsume.Total();
+        int64_t nDistortionPositiveConsume = frDistortionPositive.Total();
+        if ((-nDistortionNegativeConsume) > nDistortionPositiveConsume) {
+            CFractions frToPositive = -frDistortionNegativeConsume; 
+            frToPositive = frToPositive.RatioPart(nDistortionPositiveConsume,
+                                                  (-nDistortionNegativeConsume),
+                                                  nSupplyNow);
+            frDistortionNegativeConsume = -frToPositive;
+            nDistortionNegativeConsume = frDistortionNegativeConsume.Total();
+        }
+        nDistortionPositiveConsume = -nDistortionNegativeConsume;
+        CFractions frDistortionPositiveConsume = frDistortionPositive.RatioPart(nDistortionPositiveConsume, nDistortionPositive, nSupplyNow);
+        CFractions frDistortionConsume = frDistortionNegativeConsume + frDistortionPositiveConsume;
+        
+        frBalance += frDistortionConsume;
+        frExchange += frDistortionConsume;
+        frDistortion -= frDistortionConsume;
+    }
     
     Object result;
     
     int nPegInterval = Params().PegInterval(nBestHeight);
     int nCycleNow = nBestHeight / nPegInterval;
-
-    int nSupply = pindexBest ? pindexBest->nPegSupplyIndex : 0;
-    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
     
     int64_t nBalance = frBalance.Total();
     
-    CDataStream fout(SER_DISK, CLIENT_VERSION);
-    frBalance.Pack(fout);
+    CDataStream fout_balance(SER_DISK, CLIENT_VERSION);
+    frBalance.Pack(fout_balance);
 
-    result.push_back(Pair("supply", nSupply));
+    result.push_back(Pair("supply", nSupplyNow));
     result.push_back(Pair("cycle", nCycleNow));
-    result.push_back(Pair("value", nBalance));
-    result.push_back(Pair("liquid", frBalance.High(nSupply)));
-    result.push_back(Pair("reserve", frBalance.Low(nSupply)));
-    result.push_back(Pair("nchange", frBalance.Change(nSupply, nSupplyNext)));
-    result.push_back(Pair("pegdata", EncodeBase64(fout.str())));
+    
+    result.push_back(Pair("balance_value", nBalance));
+    result.push_back(Pair("balance_liquid", frBalance.High(nSupplyNow)));
+    result.push_back(Pair("balance_reserve", frBalance.Low(nSupplyNow)));
+    result.push_back(Pair("balance_nchange", frBalance.Change(nSupplyNow, nSupplyNext)));
+    result.push_back(Pair("balance_pegdata", EncodeBase64(fout_balance.str())));
+    
+    if (params.size() == 3) {
+        if (frDistortion.Positive(nullptr).Total() != -frDistortion.Negative(nullptr).Total()) {
+            throw JSONRPCError(RPC_MISC_ERROR, 
+                               strprintf("Mismatch distortion parts (%d - %d)",
+                                         frDistortion.Positive(nullptr).Total(), 
+                                         frDistortion.Negative(nullptr).Total()));
+        }
+        int64_t nDistortion = frDistortion.Positive(nullptr).Total();
+        int64_t nDistortionLiquid = nDistortion;
+        int64_t nDistortionReserve = nDistortion;
+        CFractions frDistortionLiquid = frDistortion.HighPart(nSupplyNow, nullptr);
+        CFractions frDistortionReserve = frDistortion.LowPart(nSupplyNow, nullptr);
+        int64_t nDistortionLiquidNegative = 0;
+        int64_t nDistortionLiquidPositive = 0;
+        frDistortionLiquid.Negative(&nDistortionLiquidNegative);
+        frDistortionLiquid.Positive(&nDistortionLiquidPositive);
+        int64_t nDistortionReserveNegative = 0;
+        int64_t nDistortionReservePositive = 0;
+        frDistortionReserve.Negative(&nDistortionReserveNegative);
+        frDistortionReserve.Positive(&nDistortionReservePositive);
+        nDistortionLiquid = std::min(nDistortionLiquidPositive, -nDistortionLiquidNegative);
+        nDistortionReserve = std::min(nDistortionReservePositive, -nDistortionReserveNegative);
+        
+        CDataStream fout_exchange(SER_DISK, CLIENT_VERSION);
+        frExchange.Pack(fout_exchange);
+        result.push_back(Pair("exchange_value", frExchange.Total()));
+        result.push_back(Pair("exchange_liquid", frExchange.High(nSupplyNow)));
+        result.push_back(Pair("exchange_reserve", frExchange.Low(nSupplyNow)));
+        result.push_back(Pair("exchange_nchange", frExchange.Change(nSupplyNow, nSupplyNext)));
+        result.push_back(Pair("exchange_pegdata", EncodeBase64(fout_exchange.str())));
+        
+        CDataStream fout_distortion(SER_DISK, CLIENT_VERSION);
+        frDistortion.Pack(fout_distortion);
+        result.push_back(Pair("distortion_value", nDistortion));
+        result.push_back(Pair("distortion_liquid", nDistortionLiquid));
+        result.push_back(Pair("distortion_reserve", nDistortionReserve));
+        result.push_back(Pair("distortion_pegdata", EncodeBase64(fout_distortion.str())));
+    }
     
     return result;
 }
@@ -639,6 +732,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     }
     
     // read avaialable coin fractions to rate
+    // also consider only coins with are not less than 5% (20 inputs max)
     multimap<double,CCoinToUse> ratedOutputs;
     for(const pair<uint320,CCoinToUse>& item : mapAllOutputs) {
         uint320 fkey = item.first;
@@ -651,6 +745,10 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         
         int64_t nAvailableLiquid = 0;
         frOut = frOut.HighPart(nSupplyNext, &nAvailableLiquid);
+        
+        if (nAvailableLiquid < (nAmountWithFee / 20)) {
+            continue;
+        }
         
         double distortion = frOut.Distortion(frAmount);
         ratedOutputs.insert(pair<double,CCoinToUse>(distortion, item.second));
@@ -677,7 +775,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     
     if (nLeftAmount > 0) {
         throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Not enough liquid on 'exchange' to withdraw %d",
+                           strprintf("Not enough liquid or coins are too fragmented  on 'exchange' to withdraw %d",
                                      nAmountWithFee));
     }
     
@@ -744,8 +842,9 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     }
             
     // vouts to the payees
-    BOOST_FOREACH (const PAIRTYPE(CScript, int64_t)& s, vecSend)
+    for(const pair<CScript, int64_t>& s : vecSend) {
         rawTx.vout.push_back(CTxOut(s.second, s.first));
+    }
     
     CReserveKey reservekey(pwalletMain);
     reservekey.ReturnKey();
@@ -1032,5 +1131,631 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     
     return result;
 }
+
+Value preparereservewithdraw(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 9)
+        throw runtime_error(
+            "preparereservewithdraw "
+                "<balance_pegdata_base64> "
+                "<exchange_pegdata_base64> "
+                "<distortion_pegdata_base64> "
+                "<amount_with_fee> "
+                "<address> "
+                "<supplynow> "
+                "<supplynext> "
+                "<consumed_inputs> "
+                "<provided_outputs>\n"
+            );
+    
+    string balance_pegdata64 = params[0].get_str();
+    string exchange_pegdata64 = params[1].get_str();
+    string distortion_pegdata64 = params[2].get_str();
+    int64_t nAmountWithFee = params[3].get_int64();
+
+    CBitcoinAddress address(params[4].get_str());
+    if (!address.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid BitBay address");
+    
+    int nSupplyNow = params[5].get_int();
+    int nSupplyNext = params[6].get_int();
+    
+    CFractions frBalance(0, CFractions::VALUE);
+    if (!balance_pegdata64.empty()) {
+        string pegdata = DecodeBase64(balance_pegdata64);
+        CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                         SER_DISK, CLIENT_VERSION);
+        if (!frBalance.Unpack(finp)) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'balance' pegdata");
+        }
+    }
+
+    CFractions frExchange(0, CFractions::VALUE);
+    if (!exchange_pegdata64.empty()) {
+        string pegdata = DecodeBase64(exchange_pegdata64);
+        CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                         SER_DISK, CLIENT_VERSION);
+        if (!frExchange.Unpack(finp)) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'exchange' pegdata");
+        }
+    }
+
+    CFractions frDistortion(0, CFractions::VALUE);
+    if (!distortion_pegdata64.empty()) {
+        string pegdata = DecodeBase64(distortion_pegdata64);
+        CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                         SER_DISK, CLIENT_VERSION);
+        if (!frDistortion.Unpack(finp)) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'distortion' pegdata");
+        }
+    }
+    
+    int64_t nBalanceReserve = 0;
+    CFractions frBalanceReserve = frBalance.LowPart(nSupplyNext, &nBalanceReserve);
+    if (nAmountWithFee > nBalanceReserve) {
+        throw JSONRPCError(RPC_MISC_ERROR, 
+                           strprintf("Not enough reserve %d on 'balance' to withdraw %d",
+                                     nBalanceReserve,
+                                     nAmountWithFee));
+    }
+    CFractions frAmount = frBalanceReserve.RatioPart(nAmountWithFee, nBalanceReserve, 0);
+
+    // inputs, outputs
+    string sConsumedInputs = params[7].get_str();
+    string sProvidedOutputs = params[8].get_str();
+
+    set<uint320> setAllOutputs;
+    set<uint320> setConsumedInputs;
+    map<uint320,CCoinToUse> mapProvidedOutputs;
+    vector<string> vConsumedInputsArgs;
+    vector<string> vProvidedOutputsArgs;
+    boost::split(vConsumedInputsArgs, sConsumedInputs, boost::is_any_of(","));
+    boost::split(vProvidedOutputsArgs, sProvidedOutputs, boost::is_any_of(","));
+    for(string sConsumedInput : vConsumedInputsArgs) {
+        setConsumedInputs.insert(uint320(sConsumedInput));
+    }
+    for(string sProvidedOutput : vProvidedOutputsArgs) {
+        vector<unsigned char> outData(ParseHex(sProvidedOutput));
+        CDataStream ssData(outData, SER_NETWORK, PROTOCOL_VERSION);
+        CCoinToUse out;
+        try { ssData >> out; }
+        catch (std::exception &) { continue; }
+        auto fkey = uint320(out.txhash, out.i);
+        if (setConsumedInputs.count(fkey)) { continue; }
+        mapProvidedOutputs[fkey] = out;
+        setAllOutputs.insert(fkey);
+    }
+    
+    if (!pindexBest) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Blockchain is not in sync");
+    }
+    
+    assert(pwalletMain != NULL);
+   
+    CTxDB txdb("r");
+    CPegDB pegdb("r");
+    
+    // make list of 'rated' outputs, multimap with key 'distortion'
+    // they are rated to be less distorted towards coins to withdraw
+    
+    map<uint320,CCoinToUse> mapAllOutputs = mapProvidedOutputs;
+    set<uint320> setWalletOutputs;
+        
+    vector<COutput> vecCoins;
+    pwalletMain->AvailableCoins(vecCoins, false, true, NULL);
+    for(const COutput& coin : vecCoins)
+    {
+        auto txhash = coin.tx->GetHash();
+        auto fkey = uint320(txhash, coin.i);
+        setAllOutputs.insert(fkey);
+        setWalletOutputs.insert(fkey);
+        if (setConsumedInputs.count(fkey)) continue; // already used
+        CCoinToUse & out = mapAllOutputs[fkey];
+        out.i = coin.i;
+        out.txhash = txhash;
+        out.nValue = coin.tx->vout[coin.i].nValue;
+        out.scriptPubKey = coin.tx->vout[coin.i].scriptPubKey;
+    }
+    
+    // clean-up consumed, intersect with (wallet+provided)
+    set<uint320> setConsumedInputsNew;
+    std::set_intersection(setConsumedInputs.begin(), setConsumedInputs.end(),
+                          setAllOutputs.begin(), setAllOutputs.end(),
+                          std::inserter(setConsumedInputsNew,setConsumedInputsNew.begin()));
+    sConsumedInputs.clear();
+    for(const uint320& fkey : setConsumedInputsNew) {
+        if (!sConsumedInputs.empty()) sConsumedInputs += ",";
+        sConsumedInputs += fkey.GetHex();
+    }
+    
+    // clean-up provided, remove what is already in wallet
+    {
+        map<uint320,CCoinToUse> mapProvidedOutputsNew;
+        for(const pair<uint320,CCoinToUse> & item : mapProvidedOutputs) {
+            if (setWalletOutputs.count(item.first)) continue;
+            mapProvidedOutputsNew.insert(item);
+        }
+        mapProvidedOutputs = mapProvidedOutputsNew;
+    }
+    
+    // read avaialable coin fractions to rate
+    // also consider only coins with are not less than 10% (10 inputs max)
+    map<uint320,int64_t> mapAvailableReserve;
+    multimap<double,CCoinToUse> ratedOutputs;
+    for(const pair<uint320,CCoinToUse>& item : mapAllOutputs) {
+        uint320 fkey = item.first;
+        CFractions frOut(0, CFractions::VALUE);
+        if (!pegdb.ReadFractions(fkey, frOut, true)) {
+            if (!mempool.lookup(fkey.b1(), fkey.b2(), frOut)) {
+                continue;
+            }
+        }
+        
+        int64_t nAvailableReserve = 0;
+        frOut = frOut.LowPart(nSupplyNext, &nAvailableReserve);
+        
+        if (nAvailableReserve < (nAmountWithFee / 20)) {
+            continue;
+        }
+        
+        double distortion = frOut.Distortion(frAmount);
+        ratedOutputs.insert(pair<double,CCoinToUse>(distortion, item.second));
+        mapAvailableReserve[fkey] = nAvailableReserve;
+    }
+
+    // get available value for selected coins
+    set<CCoinToUse> setCoins;
+    int64_t nLeftAmount = nAmountWithFee;
+    auto it = ratedOutputs.begin();
+    for (; it != ratedOutputs.end(); ++it) {
+        CCoinToUse out = (*it).second;
+        auto txhash = out.txhash;
+        auto fkey = uint320(txhash, out.i);
+        
+        nLeftAmount -= mapAvailableReserve[fkey];
+        out.nAvailableValue = mapAvailableReserve[fkey];
+        setCoins.insert(out);
+        
+        if (nLeftAmount <= 0) {
+            break;
+        }
+    }
+    
+    if (nLeftAmount > 0) {
+        throw JSONRPCError(RPC_MISC_ERROR, 
+                           strprintf("Not enough reserve or coins are too fragmented on 'exchange' to withdraw %d",
+                                     nAmountWithFee));
+    }
+    
+    int64_t nFeeRet = 1000000 /*temp fee*/;
+    int64_t nAmount = nAmountWithFee - nFeeRet;
+    
+    vector<pair<CScript, int64_t> > vecSend;
+    CScript scriptPubKey;
+    scriptPubKey.SetDestination(address.Get());
+    vecSend.push_back(make_pair(scriptPubKey, nAmount));
+    
+    int64_t nValue = 0;
+    for(const pair<CScript, int64_t>& s : vecSend) {
+        if (nValue < 0)
+            return false;
+        nValue += s.second;
+    }
+    
+    size_t nNumInputs = 1;
+
+    CTransaction rawTx;
+    
+    nNumInputs = setCoins.size();
+    if (!nNumInputs) return false;
+    
+    // Inputs to be sorted by address
+    vector<CCoinToUse> vCoins;
+    for(const CCoinToUse& coin : setCoins) {
+        vCoins.push_back(coin);
+    }
+    sort(vCoins.begin(), vCoins.end(), sortByAddress);
+    
+    // Collect input addresses
+    // Prepare maps for input,available,take
+    set<CTxDestination> setInputAddresses;
+    vector<CTxDestination> vInputAddresses;
+    map<CTxDestination, int64_t> mapAvailableValuesAt;
+    map<CTxDestination, int64_t> mapInputValuesAt;
+    map<CTxDestination, int64_t> mapTakeValuesAt;
+    int64_t nValueToTakeFromChange = 0;
+    for(const CCoinToUse& coin : vCoins) {
+        CTxDestination address;
+        if(!ExtractDestination(coin.scriptPubKey, address))
+            continue;
+        setInputAddresses.insert(address); // sorted due to vCoins
+        mapAvailableValuesAt[address] = 0;
+        mapInputValuesAt[address] = 0;
+        mapTakeValuesAt[address] = 0;
+    }
+    // Get sorted list of input addresses
+    for(const CTxDestination& address : setInputAddresses) {
+        vInputAddresses.push_back(address);
+    }
+    sort(vInputAddresses.begin(), vInputAddresses.end(), sortByDestination);
+    // Input and available values can be filled in
+    for(const CCoinToUse& coin : vCoins) {
+        CTxDestination address;
+        if(!ExtractDestination(coin.scriptPubKey, address))
+            continue;
+        int64_t& nValueAvailableAt = mapAvailableValuesAt[address];
+        nValueAvailableAt += coin.nAvailableValue;
+        int64_t& nValueInputAt = mapInputValuesAt[address];
+        nValueInputAt += coin.nValue;
+    }
+    
+    // Notations for frozen **F**
+    {
+        // prepare indexes to freeze
+        size_t nCoins = vCoins.size();
+        size_t nPayees = vecSend.size();
+        string out_indexes;
+        if (nPayees == 1) { // trick to have triple to use sort
+            auto out_index = std::to_string(0+nCoins);
+            out_indexes = out_index+":"+out_index+":"+out_index;
+        }
+        else if (nPayees == 2) { // trick to have triple to use sort
+            auto out_index1 = std::to_string(0+nCoins);
+            auto out_index2 = std::to_string(1+nCoins);
+            out_indexes = out_index1+":"+out_index1+":"+out_index2+":"+out_index2;
+        }
+        else {
+            for(size_t i=0; i<nPayees; i++) {
+                if (!out_indexes.empty())
+                    out_indexes += ":";
+                out_indexes += std::to_string(i+nCoins);
+            }
+        }
+        // Fill vout with freezing instructions
+        for(size_t i=0; i<nCoins; i++) {
+            CScript scriptPubKey;
+            scriptPubKey.push_back(OP_RETURN);
+            unsigned char len_bytes = out_indexes.size();
+            scriptPubKey.push_back(len_bytes+5);
+            scriptPubKey.push_back('*');
+            scriptPubKey.push_back('*');
+            scriptPubKey.push_back('F');
+            scriptPubKey.push_back('*');
+            scriptPubKey.push_back('*');
+            for (size_t j=0; j< out_indexes.size(); j++) {
+                scriptPubKey.push_back(out_indexes[j]);
+            }
+            rawTx.vout.push_back(CTxOut(PEG_MAKETX_FREEZE_VALUE, scriptPubKey));
+        }
+        // Value for notary is first taken from reserves sorted by address
+        int64_t nValueLeft = nCoins*PEG_MAKETX_FREEZE_VALUE;
+        // take reserves in defined order
+        for(const CTxDestination& address : vInputAddresses) {
+            int64_t nValueAvailableAt = mapAvailableValuesAt[address];
+            int64_t& nValueTakeAt = mapTakeValuesAt[address];
+            int64_t nValueLeftAt = nValueAvailableAt-nValueTakeAt;
+            if (nValueAvailableAt ==0) continue;
+            int64_t nValueToTake = nValueLeft;
+            if (nValueToTake > nValueLeftAt)
+                nValueToTake = nValueLeftAt;
+            
+            nValueTakeAt += nValueToTake;
+            nValueLeft -= nValueToTake;
+            
+            if (nValueLeft == 0) break;
+        }
+        // if nValueLeft is left - need to be taken from change (liquidity)
+        nValueToTakeFromChange += nValueLeft;
+    }
+    
+    // vouts to the payees
+    for(const pair<CScript, int64_t>& s : vecSend) {
+        rawTx.vout.push_back(CTxOut(s.second, s.first));
+    }
+    
+    CReserveKey reservekey(pwalletMain);
+    reservekey.ReturnKey();
+    
+    // Available values - reserves per address
+    // vecSend - outputs to be frozen reserve parts
+    
+    // Prepare order of inputs
+    // For **F** the first is referenced (last input) then others are sorted
+    vector<CTxDestination> vAddressesForFrozen;
+    CTxDestination addressFrozenRef = vInputAddresses.back();
+    vAddressesForFrozen.push_back(addressFrozenRef);
+    for(const CTxDestination & address : vInputAddresses) {
+        if (address == addressFrozenRef) continue;
+        vAddressesForFrozen.push_back(address);
+    }
+    
+    // Follow outputs and compute taken values
+    for(const pair<CScript, int64_t>& s : vecSend) {
+        int64_t nValueLeft = s.second;
+        // take reserves in defined order
+        for(const CTxDestination& address : vAddressesForFrozen) {
+            int64_t nValueAvailableAt = mapAvailableValuesAt[address];
+            int64_t& nValueTakeAt = mapTakeValuesAt[address];
+            int64_t nValueLeftAt = nValueAvailableAt-nValueTakeAt;
+            if (nValueAvailableAt ==0) continue;
+            int64_t nValueToTake = nValueLeft;
+            if (nValueToTake > nValueLeftAt)
+                nValueToTake = nValueLeftAt;
+
+            nValueTakeAt += nValueToTake;
+            nValueLeft -= nValueToTake;
+            
+            if (nValueLeft == 0) break;
+        }
+        // if nValueLeft is left then is taken from change (liquidity)
+        nValueToTakeFromChange += nValueLeft;
+    }
+    
+    // Calculate change (minus fee and part taken from change)
+    int64_t nTakeFromChangeLeft = nValueToTakeFromChange + nFeeRet;
+    for (const CTxDestination& address : vInputAddresses) {
+        CScript scriptPubKey;
+        scriptPubKey.SetDestination(address);
+        int64_t nValueTake = mapTakeValuesAt[address];
+        int64_t nValueInput = mapInputValuesAt[address];
+        int64_t nValueChange = nValueInput - nValueTake;
+        if (nValueChange > nTakeFromChangeLeft) {
+            nValueChange -= nTakeFromChangeLeft;
+            nTakeFromChangeLeft = 0;
+        }
+        if (nValueChange < nTakeFromChangeLeft) {
+            nTakeFromChangeLeft -= nValueChange;
+            nValueChange = 0;
+        }
+        if (nValueChange == 0) continue;
+        rawTx.vout.push_back(CTxOut(nValueChange, scriptPubKey));
+    }
+    
+    // Fill vin
+    for(const CCoinToUse& coin : vCoins) {
+        rawTx.vin.push_back(CTxIn(coin.txhash,coin.i));
+    }
+    
+    // Calculate peg
+    MapPrevOut mapInputs;
+    MapPrevTx mapTxInputs;
+    MapFractions mapInputsFractions;
+    MapFractions mapOutputFractions;
+    CFractions feesFractions(0, CFractions::STD);
+    string sPegFailCause;
+    
+    size_t n_vin = rawTx.vin.size();
+        
+    for (unsigned int i = 0; i < n_vin; i++)
+    {
+        const COutPoint & prevout = rawTx.vin[i].prevout;
+        auto fkey = uint320(prevout.hash, prevout.n);
+        
+        if (mapAllOutputs.count(fkey)) {
+            const CCoinToUse& coin = mapAllOutputs[fkey];
+            CTxOut out(coin.nValue, coin.scriptPubKey);
+            mapInputs[fkey] = out;
+        }
+        else {
+            // Read txindex
+            CTxIndex& txindex = mapTxInputs[prevout.hash].first;
+            if (!txdb.ReadTxIndex(prevout.hash, txindex)) {
+                continue;
+            }
+            // Read txPrev
+            CTransaction& txPrev = mapTxInputs[prevout.hash].second;
+            if (!txPrev.ReadFromDisk(txindex.pos)) {
+                continue;
+            }  
+            
+            if (prevout.n >= txPrev.vout.size()) {
+                continue;
+            }
+            
+            mapInputs[fkey] = txPrev.vout[prevout.n];
+        }
+        
+        CFractions& fractions = mapInputsFractions[fkey];
+        fractions = CFractions(mapInputs[fkey].nValue, CFractions::VALUE);
+        pegdb.ReadFractions(fkey, fractions);
+    }
+    
+    // signing the transaction to get it ready for broadcast
+    int nIn = 0;
+    for(const CCoinToUse& coin : vCoins) {
+        if (!SignSignature(*pwalletMain, coin.scriptPubKey, rawTx, nIn++)) {
+            throw JSONRPCError(RPC_MISC_ERROR, 
+                               strprintf("Fail on signing input (%d)", nIn-1));
+        }
+    }
+    
+    bool peg_ok = CalculateStandardFractions(rawTx, 
+                                             nSupplyNext,
+                                             pindexBest->nTime,
+                                             mapInputs, 
+                                             mapInputsFractions,
+                                             mapOutputFractions,
+                                             feesFractions,
+                                             sPegFailCause);
+    if (!peg_ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, 
+                           strprintf("Fail on calculations of tx fractions (cause=%s)",
+                                     sPegFailCause.c_str()));
+    }
+        
+    string txhash = rawTx.GetHash().GetHex();
+    
+    // without payment is the first out after F notations (same num as size inputs)
+    auto fkey = uint320(rawTx.GetHash(), rawTx.vin.size());
+    if (!mapOutputFractions.count(fkey)) {
+        throw JSONRPCError(RPC_MISC_ERROR, "No withdraw fractions");
+    }
+    CFractions frProcessed = mapOutputFractions[fkey] + feesFractions;
+    CFractions frRequested = frAmount;
+
+    if (frRequested.Total() != nAmountWithFee) {
+        throw JSONRPCError(RPC_MISC_ERROR, 
+                           strprintf("Mismatch requested and amount_with_fee (%d - %d)",
+                                     frRequested.Total(), nAmountWithFee));
+    }
+    if (frProcessed.Total() != nAmountWithFee) {
+        throw JSONRPCError(RPC_MISC_ERROR, 
+                           strprintf("Mismatch processed and amount_with_fee (%d - %d)",
+                                     frProcessed.Total(), nAmountWithFee));
+    }
+    
+    // get list of consumed inputs
+    for (size_t i=0; i< rawTx.vin.size(); i++) {
+        const COutPoint & prevout = rawTx.vin[i].prevout;
+        auto fkey = uint320(prevout.hash, prevout.n);
+        if (mapProvidedOutputs.count(fkey)) mapProvidedOutputs.erase(fkey);
+        if (!sConsumedInputs.empty()) sConsumedInputs += ",";
+        sConsumedInputs += fkey.GetHex();
+    }
+    
+    // get list of provided outputs and save fractions
+    sProvidedOutputs.clear();
+    for(const pair<uint320,CCoinToUse> & item : mapProvidedOutputs) {
+        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+        ss << item.second;
+        if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
+        sProvidedOutputs += HexStr(ss.begin(), ss.end());
+    }
+    // get list of changes and add to current provided outputs
+    map<string, int64_t> mapTxChanges;
+    {
+        CPegDB pegdbrw;
+        for (size_t i=rawTx.vin.size()+1; i< rawTx.vout.size(); i++) { // skip notations and withdraw
+            // make map of change outputs
+            string txout = rawTx.GetHash().GetHex()+":"+itostr(i);
+            mapTxChanges[txout] = rawTx.vout[i].nValue;
+            // save these outputs in pegdb, so they can be used in next withdraws
+            auto fkey = uint320(rawTx.GetHash(), i);
+            pegdbrw.WriteFractions(fkey, mapOutputFractions[fkey]);
+            // serialize to sProvidedOutputs
+            CCoinToUse out;
+            out.i = i;
+            out.txhash = rawTx.GetHash();
+            out.nValue = rawTx.vout[i].nValue;
+            out.scriptPubKey = rawTx.vout[i].scriptPubKey;
+            CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+            ss << out;
+            if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
+            sProvidedOutputs += HexStr(ss.begin(), ss.end());
+        }
+    }
+    
+    frBalance -= frRequested;
+    frExchange -= frRequested;
+    frDistortion += (frRequested - frProcessed);
+    
+    // first to consume distortion by balance
+    // as computation were completed by nSupplyNext it may use fractions
+    // of current liquid - at current supply not to consume these fractions
+    int64_t nDistortionPositive = 0;
+    int64_t nDistortionNegative = 0;
+    CFractions frDistortionNow = frDistortion.LowPart(nSupplyNow, nullptr);
+    CFractions frDistortionPositive = frDistortionNow.Positive(&nDistortionPositive);
+    CFractions frDistortionNegative = frDistortionNow.Negative(&nDistortionNegative);
+    CFractions frDistortionNegativeConsume = frDistortionNegative & (-frBalance);
+    int64_t nDistortionNegativeConsume = frDistortionNegativeConsume.Total();
+    int64_t nDistortionPositiveConsume = frDistortionPositive.Total();
+    if ((-nDistortionNegativeConsume) > nDistortionPositiveConsume) {
+        CFractions frToPositive = -frDistortionNegativeConsume; 
+        frToPositive = frToPositive.RatioPart(nDistortionPositiveConsume,
+                                              (-nDistortionNegativeConsume),
+                                              0);
+        frDistortionNegativeConsume = -frToPositive;
+        nDistortionNegativeConsume = frDistortionNegativeConsume.Total();
+    }
+    nDistortionPositiveConsume = -nDistortionNegativeConsume;
+    CFractions frDistortionPositiveConsume = frDistortionPositive.RatioPart(nDistortionPositiveConsume, nDistortionPositive, 0);
+    CFractions frDistortionConsume = frDistortionNegativeConsume + frDistortionPositiveConsume;
+    
+    frBalance += frDistortionConsume;
+    frExchange += frDistortionConsume;
+    frDistortion -= frDistortionConsume;
+    
+    if (frDistortion.Positive(nullptr).Total() != -frDistortion.Negative(nullptr).Total()) {
+        throw JSONRPCError(RPC_MISC_ERROR, 
+                           strprintf("Mismatch distortion parts (%d - %d)",
+                                     frDistortion.Positive(nullptr).Total(), 
+                                     frDistortion.Negative(nullptr).Total()));
+    }
+    int64_t nDistortion = frDistortion.Positive(nullptr).Total();
+    int64_t nDistortionLiquid = nDistortion;
+    int64_t nDistortionReserve = nDistortion;
+    CFractions frDistortionLiquid = frDistortion.HighPart(nSupplyNow, nullptr);
+    CFractions frDistortionReserve = frDistortion.LowPart(nSupplyNow, nullptr);
+    int64_t nDistortionLiquidNegative = 0;
+    int64_t nDistortionLiquidPositive = 0;
+    frDistortionLiquid.Negative(&nDistortionLiquidNegative);
+    frDistortionLiquid.Positive(&nDistortionLiquidPositive);
+    int64_t nDistortionReserveNegative = 0;
+    int64_t nDistortionReservePositive = 0;
+    frDistortionReserve.Negative(&nDistortionReserveNegative);
+    frDistortionReserve.Positive(&nDistortionReservePositive);
+    nDistortionLiquid = std::min(nDistortionLiquidPositive, -nDistortionLiquidNegative);
+    nDistortionReserve = std::min(nDistortionReservePositive, -nDistortionReserveNegative);
+    
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << rawTx;
+    
+    string txstr = HexStr(ss.begin(), ss.end());
+    
+    Object result;
+    result.push_back(Pair("completed", true));
+    result.push_back(Pair("txhash", txhash));
+    result.push_back(Pair("rawtx", txstr));
+
+    result.push_back(Pair("consumed_inputs", sConsumedInputs));
+    result.push_back(Pair("provided_outputs", sProvidedOutputs));
+
+    result.push_back(Pair("created_on_supply", nSupplyNow));
+    result.push_back(Pair("broadcast_on_supply", nSupplyNext));
+    
+    CDataStream fout_balance(SER_DISK, CLIENT_VERSION);
+    frBalance.Pack(fout_balance);
+    result.push_back(Pair("balance_value", frBalance.Total()));
+    result.push_back(Pair("balance_liquid", frBalance.High(nSupplyNow)));
+    result.push_back(Pair("balance_reserve", frBalance.Low(nSupplyNow)));
+    result.push_back(Pair("balance_nchange", frBalance.Change(nSupplyNow, nSupplyNext)));
+    result.push_back(Pair("balance_pegdata", EncodeBase64(fout_balance.str())));
+
+    CDataStream fout_processed(SER_DISK, CLIENT_VERSION);
+    frProcessed.Pack(fout_processed);
+    result.push_back(Pair("processed_value", frProcessed.Total()));
+    result.push_back(Pair("processed_liquid", frProcessed.High(nSupplyNow)));
+    result.push_back(Pair("processed_reserve", frProcessed.Low(nSupplyNow)));
+    result.push_back(Pair("processed_nchange", frProcessed.Change(nSupplyNow, nSupplyNext)));
+    result.push_back(Pair("processed_pegdata", EncodeBase64(fout_processed.str())));
+    
+    CDataStream fout_exchange(SER_DISK, CLIENT_VERSION);
+    frExchange.Pack(fout_exchange);
+    result.push_back(Pair("exchange_value", frExchange.Total()));
+    result.push_back(Pair("exchange_liquid", frExchange.High(nSupplyNow)));
+    result.push_back(Pair("exchange_reserve", frExchange.Low(nSupplyNow)));
+    result.push_back(Pair("exchange_nchange", frExchange.Change(nSupplyNow, nSupplyNext)));
+    result.push_back(Pair("exchange_pegdata", EncodeBase64(fout_exchange.str())));
+    
+    CDataStream fout_distortion(SER_DISK, CLIENT_VERSION);
+    frDistortion.Pack(fout_distortion);
+    result.push_back(Pair("distortion_value", nDistortion));
+    result.push_back(Pair("distortion_liquid", nDistortionLiquid));
+    result.push_back(Pair("distortion_reserve", nDistortionReserve));
+    result.push_back(Pair("distortion_pegdata", EncodeBase64(fout_distortion.str())));
+    
+    Array changes;
+    for(const pair<string, int64_t> & item : mapTxChanges) {
+        Object obj;
+        obj.push_back(Pair("txout", item.first));
+        obj.push_back(Pair("amount", item.second));
+        changes.push_back(obj);
+    }
+    result.push_back(Pair("changes", changes));
+    
+    return result;
+}
+
 
 #endif

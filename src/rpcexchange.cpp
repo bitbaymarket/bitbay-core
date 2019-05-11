@@ -293,6 +293,80 @@ Value updatepegbalances(const Array& params, bool fHelp)
     return result;
 }
 
+Value movecoins(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 4)
+        throw runtime_error(
+            "moveliquid <amount> <src_pegdata_base64> <dst_pegdata_base64> <pegsupply>\n"
+            );
+    
+    int64_t move_amount = params[0].get_int64();
+    string src_pegdata64 = params[1].get_str();
+    string dst_pegdata64 = params[2].get_str();
+    int nSupply = params[3].get_int();
+    
+    CFractions frSrc(0, CFractions::VALUE);
+
+    string src_pegdata = DecodeBase64(src_pegdata64);
+    CDataStream src_finp(src_pegdata.data(), src_pegdata.data() + src_pegdata.size(),
+                     SER_DISK, CLIENT_VERSION);
+    if (!frSrc.Unpack(src_finp)) {
+         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'src' pegdata");
+    }
+    int64_t src_total = frSrc.Total();
+    if (src_total < move_amount) {
+        throw JSONRPCError(RPC_MISC_ERROR, 
+                           strprintf("Not enough amount %d on 'src' to move %d",
+                                     src_total,
+                                     move_amount));
+    }
+
+    CFractions frDst(0, CFractions::VALUE);
+
+    if (!dst_pegdata64.empty()) {
+        string dst_pegdata = DecodeBase64(dst_pegdata64);
+        CDataStream dst_finp(dst_pegdata.data(), dst_pegdata.data() + dst_pegdata.size(),
+                         SER_DISK, CLIENT_VERSION);
+        if (!frDst.Unpack(dst_finp)) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'dst' pegdata");
+        }
+    }
+    
+    frSrc = frSrc.Std();
+    CFractions frAmount = frSrc;
+    CFractions frMove = frAmount.RatioPart(move_amount, src_total, 0);
+    
+    frSrc -= frMove;
+    frDst += frMove;
+    
+    Object result;
+        
+    int64_t src_value = frSrc.Total();
+    int64_t dst_value = frDst.Total();
+    
+    CDataStream fout_dst(SER_DISK, CLIENT_VERSION);
+    frDst.Pack(fout_dst);
+    CDataStream fout_src(SER_DISK, CLIENT_VERSION);
+    frSrc.Pack(fout_src);
+
+    // bypassed nSupply is supposed to be current supply, we use current nSupplyNext
+    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
+    
+    result.push_back(Pair("supply", nSupply));
+    result.push_back(Pair("src_value", src_value));
+    result.push_back(Pair("src_liquid", frSrc.High(nSupply)));
+    result.push_back(Pair("src_reserve", frSrc.Low(nSupply)));
+    result.push_back(Pair("src_nchange", frSrc.Change(nSupply, nSupplyNext)));
+    result.push_back(Pair("src_pegdata", EncodeBase64(fout_src.str())));
+    result.push_back(Pair("dst_value", dst_value));
+    result.push_back(Pair("dst_liquid", frDst.High(nSupply)));
+    result.push_back(Pair("dst_reserve", frDst.Low(nSupply)));
+    result.push_back(Pair("dst_nchange", frDst.Change(nSupply, nSupplyNext)));
+    result.push_back(Pair("dst_pegdata", EncodeBase64(fout_dst.str())));
+    
+    return result;
+}
+
 Value moveliquid(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 4)
@@ -536,8 +610,9 @@ public:
     int64_t     nValue;
     int64_t     nAvailableValue;
     CScript     scriptPubKey;
+    int         nCycle;
 
-    CCoinToUse() : i(0),nValue(0),nAvailableValue(0) {}
+    CCoinToUse() : i(0),nValue(0),nAvailableValue(0),nCycle(0) {}
     
     friend bool operator<(const CCoinToUse &a, const CCoinToUse &b) { 
         if (a.txhash < b.txhash) return true;
@@ -545,6 +620,7 @@ public:
         if (a.txhash == b.txhash && a.i == b.i && a.nValue < b.nValue) return true;
         if (a.txhash == b.txhash && a.i == b.i && a.nValue == b.nValue && a.nAvailableValue < b.nAvailableValue) return true;
         if (a.txhash == b.txhash && a.i == b.i && a.nValue == b.nValue && a.nAvailableValue == b.nAvailableValue && a.scriptPubKey < b.scriptPubKey) return true;
+        if (a.txhash == b.txhash && a.i == b.i && a.nValue == b.nValue && a.nAvailableValue == b.nAvailableValue && a.scriptPubKey == b.scriptPubKey && a.nCycle < b.nCycle) return true;
         return false;
     }
     
@@ -554,6 +630,7 @@ public:
         READWRITE(i);
         READWRITE(nValue);
         READWRITE(scriptPubKey);
+        READWRITE(nCycle);
     )
 };
 
@@ -610,6 +687,9 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     
     int nSupplyNow = params[5].get_int();
     int nSupplyNext = params[6].get_int();
+    
+    int nPegInterval = Params().PegInterval(nBestHeight);
+    int nCycle = nBestHeight / nPegInterval;
     
     CFractions frBalance(0, CFractions::VALUE);
     if (!balance_pegdata64.empty()) {
@@ -671,6 +751,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         CCoinToUse out;
         try { ssData >> out; }
         catch (std::exception &) { continue; }
+        if (out.nCycle != nCycle) { continue; }
         auto fkey = uint320(out.txhash, out.i);
         if (setConsumedInputs.count(fkey)) { continue; }
         mapProvidedOutputs[fkey] = out;
@@ -708,6 +789,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         out.txhash = txhash;
         out.nValue = coin.tx->vout[coin.i].nValue;
         out.scriptPubKey = coin.tx->vout[coin.i].scriptPubKey;
+        out.nCycle = nCycle;
     }
     
     // clean-up consumed, intersect with (wallet+provided)
@@ -1013,6 +1095,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
             out.txhash = rawTx.GetHash();
             out.nValue = rawTx.vout[i].nValue;
             out.scriptPubKey = rawTx.vout[i].scriptPubKey;
+            out.nCycle = nCycle;
             CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
             ss << out;
             if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
@@ -1160,6 +1243,9 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     int nSupplyNow = params[5].get_int();
     int nSupplyNext = params[6].get_int();
     
+    int nPegInterval = Params().PegInterval(nBestHeight);
+    int nCycle = nBestHeight / nPegInterval;
+    
     CFractions frBalance(0, CFractions::VALUE);
     if (!balance_pegdata64.empty()) {
         string pegdata = DecodeBase64(balance_pegdata64);
@@ -1220,6 +1306,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         CCoinToUse out;
         try { ssData >> out; }
         catch (std::exception &) { continue; }
+        if (out.nCycle != nCycle) { continue; }
         auto fkey = uint320(out.txhash, out.i);
         if (setConsumedInputs.count(fkey)) { continue; }
         mapProvidedOutputs[fkey] = out;
@@ -1255,6 +1342,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         out.txhash = txhash;
         out.nValue = coin.tx->vout[coin.i].nValue;
         out.scriptPubKey = coin.tx->vout[coin.i].scriptPubKey;
+        out.nCycle = nCycle;
     }
     
     // clean-up consumed, intersect with (wallet+provided)
@@ -1638,6 +1726,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
             out.txhash = rawTx.GetHash();
             out.nValue = rawTx.vout[i].nValue;
             out.scriptPubKey = rawTx.vout[i].scriptPubKey;
+            out.nCycle = nCycle;
             CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
             ss << out;
             if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";

@@ -5,6 +5,7 @@
 #include "txdetailswidget.h"
 #include "ui_txdetails.h"
 #include "ui_fractionsdialog.h"
+#include "ui_pegvotesdialog.h"
 
 #include "main.h"
 #include "base58.h"
@@ -29,6 +30,9 @@
 
 #include <string>
 #include <vector>
+
+#include <boost/multiprecision/cpp_int.hpp>
+using namespace boost;
 
 #include "json/json_spirit_utils.h"
 #include "json/json_spirit_writer_template.h"
@@ -65,6 +69,8 @@ TxDetailsWidget::TxDetailsWidget(QWidget *parent) :
             this, SLOT(openFractions(QTreeWidgetItem*,int)));
     connect(ui->txOutputs, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
             this, SLOT(openFractions(QTreeWidgetItem*,int)));
+    connect(ui->txOutputs, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
+            this, SLOT(openPegVotes(QTreeWidgetItem*,int)));
     connect(ui->txInputs, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
             this, SLOT(openTx(QTreeWidgetItem*,int)));
     connect(ui->txOutputs, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
@@ -671,8 +677,7 @@ void TxDetailsWidget::openTx(CTransaction & tx,
             if (is_notary) {
                 row << "Notary/Burn"; // 1, spend
             }
-            else if (is_voting) {
-                QString votes;
+            else if (is_voting && !pruned) {
                 CFractions inpStake(0, CFractions::STD);
                 if (tx.vin.size() > 0) {
                     const COutPoint & prevout = tx.vin.front().prevout;
@@ -702,6 +707,20 @@ void TxDetailsWidget::openTx(CTransaction & tx,
             vhash.setValue(next_hash);
             output->setData(COL_OUT_TX, BlockchainModel::HashRole, vhash);
             output->setData(COL_OUT_TX, BlockchainModel::OutNumRole, next_outnum);
+        }
+        if (is_voting && !pruned) {
+            QVariant vFractions;
+            CFractions inpStake(0, CFractions::STD);
+            if (tx.vin.size() > 0) {
+                const COutPoint & prevout = tx.vin.front().prevout;
+                auto fkey = uint320(prevout.hash, prevout.n);
+                if (mapInputsFractions.find(fkey) != mapInputsFractions.end()) {
+                    inpStake = mapInputsFractions[fkey];
+                }
+            }
+            vFractions.setValue(inpStake);
+            output->setData(COL_OUT_TX, BlockchainModel::FractionsRole, vFractions);
+            output->setData(COL_OUT_TX, BlockchainModel::PegSupplyRole, nSupply);
         }
         auto fkey = uint320(hash, i);
         if (mapFractionsUnused.find(fkey) != mapFractionsUnused.end()) {
@@ -1120,9 +1139,285 @@ bool TxDetailsWidgetTxEvents::eventFilter(QObject *obj, QEvent *event)
     return QObject::eventFilter(obj, event);
 }
 
+void TxDetailsWidget::openPegVotes(QTreeWidgetItem * item, int column)
+{
+    if (column != COL_OUT_TX) // only "spent" column
+        return;
+    
+    QString dest = item->text(COL_OUT_ADDR);
+    if (dest != "peginflate" &&
+        dest != "pegdeflate" &&
+        dest != "pegnochange")
+        return;
+
+    int nPegSupplyIndex = item->data(COL_OUT_TX, BlockchainModel::PegSupplyRole).toInt();
+    QVariant vfractions = item->data(COL_OUT_TX, BlockchainModel::FractionsRole);
+    if (!vfractions.isValid()) 
+        return;
+    
+    CFractions fractions = vfractions.value<CFractions>();
+    if (fractions.Total() ==0) 
+        return;
+    
+    auto dlg = new QDialog(this);
+    Ui::PegVotesDialog ui;
+    ui.setupUi(dlg);
+
+    QFont font = GUIUtil::bitcoinAddressFont();
+    qreal pt = font.pointSizeF()*0.8;
+    if (pt != .0) {
+        font.setPointSizeF(pt);
+    } else {
+        int px = font.pixelSize()*8/10;
+        font.setPixelSize(px);
+    }
+
+    QString hstyle = R"(
+        QHeaderView::section {
+            background-color: rgb(204,203,227);
+            color: rgb(64,64,64);
+            padding-left: 4px;
+            border: 0px solid #6c6c6c;
+            border-right: 1px solid #6c6c6c;
+            border-bottom: 1px solid #6c6c6c;
+            min-height: 16px;
+            text-align: left;
+        }
+    )";
+    ui.votesinfo->setStyleSheet(hstyle);
+    ui.votesinfo->setFont(font);
+    ui.votesinfo->header()->setFont(font);
+    
+    ui.votesinfo->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    ui.votesinfo->header()->setSectionResizeMode(1, QHeaderView::Stretch);
+    ui.votesinfo->header()->setSectionResizeMode(2, QHeaderView::Stretch);
+    
+    {
+        QStringList cells;
+        cells << "Peg Index";
+        cells << "Peg";
+        cells << QString::number(nPegSupplyIndex);
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.votesinfo->addTopLevelItem(twi);
+    }
+    
+    {
+        QStringList cells;
+        cells << "Peg Maximum";
+        cells << "PegMax";
+        cells << QString::number(nPegMaxSupplyIndex);
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.votesinfo->addTopLevelItem(twi);
+    }
+    
+    int64_t nLiquid = fractions.High(nPegSupplyIndex);
+    int64_t nReserve = fractions.Low(nPegSupplyIndex);
+    
+    {
+        QStringList cells;
+        cells << "";
+        cells << "";
+        cells << "";
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.votesinfo->addTopLevelItem(twi);
+    }
+    
+    int64_t nLiquidWeight = nLiquid;
+    if (nLiquidWeight > INT_LEAST64_MAX/(nPegSupplyIndex+2)) {
+        // check for rare extreme case when user stake more than about 100M coins
+        // in this case multiplication is very close int64_t overflow (int64 max is ~92 GCoins)
+        multiprecision::uint128_t nLiquidWeight128(nLiquidWeight);
+        multiprecision::uint128_t nPegSupplyIndex128(nPegSupplyIndex);
+        multiprecision::uint128_t nPegMaxSupplyIndex128(nPegMaxSupplyIndex);
+        multiprecision::uint128_t f128 = (nLiquidWeight128*nPegSupplyIndex128)/nPegMaxSupplyIndex128;
+        nLiquidWeight -= f128.convert_to<int64_t>();
+    }
+    else // usual case, fast calculations
+        nLiquidWeight -= nLiquidWeight * nPegSupplyIndex / nPegMaxSupplyIndex;
+    
+    int64_t nReserveWeight = nReserve;
+        
+    int nAlignOutHigh = 0;
+    {
+        QString text1 = displayValue(nLiquid);
+        QString text2 = displayValue(nReserve);
+        QString text3 = displayValue(nLiquidWeight);
+        QString text4 = displayValue(nReserveWeight);
+        if (text1.length() > nAlignOutHigh) nAlignOutHigh = text1.length();
+        if (text2.length() > nAlignOutHigh) nAlignOutHigh = text2.length();
+        if (text3.length() > nAlignOutHigh) nAlignOutHigh = text3.length();
+        if (text4.length() > nAlignOutHigh) nAlignOutHigh = text4.length();
+    }
+    
+    {
+        QStringList cells;
+        cells << "Liquid";
+        cells << "Liquid";
+        cells << displayValueR(nLiquid, nAlignOutHigh);
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.votesinfo->addTopLevelItem(twi);
+    }
+
+    {
+        QStringList cells;
+        cells << "Reserve";
+        cells << "Reserve";
+        cells << displayValueR(nReserve, nAlignOutHigh);
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.votesinfo->addTopLevelItem(twi);
+    }
+    
+    {
+        QStringList cells;
+        cells << "";
+        cells << "";
+        cells << "";
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.votesinfo->addTopLevelItem(twi);
+    }
+    
+    {
+        QStringList cells;
+        cells << "Liquid Weight";
+        cells << "Liquid X (1 - Peg / PegMax)";
+        cells << displayValueR(nLiquidWeight, nAlignOutHigh);
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.votesinfo->addTopLevelItem(twi);
+    }
+
+    {
+        QStringList cells;
+        cells << "Reserve Weight";
+        cells << "Reserve";
+        cells << displayValueR(nReserveWeight, nAlignOutHigh);
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.votesinfo->addTopLevelItem(twi);
+    }
+    
+    {
+        QStringList cells;
+        cells << "";
+        cells << "";
+        cells << "";
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.votesinfo->addTopLevelItem(twi);
+    }
+    
+    int nVotes = 1;
+    int nVotesTotal = 1;
+    int nWeightMultiplier = nPegSupplyIndex/120+1;
+    
+    bool has_x2 = false;
+    bool has_x3 = false;
+    bool has_x4 = false;
+    
+    if (nLiquidWeight > (nReserveWeight*4)) {
+        nVotesTotal = 4*nWeightMultiplier;
+        nVotes = nWeightMultiplier;
+        has_x4 = true;
+    }
+    else if (nLiquidWeight > (nReserveWeight*3)) {
+        nVotesTotal = 3*nWeightMultiplier;
+        nVotes = nWeightMultiplier;
+        has_x3 = true;
+    }
+    else if (nLiquidWeight > (nReserveWeight*2)) {
+        nVotesTotal = 2*nWeightMultiplier;
+        nVotes = nWeightMultiplier;
+        has_x2 = true;
+    }
+    
+    {
+        QStringList cells;
+        cells << "Votes Multipler";
+        cells << "1 + Peg/120";
+        if (has_x2 || has_x3 || has_x4) {
+            cells << QString::number(nWeightMultiplier);
+        } else {
+            cells << "off";
+        }
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.votesinfo->addTopLevelItem(twi);
+        
+        if (!has_x2 && !has_x3 && !has_x4) {
+            auto fs = twi->flags();
+            fs = fs & ~Qt::ItemIsEnabled;
+            twi->setFlags(fs);
+        }
+    }
+    
+    {
+        QStringList cells;
+        cells << "Votes 1x";
+        cells << "";
+        cells << "+"+QString::number(nVotes)+" Votes";
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.votesinfo->addTopLevelItem(twi);
+    }
+    
+    {
+        QStringList cells;
+        cells << "Votes 2x";
+        cells << "Liquid Weight > 2 X Reserve Weight";
+        if (has_x2 || has_x3 || has_x4) {
+            cells << "+"+QString::number(nVotes)+" Votes";
+        }
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.votesinfo->addTopLevelItem(twi);
+    }
+
+    {
+        QStringList cells;
+        cells << "Votes 3x";
+        cells << "Liquid Weight > 3 X Reserve Weight";
+        if (has_x3 || has_x4) {
+            cells << "+"+QString::number(nVotes)+" Votes";
+        }
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.votesinfo->addTopLevelItem(twi);
+    }
+
+    {
+        QStringList cells;
+        cells << "Votes 4x";
+        cells << "Liquid Weight > 4 X Reserve Weight";
+        if (has_x4) {
+            cells << "+"+QString::number(nVotes)+" Votes";
+        }
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.votesinfo->addTopLevelItem(twi);
+    }
+    
+    {
+        QStringList cells;
+        cells << "";
+        cells << "";
+        cells << "";
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.votesinfo->addTopLevelItem(twi);
+    }
+    
+    {
+        QStringList cells;
+        cells << "Votes Total";
+        cells << "";
+        cells << "+"+QString::number(nVotesTotal)+" Votes";
+        QTreeWidgetItem * twi = new QTreeWidgetItem(cells);
+        ui.votesinfo->addTopLevelItem(twi);
+        
+        auto f = twi->font(0);
+        f.setBold(true);
+        twi->setFont(0, f);
+        twi->setFont(1, f);
+        twi->setFont(2, f);
+    }
+    
+    dlg->show();
+}
+
 void TxDetailsWidget::openFractions(QTreeWidgetItem * item, int column)
 {
-    if (column != 4) // only fractions column
+    if (column != COL_OUT_FRACTIONS) // only fractions column
         return;
 
     auto dlg = new QDialog(this);

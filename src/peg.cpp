@@ -270,31 +270,31 @@ int CalculatePegVotes(const CFractions & fractions, int nPegSupplyIndex)
     int nVotes=1;
     
     int64_t nReserveWeight=0;
-    int64_t nLiquidityWeight=0;
+    int64_t nLiquidWeight=0;
 
     fractions.LowPart(nPegSupplyIndex, &nReserveWeight);
-    fractions.HighPart(nPegSupplyIndex, &nLiquidityWeight);
+    fractions.HighPart(nPegSupplyIndex, &nLiquidWeight);
 
-    if (nLiquidityWeight > INT_LEAST64_MAX/(nPegSupplyIndex+2)) {
+    if (nLiquidWeight > INT_LEAST64_MAX/(nPegSupplyIndex+2)) {
         // check for rare extreme case when user stake more than about 100M coins
         // in this case multiplication is very close int64_t overflow (int64 max is ~92 GCoins)
-        multiprecision::uint128_t nLiquidityWeight128(nLiquidityWeight);
+        multiprecision::uint128_t nLiquidWeight128(nLiquidWeight);
         multiprecision::uint128_t nPegSupplyIndex128(nPegSupplyIndex);
         multiprecision::uint128_t nPegMaxSupplyIndex128(nPegMaxSupplyIndex);
-        multiprecision::uint128_t f128 = (nLiquidityWeight128*nPegSupplyIndex128)/nPegMaxSupplyIndex128;
-        nLiquidityWeight -= f128.convert_to<int64_t>();
+        multiprecision::uint128_t f128 = (nLiquidWeight128*nPegSupplyIndex128)/nPegMaxSupplyIndex128;
+        nLiquidWeight -= f128.convert_to<int64_t>();
     }
     else // usual case, fast calculations
-        nLiquidityWeight -= nLiquidityWeight * nPegSupplyIndex / nPegMaxSupplyIndex;
+        nLiquidWeight -= nLiquidWeight * nPegSupplyIndex / nPegMaxSupplyIndex;
 
     int nWeightMultiplier = nPegSupplyIndex/120+1;
-    if (nLiquidityWeight > (nReserveWeight*4)) {
+    if (nLiquidWeight > (nReserveWeight*4)) {
         nVotes = 4*nWeightMultiplier;
     }
-    else if (nLiquidityWeight > (nReserveWeight*3)) {
+    else if (nLiquidWeight > (nReserveWeight*3)) {
         nVotes = 3*nWeightMultiplier;
     }
-    else if (nLiquidityWeight > (nReserveWeight*2)) {
+    else if (nLiquidWeight > (nReserveWeight*2)) {
         nVotes = 2*nWeightMultiplier;
     }
     

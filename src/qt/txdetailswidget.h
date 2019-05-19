@@ -56,6 +56,7 @@ public slots:
                 unsigned int nTime);
 
 private slots:
+    void openPegVotes(QTreeWidgetItem*,int);
     void openFractions(QTreeWidgetItem*,int);
     void openFractionsMenu(const QPoint &);
     void openTxMenu(const QPoint &);

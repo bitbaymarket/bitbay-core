@@ -152,8 +152,10 @@ void TxDetailsWidget::openTx(QTreeWidgetItem * item, int column)
 
 static QString scriptToAddress(const CScript& scriptPubKey,
                                bool& is_notary,
+                               bool& is_voting,
                                bool show_alias =true) {
     is_notary = false;
+    is_voting = false;
     int nRequired;
     txnouttype type;
     vector<CTxDestination> addresses;
@@ -165,12 +167,15 @@ static QString scriptToAddress(const CScript& scriptPubKey,
             if (show_alias) {
                 if (str_addr == Params().PegInflateAddr()) {
                     str_addr = "peginflate";
+                    is_voting = true;
                 }
                 else if (str_addr == Params().PegDeflateAddr()) {
                     str_addr = "pegdeflate";
+                    is_voting = true;
                 }
                 else if (str_addr == Params().PegNochangeAddr()) {
                     str_addr = "pegnochange";
+                    is_voting = true;
                 }
             }
             if (!str_addr_all.empty())
@@ -483,7 +488,8 @@ void TxDetailsWidget::openTx(CTransaction & tx,
             CTransaction& txPrev = mapInputs[prevout.hash].second;
             if (prevout.n < txPrev.vout.size()) {
                 bool is_notary = false;
-                auto addr = scriptToAddress(txPrev.vout[prevout.n].scriptPubKey, is_notary);
+                bool is_voting = false;
+                auto addr = scriptToAddress(txPrev.vout[prevout.n].scriptPubKey, is_notary, is_voting);
                 if (addr.isEmpty())
                     row << "N/A"; // address, 2
                 else {
@@ -658,13 +664,28 @@ void TxDetailsWidget::openTx(CTransaction & tx,
         }
 
         bool is_notary = false;
-        auto addr = scriptToAddress(tx.vout[i].scriptPubKey, is_notary);
+        bool is_voting = false;
+        auto addr = scriptToAddress(tx.vout[i].scriptPubKey, is_notary, is_voting);
 
         if (!hasSpend) {
             if (is_notary) {
                 row << "Notary/Burn"; // 1, spend
             }
-            else row << ""; // 1, spend
+            else if (is_voting) {
+                QString votes;
+                CFractions inpStake(0, CFractions::STD);
+                if (tx.vin.size() > 0) {
+                    const COutPoint & prevout = tx.vin.front().prevout;
+                    auto fkey = uint320(prevout.hash, prevout.n);
+                    if (mapInputsFractions.find(fkey) != mapInputsFractions.end()) {
+                        inpStake = mapInputsFractions[fkey];
+                    }
+                }
+                int nVotes = CalculatePegVotes(inpStake, nSupply);
+                row << QString("+%1 Votes").arg(nVotes);
+            }
+            else
+                row << ""; // 1, spend
         }
 
         if (addr.isEmpty())

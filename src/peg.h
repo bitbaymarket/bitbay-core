@@ -145,6 +145,8 @@ bool CalculateBlockPegIndex(CBlockIndex* pindex);
 bool CalculateBlockPegVotes(const CBlock & cblock,
                             CBlockIndex* pindex,
                             CPegDB& pegdb);
+int CalculatePegVotes(const CFractions & fractions, 
+                      int nPegSupplyIndex);
 
 bool IsPegWhiteListed(const CTransaction & tx, MapPrevTx & inputs);
 bool IsPegWhiteListed(const CTransaction & tx, MapPrevOut & inputs);

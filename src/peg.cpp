@@ -265,6 +265,42 @@ int CBlockIndex::ComputeNextPegSupplyIndex(int nPegBase,
     return nNextPegSupplyIndex;
 }
 
+int CalculatePegVotes(const CFractions & fractions, int nPegSupplyIndex)
+{
+    int nVotes=1;
+    
+    int64_t nReserveWeight=0;
+    int64_t nLiquidityWeight=0;
+
+    fractions.LowPart(nPegSupplyIndex, &nReserveWeight);
+    fractions.HighPart(nPegSupplyIndex, &nLiquidityWeight);
+
+    if (nLiquidityWeight > INT_LEAST64_MAX/(nPegSupplyIndex+2)) {
+        // check for rare extreme case when user stake more than about 100M coins
+        // in this case multiplication is very close int64_t overflow (int64 max is ~92 GCoins)
+        multiprecision::uint128_t nLiquidityWeight128(nLiquidityWeight);
+        multiprecision::uint128_t nPegSupplyIndex128(nPegSupplyIndex);
+        multiprecision::uint128_t nPegMaxSupplyIndex128(nPegMaxSupplyIndex);
+        multiprecision::uint128_t f128 = (nLiquidityWeight128*nPegSupplyIndex128)/nPegMaxSupplyIndex128;
+        nLiquidityWeight -= f128.convert_to<int64_t>();
+    }
+    else // usual case, fast calculations
+        nLiquidityWeight -= nLiquidityWeight * nPegSupplyIndex / nPegMaxSupplyIndex;
+
+    int nWeightMultiplier = nPegSupplyIndex/120+1;
+    if (nLiquidityWeight > (nReserveWeight*4)) {
+        nVotes = 4*nWeightMultiplier;
+    }
+    else if (nLiquidityWeight > (nReserveWeight*3)) {
+        nVotes = 3*nWeightMultiplier;
+    }
+    else if (nLiquidityWeight > (nReserveWeight*2)) {
+        nVotes = 2*nWeightMultiplier;
+    }
+    
+    return nVotes;
+}
+
 bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& pegdb)
 {
     int nPegInterval = Params().PegInterval(pindex->nHeight);
@@ -287,7 +323,7 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& 
         pindex->nPegVotesNochange = pindex->pprev->nPegVotesNochange;
     }
 
-    int nVoteWeight=1;
+    int nVotes=1;
 
     const CTransaction & tx = cblock.vtx[1];
 
@@ -301,34 +337,7 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& 
             return false;
         }
 
-        int64_t nReserveWeight=0;
-        int64_t nLiquidityWeight=0;
-
-        fractions.LowPart(pindex->nPegSupplyIndex, &nReserveWeight);
-        fractions.HighPart(pindex->nPegSupplyIndex, &nLiquidityWeight);
-
-        if (nLiquidityWeight > INT_LEAST64_MAX/(pindex->nPegSupplyIndex+2)) {
-            // check for rare extreme case when user stake more than about 100M coins
-            // in this case multiplication is very close int64_t overflow (int64 max is ~92 GCoins)
-            multiprecision::uint128_t nLiquidityWeight128(nLiquidityWeight);
-            multiprecision::uint128_t nPegSupplyIndex128(pindex->nPegSupplyIndex);
-            multiprecision::uint128_t nPegMaxSupplyIndex128(nPegMaxSupplyIndex);
-            multiprecision::uint128_t f128 = (nLiquidityWeight128*nPegSupplyIndex128)/nPegMaxSupplyIndex128;
-            nLiquidityWeight -= f128.convert_to<int64_t>();
-        }
-        else // usual case, fast calculations
-            nLiquidityWeight -= nLiquidityWeight * pindex->nPegSupplyIndex / nPegMaxSupplyIndex;
-
-        int nWeightMultiplier = pindex->nPegSupplyIndex/120+1;
-        if (nLiquidityWeight > (nReserveWeight*4)) {
-            nVoteWeight = 4*nWeightMultiplier;
-        }
-        else if (nLiquidityWeight > (nReserveWeight*3)) {
-            nVoteWeight = 3*nWeightMultiplier;
-        }
-        else if (nLiquidityWeight > (nReserveWeight*2)) {
-            nVoteWeight = 2*nWeightMultiplier;
-        }
+        nVotes = CalculatePegVotes(fractions, pindex->nPegSupplyIndex);
         break;
     }
 
@@ -347,17 +356,17 @@ bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& 
         for(const CTxDestination& addr : addresses) {
             std::string str_addr = CBitcoinAddress(addr).ToString();
             if (str_addr == Params().PegInflateAddr()) {
-                pindex->nPegVotesInflate += nVoteWeight;
+                pindex->nPegVotesInflate += nVotes;
                 voted = true;
                 break;
             }
             else if (str_addr == Params().PegDeflateAddr()) {
-                pindex->nPegVotesDeflate += nVoteWeight;
+                pindex->nPegVotesDeflate += nVotes;
                 voted = true;
                 break;
             }
             else if (str_addr == Params().PegNochangeAddr()) {
-                pindex->nPegVotesNochange += nVoteWeight;
+                pindex->nPegVotesNochange += nVotes;
                 voted = true;
                 break;
             }

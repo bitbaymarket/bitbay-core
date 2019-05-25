@@ -1,13 +1,16 @@
 TEMPLATE = app
 TARGET = bitbay-wallet-qt
-VERSION = 2.1.0
+VERSION = 3.0.0
+
+count(USE_TESTNET, 0) {
+	DEFINES += USE_TESTNET
+}
 
 # mac builds
 include(bitbay-mac.pri)
 
 INCLUDEPATH += src src/json src/qt $$PWD
 QT += network
-DEFINES += ENABLE_WALLET
 DEFINES += ENABLE_PEG_DEMO
 DEFINES += BOOST_THREAD_USE_LIB
 DEFINES += BOOST_SPIRIT_THREADSAFE
@@ -15,6 +18,7 @@ DEFINES += BOOST_NO_CXX11_SCOPED_ENUMS
 CONFIG += no_include_pwd
 CONFIG += thread
 CONFIG += c++11
+CONFIG += wallet
 
 QT += widgets
 DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0
@@ -33,20 +37,12 @@ OBJECTS_DIR = build
 MOC_DIR = build
 UI_DIR = build
 
-# use: qmake "RELEASE=1"
-contains(RELEASE, 1) {
-    !windows:!macx {
-        # Linux: static link
-        LIBS += -Wl,-Bstatic
-    }
-}
-
 !win32 {
-# for extra security against potential buffer overflows: enable GCCs Stack Smashing Protection
-QMAKE_CXXFLAGS *= -fstack-protector-all --param ssp-buffer-size=1
-QMAKE_LFLAGS *= -fstack-protector-all --param ssp-buffer-size=1
-# We need to exclude this for Windows cross compile with MinGW 4.2.x, as it will result in a non-working executable!
-# This can be enabled for Windows, when we switch to MinGW >= 4.4.x.
+	# for extra security against potential buffer overflows: enable GCCs Stack Smashing Protection
+	QMAKE_CXXFLAGS *= -fstack-protector-all --param ssp-buffer-size=1
+	QMAKE_LFLAGS *= -fstack-protector-all --param ssp-buffer-size=1
+	# We need to exclude this for Windows cross compile with MinGW 4.2.x, as it will result in a non-working executable!
+	# This can be enabled for Windows, when we switch to MinGW >= 4.4.x.
 }
 # for extra security on Windows: enable ASLR and DEP via GCC linker flags
 #win32:QMAKE_LFLAGS *= -Wl,--dynamicbase -Wl,--nxcompat
@@ -183,29 +179,8 @@ isEmpty(BOOST_LIB_SUFFIX) {
 }
 
 isEmpty(BOOST_THREAD_LIB_SUFFIX) {
-    #win32:BOOST_THREAD_LIB_SUFFIX = _win32$$BOOST_LIB_SUFFIX
     win32:BOOST_THREAD_LIB_SUFFIX = $$BOOST_LIB_SUFFIX
     else:BOOST_THREAD_LIB_SUFFIX = $$BOOST_LIB_SUFFIX
-}
-
-isEmpty(BDB_LIB_PATH) {
-    macx:BDB_LIB_PATH = $$PWD/db/build_unix/inst/lib
-}
-
-isEmpty(BDB_LIB_SUFFIX) {
-    macx:BDB_LIB_SUFFIX = -4.8
-}
-
-isEmpty(BDB_INCLUDE_PATH) {
-    macx:BDB_INCLUDE_PATH = $$PWD/db/build_unix/inst/include
-}
-
-isEmpty(BOOST_LIB_PATH) {
-    macx:BOOST_LIB_PATH = /usr/local/opt/boost/lib
-}
-
-isEmpty(BOOST_INCLUDE_PATH) {
-    macx:BOOST_INCLUDE_PATH = /usr/local/opt/boost/include
 }
 
 windows:DEFINES += WIN32
@@ -222,12 +197,7 @@ windows:!contains(MINGW_THREAD_BUGFIX, 0) {
     QMAKE_LIBS_QT_ENTRY = -lmingwthrd $$QMAKE_LIBS_QT_ENTRY
 }
 
-macx:LIBS += -framework Foundation -framework ApplicationServices -framework AppKit
-macx:DEFINES += MAC_OSX MSG_NOSIGNAL=0
 macx:TARGET = "BitBay-Wallet-Qt"
-#macx:QMAKE_CFLAGS_THREAD += -pthread
-#macx:QMAKE_LFLAGS_THREAD += -pthread
-#macx:QMAKE_CXXFLAGS_THREAD += -pthread
 macx:QMAKE_INFO_PLIST = share/qt/Info.plist
 
 # Set libraries and includes at end, to use platform-defined defaults if not overridden
@@ -239,18 +209,6 @@ windows:LIBS += -lws2_32 -lshlwapi -lmswsock -lole32 -loleaut32 -luuid -lgdi32
 LIBS += -lboost_system$$BOOST_LIB_SUFFIX -lboost_filesystem$$BOOST_LIB_SUFFIX -lboost_program_options$$BOOST_LIB_SUFFIX -lboost_thread$$BOOST_THREAD_LIB_SUFFIX
 windows:LIBS += -lboost_chrono$$BOOST_LIB_SUFFIX
 #message($$LIBS)
-
-contains(RELEASE, 1) {
-    !windows:!macx {
-        # Linux: turn dynamic linking back on for c/c++ runtime libraries
-        LIBS += -Wl,-Bdynamic
-    }
-}
-
-!windows:!macx {
-    DEFINES += LINUX
-    LIBS += -lrt -ldl
-}
 
 system($$QMAKE_LRELEASE -silent $$_PRO_FILE_)
 

@@ -22,6 +22,8 @@ qrc_*.cpp
 #mac specific
 .DS_Store
 build
+debug
+release
 nodes
 db
 
@@ -29,4 +31,6 @@ db
 .qmake.stash
 bitbay-qt-local.pri
 bitbay-wallet-qt
+Makefile*
+*qt_plugin_import.cpp
 

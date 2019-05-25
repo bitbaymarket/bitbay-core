@@ -14,9 +14,27 @@ LIBS += -L/usr/local/opt/qrencode/lib
 
 QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.9
 
-contains(RELEASE, 1) {
-    # Mac: compile for maximum compatibility (10.5, 32-bit)
-    macx:QMAKE_CXXFLAGS += -mmacosx-version-min=10.5 -arch x86_64 -isysroot /Developer/SDKs/MacOSX10.5.sdk
+LIBS += -framework Foundation -framework ApplicationServices -framework AppKit
+DEFINES += MAC_OSX MSG_NOSIGNAL=0
+
+isEmpty(BDB_LIB_SUFFIX) {
+    BDB_LIB_SUFFIX = -4.8
+}
+
+isEmpty(BDB_LIB_PATH) {
+    BDB_LIB_PATH = $$PWD/db/build_unix/inst/lib
+}
+
+isEmpty(BDB_INCLUDE_PATH) {
+    BDB_INCLUDE_PATH = $$PWD/db/build_unix/inst/include
+}
+
+isEmpty(BOOST_LIB_PATH) {
+    BOOST_LIB_PATH = /usr/local/opt/boost/lib
+}
+
+isEmpty(BOOST_INCLUDE_PATH) {
+    BOOST_INCLUDE_PATH = /usr/local/opt/boost/include
 }
 
 }

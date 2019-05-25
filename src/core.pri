@@ -16,22 +16,16 @@ HEADERS += \
     $$PWD/hash.h \
     $$PWD/uint256.h \
     $$PWD/kernel.h \
-    $$PWD/scrypt.h \
-    $$PWD/pbkdf2.h \
     $$PWD/serialize.h \
     $$PWD/core.h \
     $$PWD/main.h \
-    $$PWD/miner.h \
     $$PWD/net.h \
     $$PWD/key.h \
-    $$PWD/db.h \
     $$PWD/txdb.h \
     $$PWD/txmempool.h \
-    $$PWD/walletdb.h \
     $$PWD/script.h \
     $$PWD/init.h \
     $$PWD/mruset.h \
-    $$PWD/wallet.h \
     $$PWD/keystore.h \
     $$PWD/rpcclient.h \
     $$PWD/rpcprotocol.h \
@@ -60,36 +54,53 @@ SOURCES += \
     $$PWD/script.cpp \
     $$PWD/core.cpp \
     $$PWD/main.cpp \
-    $$PWD/miner.cpp \
     $$PWD/init.cpp \
     $$PWD/net.cpp \
     $$PWD/checkpoints.cpp \
     $$PWD/addrman.cpp \
-    $$PWD/db.cpp \
-    $$PWD/walletdb.cpp \
-    $$PWD/wallet.cpp \
     $$PWD/keystore.cpp \
     $$PWD/rpcclient.cpp \
     $$PWD/rpcprotocol.cpp \
     $$PWD/rpcserver.cpp \
-    $$PWD/rpcdump.cpp \
     $$PWD/rpcmisc.cpp \
     $$PWD/rpcnet.cpp \
-    $$PWD/rpcmining.cpp \
-    $$PWD/rpcwallet.cpp \
     $$PWD/rpcblockchain.cpp \
     $$PWD/rpcrawtransaction.cpp \
-    $$PWD/rpcexchange.cpp \
     $$PWD/timedata.cpp \
     $$PWD/crypter.cpp \
     $$PWD/protocol.cpp \
     $$PWD/noui.cpp \
     $$PWD/kernel.cpp \
-    $$PWD/scrypt-arm.S \
-    $$PWD/scrypt-x86.S \
-    $$PWD/scrypt-x86_64.S \
-    $$PWD/scrypt.cpp \
-    $$PWD/pbkdf2.cpp
+
+HEADERS += \
+    $$PWD/crypto/pbkdf2.h \
+    $$PWD/crypto/scrypt.h \
+
+SOURCES += \
+    $$PWD/crypto/pbkdf2.cpp \
+    $$PWD/crypto/scrypt.cpp \
+
+wallet {
+
+	DEFINES += ENABLE_WALLET
+
+	HEADERS += \
+		$$PWD/db.h \
+		$$PWD/miner.h \
+		$$PWD/wallet.h \
+		$$PWD/walletdb.h \
+
+	SOURCES += \
+		$$PWD/db.cpp \
+		$$PWD/miner.cpp \
+		$$PWD/rpcdump.cpp \
+		$$PWD/rpcmining.cpp \
+		$$PWD/rpcwallet.cpp \
+		$$PWD/rpcexchange.cpp \
+		$$PWD/wallet.cpp \
+		$$PWD/walletdb.cpp \
+
+}
 
 # peg system
 HEADERS += src/peg.h

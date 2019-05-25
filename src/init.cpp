@@ -38,7 +38,6 @@ CWallet* pwalletMain = NULL;
 CClientUIInterface uiInterface;
 bool fConfChange;
 unsigned int nNodeLifespan;
-unsigned int nDerivationMethodIndex;
 unsigned int nMinerSleep;
 bool fUseFastIndex;
 
@@ -337,8 +336,6 @@ bool AppInit2(boost::thread_group& threadGroup)
     nNodeLifespan = GetArg("-addrlifespan", 7);
     fUseFastIndex = GetBoolArg("-fastindex", true);
     nMinerSleep = GetArg("-minersleep", 500);
-
-    nDerivationMethodIndex = 0;
 
     if (!SelectParamsFromCommandLine()) {
         return InitError("Invalid combination of -testnet and -regtest.");

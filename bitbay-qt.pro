@@ -2,8 +2,11 @@ TEMPLATE = app
 TARGET = bitbay-wallet-qt
 VERSION = 3.0.0
 
-count(USE_TESTNET, 0) {
-	DEFINES += USE_TESTNET
+count(USE_TESTNET, 1) {
+	contains(USE_TESTNET, 1) {
+		message(Building TESTNET enabled)
+		DEFINES += USE_TESTNET
+	}
 }
 
 # mac builds

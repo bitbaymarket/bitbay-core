@@ -267,8 +267,8 @@ script:
 - cd "$TRAVIS_BUILD_DIR"
 - >
   if [[ $ARCH == "mainnet-node" ]]; then
-    echo "LIBS += -static" > bitbay-qt-local.pri &&
-    echo "CONFIG += silent" >> bitbay-qt-local.pri &&
+    echo "LIBS += -static" > bitbayd-local.pri &&
+    echo "CONFIG += silent" >> bitbayd-local.pri &&
     docker run --rm \
         -v $(pwd):/mnt \
         -u $(stat -c %u:%g .) \
@@ -294,8 +294,8 @@ script:
   fi
 - >
   if [[ $ARCH == "mainnet-seed-node" ]]; then
-    echo "LIBS += -static" > bitbay-qt-local.pri &&
-    echo "CONFIG += silent" >> bitbay-qt-local.pri &&
+    echo "LIBS += -static" > bitbayd-local.pri &&
+    echo "CONFIG += silent" >> bitbayd-local.pri &&
     docker run --rm \
         -v $(pwd):/mnt \
         -u $(stat -c %u:%g .) \
@@ -322,8 +322,8 @@ script:
   fi
 - >
   if [[ $ARCH == "testnet-node" ]]; then
-    echo "LIBS += -static" > bitbay-qt-local.pri &&
-    echo "CONFIG += silent" >> bitbay-qt-local.pri &&
+    echo "LIBS += -static" > bitbayd-local.pri &&
+    echo "CONFIG += silent" >> bitbayd-local.pri &&
     docker run --rm \
         -v $(pwd):/mnt \
         -u $(stat -c %u:%g .) \
@@ -350,8 +350,8 @@ script:
   fi
 - >
   if [[ $ARCH == "testnet-seed-node" ]]; then
-    echo "LIBS += -static" > bitbay-qt-local.pri &&
-    echo "CONFIG += silent" >> bitbay-qt-local.pri &&
+    echo "LIBS += -static" > bitbayd-local.pri &&
+    echo "CONFIG += silent" >> bitbayd-local.pri &&
     docker run --rm \
         -v $(pwd):/mnt \
         -u $(stat -c %u:%g .) \
@@ -454,8 +454,8 @@ script:
   fi
 - >
   if [[ $ARCH == "bitbayd-lin64" ]]; then
-    echo "LIBS += -static" > bitbay-qt-local.pri &&
-    echo "CONFIG += silent" >> bitbay-qt-local.pri &&
+    echo "LIBS += -static" > bitbayd-local.pri &&
+    echo "CONFIG += silent" >> bitbayd-local.pri &&
     docker run --rm \
         -v $(pwd):/mnt \
         -u $(stat -c %u:%g .) \

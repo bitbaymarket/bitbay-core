@@ -14,8 +14,8 @@ contains(USE_WALLET, 1) {
 	CONFIG += wallet
 }
 
-exists(bitbay-local.pri) {
-    include(bitbay-local.pri)
+exists(bitbayd-local.pri) {
+    include(bitbayd-local.pri)
 }
 
 CONFIG -= qt

@@ -1190,6 +1190,21 @@ void CWallet::ResendWalletTransactions(bool fForce)
         nLastTime = GetTime();
     }
 
+    {
+        LOCK(cs_main);
+        if (!pindexBest) {
+            // blockchain is out of sync yet
+            return;
+        }
+
+        int64_t nBestTime = pindexBest->GetBlockTime();
+        int64_t nLastTime = GetTime();
+        if ((nLastTime - nBestTime) > 90*60) {
+            // blockchain is out of sync yet
+            return;
+        }
+    }
+    
     // Rebroadcast any of our txes that aren't in a block yet
     LogPrintf("ResendWalletTransactions()\n");
     CTxDB txdb("r");
@@ -1197,7 +1212,7 @@ void CWallet::ResendWalletTransactions(bool fForce)
         LOCK(cs_wallet);
         // Sort them in chronological order
         multimap<unsigned int, CWalletTx*> mapSorted;
-        for(const pair<const uint256, CWalletTx>& item : mapWallet)
+        for(pair<const uint256, CWalletTx>& item : mapWallet)
         {
             CWalletTx& wtx = item.second;
             // Don't rebroadcast until it's had plenty of time that

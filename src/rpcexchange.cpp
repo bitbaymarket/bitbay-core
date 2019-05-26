@@ -297,7 +297,7 @@ Value movecoins(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 4)
         throw runtime_error(
-            "moveliquid <amount> <src_pegdata_base64> <dst_pegdata_base64> <pegsupply>\n"
+            "movecoins <amount> <src_pegdata_base64> <dst_pegdata_base64> <pegsupply>\n"
             );
     
     int64_t move_amount = params[0].get_int64();

@@ -1197,7 +1197,7 @@ void CWallet::ResendWalletTransactions(bool fForce)
         LOCK(cs_wallet);
         // Sort them in chronological order
         multimap<unsigned int, CWalletTx*> mapSorted;
-        BOOST_FOREACH(PAIRTYPE(const uint256, CWalletTx)& item, mapWallet)
+        for(const pair<const uint256, CWalletTx>& item : mapWallet)
         {
             CWalletTx& wtx = item.second;
             // Don't rebroadcast until it's had plenty of time that
@@ -1205,13 +1205,51 @@ void CWallet::ResendWalletTransactions(bool fForce)
             if (fForce || nTimeBestReceived - (int64_t)wtx.nTimeReceived > 5 * 60)
                 mapSorted.insert(make_pair(wtx.nTimeReceived, &wtx));
         }
-        BOOST_FOREACH(PAIRTYPE(const unsigned int, CWalletTx*)& item, mapSorted)
+        for(const pair<const unsigned int, CWalletTx*>& item : mapSorted)
         {
             CWalletTx& wtx = *item.second;
-            if (wtx.CheckTransaction())
-                wtx.RelayWalletTransaction(txdb);
-            else
+            if (!wtx.CheckTransaction()) {
                 LogPrintf("ResendWalletTransactions() : CheckTransaction failed for transaction %s\n", wtx.GetHash().ToString());
+                continue;
+            }
+            
+            MapPrevTx mapInputs;
+            MapFractions mapInputsFractions;
+            map<uint256, CTxIndex> mapUnused;
+            MapFractions mapOutputsFractions;
+            CFractions feesFractions;
+            
+            {
+                CTxDB txdb("r");
+                CPegDB pegdb("r");
+        
+                bool fInvalid = false;
+                if (!wtx.FetchInputs(txdb, pegdb, 
+                                     mapUnused, mapOutputsFractions, 
+                                     false /*block*/, false /*miner*/, 
+                                     mapInputs, mapInputsFractions, 
+                                     fInvalid))
+                {
+                    LogPrintf("ResendWalletTransactions() : FetchInputs failed for transaction %s\n", wtx.GetHash().ToString());
+                    continue;
+                }
+            
+                string sPegFailCause;
+                bool peg_ok = CalculateStandardFractions(wtx, 
+                                                         pindexBest->nPegSupplyIndex,
+                                                         pindexBest->nTime,
+                                                         mapInputs, mapInputsFractions,
+                                                         mapOutputsFractions,
+                                                         feesFractions,
+                                                         sPegFailCause);
+                if (!peg_ok) {
+                    LogPrintf("ResendWalletTransactions() : CalculateStandardFractions failed for transaction %s\n", wtx.GetHash().ToString());
+                    continue;
+                }
+            }
+            
+            
+            wtx.RelayWalletTransaction(txdb);
         }
     }
 }

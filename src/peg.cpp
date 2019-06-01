@@ -1533,6 +1533,26 @@ bool CalculateStandardFractions(const CTransaction & tx,
     return true;
 }
 
+extern bool CalculateStakingFractions_testnet200k(const CTransaction & tx,
+                                                  const CBlockIndex* pindexBlock,
+                                                  MapPrevTx & inputs,
+                                                  MapFractions& fInputs,
+                                                  std::map<uint256, CTxIndex>& mapTestPool,
+                                                  MapFractions& mapTestFractionsPool,
+                                                  const CFractions& feesFractions,
+                                                  int64_t nCalculatedStakeRewardWithoutFees,
+                                                  std::string& sFailCause);
+
+bool CalculateStakingFractions_v2(const CTransaction & tx,
+                                  const CBlockIndex* pindexBlock,
+                                  MapPrevTx & inputs,
+                                  MapFractions& fInputs,
+                                  std::map<uint256, CTxIndex>& mapTestPool,
+                                  MapFractions& mapTestFractionsPool,
+                                  const CFractions& feesFractions,
+                                  int64_t nCalculatedStakeRewardWithoutFees,
+                                  std::string& sFailCause);
+
 bool CalculateStakingFractions(const CTransaction & tx,
                                const CBlockIndex* pindexBlock,
                                MapPrevTx & inputs,
@@ -1542,6 +1562,47 @@ bool CalculateStakingFractions(const CTransaction & tx,
                                const CFractions& feesFractions,
                                int64_t nCalculatedStakeRewardWithoutFees,
                                std::string& sFailCause)
+{
+    if (!pindexBlock) {
+        // need a block info
+        return false;
+    }
+    if (TestNet()) {
+        if (pindexBlock->nHeight < 200000) {
+            return CalculateStakingFractions_testnet200k(
+                        tx,
+                        pindexBlock,
+                        inputs,
+                        fInputs,
+                        mapTestPool,
+                        mapTestFractionsPool,
+                        feesFractions,
+                        nCalculatedStakeRewardWithoutFees,
+                        sFailCause);
+        }
+    }
+    
+    return CalculateStakingFractions_v2(
+                tx,
+                pindexBlock,
+                inputs,
+                fInputs,
+                mapTestPool,
+                mapTestFractionsPool,
+                feesFractions,
+                nCalculatedStakeRewardWithoutFees,
+                sFailCause);
+}
+
+bool CalculateStakingFractions_v2(const CTransaction & tx,
+                                  const CBlockIndex* pindexBlock,
+                                  MapPrevTx & inputs,
+                                  MapFractions& fInputs,
+                                  std::map<uint256, CTxIndex>& mapTestPool,
+                                  MapFractions& mapTestFractionsPool,
+                                  const CFractions& feesFractions,
+                                  int64_t nCalculatedStakeRewardWithoutFees,
+                                  std::string& sFailCause)
 {
     size_t n_vin = tx.vin.size();
     size_t n_vout = tx.vout.size();
@@ -1564,7 +1625,6 @@ bool CalculateStakingFractions(const CTransaction & tx,
     int64_t nValueIn = 0;
     CFractions fractions(0, CFractions::STD);
 
-    int nSupply = pindexBlock->nPegSupplyIndex;
     string sInputAddress;
     
     // only one input
@@ -1720,6 +1780,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
 
 void PrunePegForBlock(const CBlock& blockprune, CPegDB& pegdb)
 {
+    return;
     for(size_t i=0; i<blockprune.vtx.size(); i++) {
         const CTransaction& tx = blockprune.vtx[i];
         for (size_t j=0; j< tx.vin.size(); j++) {

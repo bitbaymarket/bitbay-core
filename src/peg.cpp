@@ -1622,8 +1622,8 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
         return false;
     }
     
-    int64_t nValueIn = 0;
-    CFractions fractions(0, CFractions::STD);
+    int64_t nValueStakeIn = 0;
+    CFractions frStake(0, CFractions::STD);
 
     string sInputAddress;
     
@@ -1638,7 +1638,7 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
         }
 
         int64_t nValue = txPrev.vout[prevout.n].nValue;
-        nValueIn += nValue;
+        nValueStakeIn = nValue;
         
         auto sAddress = toAddress(txPrev.vout[prevout.n].scriptPubKey);
         sInputAddress = sAddress;
@@ -1649,8 +1649,8 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
             return false;
         }
 
-        fractions = fInputs[fkey].Std();
-        if (fractions.Total() != txPrev.vout[prevout.n].nValue) {
+        frStake = fInputs[fkey].Std();
+        if (frStake.Total() != nValueStakeIn) {
             sFailCause = "PI04: Input fraction total mismatches value";
             return false;
         }
@@ -1664,17 +1664,15 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
             nValueReturn += tx.vout[i].nValue;
         }
     }
-    if (nValueReturn < nValueIn) {
+    if (nValueReturn < nValueStakeIn) {
         sFailCause = "PI05: No enough funds returned to input address";
         return false;
     }
     
-    CFractions frStakeReward(nCalculatedStakeRewardWithoutFees, CFractions::STD);
+    CFractions frReward(nCalculatedStakeRewardWithoutFees, CFractions::STD);
+    frReward += feesFractions;
     
-    fractions += frStakeReward;
-    fractions += feesFractions;
-    
-    int64_t nValueOutLeft = fractions.Total();
+    int64_t nValueRewardLeft = frReward.Total();
     
     bool fFailedPegOut = false;
     unsigned int nStakeOut = 0;
@@ -1691,23 +1689,39 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
         bool fNotary = false;
         auto sAddress = toAddress(tx.vout[i].scriptPubKey, &fNotary, &sNotary);
         
-        // for output returning on same address and greater or equal value
-        if (nValue >= nValueIn && sInputAddress == sAddress) {
+        // first output returning on same address and greater or equal stake value
+        if (nValue >= nValueStakeIn && sInputAddress == sAddress) {
             
-            if (nValue > nValueOutLeft) {
+            if (nValue > (nValueStakeIn + nValueRewardLeft)) {
                 sFailCause = "PO01: No enough coins for stake output";
                 fFailedPegOut = true;
             }
-            nValueOutLeft -= nValue;
             
-            fractions.MoveRatioPartTo(nValue, 0, frOut);
-            if (fractions.nFlags & CFractions::NOTARY_F) {
-                frOut.nFlags |= CFractions::NOTARY_F;
-                frOut.nLockTime = fractions.nLockTime;
+            int64_t nValueToTake = nValue;
+            int64_t nStakeToTake = nValue;
+            
+            if (nStakeToTake > nValueStakeIn) {
+                nStakeToTake = nValueStakeIn;
             }
-            else if (fractions.nFlags & CFractions::NOTARY_V) {
+            
+            // first take whole stake input
+            nValueToTake -= nStakeToTake;
+            frOut = frStake;
+            
+            // leftover value take from reward
+            if (nValueToTake >0) {
+                nValueRewardLeft -= nValueToTake;
+                frReward.MoveRatioPartTo(nValueToTake, 0, frOut);
+            }
+            
+            // transfer marks and locktime
+            if (frStake.nFlags & CFractions::NOTARY_F) {
+                frOut.nFlags |= CFractions::NOTARY_F;
+                frOut.nLockTime = frStake.nLockTime;
+            }
+            else if (frStake.nFlags & CFractions::NOTARY_V) {
                 frOut.nFlags |= CFractions::NOTARY_V;
-                frOut.nLockTime = fractions.nLockTime;
+                frOut.nLockTime = frStake.nLockTime;
             }
             
             nStakeOut = i;
@@ -1720,13 +1734,10 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
         fFailedPegOut = true;
     }
     
-    int64_t nValueOut = 0;
-    
     // Calculation of outputs
     for (unsigned int i = 0; i < n_vout; i++)
     {
         int64_t nValue = tx.vout[i].nValue;
-        nValueOut += nValue;
         
         if (i == nStakeOut) {
             // already calculated and marked
@@ -1736,14 +1747,14 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
         auto fkey = uint320(tx.GetHash(), i);
         auto & frOut = mapTestFractionsPool[fkey];
 
-        if (nValue > nValueOutLeft) {
+        if (nValue > nValueRewardLeft) {
             sFailCause = "PO03: No coins left";
             fFailedPegOut = true;
             break;
         }
         
-        fractions.MoveRatioPartTo(nValue, 0, frOut);
-        nValueOutLeft -= nValue;
+        frReward.MoveRatioPartTo(nValue, 0, frOut);
+        nValueRewardLeft -= nValue;
     }
     
     if (!fFailedPegOut) {

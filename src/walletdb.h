@@ -109,6 +109,10 @@ public:
 
     bool ReadAccount(const std::string& strAccount, CAccount& account);
     bool WriteAccount(const std::string& strAccount, const CAccount& account);
+    
+    bool ReadRewardAddress(std::string& addr);
+    bool WriteRewardAddress(const std::string& addr);
+    
 private:
     bool WriteAccountingEntry(const uint64_t nAccEntryNum, const CAccountingEntry& acentry);
 public:

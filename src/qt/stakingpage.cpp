@@ -100,6 +100,22 @@ StakingPage::StakingPage(QWidget *parent) :
     connect(ui->radioButtonVoteInflate, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
     connect(ui->radioButtonVoteDeflate, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
     connect(ui->radioButtonVoteNoChange, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
+    
+    ui->lineRewardTo->setPlaceholderText(tr("Enter a BitBay address:"));
+    ui->lineSupportTo->setPlaceholderText(tr("Enter a BitBay address:"));
+
+    setFocusPolicy(Qt::TabFocus);
+    setFocusProxy(ui->lineRewardTo);
+    setFocusProxy(ui->lineSupportTo);
+
+    GUIUtil::setupAddressWidget(ui->lineRewardTo, this);
+    GUIUtil::setupAddressWidget(ui->lineSupportTo, this);
+    
+    connect(ui->checkRewardTo, SIGNAL(toggled(bool)), this, SLOT(updateRewardActions()));
+    connect(ui->checkSupportFund, SIGNAL(toggled(bool)), this, SLOT(updateRewardActions()));
+    connect(ui->lineRewardTo, SIGNAL(textChanged(const QString &)), this, SLOT(updateRewardActions()));
+    connect(ui->lineSupportTo, SIGNAL(textChanged(const QString &)), this, SLOT(updateRewardActions()));
+    connect(ui->sliderSupport, SIGNAL(valueChanged(int)), this, SLOT(updateRewardActions()));
 }
 
 StakingPage::~StakingPage()
@@ -183,6 +199,16 @@ void StakingPage::updatePegVoteType()
     } else if (ui->radioButtonVoteNoChange->isChecked()) {
         pwalletMain->SetPegVoteType(PEG_VOTE_NOCHANGE);
     }
+}
+
+void StakingPage::updateRewardActions()
+{
+    QString rewardAddress;
+    if (ui->checkRewardTo->isChecked()) {
+        rewardAddress = ui->lineRewardTo->text();
+    }
+    
+    pwalletMain->SetRewardAddress(rewardAddress.toStdString());
 }
 
 void StakingPage::setWalletModel(WalletModel *model)

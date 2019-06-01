@@ -27,6 +27,7 @@ public slots:
 private slots:
     void updatePegVoteType();
     void updateDisplayUnit();
+    void updateRewardActions();
     void setAmounts(qint64 reward5, qint64 reward10, qint64 reward20, qint64 reward40, 
                     int count5, int count10, int count20, int count40,
                     int stake5, int stake10, int stake20, int stake40);

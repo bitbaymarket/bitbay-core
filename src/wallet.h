@@ -123,6 +123,8 @@ private:
     std::vector<double> vBtcRates;
     double dBayPeakPrice = 0;
     
+    std::string rewardAddress;
+    
 public:
     /// Main wallet lock.
     /// This lock protects all the fields added by CWallet
@@ -398,6 +400,8 @@ public:
     
     void SetBayRates(std::vector<double>);
     void SetBtcRates(std::vector<double>);
+    
+    bool SetRewardAddress(std::string addr) { LOCK(cs_wallet); rewardAddress = addr; return true; }
 };
 
 /** A key allocated from the key pool. */

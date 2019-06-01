@@ -164,6 +164,16 @@ bool CWalletDB::WriteAccount(const string& strAccount, const CAccount& account)
     return Write(make_pair(string("acc"), strAccount), account);
 }
 
+bool CWalletDB::ReadRewardAddress(string& addr)
+{
+    return Read(string("rewardaddr"), addr);
+}
+
+bool CWalletDB::WriteRewardAddress(const string& addr)
+{
+    return Write(string("rewardaddr"), addr);
+}
+
 bool CWalletDB::WriteAccountingEntry(const uint64_t nAccEntryNum, const CAccountingEntry& acentry)
 {
     return Write(boost::make_tuple(string("acentry"), acentry.strAccount, nAccEntryNum), acentry);

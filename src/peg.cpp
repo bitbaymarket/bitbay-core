@@ -1562,15 +1562,10 @@ bool CalculateStakingFractions(const CTransaction & tx,
     }
     
     int64_t nValueIn = 0;
-    int64_t nReservesTotal =0;
-    int64_t nLiquidityTotal =0;
-
-    map<string, CFractions> poolReserves;
-    map<string, CFractions> poolLiquidity;
+    CFractions fractions(0, CFractions::STD);
 
     int nSupply = pindexBlock->nPegSupplyIndex;
     string sInputAddress;
-    CFractions frInp(0, CFractions::STD);
     
     // only one input
     {
@@ -1584,6 +1579,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
 
         int64_t nValue = txPrev.vout[prevout.n].nValue;
         nValueIn += nValue;
+        
         auto sAddress = toAddress(txPrev.vout[prevout.n].scriptPubKey);
         sInputAddress = sAddress;
 
@@ -1593,22 +1589,11 @@ bool CalculateStakingFractions(const CTransaction & tx,
             return false;
         }
 
-        frInp = fInputs[fkey].Std();
-        if (frInp.Total() != txPrev.vout[prevout.n].nValue) {
+        fractions = fInputs[fkey].Std();
+        if (fractions.Total() != txPrev.vout[prevout.n].nValue) {
             sFailCause = "PI04: Input fraction total mismatches value";
             return false;
         }
-
-        int64_t nReserveIn = 0;
-        auto & frReserve = poolReserves[sAddress];
-        frReserve += frInp.LowPart(nSupply, &nReserveIn);
-
-        int64_t nLiquidityIn = 0;
-        auto & frLiquidity = poolLiquidity[sAddress];
-        frLiquidity += frInp.HighPart(nSupply, &nLiquidityIn);
-
-        nReservesTotal += nReserveIn;
-        nLiquidityTotal += nLiquidityIn;
     }
 
     // Check funds to be returned to same address
@@ -1624,104 +1609,81 @@ bool CalculateStakingFractions(const CTransaction & tx,
         return false;
     }
     
-    CFractions frCommonLiquidity(0, CFractions::STD);
-    for(const auto & item : poolLiquidity) {
-        frCommonLiquidity += item.second;
-    }
-
-    CFractions fStakeReward(nCalculatedStakeRewardWithoutFees, CFractions::STD);
+    CFractions frStakeReward(nCalculatedStakeRewardWithoutFees, CFractions::STD);
     
-    frCommonLiquidity += fStakeReward.HighPart(nSupply, &nLiquidityTotal);
-    frCommonLiquidity += feesFractions.HighPart(nSupply, &nLiquidityTotal);
-
-    auto & frInputReserve = poolReserves[sInputAddress];
-    frInputReserve += fStakeReward.LowPart(nSupply, &nReservesTotal);
-    frInputReserve += feesFractions.LowPart(nSupply, &nReservesTotal);
+    fractions += frStakeReward;
+    fractions += feesFractions;
     
-    int64_t nValueOut = 0;
-    int64_t nCommonLiquidity = nLiquidityTotal;
-
+    int64_t nValueOutLeft = fractions.Total();
+    
     bool fFailedPegOut = false;
-    unsigned int nLatestPegOut = 0;
+    unsigned int nStakeOut = 0;
 
-    // Calculation of outputs
+    // Transfer mark and set stake output 
     for (unsigned int i = 0; i < n_vout; i++)
     {
-        nLatestPegOut = i;
         int64_t nValue = tx.vout[i].nValue;
-        nValueOut += nValue;
-
+        
         auto fkey = uint320(tx.GetHash(), i);
         auto & frOut = mapTestFractionsPool[fkey];
         
         string sNotary;
         bool fNotary = false;
         auto sAddress = toAddress(tx.vout[i].scriptPubKey, &fNotary, &sNotary);
-
+        
         // for output returning on same address and greater or equal value
         if (nValue >= nValueIn && sInputAddress == sAddress) {
-            if (frInp.nFlags & CFractions::NOTARY_F) {
+            
+            if (nValue > nValueOutLeft) {
+                sFailCause = "PO01: No enough coins for stake output";
+                fFailedPegOut = true;
+            }
+            nValueOutLeft -= nValue;
+            
+            fractions.MoveRatioPartTo(nValue, 0, frOut);
+            if (fractions.nFlags & CFractions::NOTARY_F) {
                 frOut.nFlags |= CFractions::NOTARY_F;
-                frOut.nLockTime = frInp.nLockTime;
+                frOut.nLockTime = fractions.nLockTime;
             }
-            if (frInp.nFlags & CFractions::NOTARY_V) {
+            else if (fractions.nFlags & CFractions::NOTARY_V) {
                 frOut.nFlags |= CFractions::NOTARY_V;
-                frOut.nLockTime = frInp.nLockTime;
+                frOut.nLockTime = fractions.nLockTime;
             }
+            
+            nStakeOut = i;
+            break;
+        }
+    }
+    
+    if (nStakeOut == 0 && !fFailedPegOut) {
+        sFailCause = "PO02: No stake funds returned to input address";
+        fFailedPegOut = true;
+    }
+    
+    int64_t nValueOut = 0;
+    
+    // Calculation of outputs
+    for (unsigned int i = 0; i < n_vout; i++)
+    {
+        int64_t nValue = tx.vout[i].nValue;
+        nValueOut += nValue;
+        
+        if (i == nStakeOut) {
+            // already calculated and marked
+            continue;
+        }
+
+        auto fkey = uint320(tx.GetHash(), i);
+        auto & frOut = mapTestFractionsPool[fkey];
+
+        if (nValue > nValueOutLeft) {
+            sFailCause = "PO03: No coins left";
+            fFailedPegOut = true;
+            break;
         }
         
-        if (poolReserves.count(sAddress)) { // to reserve
-            int64_t nValueLeft = nValue;
-            auto & frReserve = poolReserves[sAddress];
-            nValueLeft = frReserve.MoveRatioPartTo(nValueLeft, 0, frOut);
-
-            if (nValueLeft > 0) {
-                if (nValueLeft > nCommonLiquidity) {
-                    sFailCause = "PO01: No liquidity left";
-                    fFailedPegOut = true;
-                    break;
-                }
-                frCommonLiquidity.MoveRatioPartTo(nValueLeft, nSupply, frOut);
-                nCommonLiquidity -= nValueLeft;
-            }
-        }
-        else { // move liquidity out
-            if (sAddress == sBurnAddress || fNotary) {
-
-                vector<string> vAddresses;
-                for(auto it = poolReserves.begin(); it != poolReserves.end(); it++) {
-                    vAddresses.push_back(it->first);
-                }
-
-                int64_t nValueLeft = nValue;
-                for(const string & sAddress : vAddresses) {
-                    auto & frReserve = poolReserves[sAddress];
-                    nValueLeft = frReserve.MoveRatioPartTo(nValueLeft, 0, frOut);
-                    if (nValueLeft == 0) {
-                        break;
-                    }
-                }
-
-                if (nValueLeft > 0) {
-                    if (nValueLeft > nCommonLiquidity) {
-                        sFailCause = "PO02: No liquidity left";
-                        fFailedPegOut = true;
-                        break;
-                    }
-                    frCommonLiquidity.MoveRatioPartTo(nValueLeft, nSupply, frOut);
-                    nCommonLiquidity -= nValueLeft;
-                }
-            }
-            else {
-                if (nValue > nCommonLiquidity) {
-                    sFailCause = "PO03: No liquidity left";
-                    fFailedPegOut = true;
-                    break;
-                }
-                frCommonLiquidity.MoveRatioPartTo(nValue, nSupply, frOut);
-                nCommonLiquidity -= nValue;
-            }
-        }
+        fractions.MoveRatioPartTo(nValue, 0, frOut);
+        nValueOutLeft -= nValue;
     }
     
     if (!fFailedPegOut) {
@@ -1743,10 +1705,12 @@ bool CalculateStakingFractions(const CTransaction & tx,
         // while the peg system is in the testing mode:
         // for now remove failed fractions from pool so they
         // are not written to db
-        auto fkey = uint320(tx.GetHash(), nLatestPegOut);
-        if (mapTestFractionsPool.count(fkey)) {
-            auto it = mapTestFractionsPool.find(fkey);
-            mapTestFractionsPool.erase(it);
+        for (unsigned int i = 0; i < n_vout; i++) {
+            auto fkey = uint320(tx.GetHash(), i);
+            if (mapTestFractionsPool.count(fkey)) {
+                auto it = mapTestFractionsPool.find(fkey);
+                mapTestFractionsPool.erase(it);
+            }
         }
         return false;
     }

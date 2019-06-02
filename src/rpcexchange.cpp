@@ -224,7 +224,7 @@ Value updatepegbalances(const Array& params, bool fHelp)
             nDistortionNegativeConsume = frDistortionNegativeConsume.Total();
         }
         nDistortionPositiveConsume = -nDistortionNegativeConsume;
-        CFractions frDistortionPositiveConsume = frDistortionPositive.RatioPart(nDistortionPositiveConsume, nDistortionPositive, nSupplyNow);
+        CFractions frDistortionPositiveConsume = frDistortionPositive.RatioPart(nDistortionPositiveConsume, nDistortionPositive, 0);
         CFractions frDistortionConsume = frDistortionNegativeConsume + frDistortionPositiveConsume;
         
         frBalance += frDistortionConsume;

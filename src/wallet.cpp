@@ -1392,7 +1392,10 @@ int64_t CWallet::GetImmatureBalance() const
 }
 
 // populate vCoins with vector of available COutputs.
-void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, bool fUseFrozenUnlocked, const CCoinControl *coinControl) const
+void CWallet::AvailableCoins(vector<COutput>& vCoins, 
+                             bool fOnlyConfirmed, 
+                             bool fUseFrozenUnlocked, 
+                             const CCoinControl *coinControl) const
 {
     vCoins.clear();
 
@@ -1420,11 +1423,64 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, bool 
 
             for (unsigned int i = 0; i < pcoin->vout.size(); i++) {
                 isminetype mine = IsMine(pcoin->vout[i]);
-                if (!(pcoin->IsSpent(i)) && mine != MINE_NO && pcoin->vout[i].nValue >= nMinimumInputValue &&
-                (!coinControl || !coinControl->HasSelected() || coinControl->IsSelected((*it).first, i))) {
+                if (!pcoin->IsSpent(i) 
+                        && mine != MINE_NO 
+                        && pcoin->vout[i].nValue >= nMinimumInputValue 
+                        && (
+                            !coinControl 
+                            || !coinControl->HasSelected() 
+                            || coinControl->IsSelected((*it).first, i))
+                        ) {
                     COutput cout(pcoin, i, nDepth, mine & MINE_SPENDABLE);
                     if (cout.IsFrozen(nLastBlockTime)) continue;
                     if (cout.IsFrozenMark() && !fUseFrozenUnlocked) continue;
+                    vCoins.push_back(cout);
+                }
+            }
+        }
+    }
+}
+
+void CWallet::FrozenCoins(vector<COutput>& vCoins, 
+                          bool fOnlyConfirmed, 
+                          const CCoinControl *coinControl) const
+{
+    vCoins.clear();
+
+    {
+        LOCK2(cs_main, cs_wallet);
+        for (map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
+        {
+            const CWalletTx* pcoin = &(*it).second;
+
+            if (!IsFinalTx(*pcoin))
+                continue;
+
+            if (fOnlyConfirmed && !pcoin->IsTrusted())
+                continue;
+
+            if (pcoin->IsCoinBase() && pcoin->GetBlocksToMaturity() > 0)
+                continue;
+
+            if(pcoin->IsCoinStake() && pcoin->GetBlocksToMaturity() > 0)
+                continue;
+
+            int nDepth = pcoin->GetDepthInMainChain();
+            if (nDepth < 0)
+                continue;
+
+            for (unsigned int i = 0; i < pcoin->vout.size(); i++) {
+                isminetype mine = IsMine(pcoin->vout[i]);
+                if (!pcoin->IsSpent(i) 
+                        && mine != MINE_NO 
+                        && pcoin->vout[i].nValue >= nMinimumInputValue 
+                        && (
+                            !coinControl 
+                            || !coinControl->HasSelected() 
+                            || coinControl->IsSelected((*it).first, i))
+                        ) {
+                    COutput cout(pcoin, i, nDepth, mine & MINE_SPENDABLE);
+                    if (!cout.IsFrozen(nLastBlockTime)) continue;
                     vCoins.push_back(cout);
                 }
             }
@@ -1691,6 +1747,11 @@ bool COutput::IsFrozenMark() const
     bool fF = tx->vOutFractions[i].nFlags & CFractions::NOTARY_F;
     bool fV = tx->vOutFractions[i].nFlags & CFractions::NOTARY_V;
     return fF || fV;
+}
+
+uint64_t COutput::FrozenUnlockTime() const
+{
+    return tx->vOutFractions[i].nLockTime;
 }
 
 bool CWallet::SelectCoins(PegTxType txType,
@@ -2454,18 +2515,6 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         }
         
         txNew.vout[1].nValue = nCredit; // return stake
-    }
-        
-    vector<RewardInfo> vRewardsInfo;
-    vRewardsInfo.push_back({PEG_REWARD_5 ,0,0,0});
-    vRewardsInfo.push_back({PEG_REWARD_10,0,0,0});
-    vRewardsInfo.push_back({PEG_REWARD_20,0,0,0});
-    vRewardsInfo.push_back({PEG_REWARD_40,0,0,0});
-    
-    GetRewardInfo(vRewardsInfo);
-    int nOutCount = 0;
-    for(size_t i=0; i<vRewardsInfo.size(); i++) {
-        nOutCount += vRewardsInfo[i].count;
     }
     
     // Add vote output

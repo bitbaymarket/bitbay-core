@@ -665,6 +665,7 @@ static list<CNode*> vNodesDisconnected;
 void ThreadSocketHandler()
 {
     unsigned int nPrevNodeCount = 0;
+    CNodeShortStats vPrevStats;
 
     while (true)
     {
@@ -726,6 +727,36 @@ void ThreadSocketHandler()
                 }
             }
         }
+        bool changed = vNodes.size() != nPrevNodeCount;
+        if (!changed) {
+            LOCK(cs_vNodes);
+            for(size_t i=0; i< vNodes.size(); i++) {
+                const CNode* pNode = vNodes[i];
+                if (pNode->addrName != vPrevStats[i].addrName) { changed = true; break; }
+                if (pNode->nVersion != vPrevStats[i].nVersion) { changed = true; break; }
+                if (pNode->strSubVer != vPrevStats[i].strSubVer) { changed = true; break; }
+                if (pNode->nStartingHeight != vPrevStats[i].nStartingHeight) { changed = true; break; }
+            }
+        }
+        if (changed) {
+            CNodeShortStats vStats;
+            {
+                LOCK(cs_vNodes);
+                for(const CNode* pNode : vNodes) {
+                    CNodeShortStat nodeStat = {
+                        pNode->addrName,
+                        pNode->nVersion,
+                        pNode->strSubVer,
+                        pNode->nStartingHeight
+                    };
+                    vStats.push_back(nodeStat);
+                }
+            }
+            
+            vPrevStats = vStats;
+            uiInterface.NotifyConnectionsChanged(vPrevStats);
+        }
+        
         if(vNodes.size() != nPrevNodeCount) {
             nPrevNodeCount = vNodes.size();
             uiInterface.NotifyNumConnectionsChanged(nPrevNodeCount);

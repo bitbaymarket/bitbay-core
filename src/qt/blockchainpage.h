@@ -10,6 +10,7 @@
 #include <QItemDelegate>
 #include <QStyledItemDelegate>
 #include "bignum.h"
+#include "net.h"
 
 namespace Ui {
     class BlockchainPage;
@@ -21,6 +22,7 @@ class QModelIndex;
 class QTreeWidgetItem;
 class BlockchainModel;
 class TxDetailsWidget;
+class ClientModel;
 
 class BlockchainPage : public QDialog
 {
@@ -47,10 +49,13 @@ public:
 
     BlockchainModel * blockchainModel() const;
 
+    void setClientModel(ClientModel *clientModel);
+    
 private slots:
     void showChainPage();
     void showBlockPage();
     void showTxPage();
+    void showNetPage();
     void openBlock(uint256);
     void openBlock(const QModelIndex &);
     void openBlock(QTreeWidgetItem*,int);
@@ -62,6 +67,7 @@ private slots:
     void scrollToCurrentBlockIndex();
     void openChainMenu(const QPoint &);
     void openBlockMenu(const QPoint &);
+    void updateConnections(const CNodeShortStats &);
 
 private:
     Ui::BlockchainPage* ui;

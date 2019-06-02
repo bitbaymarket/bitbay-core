@@ -287,7 +287,6 @@ bool CalculateStakingFractions_testnet200k(const CTransaction & tx,
     }
 
     if (fFailedPegOut) {
-        // while the peg system is in the testing mode:
         // for now remove failed fractions from pool so they
         // are not written to db
         auto fkey = uint320(tx.GetHash(), nLatestPegOut);

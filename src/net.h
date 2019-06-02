@@ -131,8 +131,20 @@ public:
     std::string addrLocal;
 };
 
-
-
+class CNodeShortStat {
+public:
+    std::string addrName;
+    int nVersion;
+    std::string strSubVer;
+    int nStartingHeight;
+    bool operator==(const CNodeShortStat & b) const {
+        return  addrName        == b.addrName           &&
+                nVersion        == b.nVersion           &&
+                strSubVer       == b.strSubVer          &&
+                nStartingHeight == b.nStartingHeight;
+    }
+};
+typedef std::vector<CNodeShortStat> CNodeShortStats;
 
 class CNetMessage {
 public:

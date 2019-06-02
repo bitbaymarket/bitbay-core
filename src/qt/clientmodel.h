@@ -4,6 +4,8 @@
 #include <QObject>
 #include <boost/tuple/tuple.hpp>
 
+#include "net.h"
+
 class OptionsModel;
 class AddressTableModel;
 class TransactionTableModel;
@@ -25,6 +27,7 @@ public:
 
     OptionsModel *getOptionsModel();
 
+    CNodeShortStats getConnections() const;
     int getNumConnections() const;
     int getNumBlocks() const;
     int getNumBlocksAtStartup();
@@ -67,6 +70,7 @@ private:
     void unsubscribeFromCoreSignals();
 
 signals:
+    void connectionsChanged(const CNodeShortStats &);
     void numConnectionsChanged(int count);
     void numBlocksChanged(int count);
     void alertsChanged(const QString &warnings);
@@ -78,6 +82,7 @@ signals:
 public slots:
     void updateTimer();
     void updateNumConnections(int numConnections);
+    void updateConnections(const CNodeShortStats &);
     void updateAlert(const QString &hash, int status);
 };
 

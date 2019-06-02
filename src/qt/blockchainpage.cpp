@@ -11,7 +11,9 @@
 #include "base58.h"
 #include "txdb.h"
 #include "peg.h"
+#include "net.h"
 #include "guiutil.h"
+#include "clientmodel.h"
 #include "blockchainmodel.h"
 #include "itemdelegates.h"
 #include "metatypes.h"
@@ -67,6 +69,7 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     connect(ui->buttonChain, SIGNAL(clicked()), this, SLOT(showChainPage()));
     connect(ui->buttonBlock, SIGNAL(clicked()), this, SLOT(showBlockPage()));
     connect(ui->buttonTx, SIGNAL(clicked()), this, SLOT(showTxPage()));
+    connect(ui->buttonNet, SIGNAL(clicked()), this, SLOT(showNetPage()));
 
     ui->blockchainView->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->blockValues->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -108,12 +111,15 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     )";
     ui->blockValues->setStyleSheet(hstyle);
     ui->blockchainView->setStyleSheet(hstyle);
+    ui->netNodes->setStyleSheet(hstyle);
 
     ui->blockValues->setFont(font);
     ui->blockchainView->setFont(font);
+    ui->netNodes->setFont(font);
 
     ui->blockValues->header()->setFont(font);
     ui->blockchainView->header()->setFont(font);
+    ui->netNodes->header()->setFont(font);
 
     connect(ui->lineJumpToBlock, SIGNAL(returnPressed()),
             this, SLOT(jumpToBlock()));
@@ -121,6 +127,10 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
             this, SLOT(openBlockFromInput()));
     connect(ui->lineTx, SIGNAL(returnPressed()),
             this, SLOT(openTxFromInput()));
+    
+    ui->netNodes->header()->resizeSection(0 /*addr*/, 250);
+    ui->netNodes->header()->resizeSection(1 /*protocol*/, 100);
+    ui->netNodes->header()->resizeSection(2 /*version*/, 250);
 }
 
 BlockchainPage::~BlockchainPage()
@@ -146,6 +156,11 @@ void BlockchainPage::showBlockPage()
 void BlockchainPage::showTxPage()
 {
     ui->tabs->setCurrentWidget(ui->pageTx);
+}
+
+void BlockchainPage::showNetPage()
+{
+    ui->tabs->setCurrentWidget(ui->pageNet);
 }
 
 void BlockchainPage::jumpToBlock()
@@ -513,3 +528,24 @@ bool BlockchainPageTxEvents::eventFilter(QObject *obj, QEvent *event)
     return QObject::eventFilter(obj, event);
 }
 
+void BlockchainPage::setClientModel(ClientModel *model)
+{
+    if(model) {
+        connect(model, SIGNAL(connectionsChanged(const CNodeShortStats &)), 
+                this, SLOT(updateConnections(const CNodeShortStats &)));
+        updateConnections(model->getConnections());
+    }
+}
+
+void BlockchainPage::updateConnections(const CNodeShortStats & stats)
+{
+    ui->netNodes->clear();
+    for(const CNodeShortStat & node : stats) {
+        auto twi = new QTreeWidgetItem;
+        twi->setText(0, QString::fromStdString(node.addrName));
+        twi->setText(1, QString::number(node.nVersion));
+        twi->setText(2, QString::fromStdString(node.strSubVer));
+        twi->setText(3, QString::number(node.nStartingHeight));
+        ui->netNodes->addTopLevelItem(twi);
+    }
+}

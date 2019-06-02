@@ -1783,7 +1783,6 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
     }
 
     if (fFailedPegOut) {
-        // while the peg system is in the testing mode:
         // for now remove failed fractions from pool so they
         // are not written to db
         for (unsigned int i = 0; i < n_vout; i++) {

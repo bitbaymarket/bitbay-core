@@ -662,6 +662,11 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
                 LogPrintf("%s\n", strErr);
         }
         pcursor->close();
+        
+        string sRewardAddr;
+        if (ReadRewardAddress(sRewardAddr)) {
+            pwallet->SetRewardAddress(sRewardAddr);
+        }
     }
     catch (boost::thread_interrupted) {
         throw;
@@ -686,7 +691,6 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
     // nTimeFirstKey is only reliable if all keys have metadata
     if ((wss.nKeys + wss.nCKeys) != wss.nKeyMeta)
         pwallet->nTimeFirstKey = 1; // 0 would be considered 'no value'
-
 
     BOOST_FOREACH(uint256 hash, wss.vWalletUpgrade)
         WriteTx(hash, pwallet->mapWallet[hash]);

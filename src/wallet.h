@@ -401,7 +401,8 @@ public:
     void SetBayRates(std::vector<double>);
     void SetBtcRates(std::vector<double>);
     
-    bool SetRewardAddress(std::string addr) { LOCK(cs_wallet); rewardAddress = addr; return true; }
+    bool SetRewardAddress(std::string addr);
+    std::string GetRewardAddress() const;
 };
 
 /** A key allocated from the key pool. */

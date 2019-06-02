@@ -14,6 +14,7 @@
 #include "walletmodel.h"
 #include "optionsmodel.h"
 #include "bitcoinunits.h"
+#include "addressbookpage.h"
 
 #include <QMenu>
 #include <QTime>
@@ -116,6 +117,9 @@ StakingPage::StakingPage(QWidget *parent) :
     connect(ui->lineRewardTo, SIGNAL(textChanged(const QString &)), this, SLOT(updateRewardActions()));
     connect(ui->lineSupportTo, SIGNAL(textChanged(const QString &)), this, SLOT(updateRewardActions()));
     connect(ui->sliderSupport, SIGNAL(valueChanged(int)), this, SLOT(updateRewardActions()));
+    
+    connect(ui->rewardAddressBookButton, SIGNAL(clicked(bool)), this, SLOT(addressBookRewardClicked()));
+    connect(ui->supportAddressBookButton, SIGNAL(clicked(bool)), this, SLOT(addressBookSupportClicked()));
 }
 
 StakingPage::~StakingPage()
@@ -335,5 +339,33 @@ void StakingPage::setAmounts(qint64 amount5, qint64 amount10, qint64 amount20, q
     ui->radioButtonVoteInflate->setText(last_vote == PEG_VOTE_INFLATE 
                                         ? tr("Inflation (auto to %1)").arg(last_peak)
                                         : tr("Inflation"));
+}
+
+void StakingPage::addressBookRewardClicked()
+{
+    if(!walletModel)
+        return;
+    AddressBookPage::Tabs tab = AddressBookPage::ReceivingTab;
+    AddressBookPage dlg(AddressBookPage::ForSending, tab, this);
+    dlg.setModel(walletModel->getAddressTableModel());
+    if(dlg.exec())
+    {
+        ui->lineRewardTo->setText(dlg.getReturnValue());
+        ui->lineRewardTo->setFocus();
+    }
+}
+
+void StakingPage::addressBookSupportClicked()
+{
+    if(!walletModel)
+        return;
+    AddressBookPage::Tabs tab = AddressBookPage::SendingTab;
+    AddressBookPage dlg(AddressBookPage::ForSending, tab, this);
+    dlg.setModel(walletModel->getAddressTableModel());
+    if(dlg.exec())
+    {
+        ui->lineSupportTo->setText(dlg.getReturnValue());
+        ui->lineSupportTo->setFocus();
+    }
 }
 

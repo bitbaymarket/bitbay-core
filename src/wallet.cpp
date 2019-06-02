@@ -2348,7 +2348,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
     int64_t nCredit = 0;
     CScript scriptPubKeyKernel;
     
-    BOOST_FOREACH(PAIRTYPE(const CWalletTx*, unsigned int) pcoin, setCoins)
+    for(const pair<const CWalletTx*, unsigned int> & pcoin : setCoins)
     {
         static int nMaxStakeSearchInterval = 60;
         bool fKernelFound = false;
@@ -2443,10 +2443,19 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         int64_t nReward = GetProofOfStakeReward(pindexPrev, nCoinAge, nFees, fractions);
         if (nReward <= 0)
             return false;
-
-        nCredit += nReward;
+        
+        if (!rewardAddress.empty() && CBitcoinAddress(rewardAddress).IsValid()) {
+            CScript scriptPubKey;
+            scriptPubKey.SetDestination(CBitcoinAddress(rewardAddress).Get());
+            txNew.vout.push_back(CTxOut(nReward, scriptPubKey)); // add reward
+        }
+        else {
+            nCredit += nReward;
+        }
+        
+        txNew.vout[1].nValue = nCredit; // return stake
     }
-    
+        
     vector<RewardInfo> vRewardsInfo;
     vRewardsInfo.push_back({PEG_REWARD_5 ,0,0,0});
     vRewardsInfo.push_back({PEG_REWARD_10,0,0,0});
@@ -2458,8 +2467,6 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
     for(size_t i=0; i<vRewardsInfo.size(); i++) {
         nOutCount += vRewardsInfo[i].count;
     }
-
-    txNew.vout[1].nValue = nCredit;
     
     // Add vote output
     lastAutoPegVoteType = PEG_VOTE_NONE;
@@ -2496,7 +2503,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         scriptPubKey.SetDestination(CBitcoinAddress(address).Get());
         txNew.vout[txNew.vout.size()-1].scriptPubKey = scriptPubKey;
         txNew.vout[txNew.vout.size()-1].nValue = PEG_MAKETX_VOTE_VALUE;
-        txNew.vout[txNew.vout.size()-2].nValue -= PEG_MAKETX_VOTE_VALUE;
+        txNew.vout[txNew.vout.size()-2].nValue -= PEG_MAKETX_VOTE_VALUE; // from reward
     }
 
     // Sign
@@ -3213,6 +3220,7 @@ void CWallet::SetBayRates(std::vector<double> bay_rates) {
     }
     pegdb.Close();
 }
+
 void CWallet::SetBtcRates(std::vector<double> btc_rates) {
     LOCK2(cs_main, cs_wallet);
     vBtcRates = btc_rates;
@@ -3243,3 +3251,29 @@ void CWallet::SetBtcRates(std::vector<double> btc_rates) {
     pegdb.Close();
 }
 
+bool CWallet::SetRewardAddress(std::string addr)
+{ 
+    LOCK(cs_wallet);
+    if (rewardAddress == addr) {
+        return true;
+    }
+    
+    CBitcoinAddress address(addr);
+    if (!address.IsValid()) {
+        return false;
+    }
+    
+    CWalletDB walletdb(strWalletFile);
+    if (!walletdb.WriteRewardAddress(addr)) {
+        return false;
+    }
+    
+    rewardAddress = addr; 
+    return true; 
+}
+
+std::string CWallet::GetRewardAddress() const
+{
+    LOCK(cs_wallet); 
+    return rewardAddress;
+}

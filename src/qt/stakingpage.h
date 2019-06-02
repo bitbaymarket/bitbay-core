@@ -32,6 +32,9 @@ private slots:
                     int count5, int count10, int count20, int count40,
                     int stake5, int stake10, int stake20, int stake40);
     
+    void addressBookRewardClicked();
+    void addressBookSupportClicked();
+    
 private:
     Ui::StakingPage *ui;
     QTimer* pollTimer;

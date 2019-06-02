@@ -217,7 +217,7 @@ void StakingPage::updateRewardActions()
     }
     
     pwalletMain->SetSupportAddress(supportAddress.toStdString());
-    
+    pwalletMain->SetSupportPart(ui->sliderSupport->value());
 }
 
 void StakingPage::setWalletModel(WalletModel *model)
@@ -254,6 +254,7 @@ void StakingPage::setWalletModel(WalletModel *model)
         
         ui->lineRewardTo->setText(QString::fromStdString(pwalletMain->GetRewardAddress()));
         ui->lineSupportTo->setText(QString::fromStdString(pwalletMain->GetSupportAddress()));
+        ui->sliderSupport->setValue(pwalletMain->GetSupportPart());
     }
 
     // update the display unit, to not use the default ("BTC")

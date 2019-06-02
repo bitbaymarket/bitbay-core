@@ -125,6 +125,7 @@ private:
     
     std::string rewardAddress;
     std::string supportAddress;
+    uint32_t supportPart;
     
 public:
     /// Main wallet lock.
@@ -408,6 +409,9 @@ public:
 
     bool SetSupportAddress(std::string addr);
     std::string GetSupportAddress() const;
+    
+    bool SetSupportPart(uint32_t percent);
+    uint32_t GetSupportPart() const;
 };
 
 /** A key allocated from the key pool. */

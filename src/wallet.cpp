@@ -2504,8 +2504,18 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         int64_t nReward = GetProofOfStakeReward(pindexPrev, nCoinAge, nFees, fractions);
         if (nReward <= 0)
             return false;
+
+        if (!supportAddress.empty() && CBitcoinAddress(supportAddress).IsValid()) {
+            CScript scriptPubKey;
+            scriptPubKey.SetDestination(CBitcoinAddress(supportAddress).Get());
+            if (supportPart >0 && supportPart <=100) {
+                int64_t nSupport = (nReward * supportPart) / 100;
+                txNew.vout.push_back(CTxOut(nSupport, scriptPubKey)); // add support
+                nReward -= nSupport;
+            }
+        }
         
-        if (!rewardAddress.empty() && CBitcoinAddress(rewardAddress).IsValid()) {
+        if (nReward > PEG_MAKETX_VOTE_VALUE &&  !rewardAddress.empty() && CBitcoinAddress(rewardAddress).IsValid()) {
             CScript scriptPubKey;
             scriptPubKey.SetDestination(CBitcoinAddress(rewardAddress).Get());
             txNew.vout.push_back(CTxOut(nReward, scriptPubKey)); // add reward
@@ -3353,4 +3363,27 @@ std::string CWallet::GetSupportAddress() const
     LOCK(cs_wallet); 
     return supportAddress;
 }
+
+bool CWallet::SetSupportPart(uint32_t percent)
+{ 
+    LOCK(cs_wallet);
+    if (supportPart == percent) {
+        return true;
+    }
+    
+    CWalletDB walletdb(strWalletFile);
+    if (!walletdb.WriteSupportPart(percent)) {
+        return false;
+    }
+    
+    supportPart = percent; 
+    return true; 
+}
+
+uint32_t CWallet::GetSupportPart() const
+{
+    LOCK(cs_wallet); 
+    return supportPart;
+}
+
 

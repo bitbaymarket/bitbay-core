@@ -192,6 +192,21 @@ bool CWalletDB::WriteSupportAddress(const string& addr)
     return Write(string("supportaddr"), addr);
 }
 
+bool CWalletDB::ReadSupportPart(uint32_t& percent)
+{
+    bool ok = Read(string("supportpart"), percent);
+    if (!ok || percent > 100) {
+        percent = 10;
+        ok = true;
+    }
+    return ok;
+}
+
+bool CWalletDB::WriteSupportPart(const uint32_t& percent)
+{
+    return Write(string("supportpart"), percent);
+}
+
 bool CWalletDB::WriteAccountingEntry(const uint64_t nAccEntryNum, const CAccountingEntry& acentry)
 {
     return Write(boost::make_tuple(string("acentry"), acentry.strAccount, nAccEntryNum), acentry);
@@ -689,7 +704,10 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
         if (ReadSupportAddress(sSupportAddr)) {
             pwallet->SetSupportAddress(sSupportAddr);
         }
-        
+        uint32_t nSupportPart;
+        if (ReadSupportPart(nSupportPart)) {
+            pwallet->SetSupportPart(nSupportPart);
+        }
     }
     catch (boost::thread_interrupted) {
         throw;

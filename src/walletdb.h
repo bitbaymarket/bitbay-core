@@ -115,7 +115,10 @@ public:
 
     bool ReadSupportAddress(std::string& addr);
     bool WriteSupportAddress(const std::string& addr);
-    
+
+    bool ReadSupportPart(uint32_t& addr);
+    bool WriteSupportPart(const uint32_t& addr);
+
 private:
     bool WriteAccountingEntry(const uint64_t nAccEntryNum, const CAccountingEntry& acentry);
 public:

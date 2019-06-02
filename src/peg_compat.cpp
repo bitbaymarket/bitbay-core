@@ -220,7 +220,7 @@ bool CalculateStakingFractions_testnet200k(const CTransaction & tx,
         if (poolReserves.count(sAddress)) { // to reserve
             int64_t nValueLeft = nValue;
             auto & frReserve = poolReserves[sAddress];
-            nValueLeft = frReserve.MoveRatioPartTo(nValueLeft, 0, frOut);
+            nValueLeft = frReserve.MoveRatioPartTo(nValueLeft, frOut);
 
             if (nValueLeft > 0) {
                 if (nValueLeft > nCommonLiquidity) {
@@ -228,7 +228,7 @@ bool CalculateStakingFractions_testnet200k(const CTransaction & tx,
                     fFailedPegOut = true;
                     break;
                 }
-                frCommonLiquidity.MoveRatioPartTo(nValueLeft, nSupply, frOut);
+                frCommonLiquidity.MoveRatioPartTo(nValueLeft, frOut);
                 nCommonLiquidity -= nValueLeft;
             }
         }
@@ -243,7 +243,7 @@ bool CalculateStakingFractions_testnet200k(const CTransaction & tx,
                 int64_t nValueLeft = nValue;
                 for(const string & sAddress : vAddresses) {
                     auto & frReserve = poolReserves[sAddress];
-                    nValueLeft = frReserve.MoveRatioPartTo(nValueLeft, 0, frOut);
+                    nValueLeft = frReserve.MoveRatioPartTo(nValueLeft, frOut);
                     if (nValueLeft == 0) {
                         break;
                     }
@@ -255,7 +255,7 @@ bool CalculateStakingFractions_testnet200k(const CTransaction & tx,
                         fFailedPegOut = true;
                         break;
                     }
-                    frCommonLiquidity.MoveRatioPartTo(nValueLeft, nSupply, frOut);
+                    frCommonLiquidity.MoveRatioPartTo(nValueLeft, frOut);
                     nCommonLiquidity -= nValueLeft;
                 }
             }
@@ -265,7 +265,7 @@ bool CalculateStakingFractions_testnet200k(const CTransaction & tx,
                     fFailedPegOut = true;
                     break;
                 }
-                frCommonLiquidity.MoveRatioPartTo(nValue, nSupply, frOut);
+                frCommonLiquidity.MoveRatioPartTo(nValue, frOut);
                 nCommonLiquidity -= nValue;
             }
         }

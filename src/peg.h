@@ -100,7 +100,7 @@ public:
     CFractions Negative(int64_t* total) const;
     CFractions LowPart(int supply, int64_t* total) const;
     CFractions HighPart(int supply, int64_t* total) const;
-    CFractions RatioPart(int64_t part, int64_t of_total, int adjust_from) const;
+    CFractions RatioPart(int64_t part) const;
 
     CFractions& operator+=(const CFractions& b);
     CFractions& operator-=(const CFractions& b);
@@ -110,7 +110,6 @@ public:
     CFractions operator-() const;
 
     int64_t MoveRatioPartTo(int64_t nPartValue,
-                            int adjust_from,
                             CFractions& b);
     
     void ToDeltas(int64_t* deltas) const;

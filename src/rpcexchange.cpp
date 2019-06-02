@@ -217,14 +217,12 @@ Value updatepegbalances(const Array& params, bool fHelp)
         int64_t nDistortionPositiveConsume = frDistortionPositive.Total();
         if ((-nDistortionNegativeConsume) > nDistortionPositiveConsume) {
             CFractions frToPositive = -frDistortionNegativeConsume; 
-            frToPositive = frToPositive.RatioPart(nDistortionPositiveConsume,
-                                                  (-nDistortionNegativeConsume),
-                                                  nSupplyNow);
+            frToPositive = frToPositive.RatioPart(nDistortionPositiveConsume);
             frDistortionNegativeConsume = -frToPositive;
             nDistortionNegativeConsume = frDistortionNegativeConsume.Total();
         }
         nDistortionPositiveConsume = -nDistortionNegativeConsume;
-        CFractions frDistortionPositiveConsume = frDistortionPositive.RatioPart(nDistortionPositiveConsume, nDistortionPositive, 0);
+        CFractions frDistortionPositiveConsume = frDistortionPositive.RatioPart(nDistortionPositiveConsume);
         CFractions frDistortionConsume = frDistortionNegativeConsume + frDistortionPositiveConsume;
         
         frBalance += frDistortionConsume;
@@ -334,7 +332,7 @@ Value movecoins(const Array& params, bool fHelp)
     
     frSrc = frSrc.Std();
     CFractions frAmount = frSrc;
-    CFractions frMove = frAmount.RatioPart(move_amount, src_total, 0);
+    CFractions frMove = frAmount.RatioPart(move_amount);
     
     frSrc -= frMove;
     frDst += frMove;
@@ -408,7 +406,7 @@ Value moveliquid(const Array& params, bool fHelp)
     
     frSrc = frSrc.Std();
     CFractions frLiquid = frSrc.HighPart(nSupply, nullptr);
-    CFractions frMove = frLiquid.RatioPart(move_liquid, src_liquid, nSupply);
+    CFractions frMove = frLiquid.RatioPart(move_liquid);
     
     frSrc -= frMove;
     frDst += frMove;
@@ -482,7 +480,7 @@ Value movereserve(const Array& params, bool fHelp)
     
     frSrc = frSrc.Std();
     CFractions frReserve = frSrc.LowPart(nSupply, nullptr);
-    CFractions frMove = frReserve.RatioPart(move_reserve, src_reserve, 0);
+    CFractions frMove = frReserve.RatioPart(move_reserve);
     
     frSrc -= frMove;
     frDst += frMove;
@@ -729,7 +727,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
                                      nBalanceLiquid,
                                      nAmountWithFee));
     }
-    CFractions frAmount = frBalanceLiquid.RatioPart(nAmountWithFee, nBalanceLiquid, nSupplyNext);
+    CFractions frAmount = frBalanceLiquid.RatioPart(nAmountWithFee);
 
     // inputs, outputs
     string sConsumedInputs = params[7].get_str();
@@ -1120,14 +1118,12 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     int64_t nDistortionPositiveConsume = frDistortionPositive.Total();
     if ((-nDistortionNegativeConsume) > nDistortionPositiveConsume) {
         CFractions frToPositive = -frDistortionNegativeConsume; 
-        frToPositive = frToPositive.RatioPart(nDistortionPositiveConsume,
-                                              (-nDistortionNegativeConsume),
-                                              nSupplyNow);
+        frToPositive = frToPositive.RatioPart(nDistortionPositiveConsume);
         frDistortionNegativeConsume = -frToPositive;
         nDistortionNegativeConsume = frDistortionNegativeConsume.Total();
     }
     nDistortionPositiveConsume = -nDistortionNegativeConsume;
-    CFractions frDistortionPositiveConsume = frDistortionPositive.RatioPart(nDistortionPositiveConsume, nDistortionPositive, nSupplyNow);
+    CFractions frDistortionPositiveConsume = frDistortionPositive.RatioPart(nDistortionPositiveConsume);
     CFractions frDistortionConsume = frDistortionNegativeConsume + frDistortionPositiveConsume;
     
     frBalance += frDistortionConsume;
@@ -1284,7 +1280,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
                                      nBalanceReserve,
                                      nAmountWithFee));
     }
-    CFractions frAmount = frBalanceReserve.RatioPart(nAmountWithFee, nBalanceReserve, 0);
+    CFractions frAmount = frBalanceReserve.RatioPart(nAmountWithFee);
 
     // inputs, outputs
     string sConsumedInputs = params[7].get_str();
@@ -1751,14 +1747,12 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     int64_t nDistortionPositiveConsume = frDistortionPositive.Total();
     if ((-nDistortionNegativeConsume) > nDistortionPositiveConsume) {
         CFractions frToPositive = -frDistortionNegativeConsume; 
-        frToPositive = frToPositive.RatioPart(nDistortionPositiveConsume,
-                                              (-nDistortionNegativeConsume),
-                                              0);
+        frToPositive = frToPositive.RatioPart(nDistortionPositiveConsume);
         frDistortionNegativeConsume = -frToPositive;
         nDistortionNegativeConsume = frDistortionNegativeConsume.Total();
     }
     nDistortionPositiveConsume = -nDistortionNegativeConsume;
-    CFractions frDistortionPositiveConsume = frDistortionPositive.RatioPart(nDistortionPositiveConsume, nDistortionPositive, 0);
+    CFractions frDistortionPositiveConsume = frDistortionPositive.RatioPart(nDistortionPositiveConsume);
     CFractions frDistortionConsume = frDistortionNegativeConsume + frDistortionPositiveConsume;
     
     frBalance += frDistortionConsume;

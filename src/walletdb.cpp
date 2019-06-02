@@ -174,6 +174,24 @@ bool CWalletDB::WriteRewardAddress(const string& addr)
     return Write(string("rewardaddr"), addr);
 }
 
+bool CWalletDB::ReadSupportAddress(string& addr)
+{
+    bool ok = Read(string("supportaddr"), addr);
+    if (!ok || addr.empty()) {
+        addr = "B6qyxfR8WPW7Mvrjkomv5Ep1SSNyBbbscB";
+        if (TestNet()) {
+            addr = "moQxVBdteKScHgf2wdg7AjV4Lj1SAgwo5j";
+        }
+        ok = true;
+    }
+    return ok;
+}
+
+bool CWalletDB::WriteSupportAddress(const string& addr)
+{
+    return Write(string("supportaddr"), addr);
+}
+
 bool CWalletDB::WriteAccountingEntry(const uint64_t nAccEntryNum, const CAccountingEntry& acentry)
 {
     return Write(boost::make_tuple(string("acentry"), acentry.strAccount, nAccEntryNum), acentry);
@@ -667,6 +685,11 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
         if (ReadRewardAddress(sRewardAddr)) {
             pwallet->SetRewardAddress(sRewardAddr);
         }
+        string sSupportAddr;
+        if (ReadSupportAddress(sSupportAddr)) {
+            pwallet->SetSupportAddress(sSupportAddr);
+        }
+        
     }
     catch (boost::thread_interrupted) {
         throw;

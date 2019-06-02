@@ -124,6 +124,7 @@ private:
     double dBayPeakPrice = 0;
     
     std::string rewardAddress;
+    std::string supportAddress;
     
 public:
     /// Main wallet lock.
@@ -404,6 +405,9 @@ public:
     
     bool SetRewardAddress(std::string addr);
     std::string GetRewardAddress() const;
+
+    bool SetSupportAddress(std::string addr);
+    std::string GetSupportAddress() const;
 };
 
 /** A key allocated from the key pool. */

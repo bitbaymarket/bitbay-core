@@ -3326,3 +3326,31 @@ std::string CWallet::GetRewardAddress() const
     LOCK(cs_wallet); 
     return rewardAddress;
 }
+
+bool CWallet::SetSupportAddress(std::string addr)
+{ 
+    LOCK(cs_wallet);
+    if (supportAddress == addr) {
+        return true;
+    }
+    
+    CBitcoinAddress address(addr);
+    if (!address.IsValid()) {
+        return false;
+    }
+    
+    CWalletDB walletdb(strWalletFile);
+    if (!walletdb.WriteSupportAddress(addr)) {
+        return false;
+    }
+    
+    supportAddress = addr; 
+    return true; 
+}
+
+std::string CWallet::GetSupportAddress() const
+{
+    LOCK(cs_wallet); 
+    return supportAddress;
+}
+

@@ -106,9 +106,6 @@ StakingPage::StakingPage(QWidget *parent) :
     ui->lineSupportTo->setPlaceholderText(tr("Enter a BitBay address:"));
 
     setFocusPolicy(Qt::TabFocus);
-    setFocusProxy(ui->lineRewardTo);
-    setFocusProxy(ui->lineSupportTo);
-
     GUIUtil::setupAddressWidget(ui->lineRewardTo, this);
     GUIUtil::setupAddressWidget(ui->lineSupportTo, this);
     
@@ -213,6 +210,14 @@ void StakingPage::updateRewardActions()
     }
     
     pwalletMain->SetRewardAddress(rewardAddress.toStdString());
+    
+    QString supportAddress;
+    if (ui->checkSupportFund->isChecked()) {
+        supportAddress = ui->lineSupportTo->text();
+    }
+    
+    pwalletMain->SetSupportAddress(supportAddress.toStdString());
+    
 }
 
 void StakingPage::setWalletModel(WalletModel *model)
@@ -246,6 +251,9 @@ void StakingPage::setWalletModel(WalletModel *model)
                 this, SLOT(setAmounts(qint64,qint64,qint64,qint64, int,int,int,int, int,int,int,int)));
 
         connect(model->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
+        
+        ui->lineRewardTo->setText(QString::fromStdString(pwalletMain->GetRewardAddress()));
+        ui->lineSupportTo->setText(QString::fromStdString(pwalletMain->GetSupportAddress()));
     }
 
     // update the display unit, to not use the default ("BTC")

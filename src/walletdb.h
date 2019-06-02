@@ -112,6 +112,9 @@ public:
     
     bool ReadRewardAddress(std::string& addr);
     bool WriteRewardAddress(const std::string& addr);
+
+    bool ReadSupportAddress(std::string& addr);
+    bool WriteSupportAddress(const std::string& addr);
     
 private:
     bool WriteAccountingEntry(const uint64_t nAccEntryNum, const CAccountingEntry& acentry);

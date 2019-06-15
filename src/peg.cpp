@@ -596,7 +596,72 @@ int64_t CFractions::High(int supply) const
     return nValue;
 }
 
-int64_t CFractions::Change(int src_supply, int dst_supply) const
+int64_t CFractions::Low(const CPegLevel & peglevel) const
+{
+    int64_t nValue =0;
+    if (nFlags & VALUE)
+        return Std().Low(peglevel);
+
+    int to = peglevel.nSupply + peglevel.nShift;
+    if (to >=0 && 
+            to <PEG_SIZE && 
+            peglevel.nShiftLastPart >0 && 
+            peglevel.nShiftLastTotal >0) {
+        // partial value to use
+        int64_t v = f[to];
+        int64_t vpart = ::RatioPart(v, 
+                                    peglevel.nShiftLastPart, 
+                                    peglevel.nShiftLastTotal);
+        if (vpart < v) vpart++; // better rounding
+        nValue += vpart;
+        to++;
+    }
+    
+    for(int i=0;i<to;i++) {
+        nValue += f[i];
+    }
+    return nValue;
+}
+
+int64_t CFractions::High(const CPegLevel & peglevel) const
+{
+    int64_t nValue =0;
+    if (nFlags & VALUE)
+        return Std().High(peglevel);
+
+    int from = peglevel.nSupply + peglevel.nShift;
+    if (from >=0 && 
+            from <PEG_SIZE && 
+            peglevel.nShiftLastPart >0 && 
+            peglevel.nShiftLastTotal >0) {
+        // partial value to use
+        int64_t v = f[from];
+        int64_t vpart = ::RatioPart(v, 
+                                    peglevel.nShiftLastPart, 
+                                    peglevel.nShiftLastTotal);
+        if (vpart < v) vpart++; // better rounding
+        nValue += (v - vpart);
+        from++;
+    }
+    
+    for(int i=from;i<PEG_SIZE;i++) {
+        nValue += f[i];
+    }
+    return nValue;
+}
+
+int64_t CFractions::NChange(const CPegLevel & peglevel) const
+{
+    CPegLevel peglevel_next = peglevel;
+    peglevel_next.nSupply = peglevel_next.nSupplyNext;
+    peglevel_next.nSupplyNext = peglevel_next.nSupplyNextNext;
+    
+    int64_t nValueSrc = High(peglevel);
+    int64_t nValueDst = High(peglevel_next);
+    return nValueDst - nValueSrc;
+}
+
+int64_t CFractions::NChange(int src_supply, int dst_supply) const
 {
     int64_t nValueSrc = High(src_supply);
     int64_t nValueDst = High(dst_supply);
@@ -672,6 +737,65 @@ CFractions CFractions::HighPart(int supply, int64_t* total) const
     for(int i=supply; i<PEG_SIZE; i++) {
         if (total) *total += f[i];
         frHighPart.f[i] += f[i];
+    }
+    return frHighPart;
+}
+
+CFractions CFractions::LowPart(const CPegLevel & peglevel, int64_t* total) const
+{
+    if ((nFlags & STD) == 0) {
+        return Std().LowPart(peglevel, total);
+    }
+    
+    CFractions frLowPart(0, CFractions::STD);
+    
+    int to = peglevel.nSupply + peglevel.nShift;
+    if (to >=0 && 
+            to <PEG_SIZE && 
+            peglevel.nShiftLastPart >0 && 
+            peglevel.nShiftLastTotal >0) {
+        // partial value to use
+        int64_t v = f[to];
+        int64_t vpart = ::RatioPart(v, 
+                                    peglevel.nShiftLastPart, 
+                                    peglevel.nShiftLastTotal);
+        if (vpart < v) vpart++; // better rounding
+        frLowPart.f[to] = vpart;
+        to++;
+    }
+    
+    for(int i=0; i<to; i++) {
+        if (total) *total += f[i];
+        frLowPart.f[i] = f[i];
+    }
+    return frLowPart;
+}
+CFractions CFractions::HighPart(const CPegLevel & peglevel, int64_t* total) const
+{
+    if ((nFlags & STD) == 0) {
+        return Std().HighPart(peglevel, total);
+    }
+    
+    CFractions frHighPart(0, CFractions::STD);
+    
+    int from = peglevel.nSupply + peglevel.nShift;
+    if (from >=0 && 
+            from <PEG_SIZE && 
+            peglevel.nShiftLastPart >0 && 
+            peglevel.nShiftLastTotal >0) {
+        // partial value to use
+        int64_t v = f[from];
+        int64_t vpart = ::RatioPart(v, 
+                                    peglevel.nShiftLastPart, 
+                                    peglevel.nShiftLastTotal);
+        if (vpart < v) vpart++; // better rounding
+        frHighPart.f[from] = (v - vpart);
+        from++;
+    }
+    
+    for(int i=from; i<PEG_SIZE; i++) {
+        if (total) *total += f[i];
+        frHighPart.f[i] = f[i];
     }
     return frHighPart;
 }
@@ -958,6 +1082,124 @@ double CFractions::Distortion(const CFractions& b) const
     }
     
     return 0;
+}
+
+CPegLevel::CPegLevel(std::string str) {
+    vector<unsigned char> data(ParseHex(str));
+    CDataStream finp(data, SER_DISK, CLIENT_VERSION);
+    if (!Unpack(finp)) {
+        // invalid
+        nSupply = -1;
+        nShift = 0;
+        nShiftLastPart = 0;
+        nShiftLastTotal = 0;
+    }
+}
+
+CPegLevel::CPegLevel(int cycle,
+                     int supply,
+                     int supply_next,
+                     int supply_next_next) {
+    nCycle = cycle;
+    nSupply = supply;
+    nSupplyNext = supply_next;
+    nSupplyNextNext = supply_next_next;
+    nShift = 0;
+    nShiftLastPart  = 0;
+    nShiftLastTotal = 0;
+}
+
+CPegLevel::CPegLevel(int cycle,
+                     int supply,
+                     int supply_next,
+                     int supply_next_next,
+                     const CFractions & frInput,
+                     const CFractions & frDistortion) {
+    nCycle = cycle;
+    nSupply = supply;
+    nSupplyNext = supply_next;
+    nSupplyNextNext = supply_next_next;
+    nShift = 0;
+    nShiftLastPart  = 0;
+    nShiftLastTotal = 0;
+    
+    CFractions frOutput = frInput + frDistortion;
+    int64_t nInputLiquid = frInput.High(nSupply);
+    int64_t nOutputLiquid = frOutput.High(nSupply);
+    
+    if (nOutputLiquid < nInputLiquid) {
+        
+        int64_t nLiquidDiff = nInputLiquid - nOutputLiquid;
+        int64_t nLiquidDiffLeft = nLiquidDiff;
+        nShiftLastTotal = 0;
+        
+        int i = nSupply;
+        while(nLiquidDiffLeft > 0 && i < PEG_SIZE) {
+            int64_t nLiquid = frInput.f[i];
+            if (nLiquid > nLiquidDiffLeft) {
+                // this fraction to distribute 
+                // with ratio nLiquidCutLeft/nLiquid
+                nShiftLastTotal = nLiquid;
+                break;
+            } 
+
+            nShift++;
+            nLiquidDiffLeft -= nLiquid;
+            i++;
+        }
+        nShiftLastPart = nLiquidDiffLeft;
+    }
+}
+
+bool CPegLevel::IsValid() const { 
+    return nSupply >=0 && 
+            nSupply < PEG_SIZE &&
+            nSupplyNext >=0 && 
+            nSupplyNext < PEG_SIZE &&
+            nSupplyNextNext >=0 && 
+            nSupplyNextNext < PEG_SIZE && 
+            nShift >= 0 && 
+            (nSupply+nShift) < PEG_SIZE &&
+            nShiftLastPart >= 0 &&
+            nShiftLastTotal >= 0;
+}
+
+bool CPegLevel::Pack(CDataStream & fout) const {
+    try {
+        fout << nCycle;
+        fout << nSupply;            // from index distortion
+        fout << nSupplyNext;
+        fout << nSupplyNextNext;
+        fout << nShift;             // length indexes distortion
+        fout << nShiftLastPart;     // to distribute (part)
+        fout << nShiftLastTotal;    // to distribute (total)
+    }
+    catch (std::exception &) {
+        return false;
+    }
+    return true;
+}
+
+bool CPegLevel::Unpack(CDataStream & finp) {
+    try {
+        finp >> nCycle;
+        finp >> nSupply;            // from index distortion
+        finp >> nSupplyNext;
+        finp >> nSupplyNextNext;
+        finp >> nShift;             // length indexes distortion
+        finp >> nShiftLastPart;     // to distribute (part)
+        finp >> nShiftLastTotal;    // to distribute (total)
+    }
+    catch (std::exception &) {
+        return false;
+    }
+    return true;
+}
+
+std::string CPegLevel::ToString() const {
+    CDataStream fout(SER_DISK, CLIENT_VERSION);
+    Pack(fout);
+    return HexStr(fout.begin(), fout.end());
 }
 
 static string toAddress(const CScript& scriptPubKey,

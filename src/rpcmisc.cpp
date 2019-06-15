@@ -105,9 +105,9 @@ Value getpeginfo(const Array& params, bool fHelp)
         }
         peg.push_back(Pair("whitelist", list));
     }
-    peg.push_back(Pair("pegsupplyindex", pindexBest->nPegSupplyIndex));
-    peg.push_back(Pair("nextpegsupplyindex", pindexBest->GetNextIntervalPegSupplyIndex()));
-    peg.push_back(Pair("nextnextpegsupplyindex", pindexBest->GetNextNextIntervalPegSupplyIndex()));
+    peg.push_back(Pair("peg", pindexBest->nPegSupplyIndex));
+    peg.push_back(Pair("pegnext", pindexBest->GetNextIntervalPegSupplyIndex()));
+    peg.push_back(Pair("pegnextnext", pindexBest->GetNextNextIntervalPegSupplyIndex()));
     return peg;
 }
 
@@ -179,9 +179,9 @@ Value getfractions(const Array& params, bool fHelp)
     obj.push_back(Pair("total", total));
     obj.push_back(Pair("reserve", reserve));
     obj.push_back(Pair("liquidity", liquidity));
-    obj.push_back(Pair("supply", supply));
-    obj.push_back(Pair("flags", flags));
+    obj.push_back(Pair("peg", supply));
     obj.push_back(Pair("lock", lock));
+    obj.push_back(Pair("flags", flags));
     obj.push_back(Pair("values", f));
     
     return obj;

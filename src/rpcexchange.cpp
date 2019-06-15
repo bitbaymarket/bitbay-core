@@ -26,9 +26,9 @@ using namespace json_spirit;
 #ifdef ENABLE_WALLET
 Value registerdeposit(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 3)
+    if (fHelp || params.size() != 4)
         throw runtime_error(
-            "registerdeposit <txid:nout> <balance_pegdata_base64> <exchange_pegdata_base64>\n"
+            "registerdeposit <txid:nout> <balance_pegdata_base64> <exchange_pegdata_base64> <peglevel_hex>\n"
             );
     
     string sTxout = params[0].get_str();
@@ -72,6 +72,27 @@ Value registerdeposit(const Array& params, bool fHelp)
     }
     frExchange = frExchange.Std();
     
+    string peglevel_hex = params[3].get_str();
+    
+    int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
+    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
+    int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
+    
+    int nPegInterval = Params().PegInterval(nBestHeight);
+    int nCycleNow = nBestHeight / nPegInterval;
+    
+    CPegLevel peglevel(nSupplyNow,
+                       nSupplyNext,
+                       nSupplyNextNext,
+                       nCycleNow);
+    
+    if (!peglevel_hex.empty()) {
+        CPegLevel peglevel_load(peglevel_hex);
+        if (peglevel_load.IsValid()) {
+            peglevel = peglevel_load;
+        }
+    }
+    
     uint256 txhash;
     txhash.SetHex(sTxid);
     
@@ -92,10 +113,8 @@ Value registerdeposit(const Array& params, bool fHelp)
     
     int nDepth = txindex.GetDepthInMainChain();
     int nHeight = nBestHeight - nDepth +1;
-    int nPegInterval = Params().PegInterval(nHeight);
     int nNextHeight = (nHeight / nPegInterval +1) * nPegInterval;
     int nRegisterHeight = std::max(nNextHeight, nHeight + nRecommendedConfirmations);
-    int nCycleNow = nBestHeight / nPegInterval;
 
     if (nDepth < nRecommendedConfirmations) {
         result.push_back(Pair("deposited", false));
@@ -111,9 +130,6 @@ Value registerdeposit(const Array& params, bool fHelp)
         return result;
     }
 
-    int nSupply = pindexBest ? pindexBest->nPegSupplyIndex : 0;
-    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
-    
     CPegDB pegdb("r");
     auto fkey = uint320(txhash, nout);
     CFractions frDeposit(tx.vout[nout].nValue, CFractions::VALUE);
@@ -140,17 +156,20 @@ Value registerdeposit(const Array& params, bool fHelp)
     result.push_back(Pair("deposited", true));
     result.push_back(Pair("status", "Registered"));
     result.push_back(Pair("atblock", nRegisterHeight));
-    result.push_back(Pair("supply", nSupply));
+    
+    result.push_back(Pair("peg", nSupplyNow));
     result.push_back(Pair("cycle", nCycleNow));
+    
     result.push_back(Pair("balance_value", nBalance));
-    result.push_back(Pair("balance_liquid", frBalance.High(nSupply)));
-    result.push_back(Pair("balance_reserve", frBalance.Low(nSupply)));
-    result.push_back(Pair("balance_nchange", frBalance.Change(nSupply, nSupplyNext)));
+    result.push_back(Pair("balance_liquid", frBalance.High(peglevel)));
+    result.push_back(Pair("balance_reserve", frBalance.Low(peglevel)));
+    result.push_back(Pair("balance_nchange", frBalance.NChange(peglevel)));
     result.push_back(Pair("balance_pegdata", EncodeBase64(foutBalance.str())));
+    
     result.push_back(Pair("exchange_value", nExchange));
-    result.push_back(Pair("exchange_liquid", frExchange.High(nSupply)));
-    result.push_back(Pair("exchange_reserve", frExchange.Low(nSupply)));
-    result.push_back(Pair("exchange_nchange", frExchange.Change(nSupply, nSupplyNext)));
+    result.push_back(Pair("exchange_liquid", frExchange.High(peglevel)));
+    result.push_back(Pair("exchange_reserve", frExchange.Low(peglevel)));
+    result.push_back(Pair("exchange_nchange", frExchange.NChange(peglevel)));
     result.push_back(Pair("exchange_pegdata", EncodeBase64(foutExchange.str())));
     
     return result;
@@ -158,14 +177,14 @@ Value registerdeposit(const Array& params, bool fHelp)
 
 Value updatepegbalances(string balance_pegdata64);
 Value updatepegbalances(string exchange_pegdata64,
-                        string pegshift_base64);
+                        string peglevel_hex);
 
 Value updatepegbalances(const Array& params, bool fHelp)
 {
     if (fHelp || (params.size() != 1 && params.size() != 2))
         throw runtime_error(
             "updatepegbalances <balance_pegdata_base64>\n"
-            "updatepegbalances <balance_pegdata_base64> <pegshift_base64>\n"
+            "updatepegbalances <balance_pegdata_base64> <peglevel_hex>\n"
             );
     
     string balance_pegdata64 = params[0].get_str();
@@ -174,10 +193,10 @@ Value updatepegbalances(const Array& params, bool fHelp)
         return updatepegbalances(balance_pegdata64);
     }
 
-    string pegshift_base64 = params[1].get_str();
+    string peglevel_hex = params[1].get_str();
     
     return updatepegbalances(balance_pegdata64,
-                             pegshift_base64);
+                             peglevel_hex);
 }
 
 Value updatepegbalances(string balance_pegdata64)
@@ -207,19 +226,19 @@ Value updatepegbalances(string balance_pegdata64)
     CDataStream fout_balance(SER_DISK, CLIENT_VERSION);
     frBalance.Pack(fout_balance);
 
-    result.push_back(Pair("supply", nSupplyNow));
+    result.push_back(Pair("peg", nSupplyNow));
     result.push_back(Pair("cycle", nCycleNow));
     
     result.push_back(Pair("balance_value", nBalance));
     result.push_back(Pair("balance_liquid", frBalance.High(nSupplyNow)));
     result.push_back(Pair("balance_reserve", frBalance.Low(nSupplyNow)));
-    result.push_back(Pair("balance_nchange", frBalance.Change(nSupplyNow, nSupplyNext)));
+    result.push_back(Pair("balance_nchange", frBalance.NChange(nSupplyNow, nSupplyNext)));
     result.push_back(Pair("balance_pegdata", EncodeBase64(fout_balance.str())));
     
     return result;
 }
 
-Value updatepegbalances(string balance_pegdata64, string pegshift_base64)
+Value updatepegbalances(string balance_pegdata64, string peglevel_hex)
 {
     CFractions frBalance(0, CFractions::VALUE);
     if (!balance_pegdata64.empty()) {
@@ -235,72 +254,49 @@ Value updatepegbalances(string balance_pegdata64, string pegshift_base64)
 
     int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
     int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
-    
-    Object result;
+    int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
     
     int nPegInterval = Params().PegInterval(nBestHeight);
     int nCycleNow = nBestHeight / nPegInterval;
     
-    int64_t nBalance = frBalance.Total();
-    int64_t nLiquid = frBalance.High(nSupplyNow);
-    int64_t nReserve = frBalance.Low(nSupplyNow);
+    CPegLevel peglevel(nSupplyNow,
+                       nSupplyNext,
+                       nSupplyNextNext,
+                       nCycleNow);
     
-    if (!pegshift_base64.empty()) {
-        int nShiftFrom = 0;
-        int nShiftLength = 0;
-        int nShiftPart = 0;
-        int64_t nLiquidLastPart = 0;
-        int64_t nLiquidLastTotal = 0;
-        try {
-            string bindata = DecodeBase64(pegshift_base64);
-            CDataStream finp(bindata.data(), bindata.data() + bindata.size(),
-                             SER_DISK, CLIENT_VERSION);
-            finp >> nShiftFrom;    // from index distortion
-            finp >> nShiftLength;  // length indexes distortion
-            finp >> nShiftPart;    // index of part to distribute
-            finp >> nLiquidLastPart;    // to distribute (part)
-            finp >> nLiquidLastTotal;   // to distribute (total)
-        }
-        catch (std::exception &) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'pegshift' data");
-        }
-        
-        // liquid shift by full fraction
-        for(int i= nShiftFrom; i< (nShiftFrom + nShiftLength); i++) {
-            nLiquid -= frBalance.f[i];
-            nReserve += frBalance.f[i];
-        }
-        // liquid shift by partial fraction
-        if (nShiftPart >= 0 && 
-                nLiquidLastPart >0 && 
-                nLiquidLastTotal >0) {
-            int64_t nLiquidPart = RatioPart(frBalance.f[nShiftPart], 
-                                            nLiquidLastPart, 
-                                            nLiquidLastTotal) +1;
-            nLiquid -= nLiquidPart;
-            nReserve += nLiquidPart;
+    if (!peglevel_hex.empty()) {
+        CPegLevel peglevel_load(peglevel_hex);
+        if (peglevel_load.IsValid()) {
+            peglevel = peglevel_load;
         }
     }
+    
+    Object result;
+    
+    int64_t nBalance = frBalance.Total();
+    int64_t nReserve = frBalance.Low(peglevel);
+    int64_t nLiquid = frBalance.High(peglevel);
+    int64_t nChange = frBalance.NChange(peglevel);
     
     CDataStream fout_balance(SER_DISK, CLIENT_VERSION);
     frBalance.Pack(fout_balance);
 
-    result.push_back(Pair("supply", nSupplyNow));
+    result.push_back(Pair("peg", nSupplyNow));
     result.push_back(Pair("cycle", nCycleNow));
     
     result.push_back(Pair("balance_value", nBalance));
     result.push_back(Pair("balance_liquid", nLiquid));
     result.push_back(Pair("balance_reserve", nReserve));
-    result.push_back(Pair("balance_nchange", frBalance.Change(nSupplyNow, nSupplyNext)));
+    result.push_back(Pair("balance_nchange", nChange));
     
     return result;
 }
 
-Value updatepegliquidity(const Array& params, bool fHelp)
+Value getpeglevel(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 2)
         throw runtime_error(
-            "updatepegliquidity <exchange_pegdata_base64> <distortion_pegdata_base64>\n"
+            "getpeglevel <exchange_pegdata_base64> <distortion_pegdata_base64>\n"
             );
     
     string exchange_pegdata64 = params[0].get_str();
@@ -322,7 +318,7 @@ Value updatepegliquidity(const Array& params, bool fHelp)
         CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
                          SER_DISK, CLIENT_VERSION);
         if (!frDistortion.Unpack(finp)) {
-             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'exchange' pegdata");
+             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'distortion' pegdata");
         }
     }
     
@@ -331,71 +327,40 @@ Value updatepegliquidity(const Array& params, bool fHelp)
 
     int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
     int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
-    
-    CFractions frWallet = frExchange + frDistortion;
-    
-    int64_t nExchangeLiquid = frExchange.High(nSupplyNow);
-    int64_t nWalletLiquid = frWallet.High(nSupplyNow);
-    
-    string sPegShift;
-    if (nWalletLiquid < nExchangeLiquid) {
-        // calculate pegshift
-        int nShiftFrom = nSupplyNow;
-        int nShiftPart = -1;
-        int nShiftLength = 0;
-        
-        int64_t nLiquidCut = nExchangeLiquid - nWalletLiquid;
-        int64_t nLiquidCutLeft = nLiquidCut;
-        int64_t nLiquidLastTotal = 0;
-        
-        int i = nShiftFrom;
-        while(nLiquidCutLeft > 0 && i < PEG_SIZE) {
-            int64_t nLiquid = frExchange.f[i];
-            if (nLiquid > nLiquidCutLeft) {
-                // this fraction to distribute with ratio nLiquidCutLeft/nLiquid
-                nShiftPart = i;
-                nLiquidLastTotal = nLiquid;
-                break;
-            } 
-            else {
-                nShiftLength++;
-            }
-            nLiquidCutLeft -= nLiquid;
-            i++;
-        }
-        int64_t nLiquidLastPart = nLiquidCutLeft;
-
-        CDataStream fout_pegshift(SER_DISK, CLIENT_VERSION);
-        fout_pegshift << nShiftFrom;   // from index distortion
-        fout_pegshift << nShiftLength; // length indexes distortion
-        fout_pegshift << nShiftPart;   // index of part to distribute
-        fout_pegshift << nLiquidLastPart;   // to distribute (part)
-        fout_pegshift << nLiquidLastTotal;  // to distribute (total)
-        sPegShift = EncodeBase64(fout_pegshift.str());
-    }
-    
-    Object result;
+    int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
     
     int nPegInterval = Params().PegInterval(nBestHeight);
     int nCycleNow = nBestHeight / nPegInterval;
     
-    result.push_back(Pair("supply", nSupplyNow));
-    result.push_back(Pair("cycle", nCycleNow));
+    CPegLevel peglevel(nCycleNow,
+                       nSupplyNow,
+                       nSupplyNext,
+                       nSupplyNextNext,
+                       frExchange,
+                       frDistortion);
     
-    result.push_back(Pair("exchange_value", frExchange.Total()));
-    result.push_back(Pair("exchange_liquid", frExchange.High(nSupplyNow)));
-    result.push_back(Pair("exchange_reserve", frExchange.Low(nSupplyNow)));
-    result.push_back(Pair("exchange_nchange", frExchange.Change(nSupplyNow, nSupplyNext)));
+    int64_t nExchangeValue      = frExchange.Total();
+    int64_t nExchangeLiquid     = frExchange.High(peglevel);
+    int64_t nExchangeReserve    = frExchange.Low(peglevel);
+    int64_t nExchangeNChange    = frExchange.NChange(peglevel);
+    
+    Object result;
+    
+    result.push_back(Pair("cycle", peglevel.nCycle));
+
+    result.push_back(Pair("peglevel", peglevel.ToString()));
+
+    result.push_back(Pair("peg", peglevel.nSupply));
+    result.push_back(Pair("pegnext", peglevel.nSupplyNext));
+    result.push_back(Pair("pegnextnext", peglevel.nSupplyNextNext));
+    
+    result.push_back(Pair("exchange_value", nExchangeValue));
+    result.push_back(Pair("exchange_liquid", nExchangeLiquid));
+    result.push_back(Pair("exchange_reserve", nExchangeReserve));
+    result.push_back(Pair("exchange_nchange", nExchangeNChange));
 
     int64_t nDistortion = frDistortion.Positive(nullptr).Total();
-    int64_t nDistortionLiquid = nDistortion;
-    int64_t nDistortionReserve = nDistortion;
-    
     result.push_back(Pair("distortion_value", nDistortion));
-    result.push_back(Pair("distortion_liquid", nDistortionLiquid));
-    result.push_back(Pair("distortion_reserve", nDistortionReserve));
-    
-    result.push_back(Pair("pegshift", sPegShift));
     
     return result;
 }
@@ -404,13 +369,13 @@ Value movecoins(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 4)
         throw runtime_error(
-            "movecoins <amount> <src_pegdata_base64> <dst_pegdata_base64> <pegsupply>\n"
+            "movecoins <amount> <src_pegdata_base64> <dst_pegdata_base64> <peglevel_hex>\n"
             );
     
     int64_t move_amount = params[0].get_int64();
     string src_pegdata64 = params[1].get_str();
     string dst_pegdata64 = params[2].get_str();
-    int nSupply = params[3].get_int();
+    string peglevel_hex = params[3].get_str();
     
     CFractions frSrc(0, CFractions::VALUE);
 
@@ -440,6 +405,27 @@ Value movecoins(const Array& params, bool fHelp)
     }
     
     frSrc = frSrc.Std();
+    frDst = frDst.Std();
+    
+    int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
+    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
+    int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
+    
+    int nPegInterval = Params().PegInterval(nBestHeight);
+    int nCycleNow = nBestHeight / nPegInterval;
+    
+    CPegLevel peglevel(nSupplyNow,
+                       nSupplyNext,
+                       nSupplyNextNext,
+                       nCycleNow);
+    
+    if (!peglevel_hex.empty()) {
+        CPegLevel peglevel_load(peglevel_hex);
+        if (peglevel_load.IsValid()) {
+            peglevel = peglevel_load;
+        }
+    }
+    
     CFractions frAmount = frSrc;
     CFractions frMove = frAmount.RatioPart(move_amount);
     
@@ -455,20 +441,19 @@ Value movecoins(const Array& params, bool fHelp)
     frDst.Pack(fout_dst);
     CDataStream fout_src(SER_DISK, CLIENT_VERSION);
     frSrc.Pack(fout_src);
-
-    // bypassed nSupply is supposed to be current supply, we use current nSupplyNext
-    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
     
-    result.push_back(Pair("supply", nSupply));
+    result.push_back(Pair("peg", peglevel.nSupply));
+    result.push_back(Pair("cycle", peglevel.nCycle));
+    
     result.push_back(Pair("src_value", src_value));
-    result.push_back(Pair("src_liquid", frSrc.High(nSupply)));
-    result.push_back(Pair("src_reserve", frSrc.Low(nSupply)));
-    result.push_back(Pair("src_nchange", frSrc.Change(nSupply, nSupplyNext)));
+    result.push_back(Pair("src_liquid", frSrc.High(peglevel)));
+    result.push_back(Pair("src_reserve", frSrc.Low(peglevel)));
+    result.push_back(Pair("src_nchange", frSrc.NChange(peglevel)));
     result.push_back(Pair("src_pegdata", EncodeBase64(fout_src.str())));
     result.push_back(Pair("dst_value", dst_value));
-    result.push_back(Pair("dst_liquid", frDst.High(nSupply)));
-    result.push_back(Pair("dst_reserve", frDst.Low(nSupply)));
-    result.push_back(Pair("dst_nchange", frDst.Change(nSupply, nSupplyNext)));
+    result.push_back(Pair("dst_liquid", frDst.High(peglevel)));
+    result.push_back(Pair("dst_reserve", frDst.Low(peglevel)));
+    result.push_back(Pair("dst_nchange", frDst.NChange(peglevel)));
     result.push_back(Pair("dst_pegdata", EncodeBase64(fout_dst.str())));
     
     return result;
@@ -478,13 +463,32 @@ Value moveliquid(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 4)
         throw runtime_error(
-            "moveliquid <liquid> <src_pegdata_base64> <dst_pegdata_base64> <pegsupply>\n"
+            "moveliquid <liquid> <src_pegdata_base64> <dst_pegdata_base64> <peglevel_hex>\n"
             );
     
     int64_t move_liquid = params[0].get_int64();
     string src_pegdata64 = params[1].get_str();
     string dst_pegdata64 = params[2].get_str();
-    int nSupply = params[3].get_int();
+    string peglevel_hex = params[3].get_str();
+    
+    int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
+    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
+    int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
+    
+    int nPegInterval = Params().PegInterval(nBestHeight);
+    int nCycleNow = nBestHeight / nPegInterval;
+    
+    CPegLevel peglevel(nSupplyNow,
+                       nSupplyNext,
+                       nSupplyNextNext,
+                       nCycleNow);
+    
+    if (!peglevel_hex.empty()) {
+        CPegLevel peglevel_load(peglevel_hex);
+        if (peglevel_load.IsValid()) {
+            peglevel = peglevel_load;
+        }
+    }
     
     CFractions frSrc(0, CFractions::VALUE);
 
@@ -494,7 +498,7 @@ Value moveliquid(const Array& params, bool fHelp)
     if (!frSrc.Unpack(src_finp)) {
          throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'src' pegdata");
     }
-    int64_t src_liquid = frSrc.High(nSupply);
+    int64_t src_liquid = frSrc.High(peglevel);
     if (src_liquid < move_liquid) {
         throw JSONRPCError(RPC_MISC_ERROR, 
                            strprintf("Not enough liquid %d on 'src' to move %d",
@@ -514,7 +518,9 @@ Value moveliquid(const Array& params, bool fHelp)
     }
     
     frSrc = frSrc.Std();
-    CFractions frLiquid = frSrc.HighPart(nSupply, nullptr);
+    frDst = frDst.Std();
+    
+    CFractions frLiquid = frSrc.HighPart(peglevel, nullptr);
     CFractions frMove = frLiquid.RatioPart(move_liquid);
     
     frSrc -= frMove;
@@ -529,20 +535,19 @@ Value moveliquid(const Array& params, bool fHelp)
     frDst.Pack(fout_dst);
     CDataStream fout_src(SER_DISK, CLIENT_VERSION);
     frSrc.Pack(fout_src);
-
-    // bypassed nSupply is supposed to be current supply, we use current nSupplyNext
-    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
     
-    result.push_back(Pair("supply", nSupply));
+    result.push_back(Pair("peg", peglevel.nSupply));
+    result.push_back(Pair("cycle", peglevel.nCycle));
+    
     result.push_back(Pair("src_value", src_value));
-    result.push_back(Pair("src_liquid", frSrc.High(nSupply)));
-    result.push_back(Pair("src_reserve", frSrc.Low(nSupply)));
-    result.push_back(Pair("src_nchange", frSrc.Change(nSupply, nSupplyNext)));
+    result.push_back(Pair("src_liquid", frSrc.High(peglevel)));
+    result.push_back(Pair("src_reserve", frSrc.Low(peglevel)));
+    result.push_back(Pair("src_nchange", frSrc.NChange(peglevel)));
     result.push_back(Pair("src_pegdata", EncodeBase64(fout_src.str())));
     result.push_back(Pair("dst_value", dst_value));
-    result.push_back(Pair("dst_liquid", frDst.High(nSupply)));
-    result.push_back(Pair("dst_reserve", frDst.Low(nSupply)));
-    result.push_back(Pair("dst_nchange", frDst.Change(nSupply, nSupplyNext)));
+    result.push_back(Pair("dst_liquid", frDst.High(peglevel)));
+    result.push_back(Pair("dst_reserve", frDst.Low(peglevel)));
+    result.push_back(Pair("dst_nchange", frDst.NChange(peglevel)));
     result.push_back(Pair("dst_pegdata", EncodeBase64(fout_dst.str())));
     
     return result;
@@ -552,13 +557,32 @@ Value movereserve(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 4)
         throw runtime_error(
-            "movereserve <reserve> <src_pegdata_base64> <dst_pegdata_base64> <pegsupply>\n"
+            "movereserve <reserve> <src_pegdata_base64> <dst_pegdata_base64> <peglevel_hex>\n"
             );
     
     int64_t move_reserve = params[0].get_int64();
     string src_pegdata64 = params[1].get_str();
     string dst_pegdata64 = params[2].get_str();
-    int nSupply = params[3].get_int();
+    string peglevel_hex = params[3].get_str();
+    
+    int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
+    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
+    int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
+    
+    int nPegInterval = Params().PegInterval(nBestHeight);
+    int nCycleNow = nBestHeight / nPegInterval;
+    
+    CPegLevel peglevel(nSupplyNow,
+                       nSupplyNext,
+                       nSupplyNextNext,
+                       nCycleNow);
+    
+    if (!peglevel_hex.empty()) {
+        CPegLevel peglevel_load(peglevel_hex);
+        if (peglevel_load.IsValid()) {
+            peglevel = peglevel_load;
+        }
+    }
     
     CFractions frSrc(0, CFractions::VALUE);
 
@@ -568,7 +592,7 @@ Value movereserve(const Array& params, bool fHelp)
     if (!frSrc.Unpack(src_finp)) {
          throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'src' pegdata");
     }
-    int64_t src_reserve = frSrc.Low(nSupply);
+    int64_t src_reserve = frSrc.Low(peglevel);
     if (src_reserve < move_reserve) {
         throw JSONRPCError(RPC_MISC_ERROR, 
                            strprintf("Not enough reserve %d on 'src' to move %d",
@@ -588,7 +612,9 @@ Value movereserve(const Array& params, bool fHelp)
     }
     
     frSrc = frSrc.Std();
-    CFractions frReserve = frSrc.LowPart(nSupply, nullptr);
+    frDst = frDst.Std();
+    
+    CFractions frReserve = frSrc.LowPart(peglevel, nullptr);
     CFractions frMove = frReserve.RatioPart(move_reserve);
     
     frSrc -= frMove;
@@ -603,20 +629,19 @@ Value movereserve(const Array& params, bool fHelp)
     frDst.Pack(fout_dst);
     CDataStream fout_src(SER_DISK, CLIENT_VERSION);
     frSrc.Pack(fout_src);
-
-    // bypassed nSupply is supposed to be current supply, we use current nSupplyNext
-    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
     
-    result.push_back(Pair("supply", nSupply));
+    result.push_back(Pair("peg", peglevel.nSupply));
+    result.push_back(Pair("cycle", peglevel.nCycle));
+    
     result.push_back(Pair("src_value", src_value));
-    result.push_back(Pair("src_liquid", frSrc.High(nSupply)));
-    result.push_back(Pair("src_reserve", frSrc.Low(nSupply)));
-    result.push_back(Pair("src_nchange", frSrc.Change(nSupply, nSupplyNext)));
+    result.push_back(Pair("src_liquid", frSrc.High(peglevel)));
+    result.push_back(Pair("src_reserve", frSrc.Low(peglevel)));
+    result.push_back(Pair("src_nchange", frSrc.NChange(peglevel)));
     result.push_back(Pair("src_pegdata", EncodeBase64(fout_src.str())));
     result.push_back(Pair("dst_value", dst_value));
-    result.push_back(Pair("dst_liquid", frDst.High(nSupply)));
-    result.push_back(Pair("dst_reserve", frDst.Low(nSupply)));
-    result.push_back(Pair("dst_nchange", frDst.Change(nSupply, nSupplyNext)));
+    result.push_back(Pair("dst_liquid", frDst.High(peglevel)));
+    result.push_back(Pair("dst_reserve", frDst.Low(peglevel)));
+    result.push_back(Pair("dst_nchange", frDst.NChange(peglevel)));
     result.push_back(Pair("dst_pegdata", EncodeBase64(fout_dst.str())));
     
     return result;
@@ -769,7 +794,7 @@ static bool sortByDestination(const CTxDestination &lhs, const CTxDestination &r
 
 Value prepareliquidwithdraw(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 9)
+    if (fHelp || params.size() != 8)
         throw runtime_error(
             "prepareliquidwithdraw "
                 "<balance_pegdata_base64> "
@@ -777,8 +802,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
                 "<distortion_pegdata_base64> "
                 "<amount_with_fee> "
                 "<address> "
-                "<supplynow> "
-                "<supplynext> "
+                "<peglevel_hex> "
                 "<consumed_inputs> "
                 "<provided_outputs>\n"
             );
@@ -792,11 +816,26 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     if (!address.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid BitBay address");
     
-    int nSupplyNow = params[5].get_int();
-    int nSupplyNext = params[6].get_int();
+    string peglevel_hex = params[5].get_str();
+    
+    int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
+    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
+    int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
     
     int nPegInterval = Params().PegInterval(nBestHeight);
-    int nCycle = nBestHeight / nPegInterval;
+    int nCycleNow = nBestHeight / nPegInterval;
+    
+    CPegLevel peglevel(nSupplyNow,
+                       nSupplyNext,
+                       nSupplyNextNext,
+                       nCycleNow);
+    
+    if (!peglevel_hex.empty()) {
+        CPegLevel peglevel_load(peglevel_hex);
+        if (peglevel_load.IsValid()) {
+            peglevel = peglevel_load;
+        }
+    }
     
     CFractions frBalance(0, CFractions::VALUE);
     if (!balance_pegdata64.empty()) {
@@ -829,7 +868,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     }
     
     int64_t nBalanceLiquid = 0;
-    CFractions frBalanceLiquid = frBalance.HighPart(nSupplyNext, &nBalanceLiquid);
+    CFractions frBalanceLiquid = frBalance.HighPart(peglevel, &nBalanceLiquid);
     if (nAmountWithFee > nBalanceLiquid) {
         throw JSONRPCError(RPC_MISC_ERROR, 
                            strprintf("Not enough liquid %d on 'balance' to withdraw %d",
@@ -839,8 +878,8 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     CFractions frAmount = frBalanceLiquid.RatioPart(nAmountWithFee);
 
     // inputs, outputs
-    string sConsumedInputs = params[7].get_str();
-    string sProvidedOutputs = params[8].get_str();
+    string sConsumedInputs = params[6].get_str();
+    string sProvidedOutputs = params[7].get_str();
 
     set<uint320> setAllOutputs;
     set<uint320> setConsumedInputs;
@@ -858,7 +897,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         CCoinToUse out;
         try { ssData >> out; }
         catch (std::exception &) { continue; }
-        if (out.nCycle != nCycle) { continue; }
+        if (out.nCycle != nCycleNow) { continue; }
         auto fkey = uint320(out.txhash, out.i);
         if (setConsumedInputs.count(fkey)) { continue; }
         mapProvidedOutputs[fkey] = out;
@@ -896,7 +935,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         out.txhash = txhash;
         out.nValue = coin.tx->vout[coin.i].nValue;
         out.scriptPubKey = coin.tx->vout[coin.i].scriptPubKey;
-        out.nCycle = nCycle;
+        out.nCycle = nCycleNow;
     }
     
     // clean-up consumed, intersect with (wallet+provided)
@@ -933,7 +972,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         }
         
         int64_t nAvailableLiquid = 0;
-        frOut = frOut.HighPart(nSupplyNext, &nAvailableLiquid);
+        frOut = frOut.HighPart(peglevel.nSupplyNext, &nAvailableLiquid);
         
         if (nAvailableLiquid < (nAmountWithFee / 20)) {
             continue;
@@ -1134,7 +1173,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     }
     
     bool peg_ok = CalculateStandardFractions(rawTx, 
-                                             nSupplyNext,
+                                             peglevel.nSupplyNext,
                                              pindexBest->nTime,
                                              mapInputs, 
                                              mapInputsFractions,
@@ -1202,7 +1241,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
             out.txhash = rawTx.GetHash();
             out.nValue = rawTx.vout[i].nValue;
             out.scriptPubKey = rawTx.vout[i].scriptPubKey;
-            out.nCycle = nCycle;
+            out.nCycle = nCycleNow;
             CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
             ss << out;
             if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
@@ -1219,7 +1258,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     // of current reserves - at current supply not to consume these fractions
     int64_t nDistortionPositive = 0;
     int64_t nDistortionNegative = 0;
-    CFractions frDistortionNow = frDistortion.HighPart(nSupplyNow, nullptr);
+    CFractions frDistortionNow = frDistortion.HighPart(peglevel, nullptr);
     CFractions frDistortionPositive = frDistortionNow.Positive(&nDistortionPositive);
     CFractions frDistortionNegative = frDistortionNow.Negative(&nDistortionNegative);
     CFractions frDistortionNegativeConsume = frDistortionNegative & (-frBalance);
@@ -1248,8 +1287,8 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     int64_t nDistortion = frDistortion.Positive(nullptr).Total();
     int64_t nDistortionLiquid = nDistortion;
     int64_t nDistortionReserve = nDistortion;
-    CFractions frDistortionLiquid = frDistortion.HighPart(nSupplyNow, nullptr);
-    CFractions frDistortionReserve = frDistortion.LowPart(nSupplyNow, nullptr);
+    CFractions frDistortionLiquid = frDistortion.HighPart(peglevel, nullptr);
+    CFractions frDistortionReserve = frDistortion.LowPart(peglevel, nullptr);
     int64_t nDistortionLiquidNegative = 0;
     int64_t nDistortionLiquidPositive = 0;
     frDistortionLiquid.Negative(&nDistortionLiquidNegative);
@@ -1274,31 +1313,31 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     result.push_back(Pair("consumed_inputs", sConsumedInputs));
     result.push_back(Pair("provided_outputs", sProvidedOutputs));
 
-    result.push_back(Pair("created_on_supply", nSupplyNow));
-    result.push_back(Pair("broadcast_on_supply", nSupplyNext));
+    result.push_back(Pair("created_on_peg", peglevel.nSupply));
+    result.push_back(Pair("broadcast_on_peg", peglevel.nSupplyNext));
     
     CDataStream fout_balance(SER_DISK, CLIENT_VERSION);
     frBalance.Pack(fout_balance);
     result.push_back(Pair("balance_value", frBalance.Total()));
-    result.push_back(Pair("balance_liquid", frBalance.High(nSupplyNow)));
-    result.push_back(Pair("balance_reserve", frBalance.Low(nSupplyNow)));
-    result.push_back(Pair("balance_nchange", frBalance.Change(nSupplyNow, nSupplyNext)));
+    result.push_back(Pair("balance_liquid", frBalance.High(peglevel)));
+    result.push_back(Pair("balance_reserve", frBalance.Low(peglevel)));
+    result.push_back(Pair("balance_nchange", frBalance.NChange(peglevel)));
     result.push_back(Pair("balance_pegdata", EncodeBase64(fout_balance.str())));
 
     CDataStream fout_processed(SER_DISK, CLIENT_VERSION);
     frProcessed.Pack(fout_processed);
     result.push_back(Pair("processed_value", frProcessed.Total()));
-    result.push_back(Pair("processed_liquid", frProcessed.High(nSupplyNow)));
-    result.push_back(Pair("processed_reserve", frProcessed.Low(nSupplyNow)));
-    result.push_back(Pair("processed_nchange", frProcessed.Change(nSupplyNow, nSupplyNext)));
+    result.push_back(Pair("processed_liquid", frProcessed.High(peglevel)));
+    result.push_back(Pair("processed_reserve", frProcessed.Low(peglevel)));
+    result.push_back(Pair("processed_nchange", frProcessed.NChange(peglevel)));
     result.push_back(Pair("processed_pegdata", EncodeBase64(fout_processed.str())));
     
     CDataStream fout_exchange(SER_DISK, CLIENT_VERSION);
     frExchange.Pack(fout_exchange);
     result.push_back(Pair("exchange_value", frExchange.Total()));
-    result.push_back(Pair("exchange_liquid", frExchange.High(nSupplyNow)));
-    result.push_back(Pair("exchange_reserve", frExchange.Low(nSupplyNow)));
-    result.push_back(Pair("exchange_nchange", frExchange.Change(nSupplyNow, nSupplyNext)));
+    result.push_back(Pair("exchange_liquid", frExchange.High(peglevel)));
+    result.push_back(Pair("exchange_reserve", frExchange.Low(peglevel)));
+    result.push_back(Pair("exchange_nchange", frExchange.NChange(peglevel)));
     result.push_back(Pair("exchange_pegdata", EncodeBase64(fout_exchange.str())));
     
     CDataStream fout_distortion(SER_DISK, CLIENT_VERSION);
@@ -1322,7 +1361,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
 
 Value preparereservewithdraw(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 9)
+    if (fHelp || params.size() != 8)
         throw runtime_error(
             "preparereservewithdraw "
                 "<balance_pegdata_base64> "
@@ -1330,8 +1369,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
                 "<distortion_pegdata_base64> "
                 "<amount_with_fee> "
                 "<address> "
-                "<supplynow> "
-                "<supplynext> "
+                "<peglevel_hex> "
                 "<consumed_inputs> "
                 "<provided_outputs>\n"
             );
@@ -1345,11 +1383,26 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     if (!address.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid BitBay address");
     
-    int nSupplyNow = params[5].get_int();
-    int nSupplyNext = params[6].get_int();
+    string peglevel_hex = params[5].get_str();
+    
+    int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
+    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
+    int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
     
     int nPegInterval = Params().PegInterval(nBestHeight);
-    int nCycle = nBestHeight / nPegInterval;
+    int nCycleNow = nBestHeight / nPegInterval;
+    
+    CPegLevel peglevel(nSupplyNow,
+                       nSupplyNext,
+                       nSupplyNextNext,
+                       nCycleNow);
+    
+    if (!peglevel_hex.empty()) {
+        CPegLevel peglevel_load(peglevel_hex);
+        if (peglevel_load.IsValid()) {
+            peglevel = peglevel_load;
+        }
+    }
     
     CFractions frBalance(0, CFractions::VALUE);
     if (!balance_pegdata64.empty()) {
@@ -1382,7 +1435,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     }
     
     int64_t nBalanceReserve = 0;
-    CFractions frBalanceReserve = frBalance.LowPart(nSupplyNext, &nBalanceReserve);
+    CFractions frBalanceReserve = frBalance.LowPart(peglevel.nSupplyNext, &nBalanceReserve);
     if (nAmountWithFee > nBalanceReserve) {
         throw JSONRPCError(RPC_MISC_ERROR, 
                            strprintf("Not enough reserve %d on 'balance' to withdraw %d",
@@ -1392,8 +1445,8 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     CFractions frAmount = frBalanceReserve.RatioPart(nAmountWithFee);
 
     // inputs, outputs
-    string sConsumedInputs = params[7].get_str();
-    string sProvidedOutputs = params[8].get_str();
+    string sConsumedInputs = params[6].get_str();
+    string sProvidedOutputs = params[7].get_str();
 
     set<uint320> setAllOutputs;
     set<uint320> setConsumedInputs;
@@ -1411,7 +1464,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         CCoinToUse out;
         try { ssData >> out; }
         catch (std::exception &) { continue; }
-        if (out.nCycle != nCycle) { continue; }
+        if (out.nCycle != nCycleNow) { continue; }
         auto fkey = uint320(out.txhash, out.i);
         if (setConsumedInputs.count(fkey)) { continue; }
         mapProvidedOutputs[fkey] = out;
@@ -1447,7 +1500,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         out.txhash = txhash;
         out.nValue = coin.tx->vout[coin.i].nValue;
         out.scriptPubKey = coin.tx->vout[coin.i].scriptPubKey;
-        out.nCycle = nCycle;
+        out.nCycle = nCycleNow;
     }
     
     // clean-up consumed, intersect with (wallet+provided)
@@ -1485,7 +1538,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         }
         
         int64_t nAvailableReserve = 0;
-        frOut = frOut.LowPart(nSupplyNext, &nAvailableReserve);
+        frOut = frOut.LowPart(peglevel.nSupplyNext, &nAvailableReserve);
         
         if (nAvailableReserve < (nAmountWithFee / 20)) {
             continue;
@@ -1763,7 +1816,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     }
     
     bool peg_ok = CalculateStandardFractions(rawTx, 
-                                             nSupplyNext,
+                                             peglevel.nSupplyNext,
                                              pindexBest->nTime,
                                              mapInputs, 
                                              mapInputsFractions,
@@ -1831,7 +1884,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
             out.txhash = rawTx.GetHash();
             out.nValue = rawTx.vout[i].nValue;
             out.scriptPubKey = rawTx.vout[i].scriptPubKey;
-            out.nCycle = nCycle;
+            out.nCycle = nCycleNow;
             CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
             ss << out;
             if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
@@ -1848,7 +1901,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     // of current liquid - at current supply not to consume these fractions
     int64_t nDistortionPositive = 0;
     int64_t nDistortionNegative = 0;
-    CFractions frDistortionNow = frDistortion.LowPart(nSupplyNow, nullptr);
+    CFractions frDistortionNow = frDistortion.LowPart(peglevel, nullptr);
     CFractions frDistortionPositive = frDistortionNow.Positive(&nDistortionPositive);
     CFractions frDistortionNegative = frDistortionNow.Negative(&nDistortionNegative);
     CFractions frDistortionNegativeConsume = frDistortionNegative & (-frBalance);
@@ -1877,8 +1930,8 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     int64_t nDistortion = frDistortion.Positive(nullptr).Total();
     int64_t nDistortionLiquid = nDistortion;
     int64_t nDistortionReserve = nDistortion;
-    CFractions frDistortionLiquid = frDistortion.HighPart(nSupplyNow, nullptr);
-    CFractions frDistortionReserve = frDistortion.LowPart(nSupplyNow, nullptr);
+    CFractions frDistortionLiquid = frDistortion.HighPart(peglevel, nullptr);
+    CFractions frDistortionReserve = frDistortion.LowPart(peglevel, nullptr);
     int64_t nDistortionLiquidNegative = 0;
     int64_t nDistortionLiquidPositive = 0;
     frDistortionLiquid.Negative(&nDistortionLiquidNegative);
@@ -1903,31 +1956,31 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     result.push_back(Pair("consumed_inputs", sConsumedInputs));
     result.push_back(Pair("provided_outputs", sProvidedOutputs));
 
-    result.push_back(Pair("created_on_supply", nSupplyNow));
-    result.push_back(Pair("broadcast_on_supply", nSupplyNext));
+    result.push_back(Pair("created_on_peg", peglevel.nSupply));
+    result.push_back(Pair("broadcast_on_peg", peglevel.nSupplyNext));
     
     CDataStream fout_balance(SER_DISK, CLIENT_VERSION);
     frBalance.Pack(fout_balance);
     result.push_back(Pair("balance_value", frBalance.Total()));
-    result.push_back(Pair("balance_liquid", frBalance.High(nSupplyNow)));
-    result.push_back(Pair("balance_reserve", frBalance.Low(nSupplyNow)));
-    result.push_back(Pair("balance_nchange", frBalance.Change(nSupplyNow, nSupplyNext)));
+    result.push_back(Pair("balance_liquid", frBalance.High(peglevel)));
+    result.push_back(Pair("balance_reserve", frBalance.Low(peglevel)));
+    result.push_back(Pair("balance_nchange", frBalance.NChange(peglevel)));
     result.push_back(Pair("balance_pegdata", EncodeBase64(fout_balance.str())));
 
     CDataStream fout_processed(SER_DISK, CLIENT_VERSION);
     frProcessed.Pack(fout_processed);
     result.push_back(Pair("processed_value", frProcessed.Total()));
-    result.push_back(Pair("processed_liquid", frProcessed.High(nSupplyNow)));
-    result.push_back(Pair("processed_reserve", frProcessed.Low(nSupplyNow)));
-    result.push_back(Pair("processed_nchange", frProcessed.Change(nSupplyNow, nSupplyNext)));
+    result.push_back(Pair("processed_liquid", frProcessed.High(peglevel)));
+    result.push_back(Pair("processed_reserve", frProcessed.Low(peglevel)));
+    result.push_back(Pair("processed_nchange", frProcessed.NChange(peglevel)));
     result.push_back(Pair("processed_pegdata", EncodeBase64(fout_processed.str())));
     
     CDataStream fout_exchange(SER_DISK, CLIENT_VERSION);
     frExchange.Pack(fout_exchange);
     result.push_back(Pair("exchange_value", frExchange.Total()));
-    result.push_back(Pair("exchange_liquid", frExchange.High(nSupplyNow)));
-    result.push_back(Pair("exchange_reserve", frExchange.Low(nSupplyNow)));
-    result.push_back(Pair("exchange_nchange", frExchange.Change(nSupplyNow, nSupplyNext)));
+    result.push_back(Pair("exchange_liquid", frExchange.High(peglevel)));
+    result.push_back(Pair("exchange_reserve", frExchange.Low(peglevel)));
+    result.push_back(Pair("exchange_nchange", frExchange.NChange(peglevel)));
     result.push_back(Pair("exchange_pegdata", EncodeBase64(fout_exchange.str())));
     
     CDataStream fout_distortion(SER_DISK, CLIENT_VERSION);

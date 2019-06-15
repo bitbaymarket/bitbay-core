@@ -342,8 +342,11 @@ void SendCoinsDialog::txPreviewButtonClicked()
             tr("Error: Transaction creation failed!"),
             QMessageBox::Ok, QMessageBox::Ok);
         break;
+    case WalletModel::TransactionCommitFailed:
+        break;
+    case WalletModel::Aborted:
+        break;
     case WalletModel::OK:
-
         QDialog dlg(this);
         auto vbox = new QVBoxLayout;
         vbox->setMargin(12);

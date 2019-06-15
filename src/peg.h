@@ -68,6 +68,10 @@ enum PegRewardType {
     PEG_REWARD_LAST
 };
 
+int64_t RatioPart(int64_t nValue,
+                  int64_t nPartValue,
+                  int64_t nTotalValue);
+
 class CFractions {
 public:
     uint32_t nFlags;

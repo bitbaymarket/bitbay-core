@@ -305,6 +305,7 @@ static const CRPCCommand vRPCCommands[] =
     { "makekeypair",            &makekeypair,            false,     true,      false },
     { "checkkernel",            &checkkernel,            true,      false,     true },
     { "registerdeposit",        &registerdeposit,        false,     false,     true },
+    { "updatepegliquidity",     &updatepegliquidity,     false,     false,     true },
     { "updatepegbalances",      &updatepegbalances,      false,     false,     true },
     { "movecoins",              &movecoins,              false,     false,     true },
     { "moveliquid",             &moveliquid,             false,     false,     true },

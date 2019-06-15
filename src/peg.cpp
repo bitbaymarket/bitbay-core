@@ -676,9 +676,9 @@ CFractions CFractions::HighPart(int supply, int64_t* total) const
     return frHighPart;
 }
 
-static int64_t RatioPart(int64_t nValue,
-                         int64_t nPartValue,
-                         int64_t nTotalValue) {
+int64_t RatioPart(int64_t nValue,
+                  int64_t nPartValue,
+                  int64_t nTotalValue) {
     if (nPartValue == 0 || nTotalValue == 0)
         return 0;
     

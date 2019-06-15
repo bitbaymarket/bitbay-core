@@ -156,16 +156,32 @@ Value registerdeposit(const Array& params, bool fHelp)
     return result;
 }
 
+Value updatepegbalances(string balance_pegdata64);
+Value updatepegbalances(string exchange_pegdata64,
+                        string pegshift_base64);
+
 Value updatepegbalances(const Array& params, bool fHelp)
 {
-    if (fHelp || (params.size() != 1 && params.size() != 3))
+    if (fHelp || (params.size() != 1 && params.size() != 2))
         throw runtime_error(
             "updatepegbalances <balance_pegdata_base64>\n"
-            "updatepegbalances <balance_pegdata_base64> <exchange_pegdata_base64> <distortion_pegdata_base64>\n"
+            "updatepegbalances <balance_pegdata_base64> <pegshift_base64>\n"
             );
     
     string balance_pegdata64 = params[0].get_str();
     
+    if (params.size() == 1) {
+        return updatepegbalances(balance_pegdata64);
+    }
+
+    string pegshift_base64 = params[1].get_str();
+    
+    return updatepegbalances(balance_pegdata64,
+                             pegshift_base64);
+}
+
+Value updatepegbalances(string balance_pegdata64)
+{
     CFractions frBalance(0, CFractions::VALUE);
     if (!balance_pegdata64.empty()) {
         string pegdata = DecodeBase64(balance_pegdata64);
@@ -176,59 +192,10 @@ Value updatepegbalances(const Array& params, bool fHelp)
         }
     }
     
-    CFractions frExchange(0, CFractions::VALUE);
-    CFractions frDistortion(0, CFractions::VALUE);
-    if (params.size() == 3) {
-        string exchange_pegdata64 = params[1].get_str();
-        if (!exchange_pegdata64.empty()) {
-            string pegdata = DecodeBase64(exchange_pegdata64);
-            CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
-                             SER_DISK, CLIENT_VERSION);
-            if (!frExchange.Unpack(finp)) {
-                 throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'exchange' pegdata");
-            }
-        }
-        string distortion_pegdata64 = params[2].get_str();
-        if (!distortion_pegdata64.empty()) {
-            string pegdata = DecodeBase64(distortion_pegdata64);
-            CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
-                             SER_DISK, CLIENT_VERSION);
-            if (!frDistortion.Unpack(finp)) {
-                 throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'exchange' pegdata");
-            }
-        }
-    }
-    
     frBalance = frBalance.Std();
-    frExchange = frExchange.Std();
-    frDistortion = frDistortion.Std();
 
     int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
     int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
-    
-    if (params.size() == 3) {
-        // consume distortion by balance
-        int64_t nDistortionPositive = 0;
-        int64_t nDistortionNegative = 0;
-        CFractions frDistortionPositive = frDistortion.Positive(&nDistortionPositive);
-        CFractions frDistortionNegative = frDistortion.Negative(&nDistortionNegative);
-        CFractions frDistortionNegativeConsume = frDistortionNegative & (-frBalance);
-        int64_t nDistortionNegativeConsume = frDistortionNegativeConsume.Total();
-        int64_t nDistortionPositiveConsume = frDistortionPositive.Total();
-        if ((-nDistortionNegativeConsume) > nDistortionPositiveConsume) {
-            CFractions frToPositive = -frDistortionNegativeConsume; 
-            frToPositive = frToPositive.RatioPart(nDistortionPositiveConsume);
-            frDistortionNegativeConsume = -frToPositive;
-            nDistortionNegativeConsume = frDistortionNegativeConsume.Total();
-        }
-        nDistortionPositiveConsume = -nDistortionNegativeConsume;
-        CFractions frDistortionPositiveConsume = frDistortionPositive.RatioPart(nDistortionPositiveConsume);
-        CFractions frDistortionConsume = frDistortionNegativeConsume + frDistortionPositiveConsume;
-        
-        frBalance += frDistortionConsume;
-        frExchange += frDistortionConsume;
-        frDistortion -= frDistortionConsume;
-    }
     
     Object result;
     
@@ -249,44 +216,186 @@ Value updatepegbalances(const Array& params, bool fHelp)
     result.push_back(Pair("balance_nchange", frBalance.Change(nSupplyNow, nSupplyNext)));
     result.push_back(Pair("balance_pegdata", EncodeBase64(fout_balance.str())));
     
-    if (params.size() == 3) {
-        if (frDistortion.Positive(nullptr).Total() != -frDistortion.Negative(nullptr).Total()) {
-            throw JSONRPCError(RPC_MISC_ERROR, 
-                               strprintf("Mismatch distortion parts (%d - %d)",
-                                         frDistortion.Positive(nullptr).Total(), 
-                                         frDistortion.Negative(nullptr).Total()));
+    return result;
+}
+
+Value updatepegbalances(string balance_pegdata64, string pegshift_base64)
+{
+    CFractions frBalance(0, CFractions::VALUE);
+    if (!balance_pegdata64.empty()) {
+        string pegdata = DecodeBase64(balance_pegdata64);
+        CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                         SER_DISK, CLIENT_VERSION);
+        if (!frBalance.Unpack(finp)) {
+             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'balance' pegdata");
         }
-        int64_t nDistortion = frDistortion.Positive(nullptr).Total();
-        int64_t nDistortionLiquid = nDistortion;
-        int64_t nDistortionReserve = nDistortion;
-        CFractions frDistortionLiquid = frDistortion.HighPart(nSupplyNow, nullptr);
-        CFractions frDistortionReserve = frDistortion.LowPart(nSupplyNow, nullptr);
-        int64_t nDistortionLiquidNegative = 0;
-        int64_t nDistortionLiquidPositive = 0;
-        frDistortionLiquid.Negative(&nDistortionLiquidNegative);
-        frDistortionLiquid.Positive(&nDistortionLiquidPositive);
-        int64_t nDistortionReserveNegative = 0;
-        int64_t nDistortionReservePositive = 0;
-        frDistortionReserve.Negative(&nDistortionReserveNegative);
-        frDistortionReserve.Positive(&nDistortionReservePositive);
-        nDistortionLiquid = std::min(nDistortionLiquidPositive, -nDistortionLiquidNegative);
-        nDistortionReserve = std::min(nDistortionReservePositive, -nDistortionReserveNegative);
-        
-        CDataStream fout_exchange(SER_DISK, CLIENT_VERSION);
-        frExchange.Pack(fout_exchange);
-        result.push_back(Pair("exchange_value", frExchange.Total()));
-        result.push_back(Pair("exchange_liquid", frExchange.High(nSupplyNow)));
-        result.push_back(Pair("exchange_reserve", frExchange.Low(nSupplyNow)));
-        result.push_back(Pair("exchange_nchange", frExchange.Change(nSupplyNow, nSupplyNext)));
-        result.push_back(Pair("exchange_pegdata", EncodeBase64(fout_exchange.str())));
-        
-        CDataStream fout_distortion(SER_DISK, CLIENT_VERSION);
-        frDistortion.Pack(fout_distortion);
-        result.push_back(Pair("distortion_value", nDistortion));
-        result.push_back(Pair("distortion_liquid", nDistortionLiquid));
-        result.push_back(Pair("distortion_reserve", nDistortionReserve));
-        result.push_back(Pair("distortion_pegdata", EncodeBase64(fout_distortion.str())));
     }
+    
+    frBalance = frBalance.Std();
+
+    int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
+    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
+    
+    Object result;
+    
+    int nPegInterval = Params().PegInterval(nBestHeight);
+    int nCycleNow = nBestHeight / nPegInterval;
+    
+    int64_t nBalance = frBalance.Total();
+    int64_t nLiquid = frBalance.High(nSupplyNow);
+    int64_t nReserve = frBalance.Low(nSupplyNow);
+    
+    if (!pegshift_base64.empty()) {
+        int nShiftFrom = 0;
+        int nShiftLength = 0;
+        int nShiftPart = 0;
+        int64_t nLiquidLastPart = 0;
+        int64_t nLiquidLastTotal = 0;
+        try {
+            string bindata = DecodeBase64(pegshift_base64);
+            CDataStream finp(bindata.data(), bindata.data() + bindata.size(),
+                             SER_DISK, CLIENT_VERSION);
+            finp >> nShiftFrom;    // from index distortion
+            finp >> nShiftLength;  // length indexes distortion
+            finp >> nShiftPart;    // index of part to distribute
+            finp >> nLiquidLastPart;    // to distribute (part)
+            finp >> nLiquidLastTotal;   // to distribute (total)
+        }
+        catch (std::exception &) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'pegshift' data");
+        }
+        
+        // liquid shift by full fraction
+        for(int i= nShiftFrom; i< (nShiftFrom + nShiftLength); i++) {
+            nLiquid -= frBalance.f[i];
+            nReserve += frBalance.f[i];
+        }
+        // liquid shift by partial fraction
+        if (nShiftPart >= 0 && 
+                nLiquidLastPart >0 && 
+                nLiquidLastTotal >0) {
+            int64_t nLiquidPart = RatioPart(frBalance.f[nShiftPart], 
+                                            nLiquidLastPart, 
+                                            nLiquidLastTotal) +1;
+            nLiquid -= nLiquidPart;
+            nReserve += nLiquidPart;
+        }
+    }
+    
+    CDataStream fout_balance(SER_DISK, CLIENT_VERSION);
+    frBalance.Pack(fout_balance);
+
+    result.push_back(Pair("supply", nSupplyNow));
+    result.push_back(Pair("cycle", nCycleNow));
+    
+    result.push_back(Pair("balance_value", nBalance));
+    result.push_back(Pair("balance_liquid", nLiquid));
+    result.push_back(Pair("balance_reserve", nReserve));
+    result.push_back(Pair("balance_nchange", frBalance.Change(nSupplyNow, nSupplyNext)));
+    
+    return result;
+}
+
+Value updatepegliquidity(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "updatepegliquidity <exchange_pegdata_base64> <distortion_pegdata_base64>\n"
+            );
+    
+    string exchange_pegdata64 = params[0].get_str();
+    string distortion_pegdata64 = params[1].get_str();
+    
+    CFractions frExchange(0, CFractions::VALUE);
+    if (!exchange_pegdata64.empty()) {
+        string pegdata = DecodeBase64(exchange_pegdata64);
+        CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                         SER_DISK, CLIENT_VERSION);
+        if (!frExchange.Unpack(finp)) {
+             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'exchange' pegdata");
+        }
+    }
+    
+    CFractions frDistortion(0, CFractions::VALUE);
+    if (!distortion_pegdata64.empty()) {
+        string pegdata = DecodeBase64(distortion_pegdata64);
+        CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                         SER_DISK, CLIENT_VERSION);
+        if (!frDistortion.Unpack(finp)) {
+             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can not unpack 'exchange' pegdata");
+        }
+    }
+    
+    frExchange = frExchange.Std();
+    frDistortion = frDistortion.Std();
+
+    int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
+    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
+    
+    CFractions frWallet = frExchange + frDistortion;
+    
+    int64_t nExchangeLiquid = frExchange.High(nSupplyNow);
+    int64_t nWalletLiquid = frWallet.High(nSupplyNow);
+    
+    string sPegShift;
+    if (nWalletLiquid < nExchangeLiquid) {
+        // calculate pegshift
+        int nShiftFrom = nSupplyNow;
+        int nShiftPart = -1;
+        int nShiftLength = 0;
+        
+        int64_t nLiquidCut = nExchangeLiquid - nWalletLiquid;
+        int64_t nLiquidCutLeft = nLiquidCut;
+        int64_t nLiquidLastTotal = 0;
+        
+        int i = nShiftFrom;
+        while(nLiquidCutLeft > 0 && i < PEG_SIZE) {
+            int64_t nLiquid = frExchange.f[i];
+            if (nLiquid > nLiquidCutLeft) {
+                // this fraction to distribute with ratio nLiquidCutLeft/nLiquid
+                nShiftPart = i;
+                nLiquidLastTotal = nLiquid;
+                break;
+            } 
+            else {
+                nShiftLength++;
+            }
+            nLiquidCutLeft -= nLiquid;
+            i++;
+        }
+        int64_t nLiquidLastPart = nLiquidCutLeft;
+
+        CDataStream fout_pegshift(SER_DISK, CLIENT_VERSION);
+        fout_pegshift << nShiftFrom;   // from index distortion
+        fout_pegshift << nShiftLength; // length indexes distortion
+        fout_pegshift << nShiftPart;   // index of part to distribute
+        fout_pegshift << nLiquidLastPart;   // to distribute (part)
+        fout_pegshift << nLiquidLastTotal;  // to distribute (total)
+        sPegShift = EncodeBase64(fout_pegshift.str());
+    }
+    
+    Object result;
+    
+    int nPegInterval = Params().PegInterval(nBestHeight);
+    int nCycleNow = nBestHeight / nPegInterval;
+    
+    result.push_back(Pair("supply", nSupplyNow));
+    result.push_back(Pair("cycle", nCycleNow));
+    
+    result.push_back(Pair("exchange_value", frExchange.Total()));
+    result.push_back(Pair("exchange_liquid", frExchange.High(nSupplyNow)));
+    result.push_back(Pair("exchange_reserve", frExchange.Low(nSupplyNow)));
+    result.push_back(Pair("exchange_nchange", frExchange.Change(nSupplyNow, nSupplyNext)));
+
+    int64_t nDistortion = frDistortion.Positive(nullptr).Total();
+    int64_t nDistortionLiquid = nDistortion;
+    int64_t nDistortionReserve = nDistortion;
+    
+    result.push_back(Pair("distortion_value", nDistortion));
+    result.push_back(Pair("distortion_liquid", nDistortionLiquid));
+    result.push_back(Pair("distortion_reserve", nDistortionReserve));
+    
+    result.push_back(Pair("pegshift", sPegShift));
     
     return result;
 }

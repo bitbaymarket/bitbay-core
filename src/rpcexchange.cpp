@@ -112,6 +112,50 @@ static void unpackpegdata(CFractions & fractions,
     }
 }
 
+static void consumepegshift(CFractions & frBalance, 
+                            CFractions & frExchange, 
+                            CFractions & frPegShift,
+                            const CFractions & frPegShiftInput) {
+    int64_t nPegShiftPositive = 0;
+    int64_t nPegShiftNegative = 0;
+    CFractions frPegShiftPositive = frPegShiftInput.Positive(&nPegShiftPositive);
+    CFractions frPegShiftNegative = frPegShiftInput.Negative(&nPegShiftNegative);
+    CFractions frPegShiftNegativeConsume = frPegShiftNegative & (-frBalance);
+    int64_t nPegShiftNegativeConsume = frPegShiftNegativeConsume.Total();
+    int64_t nPegShiftPositiveConsume = frPegShiftPositive.Total();
+    if ((-nPegShiftNegativeConsume) > nPegShiftPositiveConsume) {
+        CFractions frToPositive = -frPegShiftNegativeConsume; 
+        frToPositive = frToPositive.RatioPart(nPegShiftPositiveConsume);
+        frPegShiftNegativeConsume = -frToPositive;
+        nPegShiftNegativeConsume = frPegShiftNegativeConsume.Total();
+    }
+    nPegShiftPositiveConsume = -nPegShiftNegativeConsume;
+    CFractions frPegShiftPositiveConsume = frPegShiftPositive.RatioPart(nPegShiftPositiveConsume);
+    CFractions frPegShiftConsume = frPegShiftNegativeConsume + frPegShiftPositiveConsume;
+    
+    frBalance += frPegShiftConsume;
+    frExchange += frPegShiftConsume;
+    frPegShift -= frPegShiftConsume;
+}
+
+static void consumereservepegshift(CFractions & frBalance, 
+                                   CFractions & frExchange, 
+                                   CFractions & frPegShift,
+                                   const CPegLevel & peglevel) 
+{
+    CFractions frPegShiftReserve = frPegShift.LowPart(peglevel, nullptr);
+    consumepegshift(frBalance, frExchange, frPegShift, frPegShiftReserve);
+}
+
+static void consumeliquidpegshift(CFractions & frBalance, 
+                                  CFractions & frExchange, 
+                                  CFractions & frPegShift,
+                                  const CPegLevel & peglevel) 
+{
+    CFractions frPegShiftLiquid = frPegShift.HighPart(peglevel, nullptr);
+    consumepegshift(frBalance, frExchange, frPegShift, frPegShiftLiquid);
+}
+
 Value registerdeposit(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 4)
@@ -1044,30 +1088,10 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     frExchange -= frRequested;
     frPegShift += (frRequested - frProcessed);
     
-    // first to consume distortion by balance
-    // as computation were completed by nSupplyNext it may use fractions
+    // consume liquid part of pegshift by balance
+    // as computation were completed by pegnext it may use fractions
     // of current reserves - at current supply not to consume these fractions
-    int64_t nDistortionPositive = 0;
-    int64_t nDistortionNegative = 0;
-    CFractions frDistortionNow = frPegShift.HighPart(peglevel, nullptr);
-    CFractions frDistortionPositive = frDistortionNow.Positive(&nDistortionPositive);
-    CFractions frDistortionNegative = frDistortionNow.Negative(&nDistortionNegative);
-    CFractions frDistortionNegativeConsume = frDistortionNegative & (-frBalance);
-    int64_t nDistortionNegativeConsume = frDistortionNegativeConsume.Total();
-    int64_t nDistortionPositiveConsume = frDistortionPositive.Total();
-    if ((-nDistortionNegativeConsume) > nDistortionPositiveConsume) {
-        CFractions frToPositive = -frDistortionNegativeConsume; 
-        frToPositive = frToPositive.RatioPart(nDistortionPositiveConsume);
-        frDistortionNegativeConsume = -frToPositive;
-        nDistortionNegativeConsume = frDistortionNegativeConsume.Total();
-    }
-    nDistortionPositiveConsume = -nDistortionNegativeConsume;
-    CFractions frDistortionPositiveConsume = frDistortionPositive.RatioPart(nDistortionPositiveConsume);
-    CFractions frDistortionConsume = frDistortionNegativeConsume + frDistortionPositiveConsume;
-    
-    frBalance += frDistortionConsume;
-    frExchange += frDistortionConsume;
-    frPegShift -= frDistortionConsume;
+    consumeliquidpegshift(frBalance, frExchange, frPegShift, peglevel);
     
     if (frPegShift.Positive(nullptr).Total() != -frPegShift.Negative(nullptr).Total()) {
         throw JSONRPCError(RPC_MISC_ERROR, 
@@ -1629,30 +1653,10 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     frExchange -= frRequested;
     frPegShift += (frRequested - frProcessed);
     
-    // first to consume distortion by balance
-    // as computation were completed by nSupplyNext it may use fractions
+    // consume reserve part of pegshift by balance
+    // as computation were completed by pegnext it may use fractions
     // of current liquid - at current supply not to consume these fractions
-    int64_t nDistortionPositive = 0;
-    int64_t nDistortionNegative = 0;
-    CFractions frDistortionNow = frPegShift.LowPart(peglevel, nullptr);
-    CFractions frDistortionPositive = frDistortionNow.Positive(&nDistortionPositive);
-    CFractions frDistortionNegative = frDistortionNow.Negative(&nDistortionNegative);
-    CFractions frDistortionNegativeConsume = frDistortionNegative & (-frBalance);
-    int64_t nDistortionNegativeConsume = frDistortionNegativeConsume.Total();
-    int64_t nDistortionPositiveConsume = frDistortionPositive.Total();
-    if ((-nDistortionNegativeConsume) > nDistortionPositiveConsume) {
-        CFractions frToPositive = -frDistortionNegativeConsume; 
-        frToPositive = frToPositive.RatioPart(nDistortionPositiveConsume);
-        frDistortionNegativeConsume = -frToPositive;
-        nDistortionNegativeConsume = frDistortionNegativeConsume.Total();
-    }
-    nDistortionPositiveConsume = -nDistortionNegativeConsume;
-    CFractions frDistortionPositiveConsume = frDistortionPositive.RatioPart(nDistortionPositiveConsume);
-    CFractions frDistortionConsume = frDistortionNegativeConsume + frDistortionPositiveConsume;
-    
-    frBalance += frDistortionConsume;
-    frExchange += frDistortionConsume;
-    frPegShift -= frDistortionConsume;
+    consumereservepegshift(frBalance, frExchange, frPegShift, peglevel);
     
     if (frPegShift.Positive(nullptr).Total() != -frPegShift.Negative(nullptr).Total()) {
         throw JSONRPCError(RPC_MISC_ERROR, 
@@ -1694,6 +1698,8 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     
     return result;
 }
+
+
 
 
 #ifdef ENABLE_FAUCET

@@ -22,6 +22,7 @@ CONFIG += no_include_pwd
 CONFIG += thread
 CONFIG += c++11
 CONFIG += wallet
+#CONFIG += faucet
 
 QT += widgets
 DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0

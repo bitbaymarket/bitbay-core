@@ -1107,6 +1107,7 @@ CPegLevel::CPegLevel(int cycle,
     nShift = 0;
     nShiftLastPart  = 0;
     nShiftLastTotal = 0;
+    nShiftLiquidity = 0;
 }
 
 CPegLevel::CPegLevel(int cycle,
@@ -1122,6 +1123,7 @@ CPegLevel::CPegLevel(int cycle,
     nShift = 0;
     nShiftLastPart  = 0;
     nShiftLastTotal = 0;
+    nShiftLiquidity = 0;
     
     CFractions frOutput = frInput + frDistortion;
     int64_t nInputLiquid = frInput.High(nSupply);
@@ -1148,6 +1150,7 @@ CPegLevel::CPegLevel(int cycle,
             i++;
         }
         nShiftLastPart = nLiquidDiffLeft;
+        nShiftLiquidity = nOutputLiquid - nInputLiquid;
     }
 }
 

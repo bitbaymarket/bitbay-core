@@ -312,7 +312,9 @@ static const CRPCCommand vRPCCommands[] =
     { "movereserve",            &movereserve,            false,     false,     true },
     { "prepareliquidwithdraw",  &prepareliquidwithdraw,  false,     false,     true },
     { "preparereservewithdraw", &preparereservewithdraw, false,     false,     true },
+#ifdef ENABLE_FAUCET
     { "faucet",                 &faucet,                 false,     false,     true },
+#endif
 #endif
 };
 

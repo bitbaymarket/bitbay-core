@@ -17,6 +17,14 @@ contains(USE_WALLET, 1) {
 	CONFIG += wallet
 }
 
+count(USE_FAUCET, 0) {
+	USE_FAUCET=0
+}
+contains(USE_FAUCET, 1) {
+	message(Building with FAUCET support)
+	CONFIG += faucet
+}
+
 exists(bitbayd-local.pri) {
     include(bitbayd-local.pri)
 }

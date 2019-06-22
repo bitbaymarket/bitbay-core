@@ -194,6 +194,7 @@ extern json_spirit::Value moveliquid(const json_spirit::Array& params, bool fHel
 extern json_spirit::Value movereserve(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value prepareliquidwithdraw(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value preparereservewithdraw(const json_spirit::Array& params, bool fHelp);
+
 extern json_spirit::Value faucet(const json_spirit::Array& params, bool fHelp);
 
 #endif

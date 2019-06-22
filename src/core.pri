@@ -82,23 +82,27 @@ SOURCES += \
 
 wallet {
 
-	DEFINES += ENABLE_WALLET
-
-	HEADERS += \
-		$$PWD/db.h \
-		$$PWD/miner.h \
-		$$PWD/wallet.h \
-		$$PWD/walletdb.h \
-
-	SOURCES += \
-		$$PWD/db.cpp \
-		$$PWD/miner.cpp \
-		$$PWD/rpcdump.cpp \
-		$$PWD/rpcmining.cpp \
-		$$PWD/rpcwallet.cpp \
-		$$PWD/rpcexchange.cpp \
-		$$PWD/wallet.cpp \
-		$$PWD/walletdb.cpp \
+    DEFINES += ENABLE_WALLET
+    
+    faucet {
+        DEFINES += ENABLE_FAUCET
+    }
+    
+    HEADERS += \
+        $$PWD/db.h \
+        $$PWD/miner.h \
+        $$PWD/wallet.h \
+        $$PWD/walletdb.h \
+    
+    SOURCES += \
+        $$PWD/db.cpp \
+        $$PWD/miner.cpp \
+        $$PWD/rpcdump.cpp \
+        $$PWD/rpcmining.cpp \
+        $$PWD/rpcwallet.cpp \
+        $$PWD/rpcexchange.cpp \
+        $$PWD/wallet.cpp \
+        $$PWD/walletdb.cpp \
 
 }
 

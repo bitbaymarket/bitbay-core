@@ -83,6 +83,7 @@ public:
     int16_t nShift          = 0;
     int64_t nShiftLastPart  = 0;
     int64_t nShiftLastTotal = 0;
+    int64_t nShiftLiquidity = 0;
 
     CPegLevel(int cycle,
               int supply,

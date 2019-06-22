@@ -207,6 +207,8 @@ Value registerdeposit(const Array& params, bool fHelp)
                        nSupplyNext,
                        nSupplyNextNext,
                        nCycleNow);
+    // to use for network liquid/reserve
+    CPegLevel peglevel_net = peglevel;
     
     if (!peglevel_hex.empty()) {
         CPegLevel peglevel_load(peglevel_hex);
@@ -274,7 +276,7 @@ Value registerdeposit(const Array& params, bool fHelp)
     
     printpeglevel(peglevel, result);
     printpegbalance(frBalance, peglevel, result, "balance_", true);
-    printpegbalance(frExchange, peglevel, result, "exchange_", true);
+    printpegbalance(frExchange, peglevel_net, result, "exchange_", true);
     
     return result;
 }
@@ -362,19 +364,25 @@ Value getpeglevel(const Array& params, bool fHelp)
     int nPegInterval = Params().PegInterval(nBestHeight);
     int nCycleNow = nBestHeight / nPegInterval;
     
+    // exchange peglevel
     CPegLevel peglevel(nCycleNow,
-                       nSupplyNow,
-                       nSupplyNext,
-                       nSupplyNextNext,
+                       nSupplyNow+1,
+                       nSupplyNext+1,
+                       nSupplyNextNext+1,
                        frExchange,
                        frPegShift);
+    // to use for network liquid/reserve
+    CPegLevel peglevel_net(nSupplyNow,
+                           nSupplyNext,
+                           nSupplyNextNext,
+                           nCycleNow);
     
     Object result;
     result.push_back(Pair("cycle", peglevel.nCycle));
 
     printpeglevel(peglevel, result);
-    printpegbalance(frExchange, peglevel, result, "exchange_", false);
-    printpegshift(frPegShift, peglevel, result, false);
+    printpegbalance(frExchange, peglevel_net, result, "exchange_", false);
+    printpegshift(frPegShift, peglevel_net, result, false);
     
     return result;
 }
@@ -678,10 +686,13 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     int nPegInterval = Params().PegInterval(nBestHeight);
     int nCycleNow = nBestHeight / nPegInterval;
     
+    // exchange peglevel
     CPegLevel peglevel(nSupplyNow,
                        nSupplyNext,
                        nSupplyNextNext,
                        nCycleNow);
+    // to use for network liquid/reserve
+    CPegLevel peglevel_net = peglevel;
     
     if (!peglevel_hex.empty()) {
         CPegLevel peglevel_load(peglevel_hex);
@@ -1113,14 +1124,14 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     result.push_back(Pair("consumed_inputs", sConsumedInputs));
     result.push_back(Pair("provided_outputs", sProvidedOutputs));
 
-    result.push_back(Pair("created_on_peg", peglevel.nSupply));
-    result.push_back(Pair("broadcast_on_peg", peglevel.nSupplyNext));
+    result.push_back(Pair("created_on_peg", peglevel_net.nSupply));
+    result.push_back(Pair("broadcast_on_peg", peglevel_net.nSupplyNext));
     
     printpegbalance(frBalance, peglevel, result, "balance_", true);
     printpegbalance(frProcessed, peglevel, result, "processed_", true);
-    printpegbalance(frExchange, peglevel, result, "exchange_", true);
+    printpegbalance(frExchange, peglevel_net, result, "exchange_", true);
     
-    printpegshift(frPegShift, peglevel, result, true);
+    printpegshift(frPegShift, peglevel_net, result, true);
     
     Array changes;
     for(const pair<string, int64_t> & item : mapTxChanges) {
@@ -1167,10 +1178,13 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     int nPegInterval = Params().PegInterval(nBestHeight);
     int nCycleNow = nBestHeight / nPegInterval;
     
+    // exchange peglevel
     CPegLevel peglevel(nSupplyNow,
                        nSupplyNext,
                        nSupplyNextNext,
                        nCycleNow);
+    // to use for network liquid/reserve
+    CPegLevel peglevel_net = peglevel;
     
     if (!peglevel_hex.empty()) {
         CPegLevel peglevel_load(peglevel_hex);
@@ -1678,14 +1692,14 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     result.push_back(Pair("consumed_inputs", sConsumedInputs));
     result.push_back(Pair("provided_outputs", sProvidedOutputs));
 
-    result.push_back(Pair("created_on_peg", peglevel.nSupply));
-    result.push_back(Pair("broadcast_on_peg", peglevel.nSupplyNext));
+    result.push_back(Pair("created_on_peg", peglevel_net.nSupply));
+    result.push_back(Pair("broadcast_on_peg", peglevel_net.nSupplyNext));
     
     printpegbalance(frBalance, peglevel, result, "balance_", true);
     printpegbalance(frProcessed, peglevel, result, "processed_", true);
-    printpegbalance(frExchange, peglevel, result, "exchange_", true);
+    printpegbalance(frExchange, peglevel_net, result, "exchange_", true);
     
-    printpegshift(frPegShift, peglevel, result, true);
+    printpegshift(frPegShift, peglevel_net, result, true);
     
     Array changes;
     for(const pair<string, int64_t> & item : mapTxChanges) {

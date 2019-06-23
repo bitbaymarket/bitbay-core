@@ -759,9 +759,9 @@ CFractions CFractions::LowPart(const CPegLevel & peglevel, int64_t* total) const
         int64_t vpart = ::RatioPart(v, 
                                     peglevel.nShiftLastPart, 
                                     peglevel.nShiftLastTotal);
-        if (vpart < v) vpart++; // better rounding
+        if (vpart < v) vpart++;
         frLowPart.f[to] = vpart;
-        to++;
+        if (total) *total += vpart;
     }
     
     for(int i=0; i<to; i++) {
@@ -788,8 +788,9 @@ CFractions CFractions::HighPart(const CPegLevel & peglevel, int64_t* total) cons
         int64_t vpart = ::RatioPart(v, 
                                     peglevel.nShiftLastPart, 
                                     peglevel.nShiftLastTotal);
-        if (vpart < v) vpart++; // better rounding
+        if (vpart < v) vpart++;
         frHighPart.f[from] = (v - vpart);
+        if (total) *total += (v - vpart);
         from++;
     }
     
@@ -798,6 +799,43 @@ CFractions CFractions::HighPart(const CPegLevel & peglevel, int64_t* total) cons
         frHighPart.f[i] = f[i];
     }
     return frHighPart;
+}
+
+CFractions CFractions::MidPart(const CPegLevel & peglevel_low, 
+                               const CPegLevel & peglevel_high) const
+{
+    int from = peglevel_low.nSupply + peglevel_low.nShift;
+    int to = peglevel_high.nSupply + peglevel_high.nShift;
+    
+    if (from != to) {
+        return HighPart(peglevel_low, nullptr).LowPart(peglevel_high, nullptr);
+    }
+    
+    // same supply, different partial ratio
+    CFractions mid(0, STD);
+    int one = from;
+    int64_t v = f[one];
+    int64_t vone = f[one];
+    
+    if (peglevel_low.nShiftLastPart >0 && 
+        peglevel_low.nShiftLastTotal >0) {
+        int64_t vpart = ::RatioPart(vone, 
+                                    peglevel_low.nShiftLastPart, 
+                                    peglevel_low.nShiftLastTotal);
+        v -= vpart;
+    }
+
+    if (peglevel_high.nShiftLastPart >0 && 
+        peglevel_high.nShiftLastTotal >0) {
+        int64_t vpart = ::RatioPart(vone, 
+                                    peglevel_high.nShiftLastPart, 
+                                    peglevel_high.nShiftLastTotal);
+        if (vpart < vone) vpart++;
+        v -= (vone - vpart);
+    }
+    
+    mid.f[from] = v;
+    return mid;
 }
 
 int64_t RatioPart(int64_t nValue,
@@ -1097,30 +1135,34 @@ CPegLevel::CPegLevel(std::string str) {
 }
 
 CPegLevel::CPegLevel(int cycle,
+                     int cycle_prev,
                      int supply,
                      int supply_next,
                      int supply_next_next) {
-    nCycle = cycle;
-    nSupply = supply;
-    nSupplyNext = supply_next;
+    nCycle          = cycle;
+    nCyclePrev      = cycle_prev;
+    nSupply         = supply;
+    nSupplyNext     = supply_next;
     nSupplyNextNext = supply_next_next;
-    nShift = 0;
+    nShift          = 0;
     nShiftLastPart  = 0;
     nShiftLastTotal = 0;
     nShiftLiquidity = 0;
 }
 
 CPegLevel::CPegLevel(int cycle,
+                     int cycle_prev,
                      int supply,
                      int supply_next,
                      int supply_next_next,
                      const CFractions & frInput,
                      const CFractions & frDistortion) {
-    nCycle = cycle;
-    nSupply = supply;
-    nSupplyNext = supply_next;
+    nCycle          = cycle;
+    nCyclePrev      = cycle_prev;
+    nSupply         = supply;
+    nSupplyNext     = supply_next;
     nSupplyNextNext = supply_next_next;
-    nShift = 0;
+    nShift          = 0;
     nShiftLastPart  = 0;
     nShiftLastTotal = 0;
     nShiftLiquidity = 0;
@@ -1170,6 +1212,7 @@ bool CPegLevel::IsValid() const {
 bool CPegLevel::Pack(CDataStream & fout) const {
     try {
         fout << nCycle;
+        fout << nCyclePrev;
         fout << nSupply;            // from index distortion
         fout << nSupplyNext;
         fout << nSupplyNextNext;
@@ -1186,6 +1229,7 @@ bool CPegLevel::Pack(CDataStream & fout) const {
 bool CPegLevel::Unpack(CDataStream & finp) {
     try {
         finp >> nCycle;
+        finp >> nCyclePrev;
         finp >> nSupply;            // from index distortion
         finp >> nSupplyNext;
         finp >> nSupplyNextNext;
@@ -1203,6 +1247,43 @@ std::string CPegLevel::ToString() const {
     CDataStream fout(SER_DISK, CLIENT_VERSION);
     Pack(fout);
     return HexStr(fout.begin(), fout.end());
+}
+
+bool operator<(const CPegLevel &a, const CPegLevel &b) {
+    int16_t nSupplyA = a.nSupply+a.nShift;
+    int16_t nSupplyB = b.nSupply+b.nShift;
+    if (nSupplyA < nSupplyB) return true;
+    if (nSupplyA > nSupplyB) return false;
+    
+    multiprecision::uint128_t nShiftLastPartA(a.nShiftLastPart);
+    multiprecision::uint128_t nShiftLastPartB(b.nShiftLastPart);
+    multiprecision::uint128_t nShiftLastTotalA(a.nShiftLastTotal);
+    multiprecision::uint128_t nShiftLastTotalB(b.nShiftLastTotal);
+    
+    multiprecision::uint128_t nPartNormA = nShiftLastPartA * nShiftLastTotalB;
+    multiprecision::uint128_t nPartNormB = nShiftLastPartB * nShiftLastTotalA;
+    
+    return nPartNormA < nPartNormB;
+}
+
+bool operator==(const CPegLevel &a, const CPegLevel &b) {
+    int16_t nSupplyA = a.nSupply+a.nShift;
+    int16_t nSupplyB = b.nSupply+b.nShift;
+    if (nSupplyA != nSupplyB) return false;
+    
+    multiprecision::uint128_t nShiftLastPartA(a.nShiftLastPart);
+    multiprecision::uint128_t nShiftLastPartB(b.nShiftLastPart);
+    multiprecision::uint128_t nShiftLastTotalA(a.nShiftLastTotal);
+    multiprecision::uint128_t nShiftLastTotalB(b.nShiftLastTotal);
+    
+    multiprecision::uint128_t nPartNormA = nShiftLastPartA * nShiftLastTotalB;
+    multiprecision::uint128_t nPartNormB = nShiftLastPartB * nShiftLastTotalA;
+    
+    return nPartNormA == nPartNormB;
+}
+
+bool operator!=(const CPegLevel &a, const CPegLevel &b) {
+    return !operator==(a,b);
 }
 
 static string toAddress(const CScript& scriptPubKey,

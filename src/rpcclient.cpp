@@ -160,6 +160,9 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "submitblock", 1 },
     { "gettxout", 1 },
     { "gettxout", 2 },
+    { "movecoins", 0 },
+    { "moveliquid", 0 },
+    { "movereserve", 0 },
 };
 
 class CRPCConvertTable

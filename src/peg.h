@@ -77,6 +77,7 @@ int64_t RatioPart(int64_t nValue,
 class CPegLevel {
 public:
     int64_t nCycle          = 0;
+    int64_t nCyclePrev      = 0;
     int16_t nSupply         = 0;
     int16_t nSupplyNext     = 0;
     int16_t nSupplyNextNext = 0;
@@ -86,16 +87,22 @@ public:
     int64_t nShiftLiquidity = 0;
 
     CPegLevel(int cycle,
+              int cycle_prev,
               int supply,
               int supply_next,
               int supply_next_next);
     CPegLevel(int cycle,
+              int cycle_prev,
               int supply,
               int supply_next,
               int supply_next_next,
               const CFractions & fractions, 
               const CFractions & distortion);
     CPegLevel(std::string);
+    
+    friend bool operator<(const CPegLevel &a, const CPegLevel &b);
+    friend bool operator==(const CPegLevel &a, const CPegLevel &b);
+    friend bool operator!=(const CPegLevel &a, const CPegLevel &b);
     
     bool IsValid() const;
     bool HasShift() const { return nShift != 0 || nShiftLastPart != 0; }
@@ -138,6 +145,7 @@ public:
     CFractions HighPart(int supply, int64_t* total) const;
     CFractions LowPart(const CPegLevel &, int64_t* total) const;
     CFractions HighPart(const CPegLevel &, int64_t* total) const;
+    CFractions MidPart(const CPegLevel &, const CPegLevel &) const;
     CFractions RatioPart(int64_t part) const;
 
     CFractions& operator+=(const CFractions& b);

@@ -243,11 +243,17 @@ Value getpeglevel(const Array& params, bool fHelp)
     // exchange peglevel
     CPegLevel peglevel(nCycleNow,
                        nCyclePrev,
-                       nSupplyNow+1,
-                       nSupplyNext+1,
-                       nSupplyNextNext+1,
+                       nSupplyNow+3,
+                       nSupplyNext+3,
+                       nSupplyNextNext+3,
                        frExchange,
                        frPegShift);
+
+//    CPegLevel peglevel(nCycleNow,
+//                       nCyclePrev,
+//                       nSupplyNow,
+//                       nSupplyNext,
+//                       nSupplyNextNext);
     
     // network peglevel
     CPegLevel peglevel_net(nCycleNow,
@@ -409,29 +415,10 @@ Value updatepegbalances(const Array& params, bool fHelp)
     string pegpool_pegdata64 = params[1].get_str();
     string peglevel_hex = params[2].get_str();
     
-    int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
-    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
-    int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
-    
-    int nPegInterval = Params().PegInterval(nBestHeight);
-    int nCycleNow = nBestHeight / nPegInterval;
-    
-    CPegLevel peglevel_new(nCycleNow,
-                           nCycleNow-1,
-                           nSupplyNow,
-                           nSupplyNext,
-                           nSupplyNextNext);
-    CPegLevel peglevel_old(0,
-                           0,
-                           nSupplyNow,
-                           nSupplyNext,
-                           nSupplyNextNext);
-    
-    if (!peglevel_hex.empty()) {
-        CPegLevel peglevel_load(peglevel_hex);
-        if (peglevel_load.IsValid()) {
-            peglevel_new = peglevel_load;
-        }
+    CPegLevel peglevel_old("");
+    CPegLevel peglevel_new(peglevel_hex);
+    if (!peglevel_new.IsValid()) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Can not unpack peglevel");
     }
     
     CFractions frBalance(0, CFractions::VALUE);
@@ -442,12 +429,12 @@ Value updatepegbalances(const Array& params, bool fHelp)
     frBalance = frBalance.Std();
     frPegPool = frPegPool.Std();
     
-    if (peglevel_old.nCycle == peglevel_new.nCycle) { // already up-to-dated
+    if (peglevel_old.nCycle >= peglevel_new.nCycle) { // already up-to-dated
         
         Object result;
     
         result.push_back(Pair("completed", true));
-        result.push_back(Pair("cycle", nCycleNow));
+        result.push_back(Pair("cycle", peglevel_new.nCycle));
         
         printpeglevel(peglevel_new, result);
         printpegbalance(frBalance, peglevel_new, result, "balance_", true);
@@ -462,7 +449,10 @@ Value updatepegbalances(const Array& params, bool fHelp)
         result.push_back(Pair("completed", false));
         result.push_back(Pair("cycle_old", peglevel_old.nCycle));
         result.push_back(Pair("cycle_new", peglevel_new.nCycle));
-        result.push_back(Pair("status", strprintf("Need to updatepegbalances from cycle %d", peglevel_old.nCycle)));
+        result.push_back(Pair("status", strprintf(
+            "Cycles mismatch for peglevel_new.nCyclePrev:%d vs peglevel_old.nCycle:%d", 
+            peglevel_new.nCyclePrev,
+            peglevel_old.nCycle)));
         return result;
     }
     
@@ -514,7 +504,7 @@ Value updatepegbalances(const Array& params, bool fHelp)
     Object result;
 
     result.push_back(Pair("completed", true));
-    result.push_back(Pair("cycle", nCycleNow));
+    result.push_back(Pair("cycle", peglevel_new.nCycle));
     
     printpeglevel(peglevel_new, result);
     printpegbalance(frBalance, peglevel_new, result, "balance_", true);

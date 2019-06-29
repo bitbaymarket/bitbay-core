@@ -23,9 +23,9 @@ extern bool getpeglevel(
         int                 inp_peg_next,
         int                 inp_peg_next_next,
         
-        std::string & out_peglevel_hex,
-        std::string & out_pegpool_pegdata64,
-        std::string & out_err);
+        std::string &   out_peglevel_hex,
+        std::string &   out_pegpool_pegdata64,
+        std::string &   out_err);
 
 extern bool getpeglevelinfo(
         const std::string & inp_peglevel_hex,
@@ -39,7 +39,15 @@ extern bool getpeglevelinfo(
         int64_t &   out_shiftlastpart,
         int64_t &   out_shiftlasttotal);
 
-void updatepegbalances();
+extern bool updatepegbalances(
+        const std::string & inp_balance_pegdata64,
+        const std::string & inp_pegpool_pegdata64,
+        const std::string & inp_peglevel_hex,
+        
+        std::string &   out_balance_pegdata64,
+        std::string &   out_pegpool_pegdata64,
+        std::string &   out_err);
+
 void movecoins();
 void moveliquid();
 void movereserve();

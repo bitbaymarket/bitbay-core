@@ -255,22 +255,16 @@ Value getpeglevel(const Array& params, bool fHelp)
 //                       nSupplyNext,
 //                       nSupplyNextNext);
     
-    // network peglevel
-    CPegLevel peglevel_net(nCycleNow,
-                           nCyclePrev,
-                           nSupplyNow,
-                           nSupplyNext,
-                           nSupplyNextNext);
-    
-    CFractions frPegPool = frExchange.HighPart(peglevel, nullptr);
+    int nSupplyEffective = peglevel.nSupply + peglevel.nShift;
+    CFractions frPegPool = frExchange.HighPart(nSupplyEffective, nullptr);
     
     Object result;
     result.push_back(Pair("cycle", peglevel.nCycle));
 
     printpeglevel(peglevel, result);
-    printpegbalance(frPegPool, peglevel_net, result, "pegpool_", true);
-    printpegbalance(frExchange, peglevel_net, result, "exchange_", false);
-    printpegshift(frPegShift, peglevel_net, result, false);
+    printpegbalance(frPegPool, peglevel, result, "pegpool_", true);
+    printpegbalance(frExchange, peglevel, result, "exchange_", false);
+    printpegshift(frPegShift, peglevel, result, false);
     
     return result;
 }
@@ -472,6 +466,26 @@ Value updatepegbalances(const Array& params, bool fHelp)
                                      frReserve.Total(),
                                      nValue));
     }
+        
+    // if partial last reserve fraction then took reserve from this idx
+    int nLastIdx = peglevel_new.nSupply + peglevel_new.nShift;
+    if (nLastIdx >=0 && 
+        nLastIdx <PEG_SIZE && 
+        peglevel_new.nShiftLastPart >0 && 
+        peglevel_new.nShiftLastTotal >0) {
+        
+        int64_t nLastTotal = frPegPool.f[nLastIdx];
+        int64_t nLastReserve = frReserve.f[nLastIdx];
+        int64_t nTakeReserve = std::min(nLastReserve, nLastTotal);
+        
+        frPegPool.f[nLastIdx] -= nTakeReserve;
+        
+        if (nLastReserve > nTakeReserve) { // from liquid
+            int64_t nDiff = nLastReserve - nTakeReserve;
+            frReserve.f[nLastIdx] -= nDiff;
+            nReserve -= nDiff;
+        }
+    }
     
     // liquid is just normed to pool
     int64_t nLiquid = nValue - nReserve;
@@ -482,6 +496,7 @@ Value updatepegbalances(const Array& params, bool fHelp)
                                      frPegPool.Total(),
                                      nLiquid));
     }
+    
     frLiquid = CFractions(0, CFractions::STD);
     frPegPool.MoveRatioPartTo(nLiquid, frLiquid);
     
@@ -489,7 +504,7 @@ Value updatepegbalances(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_MISC_ERROR, 
                            strprintf("Liquid mimatch on MoveRatioPartTo %d vs %d",
                                      frLiquid.Total(),
-                                     nValue));
+                                     nLiquid));
     }
     
     frBalance = frReserve + frLiquid;

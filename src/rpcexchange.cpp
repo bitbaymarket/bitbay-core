@@ -413,116 +413,36 @@ Value updatepegbalances(const Array& params, bool fHelp)
                 "<peglevel_hex>\n"
             );
     
-    string balance_pegdata64 = params[0].get_str();
-    string pegpool_pegdata64 = params[1].get_str();
-    string peglevel_hex = params[2].get_str();
+    string inp_balance_pegdata64 = params[0].get_str();
+    string inp_pegpool_pegdata64 = params[1].get_str();
+    string inp_peglevel_hex = params[2].get_str();
     
-    CPegLevel peglevel_old("");
-    CPegLevel peglevel_new(peglevel_hex);
-    if (!peglevel_new.IsValid()) {
-        throw JSONRPCError(RPC_MISC_ERROR, "Can not unpack peglevel");
+    string out_balance_pegdata64;
+    string out_pegpool_pegdata64;
+    string out_err;
+    
+    bool ok = pegops::updatepegbalances(
+            inp_balance_pegdata64,
+            inp_pegpool_pegdata64,
+            inp_peglevel_hex,
+            
+            out_balance_pegdata64,
+            out_pegpool_pegdata64,
+            out_err);
+    
+    if (!ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, out_err);
     }
-    
-    CFractions frBalance(0, CFractions::VALUE);
-    CFractions frPegPool(0, CFractions::VALUE);
-    unpackpegdata(frPegPool, pegpool_pegdata64, "pegpool");
-    unpackbalance(frBalance, peglevel_old, balance_pegdata64, "balance");
 
-    frBalance = frBalance.Std();
-    frPegPool = frPegPool.Std();
+    CPegLevel peglevel_new(inp_peglevel_hex);
+    CPegLevel peglevel_skip1("");
+    CPegLevel peglevel_skip2("");
     
-    if (peglevel_old.nCycle >= peglevel_new.nCycle) { // already up-to-dated
-        
-        Object result;
+    CFractions frBalance(0, CFractions::STD);
+    CFractions frPegPool(0, CFractions::STD);
     
-        result.push_back(Pair("completed", true));
-        result.push_back(Pair("cycle", peglevel_old.nCycle));
-        
-        printpeglevel(peglevel_old, result);
-        printpegbalance(frBalance, peglevel_old, result, "balance_", true);
-        printpegbalance(frPegPool, peglevel_old, result, "pegpool_", true);
-        
-        return result;
-    }
-    
-    if (peglevel_old.nCycle != 0 && 
-        peglevel_old.nCycle != peglevel_new.nCyclePrev) {
-        Object result;
-        result.push_back(Pair("completed", false));
-        result.push_back(Pair("cycle_old", peglevel_old.nCycle));
-        result.push_back(Pair("cycle_new", peglevel_new.nCycle));
-        result.push_back(Pair("status", strprintf(
-            "Cycles mismatch for peglevel_new.nCyclePrev:%d vs peglevel_old.nCycle:%d", 
-            peglevel_new.nCyclePrev,
-            peglevel_old.nCycle)));
-        return result;
-    }
-    
-    int64_t nValue = frBalance.Total();
-    
-    CFractions frLiquid(0, CFractions::STD);
-    CFractions frReserve(0, CFractions::STD);
-    
-    int64_t nReserve = 0;
-    // current part of balance turns to reserve
-    // the balance is to be updated at previous cycle
-    frReserve = frBalance.LowPart(peglevel_new, &nReserve);
-    
-    if (nReserve != frReserve.Total()) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Reserve mimatch on LowPart %d vs %d",
-                                     frReserve.Total(),
-                                     nValue));
-    }
-        
-    // if partial last reserve fraction then took reserve from this idx
-    int nLastIdx = peglevel_new.nSupply + peglevel_new.nShift;
-    if (nLastIdx >=0 && 
-        nLastIdx <PEG_SIZE && 
-        peglevel_new.nShiftLastPart >0 && 
-        peglevel_new.nShiftLastTotal >0) {
-        
-        int64_t nLastTotal = frPegPool.f[nLastIdx];
-        int64_t nLastReserve = frReserve.f[nLastIdx];
-        int64_t nTakeReserve = std::min(nLastReserve, nLastTotal);
-        
-        frPegPool.f[nLastIdx] -= nTakeReserve;
-        
-        if (nLastReserve > nTakeReserve) { // from liquid
-            int64_t nDiff = nLastReserve - nTakeReserve;
-            frReserve.f[nLastIdx] -= nDiff;
-            nReserve -= nDiff;
-        }
-    }
-    
-    // liquid is just normed to pool
-    int64_t nLiquid = nValue - nReserve;
-    if (nLiquid > frPegPool.Total()) {
-        // exchange liquidity mismatch
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Not enough liquid %d on 'pool' to balance %d",
-                                     frPegPool.Total(),
-                                     nLiquid));
-    }
-    
-    frLiquid = CFractions(0, CFractions::STD);
-    frPegPool.MoveRatioPartTo(nLiquid, frLiquid);
-    
-    if (nLiquid != frLiquid.Total()) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Liquid mimatch on MoveRatioPartTo %d vs %d",
-                                     frLiquid.Total(),
-                                     nLiquid));
-    }
-    
-    frBalance = frReserve + frLiquid;
-    
-    if (nValue != frBalance.Total()) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Balance mimatch after update %d vs %d",
-                                     frBalance.Total(),
-                                     nValue));
-    }
+    unpackbalance(frBalance, peglevel_skip1, out_balance_pegdata64, "balance");
+    unpackbalance(frPegPool, peglevel_skip2, out_pegpool_pegdata64, "pegpool");
     
     Object result;
 

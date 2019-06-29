@@ -24,8 +24,8 @@ using namespace pegutil;
 
 namespace pegops {
 
-string packpegdata(const CFractions & fractions,
-                   const CPegLevel & peglevel)
+string packpegdata(const CFractions &   fractions,
+                   const CPegLevel &    peglevel)
 {
     CDataStream fout(SER_DISK, CLIENT_VERSION);
     fractions.Pack(fout);
@@ -37,10 +37,10 @@ string packpegdata(const CFractions & fractions,
     return EncodeBase64(fout.str());
 }
 
-static string packpegbalance(const CFractions & fractions,
-                             const CPegLevel & peglevel,
-                             int64_t nReserve,
-                             int64_t nLiquid)
+static string packpegbalance(const CFractions &     fractions,
+                             const CPegLevel &      peglevel,
+                             int64_t                nReserve,
+                             int64_t                nLiquid)
 {
     CDataStream fout(SER_DISK, CLIENT_VERSION);
     fractions.Pack(fout);
@@ -50,10 +50,10 @@ static string packpegbalance(const CFractions & fractions,
     return EncodeBase64(fout.str());
 }
 
-static bool unpackpegdata(CFractions & fractions, 
-                          const string & pegdata64,
-                          const string & tag,
-                          string & err)
+static bool unpackpegdata(CFractions &      fractions, 
+                          const string &    pegdata64,
+                          const string &    tag,
+                          string &          err)
 {
     if (pegdata64.empty()) 
         return true;
@@ -70,11 +70,11 @@ static bool unpackpegdata(CFractions & fractions,
     return true;
 }
 
-static bool unpackbalance(CFractions & fractions,
-                          CPegLevel & peglevel,
-                          const string & pegdata64,
-                          string tag,
-                          string & err)
+bool unpackbalance(CFractions &     fractions,
+                   CPegLevel &      peglevel,
+                   const string &   pegdata64,
+                   string           tag,
+                   string &         err)
 {
     if (pegdata64.empty()) 
         return true;
@@ -92,11 +92,53 @@ static bool unpackbalance(CFractions & fractions,
     
         CPegLevel peglevel_copy = peglevel;
         if (!peglevel_copy.Unpack(finp)) {
-//             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
-//                                "Can not unpack '"+tag+"' peglevel");
+            err = "Can not unpack '"+tag+"' peglevel";
+            return false;
+        }
+        else peglevel = peglevel_copy;
+    }
+    catch (std::exception &) { ; }
+    
+    return true;
+}
+
+bool unpackbalance(CFractions &     fractions,
+                   int64_t &        nReserve,
+                   int64_t &        nLiquid,
+                   CPegLevel &      peglevel,
+                   const string &   pegdata64,
+                   string           tag,
+                   string &         err)
+{
+    if (pegdata64.empty()) 
+        return true;
+    
+    string pegdata = DecodeBase64(pegdata64);
+    CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                     SER_DISK, CLIENT_VERSION);
+    
+    if (!fractions.Unpack(finp)) {
+         err = "Can not unpack '"+tag+"' pegdata";
+         return false;
+    }
+    
+    try { 
+    
+        CPegLevel peglevel_copy = peglevel;
+        if (!peglevel_copy.Unpack(finp)) {
+            err = "Can not unpack '"+tag+"' peglevel";
+            return false;
         }
         else peglevel = peglevel_copy;
     
+        try {
+            finp >> nReserve;
+            finp >> nLiquid;
+        }
+        catch (std::exception &) { 
+            nLiquid = fractions.High(peglevel);
+            nReserve = fractions.Low(peglevel);
+        }
     }
     catch (std::exception &) { ; }
     
@@ -143,9 +185,16 @@ bool getpeglevel(
 
     int peg_effective = peglevel.nSupply + peglevel.nShift;
     CFractions frPegPool = frExchange.HighPart(peg_effective, nullptr);
+
+    int64_t nPegPoolValue = frPegPool.Total();
+    int64_t nPegPoolReserve = peglevel.nShiftLastPart;
+    int64_t nPegPoolLiquid = nPegPoolValue - nPegPoolReserve;
     
     out_peglevel_hex = peglevel.ToString();
-    out_pegpool_pegdata64 = packpegdata(frPegPool, peglevel);
+    out_pegpool_pegdata64 = packpegbalance(frPegPool,
+                                           peglevel,
+                                           nPegPoolReserve,
+                                           nPegPoolLiquid);
     
     return true;
 }
@@ -190,6 +239,7 @@ bool updatepegbalances(
 {
     out_err.clear();
     CPegLevel peglevel_old("");
+    CPegLevel peglevel_pool("");
     CPegLevel peglevel_new(inp_peglevel_hex);
     if (!peglevel_new.IsValid()) {
         out_err = "Can not unpack peglevel";
@@ -199,7 +249,12 @@ bool updatepegbalances(
     CFractions frBalance(0, CFractions::VALUE);
     CFractions frPegPool(0, CFractions::VALUE);
     
-    if (!unpackpegdata(frPegPool, inp_pegpool_pegdata64, "pegpool", out_err)) {
+    int64_t nPegPoolLiquid = 0;
+    int64_t nPegPoolReserve = 0;
+    
+    if (!unpackbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid,
+                       peglevel_pool, 
+                       inp_pegpool_pegdata64, "pegpool", out_err)) {
         return false;
     }
     if (!unpackbalance(frBalance, peglevel_old, inp_balance_pegdata64, "balance", out_err)) {
@@ -209,9 +264,14 @@ bool updatepegbalances(
     frBalance = frBalance.Std();
     frPegPool = frPegPool.Std();
     
+    if (peglevel_pool.nCycle != peglevel_new.nCycle) {
+        out_err = "PegPool has other cycle than peglevel";
+        return false;
+    }
+    
     if (peglevel_old.nCycle == peglevel_new.nCycle) { // already up-to-dated
-        out_pegpool_pegdata64 = packpegdata(frPegPool, peglevel_new);
-        out_balance_pegdata64 = packpegdata(frBalance, peglevel_new);
+        out_pegpool_pegdata64 = inp_pegpool_pegdata64;
+        out_balance_pegdata64 = inp_balance_pegdata64;
         out_err = "Already up-to-dated";
         return true;
     }
@@ -242,6 +302,8 @@ bool updatepegbalances(
     // the balance is to be updated at previous cycle
     frReserve = frBalance.LowPart(peglevel_new, &nReserve);
     
+    frLiquid = CFractions(0, CFractions::STD);
+    
     if (nReserve != frReserve.Total()) {
         std::stringstream ss;
         ss << "Reserve mimatch on LowPart " << frReserve.Total() << " vs " << nValue;
@@ -250,7 +312,8 @@ bool updatepegbalances(
     }
         
     // if partial last reserve fraction then took reserve from this idx
-    int nLastIdx = peglevel_new.nSupply + peglevel_new.nShift;
+    int nSupplyEffective = peglevel_new.nSupply + peglevel_new.nShift;
+    int nLastIdx = nSupplyEffective;
     if (nLastIdx >=0 && 
         nLastIdx <PEG_SIZE && 
         peglevel_new.nShiftLastPart >0 && 
@@ -258,34 +321,70 @@ bool updatepegbalances(
         
         int64_t nLastTotal = frPegPool.f[nLastIdx];
         int64_t nLastReserve = frReserve.f[nLastIdx];
-        int64_t nTakeReserve = std::min(nLastReserve, nLastTotal);
+        int64_t nTakeReserve = nLastReserve;
+        nTakeReserve = std::min(nTakeReserve, nLastTotal);
+        nTakeReserve = std::min(nTakeReserve, nPegPoolReserve);
         
+        nPegPoolReserve -= nTakeReserve;
         frPegPool.f[nLastIdx] -= nTakeReserve;
         
-        if (nLastReserve > nTakeReserve) { // from liquid
+        if (nLastReserve > nTakeReserve) { // take it from liquid
             int64_t nDiff = nLastReserve - nTakeReserve;
             frReserve.f[nLastIdx] -= nDiff;
             nReserve -= nDiff;
         }
+        
+        // for liquid of partial we need to take proportionally
+        // from liquid of the fraction as nLiquid/nLiquidPool
+        nLastTotal = frPegPool.f[nLastIdx];
+        nPegPoolReserve = std::min(nPegPoolReserve, nLastTotal);
+        
+        int64_t nLastLiquid = nLastTotal - nPegPoolReserve;
+        int64_t nLiquid = nValue - nReserve;
+        int64_t nLiquidPool = frPegPool.Total() - nPegPoolReserve;
+        int64_t nTakeLiquid = RatioPart(nLastLiquid,
+                                        nLiquid,
+                                        nLiquidPool);
+        nTakeLiquid = std::min(nTakeLiquid, nLastTotal);
+        
+        frLiquid.f[nLastIdx] += nTakeLiquid;
+        frPegPool.f[nLastIdx] -= nTakeLiquid;
     }
     
     // liquid is just normed to pool
-    int64_t nLiquid = nValue - nReserve;
-    if (nLiquid > frPegPool.Total()) { // exchange liquidity mismatch
+    int64_t nLiquidTodo = nValue - nReserve - frLiquid.Total();
+    int64_t nLiquidPool = frPegPool.Total() - nPegPoolReserve;
+    if (nLiquidTodo > nLiquidPool) { // exchange liquidity mismatch
         std::stringstream ss;
         ss << "Not enough liquid " << frPegPool.Total() 
-           << " on 'pool' to balance " << nLiquid;
+           << " on 'pool' to balance " << nLiquidTodo;
         out_err = ss.str();
         return false;
     }
     
-    frLiquid = CFractions(0, CFractions::STD);
-    frPegPool.MoveRatioPartTo(nLiquid, frLiquid);
+    int64_t nHoldLastPart = 0;
+    if (nPegPoolReserve >0) {
+        nHoldLastPart = frPegPool.f[nLastIdx];
+        frPegPool.f[nLastIdx] = 0;
+    }
     
-    if (nLiquid != frLiquid.Total()) {
+    nLiquidTodo = frPegPool.MoveRatioPartTo(nLiquidTodo, frLiquid);
+
+    if (nLiquidTodo >0 && nLiquidTodo <= nHoldLastPart) {
+        frLiquid.f[nLastIdx] += nLiquidTodo;
+        nHoldLastPart -= nLiquidTodo;
+        nLiquidTodo = 0;
+    }
+    
+    if (nHoldLastPart > 0) {
+        frPegPool.f[nLastIdx] = nHoldLastPart;
+        nHoldLastPart = 0; 
+    }
+    
+    if (nLiquidTodo >0) {
         std::stringstream ss;
-        ss << "Liquid mimatch on MoveRatioPartTo " << frLiquid.Total() 
-           << " vs " << nLiquid;
+        ss << "Liquid not enough after MoveRatioPartTo "
+           << nLiquidTodo;
         out_err = ss.str();
         return false;
     }
@@ -300,7 +399,15 @@ bool updatepegbalances(
         return false;
     }
     
-    out_pegpool_pegdata64 = packpegdata(frPegPool, peglevel_new);
+    int64_t nPegPoolValue = frPegPool.Total();
+    nPegPoolLiquid = nPegPoolValue - nPegPoolReserve;
+    
+    out_pegpool_pegdata64 = packpegbalance(
+                frPegPool, 
+                peglevel_new,
+                nPegPoolReserve,
+                nPegPoolLiquid
+                );
     out_balance_pegdata64 = packpegdata(frBalance, peglevel_new);
     
     return true;

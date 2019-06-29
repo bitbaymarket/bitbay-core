@@ -7,11 +7,6 @@
 
 #include <string>
 
-//#ifdef __cplusplus
-//extern "C"
-//{
-//#endif // __cplusplus
-
 namespace pegops {
 
 extern bool getpeglevel(
@@ -54,7 +49,4 @@ void movereserve();
 
 }
 
-//#ifdef __cplusplus
-//}
-//#endif // __cplusplus
 #endif // BITBAY_PEGOPS_H

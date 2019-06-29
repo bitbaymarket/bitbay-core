@@ -12,7 +12,10 @@ INCLUDEPATH += $$PWD/..
 
 include($$PWD/pegops.pri)
 
+HEADERS += $$PWD/pegops_tests.h
 SOURCES += $$PWD/pegops_tests.cpp
+SOURCES += $$PWD/pegops_test5.cpp
+SOURCES += $$PWD/pegops_test6.cpp
 
 LIBS += -lz
 LIBS += -lboost_system

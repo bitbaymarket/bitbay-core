@@ -107,9 +107,6 @@ wallet {
 }
 
 # peg system
-HEADERS += src/peg.h
-SOURCES += src/peg.cpp
-SOURCES += src/peg_compat.cpp
-HEADERS += src/pegdb-leveldb.h
-SOURCES += src/pegdb-leveldb.cpp
+include($$PWD/peg/peg.pri)
+
 LIBS += -lz

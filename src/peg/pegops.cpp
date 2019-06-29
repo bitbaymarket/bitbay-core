@@ -24,8 +24,8 @@ using namespace pegutil;
 
 namespace pegops {
 
-static string packpegdata(const CFractions & fractions,
-                          const CPegLevel & peglevel)
+string packpegdata(const CFractions & fractions,
+                   const CPegLevel & peglevel)
 {
     CDataStream fout(SER_DISK, CLIENT_VERSION);
     fractions.Pack(fout);
@@ -118,6 +118,7 @@ bool getpeglevel(
         std::string & out_pegpool_pegdata64,
         std::string & out_err)
 {
+    out_err.clear();
     CFractions frExchange(0, CFractions::VALUE);
     CFractions frPegShift(0, CFractions::VALUE);
 
@@ -187,6 +188,7 @@ bool updatepegbalances(
         std::string &   out_pegpool_pegdata64,
         std::string &   out_err)
 {
+    out_err.clear();
     CPegLevel peglevel_old("");
     CPegLevel peglevel_new(inp_peglevel_hex);
     if (!peglevel_new.IsValid()) {

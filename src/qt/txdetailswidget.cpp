@@ -1423,7 +1423,7 @@ void TxDetailsWidget::openFractions(QTreeWidgetItem * item, int column)
     auto dlg = new QDialog(this);
     Ui::FractionsDialog ui;
     ui.setupUi(dlg);
-    QwtPlot * fplot = new QwtPlot;
+    fplot = new QwtPlot;
     QVBoxLayout *fvbox = new QVBoxLayout;
     fvbox->setMargin(0);
     fvbox->addWidget(fplot);
@@ -1465,7 +1465,6 @@ void TxDetailsWidget::openFractions(QTreeWidgetItem * item, int column)
     auto supply = item->data(4, BlockchainModel::PegSupplyRole).toInt();
     auto vfractions = item->data(4, BlockchainModel::FractionsRole);
     auto fractions = vfractions.value<CFractions>();
-    auto fractions_std = fractions.Std();
 
 //    int64_t fdelta[CPegFractions::PEG_SIZE];
 //    int64_t fundelta[CPegFractions::PEG_SIZE];
@@ -1480,12 +1479,39 @@ void TxDetailsWidget::openFractions(QTreeWidgetItem * item, int column)
     ui.valueLabel->setText(tr("Value: %1").arg(displayValue(fractions.Total())));
     ui.reserveLabel->setText(tr("Reserve: %1").arg(displayValue(fractions.Low(supply))));
     ui.liquidityLabel->setText(tr("Liquidity: %1").arg(displayValue(fractions.High(supply))));
+    
+    QPen nopen(Qt::NoPen);
 
+    curveReserve = new QwtPlotCurve;
+    curveReserve->setPen(nopen);
+    curveReserve->setBrush(QColor("#c06a15"));
+    curveReserve->setRenderHint(QwtPlotItem::RenderAntialiased);
+    curveReserve->attach(fplot);
+
+    curveLiquid = new QwtPlotCurve;
+    curveLiquid->setPen(nopen);
+    curveLiquid->setBrush(QColor("#2da5e0"));
+    curveLiquid->setRenderHint(QwtPlotItem::RenderAntialiased);
+    curveLiquid->attach(fplot);
+
+    plotFractions(ui.fractions, fractions, supply);
+    
+    dlg->setWindowTitle(txhash+" "+tr("fractions"));
+    dlg->show();
+}
+
+void TxDetailsWidget::plotFractions(QTreeWidget * table, 
+                                    const CFractions & fractions,
+                                    int supply)
+{
+    auto fractions_std = fractions.Std();
+    
     qreal xs_reserve[PEG_SIZE*2];
     qreal ys_reserve[PEG_SIZE*2];
     qreal xs_liquidity[PEG_SIZE*2];
     qreal ys_liquidity[PEG_SIZE*2];
 
+    table->clear();
     for (int i=0; i<PEG_SIZE; i++) {
         QStringList row;
         row << QString::number(i) << displayValue(fractions_std.f[i]); // << QString::number(fdelta[i]) << QString::number(fd.f[i]);
@@ -1493,7 +1519,7 @@ void TxDetailsWidget::openFractions(QTreeWidgetItem * item, int column)
         row_item->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         row_item->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         row_item->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions_std.f[i]));
-        ui.fractions->addTopLevelItem(row_item);
+        table->addTopLevelItem(row_item);
 
         xs_reserve[i*2] = i;
         ys_reserve[i*2] = i < supply ? qreal(fractions_std.f[i]) : 0;
@@ -1505,29 +1531,12 @@ void TxDetailsWidget::openFractions(QTreeWidgetItem * item, int column)
         xs_liquidity[i*2+1] = i+1;
         ys_liquidity[i*2+1] = ys_liquidity[i*2];
     }
-
-    QPen nopen(Qt::NoPen);
-
-    auto curve_reserve = new QwtPlotCurve;
-    curve_reserve->setPen(nopen);
-    curve_reserve->setBrush(QColor("#c06a15"));
-    curve_reserve->setSamples(xs_reserve, ys_reserve, supply*2);
-    curve_reserve->setRenderHint(QwtPlotItem::RenderAntialiased);
-    curve_reserve->attach(fplot);
-
-    auto curve_liquidity = new QwtPlotCurve;
-    curve_liquidity->setPen(nopen);
-    curve_liquidity->setBrush(QColor("#2da5e0"));
-    curve_liquidity->setSamples(xs_liquidity+supply*2,
+    
+    curveReserve->setSamples(xs_reserve, ys_reserve, supply*2);
+    curveLiquid->setSamples(xs_liquidity+supply*2,
                                 ys_liquidity+supply*2,
                                 PEG_SIZE*2-supply*2);
-    curve_liquidity->setRenderHint(QwtPlotItem::RenderAntialiased);
-    curve_liquidity->attach(fplot);
-
     fplot->replot();
-
-    dlg->setWindowTitle(txhash+" "+tr("fractions"));
-    dlg->show();
 }
 
 void TxDetailsWidget::openFractionsMenu(const QPoint & pos)
@@ -1567,6 +1576,46 @@ void TxDetailsWidget::openFractionsMenu(const QPoint & pos)
         }
         QApplication::clipboard()->setText(text);
     });
+    {
+        QString text = QApplication::clipboard()->text();
+        
+        try {
+            string pegdata = DecodeBase64(text.toStdString());
+            CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                             SER_DISK, CLIENT_VERSION);
+            
+            CFractions fractions(0, CFractions::STD);
+            if (fractions.Unpack(finp)) {
+                a = m.addAction(tr("Paste pegdata"));
+                connect(a, &QAction::triggered, [&] {
+                    QString text = QApplication::clipboard()->text();
+                    string pegdata = DecodeBase64(text.toStdString());
+                    CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                                     SER_DISK, CLIENT_VERSION);
+                    
+                    CFractions fractions(0, CFractions::STD);
+                    fractions.Unpack(finp);
+                    
+                    plotFractions(table, fractions, 0);
+                    
+                    /*
+                    for(int r=0; r<model->rowCount(); r++) {
+                        for(int c=0; c<model->columnCount(); c++) {
+                            if (c>0) text += "\t";
+                            QModelIndex mi2 = model->index(r, c);
+                            QVariant v1 = mi2.data(BlockchainModel::ValueForCopy);
+                            if (v1.isValid())
+                                text += v1.toString();
+                            else text += mi2.data(Qt::DisplayRole).toString();
+                        }
+                        text += "\n";
+                    }
+                    QApplication::clipboard()->setText(text);
+                    */
+                });
+            }
+        }catch (std::exception &) { ; }
+    }
     m.exec(table->viewport()->mapToGlobal(pos));
 }
 

@@ -434,11 +434,11 @@ Value updatepegbalances(const Array& params, bool fHelp)
         Object result;
     
         result.push_back(Pair("completed", true));
-        result.push_back(Pair("cycle", peglevel_new.nCycle));
+        result.push_back(Pair("cycle", peglevel_old.nCycle));
         
-        printpeglevel(peglevel_new, result);
-        printpegbalance(frBalance, peglevel_new, result, "balance_", true);
-        printpegbalance(frPegPool, peglevel_new, result, "pegpool_", true);
+        printpeglevel(peglevel_old, result);
+        printpegbalance(frBalance, peglevel_old, result, "balance_", true);
+        printpegbalance(frPegPool, peglevel_old, result, "pegpool_", true);
         
         return result;
     }

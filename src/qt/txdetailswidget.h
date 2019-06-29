@@ -19,9 +19,12 @@ class QTreeView;
 class QTreeWidget;
 class QModelIndex;
 class QTreeWidgetItem;
+class QwtPlot;
+class QwtPlotCurve;
 class BlockchainModel;
 class CTransaction;
 class CBlockIndex;
+class CFractions;
 
 class TxDetailsWidget : public QWidget
 {
@@ -62,9 +65,13 @@ private slots:
     void openTxMenu(const QPoint &);
     void openInpMenu(const QPoint &);
     void openOutMenu(const QPoint &);
+    void plotFractions(QTreeWidget *, const CFractions &, int);
 
 private:
     Ui::TxDetails *ui;
+    QwtPlot * fplot;
+    QwtPlotCurve * curveLiquid;
+    QwtPlotCurve * curveReserve;
     QPixmap pmChange;
     QPixmap pmNotaryF;
     QPixmap pmNotaryV;

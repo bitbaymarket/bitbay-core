@@ -25,6 +25,7 @@ class BlockchainModel;
 class CTransaction;
 class CBlockIndex;
 class CFractions;
+class CPegLevel;
 
 class TxDetailsWidget : public QWidget
 {
@@ -65,11 +66,14 @@ private slots:
     void openTxMenu(const QPoint &);
     void openInpMenu(const QPoint &);
     void openOutMenu(const QPoint &);
-    void plotFractions(QTreeWidget *, const CFractions &, int);
+    void plotFractions(QTreeWidget *, 
+                       const CFractions &, 
+                       const CPegLevel &);
 
 private:
     Ui::TxDetails *ui;
     QwtPlot * fplot;
+    QwtPlotCurve * curvePeg;
     QwtPlotCurve * curveLiquid;
     QwtPlotCurve * curveReserve;
     QPixmap pmChange;

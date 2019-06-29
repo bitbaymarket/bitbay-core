@@ -1466,22 +1466,12 @@ void TxDetailsWidget::openFractions(QTreeWidgetItem * item, int column)
     auto vfractions = item->data(4, BlockchainModel::FractionsRole);
     auto fractions = vfractions.value<CFractions>();
 
-//    int64_t fdelta[CPegFractions::PEG_SIZE];
-//    int64_t fundelta[CPegFractions::PEG_SIZE];
-//    fractions_std.ToDeltas(fdelta);
-//    CPegFractions fd;
-//    fd.FromDeltas(fdelta);
-
-    unsigned long len_test = 0;
-    CDataStream fout_test(SER_DISK, CLIENT_VERSION);
-    fractions.Pack(fout_test, &len_test);
-    ui.packedLabel->setText(tr("Packed: %1 bytes").arg(len_test));
-    ui.valueLabel->setText(tr("Value: %1").arg(displayValue(fractions.Total())));
-    ui.reserveLabel->setText(tr("Reserve: %1").arg(displayValue(fractions.Low(supply))));
-    ui.liquidityLabel->setText(tr("Liquidity: %1").arg(displayValue(fractions.High(supply))));
-    
     QPen nopen(Qt::NoPen);
-
+    QPen pegpen;
+    pegpen.setStyle(Qt::DotLine);
+    pegpen.setWidth(1);
+    pegpen.setColor(QColor(128,0,0));
+    
     curveReserve = new QwtPlotCurve;
     curveReserve->setPen(nopen);
     curveReserve->setBrush(QColor("#c06a15"));
@@ -1494,7 +1484,14 @@ void TxDetailsWidget::openFractions(QTreeWidgetItem * item, int column)
     curveLiquid->setRenderHint(QwtPlotItem::RenderAntialiased);
     curveLiquid->attach(fplot);
 
-    plotFractions(ui.fractions, fractions, supply);
+    curvePeg = new QwtPlotCurve;
+    curvePeg->setPen(pegpen);
+    curvePeg->setRenderHint(QwtPlotItem::RenderAntialiased);
+    curvePeg->attach(fplot);
+    
+    CPegLevel level("");
+    level.nSupply = supply;
+    plotFractions(ui.fractions, fractions, level);
     
     dlg->setWindowTitle(txhash+" "+tr("fractions"));
     dlg->show();
@@ -1502,16 +1499,154 @@ void TxDetailsWidget::openFractions(QTreeWidgetItem * item, int column)
 
 void TxDetailsWidget::plotFractions(QTreeWidget * table, 
                                     const CFractions & fractions,
-                                    int supply)
+                                    const CPegLevel & level)
 {
-    auto fractions_std = fractions.Std();
+    if (!table) return;
+    QWidget * top = table->topLevelWidget();
+    if (!top) return;
+    QLabel * packedLabel = top->findChild<QLabel*>("packedLabel");
+    QLabel * valueLabel = top->findChild<QLabel*>("valueLabel");
+    QLabel * reserveLabel = top->findChild<QLabel*>("reserveLabel");
+    QLabel * liquidityLabel = top->findChild<QLabel*>("liquidityLabel");
+
+    table->clear();
     
+    unsigned long len_test = 0;
+    CDataStream fout_test(SER_DISK, CLIENT_VERSION);
+    fractions.Pack(fout_test, &len_test);
+    if (packedLabel) packedLabel->setText(tr("Packed: %1 bytes").arg(len_test));
+    if (valueLabel) valueLabel->setText(tr("Value: %1").arg(displayValue(fractions.Total())));
+    if (reserveLabel) reserveLabel->setText(tr("Reserve: %1").arg(displayValue(fractions.Low(level))));
+    if (liquidityLabel) liquidityLabel->setText(tr("Liquidity: %1").arg(displayValue(fractions.High(level))));
+    
+    auto fractions_std = fractions.Std();
+
+    qreal y_min = 0;
+    qreal y_max = 0;
     qreal xs_reserve[PEG_SIZE*2];
     qreal ys_reserve[PEG_SIZE*2];
     qreal xs_liquidity[PEG_SIZE*2];
     qreal ys_liquidity[PEG_SIZE*2];
 
-    table->clear();
+    int supply = 0;
+    if (!level.IsValid()) {
+        supply = level.nSupply;
+    } else {
+        supply = level.nSupply + level.nShift;
+        int col = 240;
+
+        QStringList row_cycle;
+        row_cycle << tr("Cycle") << QString::number(level.nCycle);
+        auto row_item_cycle = new QTreeWidgetItem(row_cycle);
+        row_item_cycle->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_cycle->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_cycle->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
+        row_item_cycle->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
+        table->addTopLevelItem(row_item_cycle);
+
+        QStringList row_cyclep;
+        row_cyclep << tr("Prev") << QString::number(level.nCyclePrev);
+        auto row_item_cyclep = new QTreeWidgetItem(row_cyclep);
+        row_item_cyclep->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_cyclep->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_cyclep->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
+        row_item_cyclep->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
+        table->addTopLevelItem(row_item_cyclep);
+        
+        QStringList row_peg;
+        row_peg << tr("Peg") << QString::number(level.nSupply);
+        auto row_item_peg = new QTreeWidgetItem(row_peg);
+        row_item_peg->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_peg->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_peg->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
+        row_item_peg->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
+        table->addTopLevelItem(row_item_peg);
+        
+        QStringList row_pegn;
+        row_pegn << tr("PegN") << QString::number(level.nSupplyNext);
+        auto row_item_pegn = new QTreeWidgetItem(row_pegn);
+        row_item_pegn->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_pegn->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_pegn->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
+        row_item_pegn->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
+        table->addTopLevelItem(row_item_pegn);
+
+        QStringList row_pegnn;
+        row_pegnn << tr("PegNN") << QString::number(level.nSupplyNextNext);
+        auto row_item_pegnn = new QTreeWidgetItem(row_pegnn);
+        row_item_pegnn->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_pegnn->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_pegnn->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
+        row_item_pegnn->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
+        table->addTopLevelItem(row_item_pegnn);
+        
+        QStringList row_shift;
+        row_shift << tr("Shift") << QString::number(level.nShift);
+        auto row_item_shift = new QTreeWidgetItem(row_shift);
+        row_item_shift->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_shift->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_shift->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
+        row_item_shift->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
+        table->addTopLevelItem(row_item_shift);
+
+        QStringList row_part;
+        row_part << tr("Part") << QString::number(level.nShiftLastPart);
+        auto row_item_part = new QTreeWidgetItem(row_part);
+        row_item_part->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_part->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_part->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
+        row_item_part->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
+        table->addTopLevelItem(row_item_part);
+
+        QStringList row_ptot;
+        row_ptot << tr("PTot") << QString::number(level.nShiftLastTotal);
+        auto row_item_ptot = new QTreeWidgetItem(row_ptot);
+        row_item_ptot->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_ptot->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_ptot->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
+        row_item_ptot->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
+        table->addTopLevelItem(row_item_ptot);
+        
+        QStringList row_value;
+        row_value << tr("V") << displayValue(fractions.Total());
+        auto row_item_value = new QTreeWidgetItem(row_value);
+        row_item_value->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_value->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_value->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
+        row_item_value->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
+        table->addTopLevelItem(row_item_value);
+
+        QStringList row_liquid;
+        row_liquid << tr("L") << displayValue(fractions.High(level));
+        auto row_item_liquid = new QTreeWidgetItem(row_liquid);
+        row_item_liquid->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_liquid->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_liquid->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
+        row_item_liquid->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
+        table->addTopLevelItem(row_item_liquid);
+
+        QStringList row_reserve;
+        row_reserve << tr("R") << displayValue(fractions.Low(level));
+        auto row_item_reserve = new QTreeWidgetItem(row_reserve);
+        row_item_reserve->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_reserve->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_reserve->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
+        row_item_reserve->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
+        table->addTopLevelItem(row_item_reserve);
+        
+        QStringList row_space;
+        auto row_item_space = new QTreeWidgetItem(row_space);
+        table->addTopLevelItem(row_item_space);
+    }
+    
+    if (supply <0) {
+        supply = 0;
+    }
+    if (supply > nPegMaxSupplyIndex) {
+        supply = nPegMaxSupplyIndex;
+    }
+    
+    
     for (int i=0; i<PEG_SIZE; i++) {
         QStringList row;
         row << QString::number(i) << displayValue(fractions_std.f[i]);
@@ -1530,12 +1665,27 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
         ys_liquidity[i*2] = i >= supply ? qreal(fractions_std.f[i]) : 0;
         xs_liquidity[i*2+1] = i+1;
         ys_liquidity[i*2+1] = ys_liquidity[i*2];
+        
+        y_min = qMin(y_min, qreal(fractions_std.f[i]));
+        y_max = qMax(y_max, qreal(fractions_std.f[i]));
     }
     
-    curveReserve->setSamples(xs_reserve, ys_reserve, supply*2);
+    qreal xs_peg[2];
+    qreal ys_peg[2];
+    xs_peg[0] = supply;
+    xs_peg[1] = supply;
+    ys_peg[0] = y_min;
+    ys_peg[1] = y_max;
+
+    curvePeg->setSamples(xs_peg, 
+                         ys_peg, 
+                         2);
+    curveReserve->setSamples(xs_reserve, 
+                             ys_reserve, 
+                             supply*2);
     curveLiquid->setSamples(xs_liquidity+supply*2,
-                                ys_liquidity+supply*2,
-                                PEG_SIZE*2-supply*2);
+                            ys_liquidity+supply*2,
+                            PEG_SIZE*2-supply*2);
     fplot->replot();
 }
 
@@ -1596,7 +1746,14 @@ void TxDetailsWidget::openFractionsMenu(const QPoint & pos)
                     CFractions fractions(0, CFractions::STD);
                     fractions.Unpack(finp);
                     
-                    plotFractions(table, fractions, 0);
+                    CPegLevel level("");
+                    try {
+                        level.Unpack(finp);
+                    }catch (std::exception &) { 
+                        level.nSupply = 0; 
+                    }
+                    
+                    plotFractions(table, fractions, level);
                 });
             }
         }catch (std::exception &) { ; }

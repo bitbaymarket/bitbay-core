@@ -1128,6 +1128,8 @@ CPegLevel::CPegLevel(std::string str) {
     if (!Unpack(finp)) {
         // invalid
         nSupply = -1;
+        nSupplyNext = -1;
+        nSupplyNextNext = -1;
         nShift = 0;
         nShiftLastPart = 0;
         nShiftLastTotal = 0;

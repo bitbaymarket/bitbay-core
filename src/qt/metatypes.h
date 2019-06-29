@@ -3,6 +3,7 @@
 #define METATYPES_H
 
 #include <QObject>
+#include <QPointer>
 #include <vector>
 #include "bignum.h"
 #include "peg.h"

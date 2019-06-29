@@ -1514,7 +1514,7 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
     table->clear();
     for (int i=0; i<PEG_SIZE; i++) {
         QStringList row;
-        row << QString::number(i) << displayValue(fractions_std.f[i]); // << QString::number(fdelta[i]) << QString::number(fd.f[i]);
+        row << QString::number(i) << displayValue(fractions_std.f[i]);
         auto row_item = new QTreeWidgetItem(row);
         row_item->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         row_item->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
@@ -1597,21 +1597,6 @@ void TxDetailsWidget::openFractionsMenu(const QPoint & pos)
                     fractions.Unpack(finp);
                     
                     plotFractions(table, fractions, 0);
-                    
-                    /*
-                    for(int r=0; r<model->rowCount(); r++) {
-                        for(int c=0; c<model->columnCount(); c++) {
-                            if (c>0) text += "\t";
-                            QModelIndex mi2 = model->index(r, c);
-                            QVariant v1 = mi2.data(BlockchainModel::ValueForCopy);
-                            if (v1.isValid())
-                                text += v1.toString();
-                            else text += mi2.data(Qt::DisplayRole).toString();
-                        }
-                        text += "\n";
-                    }
-                    QApplication::clipboard()->setText(text);
-                    */
                 });
             }
         }catch (std::exception &) { ; }

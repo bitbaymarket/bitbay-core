@@ -15,6 +15,8 @@
 #include "wallet.h"
 #endif
 
+#include "pegops.h"
+
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/split.hpp>
 
@@ -240,23 +242,29 @@ Value getpeglevel(const Array& params, bool fHelp)
     int nPegInterval = Params().PegInterval(nBestHeight);
     int nCycleNow = nBestHeight / nPegInterval;
     
-    // exchange peglevel
-    CPegLevel peglevel(nCycleNow,
-                       nCyclePrev,
-                       nSupplyNow+3,
-                       nSupplyNext+3,
-                       nSupplyNextNext+3,
-                       frExchange,
-                       frPegShift);
+    string peglevel_hex;
+    string pegpool_pegdata64;
+    string err;
 
-//    CPegLevel peglevel(nCycleNow,
-//                       nCyclePrev,
-//                       nSupplyNow,
-//                       nSupplyNext,
-//                       nSupplyNextNext);
+    bool ok = pegops::getpeglevel(
+                exchange_pegdata64,
+                pegshift_pegdata64,
+                nCycleNow,
+                nCyclePrev,
+                nSupplyNow,
+                nSupplyNext,
+                nSupplyNextNext,
+                peglevel_hex,
+                pegpool_pegdata64,
+                err
+    );
+    if (!ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, err);
+    }
     
-    int nSupplyEffective = peglevel.nSupply + peglevel.nShift;
-    CFractions frPegPool = frExchange.HighPart(nSupplyEffective, nullptr);
+    CFractions frPegPool(0, CFractions::STD);
+    unpackpegdata(frPegPool, pegpool_pegdata64, "pegpool");
+    CPegLevel peglevel(peglevel_hex);
     
     Object result;
     result.push_back(Pair("cycle", peglevel.nCycle));

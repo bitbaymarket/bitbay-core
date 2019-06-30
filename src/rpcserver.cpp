@@ -304,6 +304,7 @@ static const CRPCCommand vRPCCommands[] =
     { "resendtx",               &resendtx,               false,     true,      true },
     { "makekeypair",            &makekeypair,            false,     true,      false },
     { "checkkernel",            &checkkernel,            true,      false,     true },
+    { "listdeposits",           &listdeposits,           false,     false,     true },
     { "registerdeposit",        &registerdeposit,        false,     false,     true },
     { "getpeglevel",            &getpeglevel,            false,     false,     true },
     { "updatepegbalances",      &updatepegbalances,      false,     false,     true },

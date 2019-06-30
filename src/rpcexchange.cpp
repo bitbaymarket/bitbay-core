@@ -326,6 +326,20 @@ Value getpeglevel(const Array& params, bool fHelp)
     return result;
 }
 
+Value listdeposits(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() > 3)
+        throw runtime_error(
+            "listunspent [minconf=1] [maxconf=9999999]  [\"address\",...]\n"
+            "Returns array of unspent transaction outputs\n"
+            "with between minconf and maxconf (inclusive) confirmations.\n"
+            "Optionally filtered to only include txouts paid to specified addresses.\n"
+            "Results are an array of Objects, each of which has:\n"
+            "{txid, vout, scriptPubKey, amount, confirmations}");
+    
+    return listunspent(params, fHelp);
+}
+
 Value registerdeposit(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 4)

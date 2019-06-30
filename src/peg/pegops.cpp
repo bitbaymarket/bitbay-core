@@ -413,19 +413,320 @@ bool updatepegbalances(
     return true;
 }
 
-void movecoins()
+bool movecoins(
+        int64_t             inp_move_amount,
+        const std::string & inp_src_pegdata64,
+        const std::string & inp_dst_pegdata64,
+        const std::string & inp_peglevel_hex,
+        bool                inp_cross_cycles,
+        
+        std::string &   out_src_pegdata64,
+        std::string &   out_dst_pegdata64,
+        std::string &   out_err)
 {
+    int64_t move_amount = inp_move_amount;
     
+    CPegLevel peglevel(inp_peglevel_hex);
+    if (!peglevel.IsValid()) {
+        out_err = "Can not unpack peglevel";
+        return false;
+    }
+    
+    int64_t nSrcLiquid = 0;
+    int64_t nSrcReserve = 0;
+    CPegLevel peglevel_src = peglevel;
+    CFractions frSrc(0, CFractions::VALUE);
+    if (!unpackbalance(frSrc, nSrcReserve, nSrcLiquid, 
+                       peglevel_src, inp_src_pegdata64, "src", out_err)) {
+        return false;
+    }
+    
+    if (!inp_cross_cycles && peglevel != peglevel_src) {
+        std::stringstream ss;
+        ss << "Outdated 'src' of cycle of " << peglevel_src.nCycle
+           << ", current " << peglevel.nCycle;
+        out_err = ss.str();
+        return false;
+    }
+    
+    int64_t src_value = frSrc.Total();
+    if (src_value < move_amount) {
+        std::stringstream ss;
+        ss << "Not enough amount " << src_value
+           << " on 'src' to move " << move_amount;
+        out_err = ss.str();
+        return false;
+    }
+
+    int64_t nDstLiquid = 0;
+    int64_t nDstReserve = 0;
+    CPegLevel peglevel_dst = peglevel;
+    CFractions frDst(0, CFractions::VALUE);
+    if (!unpackbalance(frDst, nDstReserve, nDstLiquid,
+                       peglevel_dst, inp_dst_pegdata64, "dst", out_err)) {
+        return false;
+    }
+    
+    if (peglevel != peglevel_dst) {
+        std::stringstream ss;
+        ss << "Outdated 'dst' of cycle of " << peglevel_dst.nCycle
+           << ", current " << peglevel.nCycle;
+        out_err = ss.str();
+        return false;
+    }
+    
+    int64_t nIn = frSrc.Total() + frDst.Total();
+    
+    frSrc = frSrc.Std();
+    frDst = frDst.Std();
+    
+    CFractions frAmount = frSrc;
+    CFractions frMove = frAmount.RatioPart(move_amount);
+    
+    frSrc -= frMove;
+    frDst += frMove;
+    
+    int64_t nOut = frSrc.Total() + frDst.Total();
+    
+    if (nIn != nOut) {
+        std::stringstream ss;
+        ss << "Mismatch in and out values " << nIn
+           << " vs " << nOut;
+        out_err = ss.str();
+        return false;
+    }
+    
+    out_src_pegdata64 = packpegdata(frSrc, peglevel);
+    out_dst_pegdata64 = packpegdata(frDst, peglevel);
+    return true;
 }
 
-void moveliquid()
+bool moveliquid(
+        int64_t             inp_move_liquid,
+        const std::string & inp_src_pegdata64,
+        const std::string & inp_dst_pegdata64,
+        const std::string & inp_peglevel_hex,
+        
+        std::string &   out_src_pegdata64,
+        std::string &   out_dst_pegdata64,
+        std::string &   out_err)
 {
+    int64_t move_liquid = inp_move_liquid;
     
+    CPegLevel peglevel(inp_peglevel_hex);
+    if (!peglevel.IsValid()) {
+        out_err = "Can not unpack peglevel";
+        return false;
+    }
+    
+    int nSupplyEffective = peglevel.nSupply + peglevel.nShift;
+    if (nSupplyEffective <0 && 
+        nSupplyEffective >=PEG_SIZE) {
+        std::stringstream ss;
+        ss << "Supply index out of bounds " << nSupplyEffective;
+        out_err = ss.str();
+        return false;
+    }
+    
+    int64_t nSrcLiquid = 0;
+    int64_t nSrcReserve = 0;
+    CPegLevel peglevel_src = peglevel;
+    CFractions frSrc(0, CFractions::VALUE);
+    if (!unpackbalance(frSrc, nSrcReserve, nSrcLiquid, 
+                       peglevel_src, inp_src_pegdata64, "src", out_err)) {
+        return false;
+    }
+    
+    if (peglevel != peglevel_src) {
+        std::stringstream ss;
+        ss << "Outdated 'src' of cycle of " << peglevel_src.nCycle
+           << ", current " << peglevel.nCycle;
+        out_err = ss.str();
+        return false;
+    }
+    
+    if (nSrcLiquid < move_liquid) {
+        std::stringstream ss;
+        ss << "Not enough liquid " << nSrcLiquid
+           << " on 'src' to move " << move_liquid;
+        out_err = ss.str();
+        return false;
+    }
+
+    int64_t nDstLiquid = 0;
+    int64_t nDstReserve = 0;
+    CPegLevel peglevel_dst = peglevel;
+    CFractions frDst(0, CFractions::VALUE);
+    if (!unpackbalance(frDst, nDstReserve, nDstLiquid,
+                       peglevel_dst, inp_dst_pegdata64, "dst", out_err)) {
+        return false;
+    }
+    
+    if (peglevel != peglevel_dst) {
+        std::stringstream ss;
+        ss << "Outdated 'dst' of cycle of " << peglevel_dst.nCycle
+           << ", current " << peglevel.nCycle;
+        out_err = ss.str();
+        return false;
+    }
+    
+    int64_t nIn = frSrc.Total() + frDst.Total();
+    
+    frSrc = frSrc.Std();
+    frDst = frDst.Std();
+
+    bool fPartial = peglevel.nShiftLastPart >0 && peglevel.nShiftLastTotal >0;
+    if (fPartial) {
+        nSupplyEffective++;
+    }
+    
+    CFractions frLiquid = frSrc.HighPart(nSupplyEffective, nullptr);
+    
+    if (fPartial) {
+        int64_t nPartialLiquid = nSrcLiquid - frLiquid.Total();
+        if (nPartialLiquid < 0) {
+            std::stringstream ss;
+            ss << "Mismatch on nPartialLiquid " << nPartialLiquid;
+            out_err = ss.str();
+            return false;
+        }
+        
+        frLiquid.f[nSupplyEffective-1] = nPartialLiquid;
+    }
+    
+    CFractions frMove = frLiquid.RatioPart(move_liquid);
+    
+    frSrc -= frMove;
+    frDst += frMove;
+    
+    nSrcLiquid -= move_liquid;
+    nDstLiquid += move_liquid;
+    
+    int64_t nOut = frSrc.Total() + frDst.Total();
+    
+    if (nIn != nOut) {
+        std::stringstream ss;
+        ss << "Mismatch in and out values " << nIn
+           << " vs " << nOut;
+        out_err = ss.str();
+        return false;
+    }
+    
+    out_src_pegdata64 = packpegbalance(frSrc, peglevel, nSrcReserve, nSrcLiquid);
+    out_dst_pegdata64 = packpegbalance(frDst, peglevel, nDstReserve, nDstLiquid);
+    return true;
 }
 
-void movereserve()
+bool movereserve(
+        int64_t             inp_move_reserve,
+        const std::string & inp_src_pegdata64,
+        const std::string & inp_dst_pegdata64,
+        const std::string & inp_peglevel_hex,
+        
+        std::string &   out_src_pegdata64,
+        std::string &   out_dst_pegdata64,
+        std::string &   out_err)
 {
+    int64_t move_reserve = inp_move_reserve;
     
+    CPegLevel peglevel(inp_peglevel_hex);
+    if (!peglevel.IsValid()) {
+        out_err = "Can not unpack peglevel";
+        return false;
+    }
+    
+    int nSupplyEffective = peglevel.nSupply + peglevel.nShift;
+    if (nSupplyEffective <0 && 
+        nSupplyEffective >=PEG_SIZE) {
+        std::stringstream ss;
+        ss << "Supply index out of bounds " << nSupplyEffective;
+        out_err = ss.str();
+        return false;
+    }
+    
+    int64_t nSrcLiquid = 0;
+    int64_t nSrcReserve = 0;
+    CPegLevel peglevel_src = peglevel;
+    CFractions frSrc(0, CFractions::VALUE);
+    if (!unpackbalance(frSrc, nSrcReserve, nSrcLiquid, 
+                       peglevel_src, inp_src_pegdata64, "src", out_err)) {
+        return false;
+    }
+    
+    if (peglevel != peglevel_src) {
+        std::stringstream ss;
+        ss << "Outdated 'src' of cycle of " << peglevel_src.nCycle
+           << ", current " << peglevel.nCycle;
+        out_err = ss.str();
+        return false;
+    }
+    
+    if (nSrcReserve < move_reserve) {
+        std::stringstream ss;
+        ss << "Not enough reserve " << nSrcReserve
+           << " on 'src' to move " << move_reserve;
+        out_err = ss.str();
+        return false;
+    }
+
+    int64_t nDstLiquid = 0;
+    int64_t nDstReserve = 0;
+    CPegLevel peglevel_dst = peglevel;
+    CFractions frDst(0, CFractions::VALUE);
+    if (!unpackbalance(frDst, nDstReserve, nDstLiquid,
+                       peglevel_dst, inp_dst_pegdata64, "dst", out_err)) {
+        return false;
+    }
+    
+    if (peglevel != peglevel_dst) {
+        std::stringstream ss;
+        ss << "Outdated 'dst' of cycle of " << peglevel_dst.nCycle
+           << ", current " << peglevel.nCycle;
+        out_err = ss.str();
+        return false;
+    }
+    
+    int64_t nIn = frSrc.Total() + frDst.Total();
+    
+    frSrc = frSrc.Std();
+    frDst = frDst.Std();
+
+    CFractions frReserve = frSrc.LowPart(nSupplyEffective, nullptr);
+    
+    bool fPartial = peglevel.nShiftLastPart >0 && peglevel.nShiftLastTotal >0;
+    if (fPartial) {
+        int64_t nPartialReserve = nSrcReserve - frReserve.Total();
+        if (nPartialReserve < 0) {
+            std::stringstream ss;
+            ss << "Mismatch on nPartialReserve " << nPartialReserve;
+            out_err = ss.str();
+            return false;
+        }
+        
+        frReserve.f[nSupplyEffective] = nPartialReserve;
+    }
+    
+    CFractions frMove = frReserve.RatioPart(move_reserve);
+    
+    frSrc -= frMove;
+    frDst += frMove;
+    
+    nSrcReserve -= move_reserve;
+    nDstReserve += move_reserve;
+    
+    int64_t nOut = frSrc.Total() + frDst.Total();
+    
+    if (nIn != nOut) {
+        std::stringstream ss;
+        ss << "Mismatch in and out values " << nIn
+           << " vs " << nOut;
+        out_err = ss.str();
+        return false;
+    }
+    
+    out_src_pegdata64 = packpegbalance(frSrc, peglevel, nSrcReserve, nSrcLiquid);
+    out_dst_pegdata64 = packpegbalance(frDst, peglevel, nDstReserve, nDstLiquid);
+    return true;
 }
 
 } // namespace

@@ -16,6 +16,7 @@ HEADERS += $$PWD/pegops_tests.h
 SOURCES += $$PWD/pegops_tests.cpp
 SOURCES += $$PWD/pegops_test5.cpp
 SOURCES += $$PWD/pegops_test6.cpp
+SOURCES += $$PWD/pegops_test7.cpp
 
 LIBS += -lz
 LIBS += -lboost_system

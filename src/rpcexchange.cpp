@@ -40,19 +40,6 @@ static string packpegdata(const CFractions & fractions,
     return EncodeBase64(fout.str());
 }
 
-static string packpegbalance(const CFractions & fractions,
-                             const CPegLevel & peglevel,
-                             int64_t nReserve,
-                             int64_t nLiquid)
-{
-    CDataStream fout(SER_DISK, CLIENT_VERSION);
-    fractions.Pack(fout);
-    peglevel.Pack(fout);
-    fout << nReserve;
-    fout << nLiquid;
-    return EncodeBase64(fout.str());
-}
-
 static void unpackpegdata(CFractions & fractions, 
                           const string & pegdata64,
                           string tag)
@@ -91,13 +78,55 @@ static void unpackbalance(CFractions & fractions,
     
         CPegLevel peglevel_copy = peglevel;
         if (!peglevel_copy.Unpack(finp)) {
-//             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
-//                                "Can not unpack '"+tag+"' peglevel");
+             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
+                                "Can not unpack '"+tag+"' peglevel");
         }
         else peglevel = peglevel_copy;
     
     }
     catch (std::exception &) { ; }
+}
+
+static bool unpackbalance(CFractions &     fractions,
+                          int64_t &        nReserve,
+                          int64_t &        nLiquid,
+                          CPegLevel &      peglevel,
+                          const string &   pegdata64,
+                          string           tag)
+{
+    if (pegdata64.empty()) 
+        return true;
+    
+    string pegdata = DecodeBase64(pegdata64);
+    CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
+                     SER_DISK, CLIENT_VERSION);
+    
+    if (!fractions.Unpack(finp)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
+                           "Can not unpack '"+tag+"' pegdata");
+    }
+    
+    try { 
+    
+        CPegLevel peglevel_copy = peglevel;
+        if (!peglevel_copy.Unpack(finp)) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
+                               "Can not unpack '"+tag+"' peglevel");
+        }
+        else peglevel = peglevel_copy;
+    
+        try {
+            finp >> nReserve;
+            finp >> nLiquid;
+        }
+        catch (std::exception &) { 
+            nLiquid = fractions.High(peglevel);
+            nReserve = fractions.Low(peglevel);
+        }
+    }
+    catch (std::exception &) { ; }
+    
+    return true;
 }
 
 static void printpegshift(const CFractions & frPegShift, 
@@ -155,6 +184,26 @@ static void printpegbalance(const CFractions & frBalance,
     int64_t nValue      = frBalance.Total();
     int64_t nLiquid     = frBalance.High(peglevel);
     int64_t nReserve    = frBalance.Low(peglevel);
+    int64_t nNChange    = frBalance.NChange(peglevel);
+
+    result.push_back(Pair(prefix+"value", nValue));
+    result.push_back(Pair(prefix+"liquid", nLiquid));
+    result.push_back(Pair(prefix+"reserve", nReserve));
+    result.push_back(Pair(prefix+"nchange", nNChange));
+    if (print_pegdata) {
+        result.push_back(Pair(prefix+"pegdata", packpegdata(frBalance, peglevel)));
+    }
+}
+
+static void printpegbalance(const CFractions & frBalance,
+                            int64_t nReserve,
+                            int64_t nLiquid,
+                            const CPegLevel & peglevel,
+                            Object & result,
+                            string prefix,
+                            bool print_pegdata) 
+{
+    int64_t nValue      = frBalance.Total();
     int64_t nNChange    = frBalance.NChange(peglevel);
 
     result.push_back(Pair(prefix+"value", nValue));
@@ -467,77 +516,52 @@ Value movecoins(const Array& params, bool fHelp)
                 "<peglevel_hex>\n"
             );
     
-    int64_t move_amount = params[0].get_int64();
-    string src_pegdata64 = params[1].get_str();
-    string dst_pegdata64 = params[2].get_str();
-    string peglevel_hex = params[3].get_str();
+    int64_t inp_move_amount = params[0].get_int64();
+    string inp_src_pegdata64 = params[1].get_str();
+    string inp_dst_pegdata64 = params[2].get_str();
+    string inp_peglevel_hex = params[3].get_str();
     
-    int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
-    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
-    int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
+    string out_src_pegdata64;
+    string out_dst_pegdata64;
+    string out_err;
     
-    int nPegInterval = Params().PegInterval(nBestHeight);
-    int nCycleNow = nBestHeight / nPegInterval;
+    bool ok = pegops::movecoins(
+            inp_move_amount,
+            inp_src_pegdata64,
+            inp_dst_pegdata64,
+            inp_peglevel_hex,
+            true,
+            
+            out_src_pegdata64,
+            out_dst_pegdata64,
+            out_err);
     
-    CPegLevel peglevel(nCycleNow,
-                       nCycleNow-1,
-                       nSupplyNow,
-                       nSupplyNext,
-                       nSupplyNextNext);
-    
-    if (!peglevel_hex.empty()) {
-        CPegLevel peglevel_load(peglevel_hex);
-        if (peglevel_load.IsValid()) {
-            peglevel = peglevel_load;
-        }
+    if (!ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, out_err);
     }
     
-    CPegLevel peglevel_src = peglevel;
-    CFractions frSrc(0, CFractions::VALUE);
-    unpackbalance(frSrc, peglevel_src, src_pegdata64, "src");
+    CPegLevel peglevel(inp_peglevel_hex);
+    CPegLevel peglevel_skip1("");
+    CPegLevel peglevel_skip2("");
     
-    if (peglevel != peglevel_src) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Outdated 'src' of cycle of %d, current %d",
-                                     peglevel_src.nCycle,
-                                     peglevel.nCycle));
-    }
+    CFractions frSrc(0, CFractions::STD);
+    CFractions frDst(0, CFractions::STD);
     
-    int64_t src_total = frSrc.Total();
-    if (src_total < move_amount) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Not enough amount %d on 'src' to move %d",
-                                     src_total,
-                                     move_amount));
-    }
-
-    CPegLevel peglevel_dst = peglevel;
-    CFractions frDst(0, CFractions::VALUE);
-    unpackbalance(frDst, peglevel_dst, dst_pegdata64, "dst");
+    int64_t nSrcLiquid = 0;
+    int64_t nDstLiquid = 0;
+    int64_t nSrcReserve = 0;
+    int64_t nDstReserve = 0;
     
-    if (peglevel != peglevel_dst) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Outdated 'dst' of cycle of %d, current %d",
-                                     peglevel_dst.nCycle,
-                                     peglevel.nCycle));
-    }
-    
-    frSrc = frSrc.Std();
-    frDst = frDst.Std();
-    
-    CFractions frAmount = frSrc;
-    CFractions frMove = frAmount.RatioPart(move_amount);
-    
-    frSrc -= frMove;
-    frDst += frMove;
+    unpackbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1, out_src_pegdata64, "src");
+    unpackbalance(frDst, nDstReserve, nDstLiquid, peglevel_skip2, out_dst_pegdata64, "dst");
     
     Object result;
     
     result.push_back(Pair("cycle", peglevel.nCycle));
     
     printpeglevel(peglevel, result);
-    printpegbalance(frSrc, peglevel, result, "src_", true);
-    printpegbalance(frDst, peglevel, result, "dst_", true);
+    printpegbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel, result, "src_", true);
+    printpegbalance(frDst, nDstReserve, nDstLiquid, peglevel, result, "dst_", true);
     
     return result;
 }
@@ -553,77 +577,51 @@ Value moveliquid(const Array& params, bool fHelp)
                 "<peglevel_hex>\n"
             );
     
-    int64_t move_liquid = params[0].get_int64();
-    string src_pegdata64 = params[1].get_str();
-    string dst_pegdata64 = params[2].get_str();
-    string peglevel_hex = params[3].get_str();
+    int64_t inp_move_liquid = params[0].get_int64();
+    string inp_src_pegdata64 = params[1].get_str();
+    string inp_dst_pegdata64 = params[2].get_str();
+    string inp_peglevel_hex = params[3].get_str();
     
-    int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
-    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
-    int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
+    string out_src_pegdata64;
+    string out_dst_pegdata64;
+    string out_err;
     
-    int nPegInterval = Params().PegInterval(nBestHeight);
-    int nCycleNow = nBestHeight / nPegInterval;
+    bool ok = pegops::moveliquid(
+            inp_move_liquid,
+            inp_src_pegdata64,
+            inp_dst_pegdata64,
+            inp_peglevel_hex,
+            
+            out_src_pegdata64,
+            out_dst_pegdata64,
+            out_err);
     
-    CPegLevel peglevel(nCycleNow,
-                       nCycleNow-1,
-                       nSupplyNow,
-                       nSupplyNext,
-                       nSupplyNextNext);
-    
-    if (!peglevel_hex.empty()) {
-        CPegLevel peglevel_load(peglevel_hex);
-        if (peglevel_load.IsValid()) {
-            peglevel = peglevel_load;
-        }
+    if (!ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, out_err);
     }
     
-    CPegLevel peglevel_src = peglevel;
-    CFractions frSrc(0, CFractions::VALUE);
-    unpackbalance(frSrc, peglevel_src, src_pegdata64, "src");
-
-    if (peglevel != peglevel_src) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Outdated 'src' of cycle of %d, current %d",
-                                     peglevel_src.nCycle,
-                                     peglevel.nCycle));
-    }
+    CPegLevel peglevel(inp_peglevel_hex);
+    CPegLevel peglevel_skip1("");
+    CPegLevel peglevel_skip2("");
     
-    int64_t src_liquid = frSrc.High(peglevel);
-    if (src_liquid < move_liquid) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Not enough liquid %d on 'src' to move %d",
-                                     src_liquid,
-                                     move_liquid));
-    }
-
-    CPegLevel peglevel_dst = peglevel;
-    CFractions frDst(0, CFractions::VALUE);
-    unpackbalance(frDst, peglevel_dst, dst_pegdata64, "dst");
+    CFractions frSrc(0, CFractions::STD);
+    CFractions frDst(0, CFractions::STD);
     
-    if (peglevel != peglevel_dst) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Outdated 'dst' of cycle of %d, current %d",
-                                     peglevel_dst.nCycle,
-                                     peglevel.nCycle));
-    }
+    int64_t nSrcLiquid = 0;
+    int64_t nDstLiquid = 0;
+    int64_t nSrcReserve = 0;
+    int64_t nDstReserve = 0;
     
-    frSrc = frSrc.Std();
-    frDst = frDst.Std();
-    
-    CFractions frLiquid = frSrc.HighPart(peglevel, nullptr);
-    CFractions frMove = frLiquid.RatioPart(move_liquid);
-    
-    frSrc -= frMove;
-    frDst += frMove;
+    unpackbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1, out_src_pegdata64, "src");
+    unpackbalance(frDst, nDstReserve, nDstLiquid, peglevel_skip2, out_dst_pegdata64, "dst");
     
     Object result;
     
     result.push_back(Pair("cycle", peglevel.nCycle));
     
     printpeglevel(peglevel, result);
-    printpegbalance(frSrc, peglevel, result, "src_", true);
-    printpegbalance(frDst, peglevel, result, "dst_", true);
+    printpegbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel, result, "src_", true);
+    printpegbalance(frDst, nDstReserve, nDstLiquid, peglevel, result, "dst_", true);
     
     return result;
 }
@@ -639,77 +637,51 @@ Value movereserve(const Array& params, bool fHelp)
                 "<peglevel_hex>\n"
             );
     
-    int64_t move_reserve = params[0].get_int64();
-    string src_pegdata64 = params[1].get_str();
-    string dst_pegdata64 = params[2].get_str();
-    string peglevel_hex = params[3].get_str();
+    int64_t inp_move_reserve = params[0].get_int64();
+    string inp_src_pegdata64 = params[1].get_str();
+    string inp_dst_pegdata64 = params[2].get_str();
+    string inp_peglevel_hex = params[3].get_str();
     
-    int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
-    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
-    int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
+    string out_src_pegdata64;
+    string out_dst_pegdata64;
+    string out_err;
     
-    int nPegInterval = Params().PegInterval(nBestHeight);
-    int nCycleNow = nBestHeight / nPegInterval;
+    bool ok = pegops::movereserve(
+            inp_move_reserve,
+            inp_src_pegdata64,
+            inp_dst_pegdata64,
+            inp_peglevel_hex,
+            
+            out_src_pegdata64,
+            out_dst_pegdata64,
+            out_err);
     
-    CPegLevel peglevel(nCycleNow,
-                       nCycleNow-1,
-                       nSupplyNow,
-                       nSupplyNext,
-                       nSupplyNextNext);
-    
-    if (!peglevel_hex.empty()) {
-        CPegLevel peglevel_load(peglevel_hex);
-        if (peglevel_load.IsValid()) {
-            peglevel = peglevel_load;
-        }
+    if (!ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, out_err);
     }
     
-    CPegLevel peglevel_src = peglevel;
-    CFractions frSrc(0, CFractions::VALUE);
-    unpackbalance(frSrc, peglevel_src, src_pegdata64, "src");
-
-    if (peglevel != peglevel_src) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Outdated 'src' of cycle of %d, current %d",
-                                     peglevel_src.nCycle,
-                                     peglevel.nCycle));
-    }
+    CPegLevel peglevel(inp_peglevel_hex);
+    CPegLevel peglevel_skip1("");
+    CPegLevel peglevel_skip2("");
     
-    int64_t src_reserve = frSrc.Low(peglevel);
-    if (src_reserve < move_reserve) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Not enough reserve %d on 'src' to move %d",
-                                     src_reserve,
-                                     move_reserve));
-    }
-
-    CPegLevel peglevel_dst = peglevel;
-    CFractions frDst(0, CFractions::VALUE);
-    unpackbalance(frDst, peglevel_dst, dst_pegdata64, "dst");
-
-    if (peglevel != peglevel_dst) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Outdated 'dst' of cycle of %d, current %d",
-                                     peglevel_dst.nCycle,
-                                     peglevel.nCycle));
-    }
+    CFractions frSrc(0, CFractions::STD);
+    CFractions frDst(0, CFractions::STD);
     
-    frSrc = frSrc.Std();
-    frDst = frDst.Std();
+    int64_t nSrcLiquid = 0;
+    int64_t nDstLiquid = 0;
+    int64_t nSrcReserve = 0;
+    int64_t nDstReserve = 0;
     
-    CFractions frReserve = frSrc.LowPart(peglevel, nullptr);
-    CFractions frMove = frReserve.RatioPart(move_reserve);
-    
-    frSrc -= frMove;
-    frDst += frMove;
+    unpackbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1, out_src_pegdata64, "src");
+    unpackbalance(frDst, nDstReserve, nDstLiquid, peglevel_skip2, out_dst_pegdata64, "dst");
     
     Object result;
     
     result.push_back(Pair("cycle", peglevel.nCycle));
     
     printpeglevel(peglevel, result);
-    printpegbalance(frSrc, peglevel, result, "src_", true);
-    printpegbalance(frDst, peglevel, result, "dst_", true);
+    printpegbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel, result, "src_", true);
+    printpegbalance(frDst, nDstReserve, nDstLiquid, peglevel, result, "dst_", true);
     
     return result;
 }

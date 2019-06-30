@@ -42,9 +42,9 @@ CPegLevel::CPegLevel(int cycle,
                      int supply_next_next) {
     nCycle          = cycle;
     nCyclePrev      = cycle_prev;
-    nSupply         = supply;
-    nSupplyNext     = supply_next;
-    nSupplyNextNext = supply_next_next;
+    nSupply         = std::min(supply, PEG_SIZE-1);
+    nSupplyNext     = std::min(supply_next, PEG_SIZE-1);
+    nSupplyNextNext = std::min(supply_next_next, PEG_SIZE-1);
     nShift          = 0;
     nShiftLastPart  = 0;
     nShiftLastTotal = 0;
@@ -60,9 +60,9 @@ CPegLevel::CPegLevel(int cycle,
                      const CFractions & frDistortion) {
     nCycle          = cycle;
     nCyclePrev      = cycle_prev;
-    nSupply         = supply;
-    nSupplyNext     = supply_next;
-    nSupplyNextNext = supply_next_next;
+    nSupply         = std::min(supply, PEG_SIZE-1);
+    nSupplyNext     = std::min(supply_next, PEG_SIZE-1);
+    nSupplyNextNext = std::min(supply_next_next, PEG_SIZE-1);
     nShift          = 0;
     nShiftLastPart  = 0;
     nShiftLastTotal = 0;

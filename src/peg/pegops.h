@@ -43,9 +43,36 @@ extern bool updatepegbalances(
         std::string &   out_pegpool_pegdata64,
         std::string &   out_err);
 
-void movecoins();
-void moveliquid();
-void movereserve();
+extern bool movecoins(
+        int64_t             inp_move_amount,
+        const std::string & inp_src_pegdata64,
+        const std::string & inp_dst_pegdata64,
+        const std::string & inp_peglevel_hex,
+        bool                inp_cross_cycles,
+        
+        std::string &   out_src_pegdata64,
+        std::string &   out_dst_pegdata64,
+        std::string &   out_err);
+
+extern bool moveliquid(
+        int64_t             inp_move_liquid,
+        const std::string & inp_src_pegdata64,
+        const std::string & inp_dst_pegdata64,
+        const std::string & inp_peglevel_hex,
+        
+        std::string &   out_src_pegdata64,
+        std::string &   out_dst_pegdata64,
+        std::string &   out_err);
+
+extern bool movereserve(
+        int64_t             inp_move_reserve,
+        const std::string & inp_src_pegdata64,
+        const std::string & inp_dst_pegdata64,
+        const std::string & inp_peglevel_hex,
+        
+        std::string &   out_src_pegdata64,
+        std::string &   out_dst_pegdata64,
+        std::string &   out_err);
 
 }
 

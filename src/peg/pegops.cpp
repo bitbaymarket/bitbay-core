@@ -352,6 +352,7 @@ bool updatepegbalances(
     }
     
     // liquid is just normed to pool
+    int64_t nLiquid = nValue - nReserve;
     int64_t nLiquidTodo = nValue - nReserve - frLiquid.Total();
     int64_t nLiquidPool = frPegPool.Total() - nPegPoolReserve;
     if (nLiquidTodo > nLiquidPool) { // exchange liquidity mismatch
@@ -408,7 +409,12 @@ bool updatepegbalances(
                 nPegPoolReserve,
                 nPegPoolLiquid
                 );
-    out_balance_pegdata64 = packpegdata(frBalance, peglevel_new);
+    out_balance_pegdata64 = packpegbalance(
+                frBalance, 
+                peglevel_new,
+                nReserve,
+                nLiquid
+                );
     
     return true;
 }
@@ -594,6 +600,14 @@ bool moveliquid(
         frLiquid.f[nSupplyEffective-1] = nPartialLiquid;
     }
     
+    if (frLiquid.Total() < move_liquid) {
+        std::stringstream ss;
+        ss << "Not enough liquid(1) " << frLiquid.Total()
+           << " on 'src' to move " << move_liquid;
+        out_err = ss.str();
+        return false;
+    }
+    
     CFractions frMove = frLiquid.RatioPart(move_liquid);
     
     frSrc -= frMove;
@@ -609,6 +623,11 @@ bool moveliquid(
         ss << "Mismatch in and out values " << nIn
            << " vs " << nOut;
         out_err = ss.str();
+        return false;
+    }
+    
+    if (!frSrc.IsPositive()) {
+        out_err = "Negative detected in 'src";
         return false;
     }
     
@@ -721,6 +740,11 @@ bool movereserve(
         ss << "Mismatch in and out values " << nIn
            << " vs " << nOut;
         out_err = ss.str();
+        return false;
+    }
+    
+    if (!frSrc.IsPositive()) {
+        out_err = "Negative detected in 'src";
         return false;
     }
     

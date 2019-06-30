@@ -23,6 +23,10 @@ bool unpackbalance(CFractions & fractions,
                    string & err);
 }
 
+TestPegOps::TestPegOps(QObject * p) :QObject(p) {
+    qputenv("QTEST_FUNCTION_TIMEOUT", "36000000");
+}
+
 void TestPegOps::test1()
 {
     string inp_peglevel_hex = "202d0000000000001f2d0000000000000d0010001300000008adf56d0000000095c564c1890a0000";
@@ -143,6 +147,70 @@ void TestPegOps::test4()
     qDebug() << out_err.c_str();
     QVERIFY(ok == true);
     QVERIFY(out_pegpool_pegdata64 == "AgACAAAAAAAAAAAAIAAAAAAAAAB42u3BMQEAAADCoPVPbQdvoAAAAAAAAAAAAHgMJYAAAW8tAAAAAAAAbi0AAAAAAAD3APoA/QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+}
+
+void TestPegOps::test4a()
+{
+    int64_t amount = 283;
+    string user_src = "AgACAAAAAAAAAAAAUgAAAAAAAAB42u3WMQ4AIQgEQOX/j/YDWhgKhcw0G4srLi6RMQAAAIDfTdk6Md+7PmT79LrP+k1mHrLz0f39jKL/GZf3F4fz7fdV9wJ7kpT2ZwCgjgWk0QEZAgAAAAAAAAABAAAAAAAAAPcB9wH3AQAAtAAAAAAAAABLAQAAAAAAAAAAAAAAAAAAOwEAAAAAAAA=";
+    string user_dst = "AgACAAAAAAAAAAAAIAAAAAAAAAB42u3BMQEAAADCoPVPbQdvoAAAAAAAAAAAAHgMJYAAAQIAAAAAAAAAAQAAAAAAAAD3AfcB9wEAALQAAAAAAAAASwEAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    string peglevel_hex = "02000000000000000100000000000000f701f701f7010000b4000000000000004b01000000000000";
+        
+    string src_out_b64;
+    string dst_out_b64;
+    string out_err;
+    
+    CPegLevel src_skip("");
+    CFractions src(0, CFractions::STD);
+    unpackbalance(src,
+                  src_skip, 
+                  user_src, 
+                 "src", out_err);
+
+    CPegLevel dst_skip("");
+    CFractions dst(0, CFractions::STD);
+    unpackbalance(dst,
+                  dst_skip, 
+                  user_dst, 
+                 "dst", out_err);
+    
+    CFractions inp = src+dst;
+    
+    bool ok11 = moveliquid(
+                amount,
+                user_src,
+                user_dst,
+                peglevel_hex,
+                
+                src_out_b64,
+                dst_out_b64,
+                out_err);
+    
+    CFractions src_out(0, CFractions::STD);
+    unpackbalance(src_out,
+                  src_skip, 
+                  src_out_b64, 
+                 "src", out_err);
+
+    CFractions dst_out(0, CFractions::STD);
+    unpackbalance(dst_out,
+                  dst_skip, 
+                  dst_out_b64, 
+                 "dst", out_err);
+    
+    CFractions inp_out = src_out+dst_out;
+    
+    qDebug() << out_err.c_str();
+    QVERIFY(ok11 == true);
+    
+    QVERIFY(inp.Total() == inp_out.Total());
+    
+    for(int j=0;j<PEG_SIZE; j++) {
+        QVERIFY(inp.f[j] == inp_out.f[j]);
+    }
+    
+    QVERIFY(src_out_b64 == "AgACAAAAAAAAAAAAJQAAAAAAAAB42u3FQREAAAgDoNm/tDXmCR8SAAAAAAAA4Ip5PgBAmwVKDwAhAgAAAAAAAAABAAAAAAAAAPcB9wH3AQAAtAAAAAAAAABLAQAAAAAAAAAAAAAAAAAAIAAAAAAAAAA=");
+    QVERIFY(dst_out_b64 == "AgACAAAAAAAAAAAAUAAAAAAAAAB42u3WsQ0AIAgEQGX/oV1AC0OhkLuGWFgYn8AYAAAAwO+m2rqiv3d5yObpdZ7lm0w/ZPuj+/yMou+My/+Lw/n2ftW9wJ6k2h8BAOpYgEIA+QIAAAAAAAAAAQAAAAAAAAD3AfcB9wEAALQAAAAAAAAASwEAAAAAAAAAAAAAAAAAABsBAAAAAAAA");
 }
 
 QTEST_MAIN(TestPegOps)

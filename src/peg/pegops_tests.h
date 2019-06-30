@@ -9,14 +9,18 @@
 
 class TestPegOps: public QObject {
     Q_OBJECT
+public:
+    TestPegOps(QObject * p = nullptr);
 private slots:
     void test1();
     void test2();
     void test3();
     void test4();
+    void test4a();
     void test5();
     void test6();
     void test7();
+    void test1k();
 };
 
 #endif // BITBAY_PEGOPS_TESTS_H

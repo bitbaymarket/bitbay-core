@@ -8,17 +8,27 @@ CONFIG += no_include_pwd
 CONFIG += thread
 CONFIG += c++11
 
-INCLUDEPATH += $$PWD/..
+INCLUDEPATH += $$PWD/.. $$PWD
 
 include($$PWD/pegops.pri)
 
-HEADERS += $$PWD/pegops_tests.h
-SOURCES += $$PWD/pegops_tests.cpp
-SOURCES += $$PWD/pegops_test5.cpp
-SOURCES += $$PWD/pegops_test6.cpp
-SOURCES += $$PWD/pegops_test7.cpp
-SOURCES += $$PWD/pegops_test1k.cpp
+HEADERS += \
+    $$PWD/tests/pegops_tests.h \
+
+SOURCES += \
+    $$PWD/tests/pegops_tests.cpp \
+    $$PWD/tests/pegops_test5.cpp \
+    $$PWD/tests/pegops_test6.cpp \
+    $$PWD/tests/pegops_test7.cpp \
+    $$PWD/tests/pegops_test1k.cpp \
 
 LIBS += -lz
 LIBS += -lboost_system
 LIBS += -lssl -lcrypto 
+
+DEFINES += BOOST_ALL_NO_LIB
+
+exists(pegops_tests-local.pri) {
+    include(pegops_tests-local.pri)
+}
+

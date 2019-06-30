@@ -30,6 +30,7 @@ db
 !src/leveldb/Makefile
 .qmake.stash
 bitbay-qt-local.pri
+pegops_tests-local.pri
 bitbay-wallet-qt
 Makefile*
 *qt_plugin_import.cpp

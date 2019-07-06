@@ -319,11 +319,29 @@ static void computeTxPegForNextCycle(const CTransaction & rawTx,
     }
 }
 
-static void collectProvided(const CTransaction & rawTx,
-                            string sAddress,
-                            int nCycleNow,
-                            string & sProvidedOutputs)
+static void prepareConsumedProvided(map<uint320,CCoinToUse> & mapProvidedOutputs,
+                                    const CTransaction & rawTx,
+                                    string sAddress,
+                                    int nCycleNow,
+                                    string & sConsumedInputs,
+                                    string & sProvidedOutputs)
 {
+    for (size_t i=0; i< rawTx.vin.size(); i++) {
+        const COutPoint & prevout = rawTx.vin[i].prevout;
+        auto fkey = uint320(prevout.hash, prevout.n);
+        if (mapProvidedOutputs.count(fkey)) mapProvidedOutputs.erase(fkey);
+        if (!sConsumedInputs.empty()) sConsumedInputs += ",";
+        sConsumedInputs += fkey.GetHex();
+    }
+
+    sProvidedOutputs.clear();
+    for(const pair<uint320,CCoinToUse> & item : mapProvidedOutputs) {
+        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+        ss << item.second;
+        if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
+        sProvidedOutputs += HexStr(ss.begin(), ss.end());
+    }
+
     size_t n_out = rawTx.vout.size();
     for (size_t i=0; i< n_out; i++) {
         string sNotary;
@@ -650,24 +668,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
                                      frProcessed.Total(), nAmountWithFee));
     }
     
-    // get list of consumed inputs
-    for (size_t i=0; i< rawTx.vin.size(); i++) {
-        const COutPoint & prevout = rawTx.vin[i].prevout;
-        auto fkey = uint320(prevout.hash, prevout.n);
-        if (mapProvidedOutputs.count(fkey)) mapProvidedOutputs.erase(fkey);
-        if (!sConsumedInputs.empty()) sConsumedInputs += ",";
-        sConsumedInputs += fkey.GetHex();
-    }
-    
-    // get list of provided outputs and save fractions
-    sProvidedOutputs.clear();
-    for(const pair<uint320,CCoinToUse> & item : mapProvidedOutputs) {
-        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-        ss << item.second;
-        if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
-        sProvidedOutputs += HexStr(ss.begin(), ss.end());
-    }
-
+    // save fractions
     string sTxhash = rawTx.GetHash().GetHex();
 
     // get list of changes and add to current provided outputs
@@ -683,7 +684,9 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
             pegdbrw.WriteFractions(fkey, mapTxOutputFractions[i]);
         }
     }
-    collectProvided(rawTx, sAddress, nCycleNow, sProvidedOutputs);
+    // get list of consumed and provided outputs
+    prepareConsumedProvided(mapProvidedOutputs, rawTx, sAddress, nCycleNow,
+                            sConsumedInputs, sProvidedOutputs);
     
     frBalance -= frRequested;
     frExchange -= frRequested;
@@ -1110,24 +1113,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
                                      frProcessed.Total(), nAmountWithFee));
     }
     
-    // get list of consumed inputs
-    for (size_t i=0; i< rawTx.vin.size(); i++) {
-        const COutPoint & prevout = rawTx.vin[i].prevout;
-        auto fkey = uint320(prevout.hash, prevout.n);
-        if (mapProvidedOutputs.count(fkey)) mapProvidedOutputs.erase(fkey);
-        if (!sConsumedInputs.empty()) sConsumedInputs += ",";
-        sConsumedInputs += fkey.GetHex();
-    }
-    
-    // get list of provided outputs and save fractions
-    sProvidedOutputs.clear();
-    for(const pair<uint320,CCoinToUse> & item : mapProvidedOutputs) {
-        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-        ss << item.second;
-        if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
-        sProvidedOutputs += HexStr(ss.begin(), ss.end());
-    }
-
+    // save fractions
     string sTxhash = rawTx.GetHash().GetHex();
 
     // get list of changes and add to current provided outputs
@@ -1143,7 +1129,9 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
             pegdbrw.WriteFractions(fkey, mapTxOutputFractions[i]);
         }
     }
-    collectProvided(rawTx, sAddress, nCycleNow, sProvidedOutputs);
+    // get list of consumed and provided outputs
+    prepareConsumedProvided(mapProvidedOutputs, rawTx, sAddress, nCycleNow,
+                            sConsumedInputs, sProvidedOutputs);
     
     frBalance -= frRequested;
     frExchange -= frRequested;

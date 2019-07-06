@@ -82,9 +82,10 @@ static void consumepegshift(CFractions & frBalance,
 static void consumereservepegshift(CFractions & frBalance, 
                                    CFractions & frExchange, 
                                    CFractions & frPegShift,
-                                   const CPegLevel & peglevel) 
+                                   const CPegLevel & peglevel_exchange)
 {
-    CFractions frPegShiftReserve = frPegShift.LowPart(peglevel, nullptr);
+    int nSupplyEffective = peglevel_exchange.nSupply + peglevel_exchange.nShift;
+    CFractions frPegShiftReserve = frPegShift.LowPart(nSupplyEffective, nullptr);
     consumepegshift(frBalance, frExchange, frPegShift, frPegShiftReserve);
 
     if (frPegShift.Positive(nullptr).Total() != -frPegShift.Negative(nullptr).Total()) {
@@ -98,9 +99,10 @@ static void consumereservepegshift(CFractions & frBalance,
 static void consumeliquidpegshift(CFractions & frBalance, 
                                   CFractions & frExchange, 
                                   CFractions & frPegShift,
-                                  const CPegLevel & peglevel) 
+                                  const CPegLevel & peglevel_exchange)
 {
-    CFractions frPegShiftLiquid = frPegShift.HighPart(peglevel, nullptr);
+    int nSupplyEffective = peglevel_exchange.nSupply + peglevel_exchange.nShift;
+    CFractions frPegShiftLiquid = frPegShift.HighPart(nSupplyEffective, nullptr);
     consumepegshift(frBalance, frExchange, frPegShift, frPegShiftLiquid);
 
     if (frPegShift.Positive(nullptr).Total() != -frPegShift.Negative(nullptr).Total()) {

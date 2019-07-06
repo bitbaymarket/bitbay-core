@@ -94,8 +94,15 @@ wallet {
     
     faucet {
         DEFINES += ENABLE_FAUCET
+        SOURCES += \
+            $$PWD/exchange/rpcfaucet.cpp \
     }
-    
+    exchange {
+        DEFINES += ENABLE_EXCHANGE
+        SOURCES += \
+            $$PWD/exchange/rpcexchange.cpp \
+    }
+
     HEADERS += \
         $$PWD/wallet/db.h \
         $$PWD/wallet/miner.h \
@@ -110,12 +117,6 @@ wallet {
         $$PWD/wallet/rpcwallet.cpp \
         $$PWD/wallet/wallet.cpp \
         $$PWD/wallet/walletdb.cpp \
-
-    exchange {
-        DEFINES += ENABLE_EXCHANGE
-        SOURCES += \
-            $$PWD/exchange/rpcexchange.cpp \
-    }
 
 }
 

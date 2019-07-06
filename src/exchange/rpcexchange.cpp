@@ -11,11 +11,10 @@
 #include "main.h"
 #include "net.h"
 #include "keystore.h"
-#ifdef ENABLE_WALLET
 #include "wallet.h"
-#endif
 
 #include "pegops.h"
+#include "pegdata.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -24,8 +23,6 @@ using namespace std;
 using namespace boost;
 using namespace boost::assign;
 using namespace json_spirit;
-
-#ifdef ENABLE_WALLET
 
 static string packpegdata(const CFractions & fractions,
                           const CPegLevel & peglevel)
@@ -368,40 +365,29 @@ Value registerdeposit(const Array& params, bool fHelp)
 
     string balance_pegdata64 = params[1].get_str();
     string exchange_pegdata64 = params[2].get_str();
-    
+    string peglevel_hex = params[3].get_str();
+
+    CPegLevel peglevel(peglevel_hex);
+    if (!peglevel.IsValid()) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Can not unpack peglevel");
+    }
+
     CFractions frBalance(0, CFractions::VALUE);
     CFractions frExchange(0, CFractions::VALUE);
 
-    unpackpegdata(frBalance, balance_pegdata64, "balance");
-    unpackpegdata(frExchange, exchange_pegdata64, "exchange");
+    CPegLevel peglevel_balance("");
+    CPegLevel peglevel_exchange("");
+
+    unpackbalance(frBalance, peglevel_balance, balance_pegdata64, "balance");
+    unpackbalance(frExchange, peglevel_exchange, exchange_pegdata64, "exchange");
+
+    if (!balance_pegdata64.empty() && peglevel_balance.nCycle != peglevel.nCycle) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Balance has other cycle than peglevel");
+    }
 
     frBalance = frBalance.Std();
     frExchange = frExchange.Std();
-    
-    string peglevel_hex = params[3].get_str();
-    
-    int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
-    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
-    int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
-    
-    int nPegInterval = Params().PegInterval(nBestHeight);
-    int nCycleNow = nBestHeight / nPegInterval;
-    
-    CPegLevel peglevel(nCycleNow,
-                       nCycleNow-1,
-                       nSupplyNow,
-                       nSupplyNext,
-                       nSupplyNextNext);
-    // network peglevel
-    CPegLevel peglevel_net = peglevel;
-    
-    if (!peglevel_hex.empty()) {
-        CPegLevel peglevel_load(peglevel_hex);
-        if (peglevel_load.IsValid()) {
-            peglevel = peglevel_load;
-        }
-    }
-    
+
     uint256 txhash;
     txhash.SetHex(sTxid);
     
@@ -457,11 +443,11 @@ Value registerdeposit(const Array& params, bool fHelp)
     result.push_back(Pair("status", "Registered"));
     result.push_back(Pair("atblock", nRegisterHeight));
     
-    result.push_back(Pair("cycle", nCycleNow));
+    result.push_back(Pair("cycle", peglevel.nCycle));
     
     printpeglevel(peglevel, result);
     printpegbalance(frBalance, peglevel, result, "balance_", true);
-    printpegbalance(frExchange, peglevel_net, result, "exchange_", true);
+    printpegbalance(frExchange, peglevel, result, "exchange_", true);
     
     return result;
 }
@@ -785,6 +771,12 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     
     string peglevel_hex = params[5].get_str();
     
+    // exchange peglevel
+    CPegLevel peglevel(peglevel_hex);
+    if (!peglevel.IsValid()) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Can not unpack peglevel");
+    }
+
     int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
     int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
     int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
@@ -792,21 +784,12 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     int nPegInterval = Params().PegInterval(nBestHeight);
     int nCycleNow = nBestHeight / nPegInterval;
     
-    // exchange peglevel
-    CPegLevel peglevel(nCycleNow,
-                       nCycleNow-1,
-                       nSupplyNow,
-                       nSupplyNext,
-                       nSupplyNextNext);
     // network peglevel
-    CPegLevel peglevel_net = peglevel;
-    
-    if (!peglevel_hex.empty()) {
-        CPegLevel peglevel_load(peglevel_hex);
-        if (peglevel_load.IsValid()) {
-            peglevel = peglevel_load;
-        }
-    }
+    CPegLevel peglevel_net(nCycleNow,
+                           nCycleNow-1,
+                           nSupplyNow,
+                           nSupplyNext,
+                           nSupplyNextNext);
     
     CFractions frBalance(0, CFractions::VALUE);
     CFractions frExchange(0, CFractions::VALUE);
@@ -1236,7 +1219,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     
     printpegbalance(frBalance, peglevel, result, "balance_", true);
     printpegbalance(frProcessed, peglevel, result, "processed_", true);
-    printpegbalance(frExchange, peglevel_net, result, "exchange_", true);
+    printpegbalance(frExchange, peglevel, result, "exchange_", true);
     
     printpegshift(frPegShift, peglevel_net, result, true);
     
@@ -1277,7 +1260,13 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid BitBay address");
     
     string peglevel_hex = params[5].get_str();
-    
+
+    // exchange peglevel
+    CPegLevel peglevel(peglevel_hex);
+    if (!peglevel.IsValid()) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Can not unpack peglevel");
+    }
+
     int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
     int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
     int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
@@ -1285,21 +1274,12 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     int nPegInterval = Params().PegInterval(nBestHeight);
     int nCycleNow = nBestHeight / nPegInterval;
     
-    // exchange peglevel
-    CPegLevel peglevel(nCycleNow,
-                       nCycleNow-1,
-                       nSupplyNow,
-                       nSupplyNext,
-                       nSupplyNextNext);
     // network peglevel
-    CPegLevel peglevel_net = peglevel;
-    
-    if (!peglevel_hex.empty()) {
-        CPegLevel peglevel_load(peglevel_hex);
-        if (peglevel_load.IsValid()) {
-            peglevel = peglevel_load;
-        }
-    }
+    CPegLevel peglevel_net(nCycleNow,
+                           nCycleNow-1,
+                           nSupplyNow,
+                           nSupplyNext,
+                           nSupplyNextNext);
     
     CFractions frBalance(0, CFractions::VALUE);
     CFractions frExchange(0, CFractions::VALUE);
@@ -1805,7 +1785,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     
     printpegbalance(frBalance, peglevel, result, "balance_", true);
     printpegbalance(frProcessed, peglevel, result, "processed_", true);
-    printpegbalance(frExchange, peglevel_net, result, "exchange_", true);
+    printpegbalance(frExchange, peglevel, result, "exchange_", true);
     
     printpegshift(frPegShift, peglevel_net, result, true);
     
@@ -1820,99 +1800,3 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     
     return result;
 }
-
-
-
-
-#ifdef ENABLE_FAUCET
-
-Value faucet(const Array& params, bool fHelp)
-{
-    if (fHelp || params.size() != 1)
-        throw runtime_error(
-            "faucet <address>\n"
-            );
-    
-    CBitcoinAddress address(params[0].get_str());
-    if (!address.IsValid())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid BitBay address");
-
-    Object result;
-    bool completed_liquid = true;
-    bool completed_reserve = true;
-    string status = "Unknown";
-    
-    int64_t amount = 100000000000;
-    CFractions fr(amount, CFractions::VALUE);
-    fr = fr.Std();
-
-    int nSupply = pindexBest ? pindexBest->nPegSupplyIndex : 0;
-    int64_t liquid = fr.High(nSupply);
-    int64_t reserve = fr.Low(nSupply);
-    
-    if (liquid >0) {
-        PegTxType txType = PEG_MAKETX_SEND_LIQUIDITY;
-        
-        vector<pair<CScript, int64_t> > vecSend;
-        CScript scriptPubKey;
-        scriptPubKey.SetDestination(address.Get());
-        vecSend.push_back(make_pair(scriptPubKey, liquid));
-        
-        CWalletTx wtx;
-        CReserveKey keyChange(pwalletMain);
-        int64_t nFeeRequired = 0;
-        bool fCreated = pwalletMain->CreateTransaction(txType, vecSend, wtx, keyChange, nFeeRequired, nullptr);
-        if (fCreated) {
-            
-            bool fCommitted = pwalletMain->CommitTransaction(wtx, keyChange);
-            if (fCommitted) {
-                completed_liquid = true;
-            } else {
-                completed_liquid = false;
-                status = "Failed to commit a liquid transaction";
-            }
-            
-        } else {
-            completed_liquid = false;
-            status = "Failed to create a liquid transaction";
-        }
-    }
-    
-    if (reserve >0) {
-        PegTxType txType = PEG_MAKETX_SEND_RESERVE;
-        
-        vector<pair<CScript, int64_t> > vecSend;
-        CScript scriptPubKey;
-        scriptPubKey.SetDestination(address.Get());
-        vecSend.push_back(make_pair(scriptPubKey, reserve));
-        
-        CWalletTx wtx;
-        CReserveKey keyChange(pwalletMain);
-        int64_t nFeeRequired = 0;
-        bool fCreated = pwalletMain->CreateTransaction(txType, vecSend, wtx, keyChange, nFeeRequired, nullptr);
-        if (fCreated) {
-            
-            bool fCommitted = pwalletMain->CommitTransaction(wtx, keyChange);
-            if (fCommitted) {
-                completed_reserve = true;
-            } else {
-                completed_reserve = false;
-                status = "Failed to commit a reserve transaction";
-            }
-            
-        } else {
-            completed_reserve = false;
-            status = "Failed to create a reserve transaction";
-        }
-    }
-    result.push_back(Pair("completed", completed_reserve && completed_liquid));
-    result.push_back(Pair("completed_liquid", completed_liquid));
-    result.push_back(Pair("completed_reserve", completed_reserve));
-    result.push_back(Pair("status", status));
-    
-    return result;
-}
-
-#endif
-
-#endif

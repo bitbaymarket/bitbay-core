@@ -5,17 +5,16 @@ VERSION = 3.0.0
 count(USE_WALLET, 0) {
     USE_WALLET=1
 }
+contains(USE_WALLET, 1) {
+    message(Building with WALLET support)
+    CONFIG += wallet
+}
 
 count(USE_TESTNET, 1) {
     contains(USE_TESTNET, 1) {
         message(Building with TESTNET enabled)
         DEFINES += USE_TESTNET
     }
-}
-
-contains(USE_WALLET, 1) {
-    message(Building with WALLET support)
-    CONFIG += wallet
 }
 
 count(USE_FAUCET, 1) {

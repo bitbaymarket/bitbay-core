@@ -16,9 +16,9 @@ using namespace boost;
 using namespace json_spirit;
 
 void unpackbalance(CFractions & fractions,
-                      CPegLevel & peglevel,
-                      const string & pegdata64,
-                      string tag);
+                   CPegLevel & peglevel,
+                   const string & pegdata64,
+                   string tag);
 
 void printpeglevel(const CPegLevel & peglevel,
                    Object & result);

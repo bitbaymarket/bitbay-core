@@ -2,8 +2,6 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <boost/assign/list_of.hpp>
-
 #include "base58.h"
 #include "rpcserver.h"
 #include "txdb.h"
@@ -21,10 +19,14 @@
 
 using namespace std;
 using namespace boost;
-using namespace boost::assign;
 using namespace json_spirit;
 
 void unpackpegdata(CFractions & fractions,
+                   const string & pegdata64,
+                   string tag);
+
+void unpackbalance(CFractions & fractions,
+                   CPegLevel & peglevel,
                    const string & pegdata64,
                    string tag);
 
@@ -200,9 +202,16 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     CFractions frExchange(0, CFractions::VALUE);
     CFractions frPegShift(0, CFractions::VALUE);
     
-    unpackpegdata(frBalance, balance_pegdata64, "balance");
-    unpackpegdata(frExchange, exchange_pegdata64, "exchange");
+    CPegLevel peglevel_balance("");
+    CPegLevel peglevel_exchange("");
+
+    unpackbalance(frBalance, peglevel_balance, balance_pegdata64, "balance");
+    unpackbalance(frExchange, peglevel_exchange, exchange_pegdata64, "exchange");
     unpackpegdata(frPegShift, pegshift_pegdata64, "pegshift");
+
+    if (!balance_pegdata64.empty() && peglevel_balance.nCycle != peglevel.nCycle) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Balance has other cycle than peglevel");
+    }
 
     frBalance = frBalance.Std();
     frExchange = frExchange.Std();
@@ -300,7 +309,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         mapProvidedOutputs = mapProvidedOutputsNew;
     }
     
-    // read avaialable coin fractions to rate
+    // read available coin fractions to rate
     // also consider only coins with are not less than 5% (20 inputs max)
     multimap<double,CCoinToUse> ratedOutputs;
     for(const pair<uint320,CCoinToUse>& item : mapAllOutputs) {
@@ -690,9 +699,16 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     CFractions frExchange(0, CFractions::VALUE);
     CFractions frPegShift(0, CFractions::VALUE);
     
-    unpackpegdata(frBalance, balance_pegdata64, "balance");
-    unpackpegdata(frExchange, exchange_pegdata64, "exchange");
+    CPegLevel peglevel_balance("");
+    CPegLevel peglevel_exchange("");
+
+    unpackbalance(frBalance, peglevel_balance, balance_pegdata64, "balance");
+    unpackbalance(frExchange, peglevel_exchange, exchange_pegdata64, "exchange");
     unpackpegdata(frPegShift, pegshift_pegdata64, "pegshift");
+
+    if (!balance_pegdata64.empty() && peglevel_balance.nCycle != peglevel.nCycle) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Balance has other cycle than peglevel");
+    }
 
     frBalance = frBalance.Std();
     frExchange = frExchange.Std();

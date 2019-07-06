@@ -86,9 +86,9 @@ SOURCES += \
     $$PWD/rpc/rpcblockchain.cpp \
     $$PWD/rpc/rpcrawtransaction.cpp \
 
-wallet {
+INCLUDEPATH += $$PWD/wallet
 
-    INCLUDEPATH += $$PWD/wallet
+wallet {
 
     DEFINES += ENABLE_WALLET
     

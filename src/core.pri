@@ -1,5 +1,5 @@
 
-DEPENDPATH += $$PWD
+DEPENDPATH += $$PWD $$PWD/rpc $$PWD/wallet
 
 HEADERS += \
     $$PWD/alert.h \
@@ -27,9 +27,6 @@ HEADERS += \
     $$PWD/init.h \
     $$PWD/mruset.h \
     $$PWD/keystore.h \
-    $$PWD/rpcclient.h \
-    $$PWD/rpcprotocol.h \
-    $$PWD/rpcserver.h \
     $$PWD/timedata.h \
     $$PWD/crypter.h \
     $$PWD/protocol.h \
@@ -59,13 +56,6 @@ SOURCES += \
     $$PWD/checkpoints.cpp \
     $$PWD/addrman.cpp \
     $$PWD/keystore.cpp \
-    $$PWD/rpcclient.cpp \
-    $$PWD/rpcprotocol.cpp \
-    $$PWD/rpcserver.cpp \
-    $$PWD/rpcmisc.cpp \
-    $$PWD/rpcnet.cpp \
-    $$PWD/rpcblockchain.cpp \
-    $$PWD/rpcrawtransaction.cpp \
     $$PWD/timedata.cpp \
     $$PWD/crypter.cpp \
     $$PWD/protocol.cpp \
@@ -80,7 +70,25 @@ SOURCES += \
     $$PWD/crypto/pbkdf2.cpp \
     $$PWD/crypto/scrypt.cpp \
 
+INCLUDEPATH += $$PWD/rpc
+
+HEADERS += \
+    $$PWD/rpc/rpcclient.h \
+    $$PWD/rpc/rpcprotocol.h \
+    $$PWD/rpc/rpcserver.h \
+
+SOURCES += \
+    $$PWD/rpc/rpcclient.cpp \
+    $$PWD/rpc/rpcprotocol.cpp \
+    $$PWD/rpc/rpcserver.cpp \
+    $$PWD/rpc/rpcmisc.cpp \
+    $$PWD/rpc/rpcnet.cpp \
+    $$PWD/rpc/rpcblockchain.cpp \
+    $$PWD/rpc/rpcrawtransaction.cpp \
+
 wallet {
+
+    INCLUDEPATH += $$PWD/wallet
 
     DEFINES += ENABLE_WALLET
     
@@ -89,20 +97,20 @@ wallet {
     }
     
     HEADERS += \
-        $$PWD/db.h \
-        $$PWD/miner.h \
-        $$PWD/wallet.h \
-        $$PWD/walletdb.h \
+        $$PWD/wallet/db.h \
+        $$PWD/wallet/miner.h \
+        $$PWD/wallet/wallet.h \
+        $$PWD/wallet/walletdb.h \
     
     SOURCES += \
-        $$PWD/db.cpp \
-        $$PWD/miner.cpp \
-        $$PWD/rpcdump.cpp \
-        $$PWD/rpcmining.cpp \
-        $$PWD/rpcwallet.cpp \
-        $$PWD/rpcexchange.cpp \
-        $$PWD/wallet.cpp \
-        $$PWD/walletdb.cpp \
+        $$PWD/wallet/db.cpp \
+        $$PWD/wallet/miner.cpp \
+        $$PWD/wallet/rpcdump.cpp \
+        $$PWD/wallet/rpcmining.cpp \
+        $$PWD/wallet/rpcwallet.cpp \
+        $$PWD/wallet/rpcexchange.cpp \
+        $$PWD/wallet/wallet.cpp \
+        $$PWD/wallet/walletdb.cpp \
 
 }
 

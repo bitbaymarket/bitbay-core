@@ -291,7 +291,7 @@ Value listfrozen(const Array& params, bool fHelp)
     Array results;
     vector<COutput> vecOutputs;
     assert(pwalletMain != NULL);
-    pwalletMain->FrozenCoins(vecOutputs, false, NULL);
+    pwalletMain->FrozenCoins(vecOutputs, false, false, NULL);
     for(const COutput& out : vecOutputs)
     {
         if (out.nDepth < nMinDepth || out.nDepth > nMaxDepth)

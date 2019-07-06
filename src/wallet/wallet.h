@@ -186,7 +186,7 @@ public:
 
     void AvailableCoinsForStaking(std::vector<COutput>& vCoins, unsigned int nSpendTime) const;
     void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed, bool fUseFrozenUnlocked, const CCoinControl *coinControl) const;
-    void FrozenCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed, const CCoinControl *coinControl) const;
+    void FrozenCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed, bool fClearArray, const CCoinControl *coinControl) const;
     bool SelectCoinsMinConf(PegTxType txType, int64_t nTargetValue, unsigned int nSpendTime, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins, std::set<CSelectedCoin>& setCoinsRet, int64_t& nValueRet) const;
 
     // keystore implementation
@@ -998,6 +998,8 @@ public:
 
         return true;
     }
+
+    bool IsExchangeTx(int & nOut) const;
 
     bool WriteToDisk();
 

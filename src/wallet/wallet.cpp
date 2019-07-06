@@ -15,6 +15,10 @@
 #include "walletdb.h"
 
 #include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string.hpp>
+
 #include <boost/range/algorithm.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
 
@@ -975,6 +979,32 @@ void CWalletTx::GetAccountAmounts(const string& strAccount, int64_t& nReceived,
     }
 }
 
+string scripttoaddress(const CScript& scriptPubKey,
+                       bool* ptrIsNotary = nullptr,
+                       string* ptrNotary = nullptr);
+
+bool CWalletTx::IsExchangeTx(int & nOut) const
+{
+    nOut = -1;
+    size_t n_out = vout.size();
+    for(size_t i=0; i< n_out; i++) {
+        string sNotary;
+        bool fNotary = false;
+        scripttoaddress(vout[i].scriptPubKey, &fNotary, &sNotary);
+        if (!fNotary) continue;
+        if (!boost::starts_with(sNotary, "XCH:")) continue;
+        vector<string> vOutputArgs;
+        boost::split(vOutputArgs, sNotary, boost::is_any_of(":"));
+        if (vOutputArgs.size() <2) {
+            return true; // no output, just exchange tx
+        }
+        string sOut = vOutputArgs[1];
+        nOut = std::stoi(sOut);
+        return true;
+    }
+    return false;
+}
+
 void CWalletTx::AddSupportingTransactions(CTxDB& txdb)
 {
     vtxPrev.clear();
@@ -1443,11 +1473,14 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins,
     }
 }
 
-void CWallet::FrozenCoins(vector<COutput>& vCoins, 
+void CWallet::FrozenCoins(vector<COutput>& vCoins,
                           bool fOnlyConfirmed, 
+                          bool fClearArray,
                           const CCoinControl *coinControl) const
 {
-    vCoins.clear();
+    if (fClearArray) {
+        vCoins.clear();
+    }
 
     {
         LOCK2(cs_main, cs_wallet);

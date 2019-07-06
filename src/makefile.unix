@@ -4,6 +4,7 @@
 
 USE_UPNP:=0
 USE_WALLET:=1
+USE_EXCHANGE:=1
 
 LINK:=$(CXX)
 ARCH:=$(system lscpu | head -n 1 | awk '{print $2}')
@@ -136,6 +137,19 @@ OBJS= \
 
 ifeq (${USE_WALLET}, 1)
     DEFS += -DENABLE_WALLET
+    OBJS += \
+        obj/db.o \
+        obj/miner.o \
+        obj/rpcdump.o \
+        obj/rpcmining.o \
+        obj/rpcwallet.o \
+        obj/rpcexchange.o \
+        obj/wallet.o \
+        obj/walletdb.o
+endif
+
+ifeq (${USE_EXCHANGE}, 1)
+    DEFS += -DENABLE_EXCHANGE
     OBJS += \
         obj/db.o \
         obj/miner.o \

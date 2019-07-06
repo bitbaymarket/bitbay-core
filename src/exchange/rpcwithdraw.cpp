@@ -152,6 +152,155 @@ static bool sortByDestination(const CTxDestination &lhs, const CTxDestination &r
     return lhs_addr < rhs_addr;
 }
 
+static void cleanupConsumed(const set<uint320> & setConsumedInputs,
+                            const set<uint320> & setAllOutputs,
+                            string & sConsumedInputs)
+{
+    set<uint320> setConsumedInputsNew;
+    std::set_intersection(setConsumedInputs.begin(), setConsumedInputs.end(),
+                          setAllOutputs.begin(), setAllOutputs.end(),
+                          std::inserter(setConsumedInputsNew,setConsumedInputsNew.begin()));
+    sConsumedInputs.clear();
+    for(const uint320& fkey : setConsumedInputsNew) {
+        if (!sConsumedInputs.empty()) sConsumedInputs += ",";
+        sConsumedInputs += fkey.GetHex();
+    }
+}
+
+static void cleanupProvided(const set<uint320> & setWalletOutputs,
+                            map<uint320,CCoinToUse> & mapProvidedOutputs)
+{
+    map<uint320,CCoinToUse> mapProvidedOutputsNew;
+    for(const pair<uint320,CCoinToUse> & item : mapProvidedOutputs) {
+        if (setWalletOutputs.count(item.first)) continue;
+        mapProvidedOutputsNew.insert(item);
+    }
+    mapProvidedOutputs = mapProvidedOutputsNew;
+}
+
+static void getAvailableCoins(const set<uint320> & setConsumedInputs,
+                              int nCycleNow,
+                              set<uint320> & setAllOutputs,
+                              set<uint320> & setWalletOutputs,
+                              map<uint320,CCoinToUse> & mapAllOutputs)
+{
+    vector<COutput> vecCoins;
+    pwalletMain->AvailableCoins(vecCoins, false, true, NULL);
+    for(const COutput& coin : vecCoins)
+    {
+        auto txhash = coin.tx->GetHash();
+        auto fkey = uint320(txhash, coin.i);
+        setAllOutputs.insert(fkey);
+        setWalletOutputs.insert(fkey);
+        if (setConsumedInputs.count(fkey)) continue; // already used
+        CCoinToUse & out = mapAllOutputs[fkey];
+        out.i = coin.i;
+        out.txhash = txhash;
+        out.nValue = coin.tx->vout[coin.i].nValue;
+        out.scriptPubKey = coin.tx->vout[coin.i].scriptPubKey;
+        out.nCycle = nCycleNow;
+    }
+}
+
+static void parseConsumedAndProvided(const string & sConsumedInputs,
+                                     const string & sProvidedOutputs,
+                                     int nCycleNow,
+                                     set<uint320> & setAllOutputs,
+                                     set<uint320> & setConsumedInputs,
+                                     map<uint320,CCoinToUse> & mapProvidedOutputs)
+{
+    vector<string> vConsumedInputsArgs;
+    vector<string> vProvidedOutputsArgs;
+    boost::split(vConsumedInputsArgs, sConsumedInputs, boost::is_any_of(","));
+    boost::split(vProvidedOutputsArgs, sProvidedOutputs, boost::is_any_of(","));
+    for(string sConsumedInput : vConsumedInputsArgs) {
+        setConsumedInputs.insert(uint320(sConsumedInput));
+    }
+    for(string sProvidedOutput : vProvidedOutputsArgs) {
+        vector<unsigned char> outData(ParseHex(sProvidedOutput));
+        CDataStream ssData(outData, SER_NETWORK, PROTOCOL_VERSION);
+        CCoinToUse out;
+        try { ssData >> out; }
+        catch (std::exception &) { continue; }
+        if (out.nCycle != nCycleNow) { continue; }
+        auto fkey = uint320(out.txhash, out.i);
+        if (setConsumedInputs.count(fkey)) { continue; }
+        mapProvidedOutputs[fkey] = out;
+        setAllOutputs.insert(fkey);
+    }
+}
+
+static void computeTxPegForNextCycle(const CTransaction & rawTx,
+                                     const CPegLevel & peglevel_net,
+                                     CTxDB & txdb,
+                                     CPegDB & pegdb,
+                                     map<uint320,CCoinToUse> & mapAllOutputs,
+                                     map<int, CFractions> & mapTxOutputFractions,
+                                     CFractions & feesFractions)
+{
+    MapPrevOut mapInputs;
+    MapPrevTx mapTxInputs;
+    MapFractions mapInputsFractions;
+    MapFractions mapOutputFractions;
+    string sPegFailCause;
+
+    size_t n_vin = rawTx.vin.size();
+
+    for (unsigned int i = 0; i < n_vin; i++)
+    {
+        const COutPoint & prevout = rawTx.vin[i].prevout;
+        auto fkey = uint320(prevout.hash, prevout.n);
+
+        if (mapAllOutputs.count(fkey)) {
+            const CCoinToUse& coin = mapAllOutputs[fkey];
+            CTxOut out(coin.nValue, coin.scriptPubKey);
+            mapInputs[fkey] = out;
+        }
+        else {
+            // Read txindex
+            CTxIndex& txindex = mapTxInputs[prevout.hash].first;
+            if (!txdb.ReadTxIndex(prevout.hash, txindex)) {
+                continue;
+            }
+            // Read txPrev
+            CTransaction& txPrev = mapTxInputs[prevout.hash].second;
+            if (!txPrev.ReadFromDisk(txindex.pos)) {
+                continue;
+            }
+
+            if (prevout.n >= txPrev.vout.size()) {
+                continue;
+            }
+
+            mapInputs[fkey] = txPrev.vout[prevout.n];
+        }
+
+        CFractions& fractions = mapInputsFractions[fkey];
+        fractions = CFractions(mapInputs[fkey].nValue, CFractions::VALUE);
+        pegdb.ReadFractions(fkey, fractions);
+    }
+
+    bool peg_ok = CalculateStandardFractions(rawTx,
+                                             peglevel_net.nSupplyNext,
+                                             pindexBest->nTime,
+                                             mapInputs,
+                                             mapInputsFractions,
+                                             mapOutputFractions,
+                                             feesFractions,
+                                             sPegFailCause);
+    if (!peg_ok) {
+        throw JSONRPCError(RPC_MISC_ERROR,
+                           strprintf("Fail on calculations of tx fractions (cause=%s)",
+                                     sPegFailCause.c_str()));
+    }
+
+    size_t n_out = rawTx.vout.size();
+    for(size_t i=0; i< n_out; i++) {
+        auto fkey = uint320(rawTx.GetHash(), i);
+        mapTxOutputFractions[i] = mapOutputFractions[fkey];
+    }
+}
+
 Value prepareliquidwithdraw(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 8)
@@ -179,8 +328,8 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     string peglevel_hex = params[5].get_str();
     
     // exchange peglevel
-    CPegLevel peglevel(peglevel_hex);
-    if (!peglevel.IsValid()) {
+    CPegLevel peglevel_exchange(peglevel_hex);
+    if (!peglevel_exchange.IsValid()) {
         throw JSONRPCError(RPC_MISC_ERROR, "Can not unpack peglevel");
     }
 
@@ -203,13 +352,13 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     CFractions frPegShift(0, CFractions::VALUE);
     
     CPegLevel peglevel_balance("");
-    CPegLevel peglevel_exchange("");
+    CPegLevel peglevel_exchange_skip("");
 
     unpackbalance(frBalance, peglevel_balance, balance_pegdata64, "balance");
-    unpackbalance(frExchange, peglevel_exchange, exchange_pegdata64, "exchange");
+    unpackbalance(frExchange, peglevel_exchange_skip, exchange_pegdata64, "exchange");
     unpackpegdata(frPegShift, pegshift_pegdata64, "pegshift");
 
-    if (!balance_pegdata64.empty() && peglevel_balance.nCycle != peglevel.nCycle) {
+    if (!balance_pegdata64.empty() && peglevel_balance.nCycle != peglevel_exchange.nCycle) {
         throw JSONRPCError(RPC_MISC_ERROR, "Balance has other cycle than peglevel");
     }
 
@@ -218,7 +367,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     frPegShift = frPegShift.Std();
     
     int64_t nBalanceLiquid = 0;
-    CFractions frBalanceLiquid = frBalance.HighPart(peglevel, &nBalanceLiquid);
+    CFractions frBalanceLiquid = frBalance.HighPart(peglevel_exchange, &nBalanceLiquid);
     if (nAmountWithFee > nBalanceLiquid) {
         throw JSONRPCError(RPC_MISC_ERROR, 
                            strprintf("Not enough liquid %d on 'balance' to withdraw %d",
@@ -234,25 +383,8 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     set<uint320> setAllOutputs;
     set<uint320> setConsumedInputs;
     map<uint320,CCoinToUse> mapProvidedOutputs;
-    vector<string> vConsumedInputsArgs;
-    vector<string> vProvidedOutputsArgs;
-    boost::split(vConsumedInputsArgs, sConsumedInputs, boost::is_any_of(","));
-    boost::split(vProvidedOutputsArgs, sProvidedOutputs, boost::is_any_of(","));
-    for(string sConsumedInput : vConsumedInputsArgs) {
-        setConsumedInputs.insert(uint320(sConsumedInput));
-    }
-    for(string sProvidedOutput : vProvidedOutputsArgs) {
-        vector<unsigned char> outData(ParseHex(sProvidedOutput));
-        CDataStream ssData(outData, SER_NETWORK, PROTOCOL_VERSION);
-        CCoinToUse out;
-        try { ssData >> out; }
-        catch (std::exception &) { continue; }
-        if (out.nCycle != nCycleNow) { continue; }
-        auto fkey = uint320(out.txhash, out.i);
-        if (setConsumedInputs.count(fkey)) { continue; }
-        mapProvidedOutputs[fkey] = out;
-        setAllOutputs.insert(fkey);
-    }
+    parseConsumedAndProvided(sConsumedInputs, sProvidedOutputs, nCycleNow,
+                             setAllOutputs, setConsumedInputs, mapProvidedOutputs);
     
     if (!pindexBest) {
         throw JSONRPCError(RPC_MISC_ERROR, "Blockchain is not in sync");
@@ -271,43 +403,13 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     
     map<uint320,int64_t> mapAvailableLiquid;
     
-    vector<COutput> vecCoins;
-    pwalletMain->AvailableCoins(vecCoins, false, true, NULL);
-    for(const COutput& coin : vecCoins)
-    {
-        auto txhash = coin.tx->GetHash();
-        auto fkey = uint320(txhash, coin.i);
-        setAllOutputs.insert(fkey);
-        setWalletOutputs.insert(fkey);
-        if (setConsumedInputs.count(fkey)) continue; // already used
-        CCoinToUse & out = mapAllOutputs[fkey];
-        out.i = coin.i;
-        out.txhash = txhash;
-        out.nValue = coin.tx->vout[coin.i].nValue;
-        out.scriptPubKey = coin.tx->vout[coin.i].scriptPubKey;
-        out.nCycle = nCycleNow;
-    }
-    
+    // get available coins
+    getAvailableCoins(setConsumedInputs, nCycleNow,
+                      setAllOutputs, setWalletOutputs, mapAllOutputs);
     // clean-up consumed, intersect with (wallet+provided)
-    set<uint320> setConsumedInputsNew;
-    std::set_intersection(setConsumedInputs.begin(), setConsumedInputs.end(),
-                          setAllOutputs.begin(), setAllOutputs.end(),
-                          std::inserter(setConsumedInputsNew,setConsumedInputsNew.begin()));
-    sConsumedInputs.clear();
-    for(const uint320& fkey : setConsumedInputsNew) {
-        if (!sConsumedInputs.empty()) sConsumedInputs += ",";
-        sConsumedInputs += fkey.GetHex();
-    }
-    
+    cleanupConsumed(setConsumedInputs, setAllOutputs, sConsumedInputs);
     // clean-up provided, remove what is already in wallet
-    {
-        map<uint320,CCoinToUse> mapProvidedOutputsNew;
-        for(const pair<uint320,CCoinToUse> & item : mapProvidedOutputs) {
-            if (setWalletOutputs.count(item.first)) continue;
-            mapProvidedOutputsNew.insert(item);
-        }
-        mapProvidedOutputs = mapProvidedOutputsNew;
-    }
+    cleanupProvided(setWalletOutputs, mapProvidedOutputs);
     
     // read available coin fractions to rate
     // also consider only coins with are not less than 5% (20 inputs max)
@@ -322,7 +424,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         }
         
         int64_t nAvailableLiquid = 0;
-        frOut = frOut.HighPart(peglevel.nSupplyNext, &nAvailableLiquid);
+        frOut = frOut.HighPart(peglevel_exchange.nSupplyNext, &nAvailableLiquid);
         
         if (nAvailableLiquid < (nAmountWithFee / 20)) {
             continue;
@@ -470,49 +572,16 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     }
     
     // Calculate peg
-    MapPrevOut mapInputs;
-    MapPrevTx mapTxInputs;
-    MapFractions mapInputsFractions;
-    MapFractions mapOutputFractions;
     CFractions feesFractions(0, CFractions::STD);
-    string sPegFailCause;
-    
-    size_t n_vin = rawTx.vin.size();
-        
-    for (unsigned int i = 0; i < n_vin; i++)
-    {
-        const COutPoint & prevout = rawTx.vin[i].prevout;
-        auto fkey = uint320(prevout.hash, prevout.n);
-        
-        if (mapAllOutputs.count(fkey)) {
-            const CCoinToUse& coin = mapAllOutputs[fkey];
-            CTxOut out(coin.nValue, coin.scriptPubKey);
-            mapInputs[fkey] = out;
-        }
-        else {
-            // Read txindex
-            CTxIndex& txindex = mapTxInputs[prevout.hash].first;
-            if (!txdb.ReadTxIndex(prevout.hash, txindex)) {
-                continue;
-            }
-            // Read txPrev
-            CTransaction& txPrev = mapTxInputs[prevout.hash].second;
-            if (!txPrev.ReadFromDisk(txindex.pos)) {
-                continue;
-            }  
-            
-            if (prevout.n >= txPrev.vout.size()) {
-                continue;
-            }
-            
-            mapInputs[fkey] = txPrev.vout[prevout.n];
-        }
-        
-        CFractions& fractions = mapInputsFractions[fkey];
-        fractions = CFractions(mapInputs[fkey].nValue, CFractions::VALUE);
-        pegdb.ReadFractions(fkey, fractions);
+    map<int, CFractions> mapTxOutputFractions;
+    computeTxPegForNextCycle(rawTx, peglevel_net, txdb, pegdb, mapAllOutputs,
+                             mapTxOutputFractions, feesFractions);
+
+    // for liquid just first output
+    if (!mapTxOutputFractions.count(0)) {
+        throw JSONRPCError(RPC_MISC_ERROR, "No withdraw fractions");
     }
-    
+
     // signing the transaction to get it ready for broadcast
     int nIn = 0;
     for(const CCoinToUse& coin : vCoins) {
@@ -521,29 +590,8 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
                                strprintf("Fail on signing input (%d)", nIn-1));
         }
     }
-    
-    bool peg_ok = CalculateStandardFractions(rawTx, 
-                                             peglevel_net.nSupplyNext,
-                                             pindexBest->nTime,
-                                             mapInputs, 
-                                             mapInputsFractions,
-                                             mapOutputFractions,
-                                             feesFractions,
-                                             sPegFailCause);
-    if (!peg_ok) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Fail on calculations of tx fractions (cause=%s)",
-                                     sPegFailCause.c_str()));
-    }
-        
-    string txhash = rawTx.GetHash().GetHex();
-    
-    // without payment is the first out
-    auto fkey = uint320(rawTx.GetHash(), 0);
-    if (!mapOutputFractions.count(fkey)) {
-        throw JSONRPCError(RPC_MISC_ERROR, "No withdraw fractions");
-    }
-    CFractions frProcessed = mapOutputFractions[fkey] + feesFractions;
+    // for liquid just first output
+    CFractions frProcessed = mapTxOutputFractions[0] + feesFractions;
     CFractions frRequested = frAmount;
 
     if (frRequested.Total() != nAmountWithFee) {
@@ -574,17 +622,20 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
         sProvidedOutputs += HexStr(ss.begin(), ss.end());
     }
+
+    string sTxhash = rawTx.GetHash().GetHex();
+
     // get list of changes and add to current provided outputs
     map<string, int64_t> mapTxChanges;
     {
         CPegDB pegdbrw;
         for (size_t i=1; i< rawTx.vout.size(); i++) { // skip 0 (withdraw)
             // make map of change outputs
-            string txout = rawTx.GetHash().GetHex()+":"+itostr(i);
+            string txout = sTxhash+":"+itostr(i);
             mapTxChanges[txout] = rawTx.vout[i].nValue;
             // save these outputs in pegdb, so they can be used in next withdraws
             auto fkey = uint320(rawTx.GetHash(), i);
-            pegdbrw.WriteFractions(fkey, mapOutputFractions[fkey]);
+            pegdbrw.WriteFractions(fkey, mapTxOutputFractions[i]);
             // serialize to sProvidedOutputs
             CCoinToUse out;
             out.i = i;
@@ -606,7 +657,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     // consume liquid part of pegshift by balance
     // as computation were completed by pegnext it may use fractions
     // of current reserves - at current supply not to consume these fractions
-    consumeliquidpegshift(frBalance, frExchange, frPegShift, peglevel);
+    consumeliquidpegshift(frBalance, frExchange, frPegShift, peglevel_exchange);
     
     if (frPegShift.Positive(nullptr).Total() != -frPegShift.Negative(nullptr).Total()) {
         throw JSONRPCError(RPC_MISC_ERROR, 
@@ -622,7 +673,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     
     Object result;
     result.push_back(Pair("completed", true));
-    result.push_back(Pair("txhash", txhash));
+    result.push_back(Pair("txhash", sTxhash));
     result.push_back(Pair("rawtx", txstr));
 
     result.push_back(Pair("consumed_inputs", sConsumedInputs));
@@ -631,9 +682,9 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     result.push_back(Pair("created_on_peg", peglevel_net.nSupply));
     result.push_back(Pair("broadcast_on_peg", peglevel_net.nSupplyNext));
     
-    printpegbalance(frBalance, peglevel, result, "balance_", true);
-    printpegbalance(frProcessed, peglevel, result, "processed_", true);
-    printpegbalance(frExchange, peglevel, result, "exchange_", true);
+    printpegbalance(frBalance, peglevel_exchange, result, "balance_", true);
+    printpegbalance(frProcessed, peglevel_exchange, result, "processed_", true);
+    printpegbalance(frExchange, peglevel_exchange, result, "exchange_", true);
     
     printpegshift(frPegShift, peglevel_net, result, true);
     
@@ -676,8 +727,8 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     string peglevel_hex = params[5].get_str();
 
     // exchange peglevel
-    CPegLevel peglevel(peglevel_hex);
-    if (!peglevel.IsValid()) {
+    CPegLevel peglevel_exchange(peglevel_hex);
+    if (!peglevel_exchange.IsValid()) {
         throw JSONRPCError(RPC_MISC_ERROR, "Can not unpack peglevel");
     }
 
@@ -700,13 +751,13 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     CFractions frPegShift(0, CFractions::VALUE);
     
     CPegLevel peglevel_balance("");
-    CPegLevel peglevel_exchange("");
+    CPegLevel peglevel_exchange_skip("");
 
     unpackbalance(frBalance, peglevel_balance, balance_pegdata64, "balance");
-    unpackbalance(frExchange, peglevel_exchange, exchange_pegdata64, "exchange");
+    unpackbalance(frExchange, peglevel_exchange_skip, exchange_pegdata64, "exchange");
     unpackpegdata(frPegShift, pegshift_pegdata64, "pegshift");
 
-    if (!balance_pegdata64.empty() && peglevel_balance.nCycle != peglevel.nCycle) {
+    if (!balance_pegdata64.empty() && peglevel_balance.nCycle != peglevel_exchange.nCycle) {
         throw JSONRPCError(RPC_MISC_ERROR, "Balance has other cycle than peglevel");
     }
 
@@ -715,7 +766,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     frPegShift = frPegShift.Std();
     
     int64_t nBalanceReserve = 0;
-    CFractions frBalanceReserve = frBalance.LowPart(peglevel.nSupplyNext, &nBalanceReserve);
+    CFractions frBalanceReserve = frBalance.LowPart(peglevel_exchange.nSupplyNext, &nBalanceReserve);
     if (nAmountWithFee > nBalanceReserve) {
         throw JSONRPCError(RPC_MISC_ERROR, 
                            strprintf("Not enough reserve %d on 'balance' to withdraw %d",
@@ -731,25 +782,8 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     set<uint320> setAllOutputs;
     set<uint320> setConsumedInputs;
     map<uint320,CCoinToUse> mapProvidedOutputs;
-    vector<string> vConsumedInputsArgs;
-    vector<string> vProvidedOutputsArgs;
-    boost::split(vConsumedInputsArgs, sConsumedInputs, boost::is_any_of(","));
-    boost::split(vProvidedOutputsArgs, sProvidedOutputs, boost::is_any_of(","));
-    for(string sConsumedInput : vConsumedInputsArgs) {
-        setConsumedInputs.insert(uint320(sConsumedInput));
-    }
-    for(string sProvidedOutput : vProvidedOutputsArgs) {
-        vector<unsigned char> outData(ParseHex(sProvidedOutput));
-        CDataStream ssData(outData, SER_NETWORK, PROTOCOL_VERSION);
-        CCoinToUse out;
-        try { ssData >> out; }
-        catch (std::exception &) { continue; }
-        if (out.nCycle != nCycleNow) { continue; }
-        auto fkey = uint320(out.txhash, out.i);
-        if (setConsumedInputs.count(fkey)) { continue; }
-        mapProvidedOutputs[fkey] = out;
-        setAllOutputs.insert(fkey);
-    }
+    parseConsumedAndProvided(sConsumedInputs, sProvidedOutputs, nCycleNow,
+                             setAllOutputs, setConsumedInputs, mapProvidedOutputs);
     
     if (!pindexBest) {
         throw JSONRPCError(RPC_MISC_ERROR, "Blockchain is not in sync");
@@ -766,43 +800,13 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     map<uint320,CCoinToUse> mapAllOutputs = mapProvidedOutputs;
     set<uint320> setWalletOutputs;
         
-    vector<COutput> vecCoins;
-    pwalletMain->AvailableCoins(vecCoins, false, true, NULL);
-    for(const COutput& coin : vecCoins)
-    {
-        auto txhash = coin.tx->GetHash();
-        auto fkey = uint320(txhash, coin.i);
-        setAllOutputs.insert(fkey);
-        setWalletOutputs.insert(fkey);
-        if (setConsumedInputs.count(fkey)) continue; // already used
-        CCoinToUse & out = mapAllOutputs[fkey];
-        out.i = coin.i;
-        out.txhash = txhash;
-        out.nValue = coin.tx->vout[coin.i].nValue;
-        out.scriptPubKey = coin.tx->vout[coin.i].scriptPubKey;
-        out.nCycle = nCycleNow;
-    }
-    
+    // get available coins
+    getAvailableCoins(setConsumedInputs, nCycleNow,
+                      setAllOutputs, setWalletOutputs, mapAllOutputs);
     // clean-up consumed, intersect with (wallet+provided)
-    set<uint320> setConsumedInputsNew;
-    std::set_intersection(setConsumedInputs.begin(), setConsumedInputs.end(),
-                          setAllOutputs.begin(), setAllOutputs.end(),
-                          std::inserter(setConsumedInputsNew,setConsumedInputsNew.begin()));
-    sConsumedInputs.clear();
-    for(const uint320& fkey : setConsumedInputsNew) {
-        if (!sConsumedInputs.empty()) sConsumedInputs += ",";
-        sConsumedInputs += fkey.GetHex();
-    }
-    
+    cleanupConsumed(setConsumedInputs, setAllOutputs, sConsumedInputs);
     // clean-up provided, remove what is already in wallet
-    {
-        map<uint320,CCoinToUse> mapProvidedOutputsNew;
-        for(const pair<uint320,CCoinToUse> & item : mapProvidedOutputs) {
-            if (setWalletOutputs.count(item.first)) continue;
-            mapProvidedOutputsNew.insert(item);
-        }
-        mapProvidedOutputs = mapProvidedOutputsNew;
-    }
+    cleanupProvided(setWalletOutputs, mapProvidedOutputs);
     
     // read avaialable coin fractions to rate
     // also consider only coins with are not less than 10% (10 inputs max)
@@ -818,7 +822,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         }
         
         int64_t nAvailableReserve = 0;
-        frOut = frOut.LowPart(peglevel.nSupplyNext, &nAvailableReserve);
+        frOut = frOut.LowPart(peglevel_exchange.nSupplyNext, &nAvailableReserve);
         
         if (nAvailableReserve < (nAmountWithFee / 20)) {
             continue;
@@ -1043,49 +1047,16 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     }
     
     // Calculate peg
-    MapPrevOut mapInputs;
-    MapPrevTx mapTxInputs;
-    MapFractions mapInputsFractions;
-    MapFractions mapOutputFractions;
     CFractions feesFractions(0, CFractions::STD);
-    string sPegFailCause;
-    
-    size_t n_vin = rawTx.vin.size();
-        
-    for (unsigned int i = 0; i < n_vin; i++)
-    {
-        const COutPoint & prevout = rawTx.vin[i].prevout;
-        auto fkey = uint320(prevout.hash, prevout.n);
-        
-        if (mapAllOutputs.count(fkey)) {
-            const CCoinToUse& coin = mapAllOutputs[fkey];
-            CTxOut out(coin.nValue, coin.scriptPubKey);
-            mapInputs[fkey] = out;
-        }
-        else {
-            // Read txindex
-            CTxIndex& txindex = mapTxInputs[prevout.hash].first;
-            if (!txdb.ReadTxIndex(prevout.hash, txindex)) {
-                continue;
-            }
-            // Read txPrev
-            CTransaction& txPrev = mapTxInputs[prevout.hash].second;
-            if (!txPrev.ReadFromDisk(txindex.pos)) {
-                continue;
-            }  
-            
-            if (prevout.n >= txPrev.vout.size()) {
-                continue;
-            }
-            
-            mapInputs[fkey] = txPrev.vout[prevout.n];
-        }
-        
-        CFractions& fractions = mapInputsFractions[fkey];
-        fractions = CFractions(mapInputs[fkey].nValue, CFractions::VALUE);
-        pegdb.ReadFractions(fkey, fractions);
+    map<int, CFractions> mapTxOutputFractions;
+    computeTxPegForNextCycle(rawTx, peglevel_net, txdb, pegdb, mapAllOutputs,
+                             mapTxOutputFractions, feesFractions);
+
+    // first out after F notations (same num as size inputs)
+    if (!mapTxOutputFractions.count(rawTx.vin.size())) {
+        throw JSONRPCError(RPC_MISC_ERROR, "No withdraw fractions");
     }
-    
+
     // signing the transaction to get it ready for broadcast
     int nIn = 0;
     for(const CCoinToUse& coin : vCoins) {
@@ -1094,29 +1065,9 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
                                strprintf("Fail on signing input (%d)", nIn-1));
         }
     }
-    
-    bool peg_ok = CalculateStandardFractions(rawTx, 
-                                             peglevel_net.nSupplyNext,
-                                             pindexBest->nTime,
-                                             mapInputs, 
-                                             mapInputsFractions,
-                                             mapOutputFractions,
-                                             feesFractions,
-                                             sPegFailCause);
-    if (!peg_ok) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Fail on calculations of tx fractions (cause=%s)",
-                                     sPegFailCause.c_str()));
-    }
         
-    string txhash = rawTx.GetHash().GetHex();
-    
-    // without payment is the first out after F notations (same num as size inputs)
-    auto fkey = uint320(rawTx.GetHash(), rawTx.vin.size());
-    if (!mapOutputFractions.count(fkey)) {
-        throw JSONRPCError(RPC_MISC_ERROR, "No withdraw fractions");
-    }
-    CFractions frProcessed = mapOutputFractions[fkey] + feesFractions;
+    // first out after F notations (same num as size inputs)
+    CFractions frProcessed = mapTxOutputFractions[rawTx.vin.size()] + feesFractions;
     CFractions frRequested = frAmount;
 
     if (frRequested.Total() != nAmountWithFee) {
@@ -1147,6 +1098,9 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
         sProvidedOutputs += HexStr(ss.begin(), ss.end());
     }
+
+    string sTxhash = rawTx.GetHash().GetHex();
+
     // get list of changes and add to current provided outputs
     map<string, int64_t> mapTxChanges;
     {
@@ -1157,7 +1111,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
             mapTxChanges[txout] = rawTx.vout[i].nValue;
             // save these outputs in pegdb, so they can be used in next withdraws
             auto fkey = uint320(rawTx.GetHash(), i);
-            pegdbrw.WriteFractions(fkey, mapOutputFractions[fkey]);
+            pegdbrw.WriteFractions(fkey, mapTxOutputFractions[i]);
             // serialize to sProvidedOutputs
             CCoinToUse out;
             out.i = i;
@@ -1179,7 +1133,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     // consume reserve part of pegshift by balance
     // as computation were completed by pegnext it may use fractions
     // of current liquid - at current supply not to consume these fractions
-    consumereservepegshift(frBalance, frExchange, frPegShift, peglevel);
+    consumereservepegshift(frBalance, frExchange, frPegShift, peglevel_exchange);
     
     if (frPegShift.Positive(nullptr).Total() != -frPegShift.Negative(nullptr).Total()) {
         throw JSONRPCError(RPC_MISC_ERROR, 
@@ -1195,7 +1149,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     
     Object result;
     result.push_back(Pair("completed", true));
-    result.push_back(Pair("txhash", txhash));
+    result.push_back(Pair("txhash", sTxhash));
     result.push_back(Pair("rawtx", txstr));
 
     result.push_back(Pair("consumed_inputs", sConsumedInputs));
@@ -1204,9 +1158,9 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     result.push_back(Pair("created_on_peg", peglevel_net.nSupply));
     result.push_back(Pair("broadcast_on_peg", peglevel_net.nSupplyNext));
     
-    printpegbalance(frBalance, peglevel, result, "balance_", true);
-    printpegbalance(frProcessed, peglevel, result, "processed_", true);
-    printpegbalance(frExchange, peglevel, result, "exchange_", true);
+    printpegbalance(frBalance, peglevel_exchange, result, "balance_", true);
+    printpegbalance(frProcessed, peglevel_exchange, result, "processed_", true);
+    printpegbalance(frExchange, peglevel_exchange, result, "exchange_", true);
     
     printpegshift(frPegShift, peglevel_net, result, true);
     

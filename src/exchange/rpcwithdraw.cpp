@@ -477,21 +477,19 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     cleanupProvided(setWalletOutputs, mapProvidedOutputs);
     
     // read available coin fractions to rate
-    // also consider only coins with are not less than 5% (20 inputs max)
+    // also consider only coins with are not less than 1% (100 inputs max)
     multimap<double,CCoinToUse> ratedOutputs;
     for(const pair<uint320,CCoinToUse>& item : mapAllOutputs) {
         uint320 fkey = item.first;
         CFractions frOut(0, CFractions::VALUE);
         if (!pegdb.ReadFractions(fkey, frOut, true)) {
-            if (!mempool.lookup(fkey.b1(), fkey.b2(), frOut)) {
-                continue;
-            }
+            continue;
         }
         
         int64_t nAvailableLiquid = 0;
         frOut = frOut.HighPart(peglevel_exchange.nSupplyNext, &nAvailableLiquid);
         
-        if (nAvailableLiquid < (nAmountWithFee / 20)) {
+        if (nAvailableLiquid < (nAmountWithFee / 100)) {
             continue;
         }
         
@@ -629,6 +627,29 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         }
         if (nValueChange == 0) continue;
         rawTx.vout.push_back(CTxOut(nValueChange, scriptPubKey));
+    }
+
+    // notation for exchange control
+    {
+        string sNotary = "XCH:0:";
+        CDataStream ss(SER_GETHASH, 0);
+        size_t n_inp = rawTx.vin.size();
+        for(size_t j=0; j< n_inp; j++) {
+            ss << rawTx.vin[j].prevout.hash;
+            ss << rawTx.vin[j].prevout.n;
+        }
+        ss << string("L");
+        ss << sAddress;
+        ss << nAmountWithFee;
+        sNotary += Hash(ss.begin(), ss.end()).GetHex();
+        CScript scriptPubKey;
+        scriptPubKey.push_back(OP_RETURN);
+        unsigned char len_bytes = sNotary.size();
+        scriptPubKey.push_back(len_bytes);
+        for (size_t j=0; j< sNotary.size(); j++) {
+            scriptPubKey.push_back(sNotary[j]);
+        }
+        rawTx.vout.push_back(CTxOut(1, scriptPubKey));
     }
     
     // Fill vin
@@ -842,23 +863,21 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     // clean-up provided, remove what is already in wallet
     cleanupProvided(setWalletOutputs, mapProvidedOutputs);
     
-    // read avaialable coin fractions to rate
-    // also consider only coins with are not less than 10% (10 inputs max)
+    // read available coin fractions to rate
+    // also consider only coins with are not less than 1% (100 inputs max)
     map<uint320,int64_t> mapAvailableReserve;
     multimap<double,CCoinToUse> ratedOutputs;
     for(const pair<uint320,CCoinToUse>& item : mapAllOutputs) {
         uint320 fkey = item.first;
         CFractions frOut(0, CFractions::VALUE);
         if (!pegdb.ReadFractions(fkey, frOut, true)) {
-            if (!mempool.lookup(fkey.b1(), fkey.b2(), frOut)) {
-                continue;
-            }
+            continue;
         }
         
         int64_t nAvailableReserve = 0;
         frOut = frOut.LowPart(peglevel_exchange.nSupplyNext, &nAvailableReserve);
         
-        if (nAvailableReserve < (nAmountWithFee / 20)) {
+        if (nAvailableReserve < (nAmountWithFee / 100)) {
             continue;
         }
         
@@ -1073,6 +1092,30 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         }
         if (nValueChange == 0) continue;
         rawTx.vout.push_back(CTxOut(nValueChange, scriptPubKey));
+    }
+
+    // notation for exchange control
+    {
+        string sNotary = "XCH:";
+        sNotary += std::to_string(rawTx.vin.size()) + ":";
+        CDataStream ss(SER_GETHASH, 0);
+        size_t n_inp = rawTx.vin.size();
+        for(size_t j=0; j< n_inp; j++) {
+            ss << rawTx.vin[j].prevout.hash;
+            ss << rawTx.vin[j].prevout.n;
+        }
+        ss << string("R");
+        ss << sAddress;
+        ss << nAmountWithFee;
+        sNotary += Hash(ss.begin(), ss.end()).GetHex();
+        CScript scriptPubKey;
+        scriptPubKey.push_back(OP_RETURN);
+        unsigned char len_bytes = sNotary.size();
+        scriptPubKey.push_back(len_bytes);
+        for (size_t j=0; j< sNotary.size(); j++) {
+            scriptPubKey.push_back(sNotary[j]);
+        }
+        rawTx.vout.push_back(CTxOut(1, scriptPubKey));
     }
     
     // Fill vin

@@ -523,7 +523,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     }
     
     int64_t nFeeRet = 1000000 /*temp fee*/;
-    int64_t nAmount = nAmountWithFee - nFeeRet;
+    int64_t nAmount = nAmountWithFee - nFeeRet -1;
     
     vector<pair<CScript, int64_t> > vecSend;
     CScript scriptPubKey;
@@ -911,7 +911,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     }
     
     int64_t nFeeRet = 1000000 /*temp fee*/;
-    int64_t nAmount = nAmountWithFee - nFeeRet;
+    int64_t nAmount = nAmountWithFee - nFeeRet -1;
     
     vector<pair<CScript, int64_t> > vecSend;
     CScript scriptPubKey;

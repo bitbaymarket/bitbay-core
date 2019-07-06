@@ -49,6 +49,10 @@ void printpegbalance(const CFractions & frBalance,
                      string prefix,
                      bool print_pegdata);
 
+string scripttoaddress(const CScript& scriptPubKey,
+                       bool* ptrIsNotary,
+                       string* ptrNotary);
+
 static void consumepegshift(CFractions & frBalance, 
                             CFractions & frExchange, 
                             CFractions & frPegShift,
@@ -82,6 +86,13 @@ static void consumereservepegshift(CFractions & frBalance,
 {
     CFractions frPegShiftReserve = frPegShift.LowPart(peglevel, nullptr);
     consumepegshift(frBalance, frExchange, frPegShift, frPegShiftReserve);
+
+    if (frPegShift.Positive(nullptr).Total() != -frPegShift.Negative(nullptr).Total()) {
+        throw JSONRPCError(RPC_MISC_ERROR,
+                           strprintf("Mismatch pegshift parts (%d - %d)",
+                                     frPegShift.Positive(nullptr).Total(),
+                                     frPegShift.Negative(nullptr).Total()));
+    }
 }
 
 static void consumeliquidpegshift(CFractions & frBalance, 
@@ -91,6 +102,13 @@ static void consumeliquidpegshift(CFractions & frBalance,
 {
     CFractions frPegShiftLiquid = frPegShift.HighPart(peglevel, nullptr);
     consumepegshift(frBalance, frExchange, frPegShift, frPegShiftLiquid);
+
+    if (frPegShift.Positive(nullptr).Total() != -frPegShift.Negative(nullptr).Total()) {
+        throw JSONRPCError(RPC_MISC_ERROR,
+                           strprintf("Mismatch pegshift parts (%d - %d)",
+                                     frPegShift.Positive(nullptr).Total(),
+                                     frPegShift.Negative(nullptr).Total()));
+    }
 }
 
 class CCoinToUse
@@ -301,6 +319,32 @@ static void computeTxPegForNextCycle(const CTransaction & rawTx,
     }
 }
 
+static void collectProvided(const CTransaction & rawTx,
+                            string sAddress,
+                            int nCycleNow,
+                            string & sProvidedOutputs)
+{
+    size_t n_out = rawTx.vout.size();
+    for (size_t i=0; i< n_out; i++) {
+        string sNotary;
+        bool fNotary = false;
+        string sToAddress = scripttoaddress(rawTx.vout[i].scriptPubKey, &fNotary, &sNotary);
+        if (fNotary) continue;
+        if (sToAddress == sAddress) continue;
+
+        CCoinToUse out;
+        out.i = i;
+        out.txhash = rawTx.GetHash();
+        out.nValue = rawTx.vout[i].nValue;
+        out.scriptPubKey = rawTx.vout[i].scriptPubKey;
+        out.nCycle = nCycleNow;
+        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+        ss << out;
+        if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
+        sProvidedOutputs += HexStr(ss.begin(), ss.end());
+    }
+}
+
 Value prepareliquidwithdraw(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 8)
@@ -320,8 +364,9 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     string exchange_pegdata64 = params[1].get_str();
     string pegshift_pegdata64 = params[2].get_str();
     int64_t nAmountWithFee = params[3].get_int64();
+    string sAddress = params[4].get_str();
 
-    CBitcoinAddress address(params[4].get_str());
+    CBitcoinAddress address(sAddress);
     if (!address.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid BitBay address");
     
@@ -636,19 +681,9 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
             // save these outputs in pegdb, so they can be used in next withdraws
             auto fkey = uint320(rawTx.GetHash(), i);
             pegdbrw.WriteFractions(fkey, mapTxOutputFractions[i]);
-            // serialize to sProvidedOutputs
-            CCoinToUse out;
-            out.i = i;
-            out.txhash = rawTx.GetHash();
-            out.nValue = rawTx.vout[i].nValue;
-            out.scriptPubKey = rawTx.vout[i].scriptPubKey;
-            out.nCycle = nCycleNow;
-            CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-            ss << out;
-            if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
-            sProvidedOutputs += HexStr(ss.begin(), ss.end());
         }
     }
+    collectProvided(rawTx, sAddress, nCycleNow, sProvidedOutputs);
     
     frBalance -= frRequested;
     frExchange -= frRequested;
@@ -658,14 +693,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     // as computation were completed by pegnext it may use fractions
     // of current reserves - at current supply not to consume these fractions
     consumeliquidpegshift(frBalance, frExchange, frPegShift, peglevel_exchange);
-    
-    if (frPegShift.Positive(nullptr).Total() != -frPegShift.Negative(nullptr).Total()) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Mismatch pegshift parts (%d - %d)",
-                                     frPegShift.Positive(nullptr).Total(), 
-                                     frPegShift.Negative(nullptr).Total()));
-    }
-    
+
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << rawTx;
     
@@ -719,8 +747,9 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     string exchange_pegdata64 = params[1].get_str();
     string pegshift_pegdata64 = params[2].get_str();
     int64_t nAmountWithFee = params[3].get_int64();
+    string sAddress = params[4].get_str();
 
-    CBitcoinAddress address(params[4].get_str());
+    CBitcoinAddress address(sAddress);
     if (!address.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid BitBay address");
     
@@ -1112,19 +1141,9 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
             // save these outputs in pegdb, so they can be used in next withdraws
             auto fkey = uint320(rawTx.GetHash(), i);
             pegdbrw.WriteFractions(fkey, mapTxOutputFractions[i]);
-            // serialize to sProvidedOutputs
-            CCoinToUse out;
-            out.i = i;
-            out.txhash = rawTx.GetHash();
-            out.nValue = rawTx.vout[i].nValue;
-            out.scriptPubKey = rawTx.vout[i].scriptPubKey;
-            out.nCycle = nCycleNow;
-            CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-            ss << out;
-            if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
-            sProvidedOutputs += HexStr(ss.begin(), ss.end());
         }
     }
+    collectProvided(rawTx, sAddress, nCycleNow, sProvidedOutputs);
     
     frBalance -= frRequested;
     frExchange -= frRequested;
@@ -1134,13 +1153,6 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     // as computation were completed by pegnext it may use fractions
     // of current liquid - at current supply not to consume these fractions
     consumereservepegshift(frBalance, frExchange, frPegShift, peglevel_exchange);
-    
-    if (frPegShift.Positive(nullptr).Total() != -frPegShift.Negative(nullptr).Total()) {
-        throw JSONRPCError(RPC_MISC_ERROR, 
-                           strprintf("Mismatch pegshift parts (%d - %d)",
-                                     frPegShift.Positive(nullptr).Total(), 
-                                     frPegShift.Negative(nullptr).Total()));
-    }
     
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << rawTx;

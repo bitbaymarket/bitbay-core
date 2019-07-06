@@ -478,6 +478,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     
     // read available coin fractions to rate
     // also consider only coins with are not less than 1% (100 inputs max)
+    // for liquid calculations we use network peglevels
     multimap<double,CCoinToUse> ratedOutputs;
     for(const pair<uint320,CCoinToUse>& item : mapAllOutputs) {
         uint320 fkey = item.first;
@@ -487,7 +488,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         }
         
         int64_t nAvailableLiquid = 0;
-        frOut = frOut.HighPart(peglevel_exchange.nSupplyNext, &nAvailableLiquid);
+        frOut = frOut.HighPart(peglevel_net.nSupplyNext, &nAvailableLiquid);
         
         if (nAvailableLiquid < (nAmountWithFee / 100)) {
             continue;
@@ -865,6 +866,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     
     // read available coin fractions to rate
     // also consider only coins with are not less than 1% (100 inputs max)
+    // for reserve calculations we use exchange peglevels
     map<uint320,int64_t> mapAvailableReserve;
     multimap<double,CCoinToUse> ratedOutputs;
     for(const pair<uint320,CCoinToUse>& item : mapAllOutputs) {

@@ -2,27 +2,34 @@ TEMPLATE = app
 TARGET = bitbayd
 VERSION = 3.0.0
 
-count(USE_TESTNET, 1) {
-	contains(USE_TESTNET, 1) {
-		message(Building TESTNET enabled)
-		DEFINES += USE_TESTNET
-	}
-}
-
 count(USE_WALLET, 0) {
-	USE_WALLET=1
-}
-contains(USE_WALLET, 1) {
-	message(Building with WALLET support)
-	CONFIG += wallet
+    USE_WALLET=1
 }
 
-count(USE_FAUCET, 0) {
-	USE_FAUCET=0
+count(USE_TESTNET, 1) {
+    contains(USE_TESTNET, 1) {
+        message(Building with TESTNET enabled)
+        DEFINES += USE_TESTNET
+    }
 }
-contains(USE_FAUCET, 1) {
-	message(Building with FAUCET support)
-	CONFIG += faucet
+
+contains(USE_WALLET, 1) {
+    message(Building with WALLET support)
+    CONFIG += wallet
+}
+
+count(USE_FAUCET, 1) {
+    contains(USE_FAUCET, 1) {
+        message(Building with FAUCET support)
+        CONFIG += faucet
+    }
+}
+
+count(USE_EXCHANGE, 1) {
+    contains(USE_EXCHANGE, 1) {
+        message(Building with EXCHANGE support)
+        CONFIG += exchange
+    }
 }
 
 exists(bitbayd-local.pri) {
@@ -36,7 +43,6 @@ INCLUDEPATH += build
 include(bitbay-mac.pri)
 
 INCLUDEPATH += src src/json src/qt $$PWD
-DEFINES += ENABLE_PEG_DEMO
 DEFINES += BOOST_THREAD_USE_LIB
 DEFINES += BOOST_SPIRIT_THREADSAFE
 DEFINES += BOOST_NO_CXX11_SCOPED_ENUMS

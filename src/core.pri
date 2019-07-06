@@ -108,9 +108,14 @@ wallet {
         $$PWD/wallet/rpcdump.cpp \
         $$PWD/wallet/rpcmining.cpp \
         $$PWD/wallet/rpcwallet.cpp \
-        $$PWD/wallet/rpcexchange.cpp \
         $$PWD/wallet/wallet.cpp \
         $$PWD/wallet/walletdb.cpp \
+
+    exchange {
+        DEFINES += ENABLE_EXCHANGE
+        SOURCES += \
+            $$PWD/exchange/rpcexchange.cpp \
+    }
 
 }
 

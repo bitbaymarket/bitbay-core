@@ -304,6 +304,7 @@ static const CRPCCommand vRPCCommands[] =
     { "resendtx",               &resendtx,               false,     true,      true },
     { "makekeypair",            &makekeypair,            false,     true,      false },
     { "checkkernel",            &checkkernel,            true,      false,     true },
+#ifdef ENABLE_EXCHANGE
     { "listdeposits",           &listdeposits,           false,     false,     true },
     { "registerdeposit",        &registerdeposit,        false,     false,     true },
     { "getpeglevel",            &getpeglevel,            false,     false,     true },
@@ -313,6 +314,7 @@ static const CRPCCommand vRPCCommands[] =
     { "movereserve",            &movereserve,            false,     false,     true },
     { "prepareliquidwithdraw",  &prepareliquidwithdraw,  false,     false,     true },
     { "preparereservewithdraw", &preparereservewithdraw, false,     false,     true },
+#endif
 #ifdef ENABLE_FAUCET
     { "faucet",                 &faucet,                 false,     false,     true },
 #endif

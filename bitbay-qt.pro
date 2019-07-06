@@ -3,10 +3,24 @@ TARGET = bitbay-wallet-qt
 VERSION = 3.0.0
 
 count(USE_TESTNET, 1) {
-	contains(USE_TESTNET, 1) {
-		message(Building TESTNET enabled)
-		DEFINES += USE_TESTNET
-	}
+    contains(USE_TESTNET, 1) {
+        message(Building with TESTNET enabled)
+        DEFINES += USE_TESTNET
+    }
+}
+
+count(USE_FAUCET, 1) {
+    contains(USE_FAUCET, 1) {
+        message(Building with FAUCET support)
+        CONFIG += faucet
+    }
+}
+
+count(USE_EXCHANGE, 1) {
+    contains(USE_EXCHANGE, 1) {
+        message(Building with EXCHANGE support)
+        CONFIG += exchange
+    }
 }
 
 # mac builds
@@ -14,7 +28,6 @@ include(bitbay-mac.pri)
 
 INCLUDEPATH += src src/json src/qt $$PWD
 QT += network
-DEFINES += ENABLE_PEG_DEMO
 DEFINES += BOOST_THREAD_USE_LIB
 DEFINES += BOOST_SPIRIT_THREADSAFE
 DEFINES += BOOST_NO_CXX11_SCOPED_ENUMS

@@ -100,7 +100,10 @@ wallet {
     exchange {
         DEFINES += ENABLE_EXCHANGE
         SOURCES += \
+            $$PWD/exchange/rpcdeposit.cpp \
             $$PWD/exchange/rpcexchange.cpp \
+            $$PWD/exchange/rpcwithdraw.cpp \
+            $$PWD/exchange/rpcexchange_util.cpp \
     }
 
     HEADERS += \

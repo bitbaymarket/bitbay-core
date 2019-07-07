@@ -125,6 +125,7 @@ private:
     
     std::string rewardAddress;
     std::string supportAddress;
+    bool supportEnabled = true;
     uint32_t supportPart;
     
 public:
@@ -404,13 +405,16 @@ public:
     void SetBayRates(std::vector<double>);
     void SetBtcRates(std::vector<double>);
     
-    bool SetRewardAddress(std::string addr);
+    bool SetRewardAddress(std::string addr, bool write_wallet);
     std::string GetRewardAddress() const;
 
-    bool SetSupportAddress(std::string addr);
+    bool SetSupportEnabled(bool on, bool write_wallet);
+    bool GetSupportEnabled() const;
+    
+    bool SetSupportAddress(std::string addr, bool write_wallet);
     std::string GetSupportAddress() const;
     
-    bool SetSupportPart(uint32_t percent);
+    bool SetSupportPart(uint32_t percent, bool write_wallet);
     uint32_t GetSupportPart() const;
 };
 

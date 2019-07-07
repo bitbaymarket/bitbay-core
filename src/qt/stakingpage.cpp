@@ -112,7 +112,7 @@ StakingPage::StakingPage(QWidget *parent) :
     connect(ui->checkRewardTo, SIGNAL(toggled(bool)), this, SLOT(updateRewardActions()));
     connect(ui->checkSupportFund, SIGNAL(toggled(bool)), this, SLOT(updateRewardActions()));
     connect(ui->lineRewardTo, SIGNAL(textChanged(const QString &)), this, SLOT(updateRewardActions()));
-    connect(ui->lineSupportTo, SIGNAL(textChanged(const QString &)), this, SLOT(updateRewardActions()));
+    connect(ui->lineSupportTo, SIGNAL(editingFinished()), this, SLOT(updateRewardActions()));
     connect(ui->sliderSupport, SIGNAL(valueChanged(int)), this, SLOT(updateRewardActions()));
     
     connect(ui->rewardAddressBookButton, SIGNAL(clicked(bool)), this, SLOT(addressBookRewardClicked()));
@@ -208,16 +208,27 @@ void StakingPage::updateRewardActions()
     if (ui->checkRewardTo->isChecked()) {
         rewardAddress = ui->lineRewardTo->text();
     }
+    else {
+        ui->lineRewardTo->clear();
+    }
     
-    pwalletMain->SetRewardAddress(rewardAddress.toStdString());
+    pwalletMain->SetRewardAddress(rewardAddress.toStdString(), true/*write*/);
     
     QString supportAddress;
     if (ui->checkSupportFund->isChecked()) {
         supportAddress = ui->lineSupportTo->text();
+        if (supportAddress.isEmpty()) { // read default
+            QString supportAddr = QString::fromStdString(pwalletMain->GetSupportAddress());
+            ui->lineSupportTo->setText(supportAddr);
+        }
+    }
+    else {
+        ui->lineSupportTo->clear();
     }
     
-    pwalletMain->SetSupportAddress(supportAddress.toStdString());
-    pwalletMain->SetSupportPart(ui->sliderSupport->value());
+    pwalletMain->SetSupportEnabled(ui->checkSupportFund->isChecked(), true/*write*/);
+    pwalletMain->SetSupportAddress(supportAddress.toStdString(), true/*write*/);
+    pwalletMain->SetSupportPart(ui->sliderSupport->value(), true/*write*/);
 }
 
 void StakingPage::setWalletModel(WalletModel *model)
@@ -252,9 +263,16 @@ void StakingPage::setWalletModel(WalletModel *model)
 
         connect(model->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
         
-        ui->lineRewardTo->setText(QString::fromStdString(pwalletMain->GetRewardAddress()));
-        ui->lineSupportTo->setText(QString::fromStdString(pwalletMain->GetSupportAddress()));
-        ui->sliderSupport->setValue(pwalletMain->GetSupportPart());
+        QString rewardAddr = QString::fromStdString(pwalletMain->GetRewardAddress());
+        QString supportAddr = QString::fromStdString(pwalletMain->GetSupportAddress());
+        int supportPart = pwalletMain->GetSupportPart();
+        bool supportIsOn = pwalletMain->GetSupportEnabled();
+        
+        ui->checkRewardTo->setChecked(!rewardAddr.isEmpty());
+        ui->lineRewardTo->setText(rewardAddr);
+        ui->checkSupportFund->setChecked(supportIsOn);
+        ui->lineSupportTo->setText(supportIsOn ? supportAddr : "");
+        ui->sliderSupport->setValue(supportPart);
     }
 
     // update the display unit, to not use the default ("BTC")

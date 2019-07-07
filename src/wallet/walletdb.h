@@ -113,6 +113,9 @@ public:
     bool ReadRewardAddress(std::string& addr);
     bool WriteRewardAddress(const std::string& addr);
 
+    bool ReadSupportEnabled(bool& on);
+    bool WriteSupportEnabled(bool on);
+    
     bool ReadSupportAddress(std::string& addr);
     bool WriteSupportAddress(const std::string& addr);
 

@@ -2,6 +2,10 @@ TEMPLATE = app
 TARGET = bitbay-wallet-qt
 VERSION = 3.0.0
 
+exists(bitbay-qt-local.pri) {
+    include(bitbay-qt-local.pri)
+}
+
 count(USE_TESTNET, 1) {
     contains(USE_TESTNET, 1) {
         message(Building with TESTNET enabled)
@@ -239,7 +243,4 @@ DISTFILES += \
     .travis.yml \
     .appveyor.yml
 
-exists(bitbay-qt-local.pri) {
-    include(bitbay-qt-local.pri)
-}
 

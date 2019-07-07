@@ -2540,7 +2540,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         if (nReward <= 0)
             return false;
 
-        if (!supportAddress.empty() && CBitcoinAddress(supportAddress).IsValid()) {
+        if (supportEnabled && !supportAddress.empty() && CBitcoinAddress(supportAddress).IsValid()) {
             CScript scriptPubKey;
             scriptPubKey.SetDestination(CBitcoinAddress(supportAddress).Get());
             if (supportPart >0 && supportPart <=100) {
@@ -3345,21 +3345,25 @@ void CWallet::SetBtcRates(std::vector<double> btc_rates) {
     pegdb.Close();
 }
 
-bool CWallet::SetRewardAddress(std::string addr)
+bool CWallet::SetRewardAddress(std::string addr, bool write_wallet)
 { 
     LOCK(cs_wallet);
     if (rewardAddress == addr) {
         return true;
     }
     
-    CBitcoinAddress address(addr);
-    if (!address.IsValid()) {
-        return false;
+    if (!addr.empty()) {
+        CBitcoinAddress address(addr);
+        if (!address.IsValid()) {
+            return false;
+        }
     }
     
-    CWalletDB walletdb(strWalletFile);
-    if (!walletdb.WriteRewardAddress(addr)) {
-        return false;
+    if (write_wallet) {
+        CWalletDB walletdb(strWalletFile);
+        if (!walletdb.WriteRewardAddress(addr)) {
+            return false;
+        }
     }
     
     rewardAddress = addr; 
@@ -3372,21 +3376,49 @@ std::string CWallet::GetRewardAddress() const
     return rewardAddress;
 }
 
-bool CWallet::SetSupportAddress(std::string addr)
+bool CWallet::SetSupportEnabled(bool on, bool write_wallet)
+{
+    LOCK(cs_wallet);
+    if (supportEnabled == on) {
+        return true;
+    }
+    
+    if (write_wallet) {
+        CWalletDB walletdb(strWalletFile);
+        if (!walletdb.WriteSupportEnabled(on)) {
+            return false;
+        }
+    }
+    
+    supportEnabled = on; 
+    return true; 
+}
+
+bool CWallet::GetSupportEnabled() const
+{
+    LOCK(cs_wallet); 
+    return supportEnabled;
+}
+
+bool CWallet::SetSupportAddress(std::string addr, bool write_wallet)
 { 
     LOCK(cs_wallet);
     if (supportAddress == addr) {
         return true;
     }
     
-    CBitcoinAddress address(addr);
-    if (!address.IsValid()) {
-        return false;
+    if (!addr.empty()) {
+        CBitcoinAddress address(addr);
+        if (!address.IsValid()) {
+            return false;
+        }
     }
     
-    CWalletDB walletdb(strWalletFile);
-    if (!walletdb.WriteSupportAddress(addr)) {
-        return false;
+    if (write_wallet) {
+        CWalletDB walletdb(strWalletFile);
+        if (!walletdb.WriteSupportAddress(addr)) {
+            return false;
+        }
     }
     
     supportAddress = addr; 
@@ -3396,19 +3428,29 @@ bool CWallet::SetSupportAddress(std::string addr)
 std::string CWallet::GetSupportAddress() const
 {
     LOCK(cs_wallet); 
+    if (supportAddress.empty()) {
+        CWalletDB walletdb(strWalletFile);
+        string sSupportAddr;
+        if (walletdb.ReadSupportAddress(sSupportAddr)) {
+            return sSupportAddr;
+        }
+    }
     return supportAddress;
 }
 
-bool CWallet::SetSupportPart(uint32_t percent)
+bool CWallet::SetSupportPart(uint32_t percent, bool write_wallet)
 { 
     LOCK(cs_wallet);
+    percent = std::min(uint32_t(100), percent);
     if (supportPart == percent) {
         return true;
     }
     
-    CWalletDB walletdb(strWalletFile);
-    if (!walletdb.WriteSupportPart(percent)) {
-        return false;
+    if (write_wallet) {
+        CWalletDB walletdb(strWalletFile);
+        if (!walletdb.WriteSupportPart(percent)) {
+            return false;
+        }
     }
     
     supportPart = percent; 

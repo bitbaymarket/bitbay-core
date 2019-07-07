@@ -174,6 +174,21 @@ bool CWalletDB::WriteRewardAddress(const string& addr)
     return Write(string("rewardaddr"), addr);
 }
 
+bool CWalletDB::ReadSupportEnabled(bool& on)
+{
+    bool ok = Read(string("supportison"), on);
+    if (!ok) {
+        on = true;
+        ok = true;
+    }
+    return ok;
+}
+
+bool CWalletDB::WriteSupportEnabled(bool on)
+{
+    return Write(string("supportison"), on);
+}
+
 bool CWalletDB::ReadSupportAddress(string& addr)
 {
     bool ok = Read(string("supportaddr"), addr);
@@ -698,15 +713,19 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
         
         string sRewardAddr;
         if (ReadRewardAddress(sRewardAddr)) {
-            pwallet->SetRewardAddress(sRewardAddr);
+            pwallet->SetRewardAddress(sRewardAddr, false/*write*/);
+        }
+        bool fSupportIsOn;
+        if (ReadSupportEnabled(fSupportIsOn)) {
+            pwallet->SetSupportEnabled(fSupportIsOn, false/*write*/);
         }
         string sSupportAddr;
         if (ReadSupportAddress(sSupportAddr)) {
-            pwallet->SetSupportAddress(sSupportAddr);
+            pwallet->SetSupportAddress(sSupportAddr, false/*write*/);
         }
         uint32_t nSupportPart;
         if (ReadSupportPart(nSupportPart)) {
-            pwallet->SetSupportPart(nSupportPart);
+            pwallet->SetSupportPart(nSupportPart, false/*write*/);
         }
     }
     catch (boost::thread_interrupted) {

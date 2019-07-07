@@ -207,6 +207,9 @@ public:
     bool ReadPegStartHeight(int& nHeight);
     bool WritePegStartHeight(int nHeight);
 
+    bool ReadPegPruneEnabled(bool& fEnabled);
+    bool WritePegPruneEnabled(bool fEnabled);
+    
     bool ReadPegTxActivated(bool& fActivated);
     bool WritePegTxActivated(bool fActivated);
     

@@ -1561,7 +1561,7 @@ bool CTransaction::ConnectInputs(MapPrevTx inputs,
     return true;
 }
 
-bool CBlock::DisconnectBlock(CTxDB& txdb, CBlockIndex* pindex)
+bool CBlock::DisconnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex)
 {
     // Disconnect in reverse order
     for (int i = vtx.size()-1; i >= 0; i--) {
@@ -1572,6 +1572,11 @@ bool CBlock::DisconnectBlock(CTxDB& txdb, CBlockIndex* pindex)
             const COutPoint& out = vtx[i].vin[j].prevout;
             // erase the spent input
             mapMainChainLastSpentOuts.erase(out);
+        }
+        uint256 txhash = vtx[i].GetHash();
+        for (unsigned int j = vtx[i].vout.size(); j-- > 0;) {
+            auto fkey = uint320(txhash, j);
+            pegdb.Erase(fkey);
         }
     }
 
@@ -1781,18 +1786,24 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
             return error("ConnectBlock() : pegdb Write failed");
     }
     
-    // Prune old spent fractions, back to index
-    int nHeightPrune = pindex->nHeight-PEG_PRUNE_INTERVAL;
-    if (nHeightPrune >0 && nHeightPrune >= nPegStartHeight) {
-        auto pindexprune = pindex;
-        while (pindexprune && pindexprune->nHeight > nHeightPrune)
-            pindexprune = pindexprune->pprev;
-        if (pindexprune) {
-            CBlock blockprune;
-            if (blockprune.ReadFromDisk(pindexprune->nFile, 
-                                        pindexprune->nBlockPos, 
-                                        true /*vtx*/)) {
-                PrunePegForBlock(blockprune, pegdb);
+    bool fPegPruneEnabled = true;
+    if (!pegdb.ReadPegPruneEnabled(fPegPruneEnabled)) {
+        fPegPruneEnabled = true;
+    }
+    if (fPegPruneEnabled) {
+        // Prune old spent fractions, back to index
+        int nHeightPrune = pindex->nHeight-PEG_PRUNE_INTERVAL;
+        if (nHeightPrune >0 && nHeightPrune >= nPegStartHeight) {
+            auto pindexprune = pindex;
+            while (pindexprune && pindexprune->nHeight > nHeightPrune)
+                pindexprune = pindexprune->pprev;
+            if (pindexprune) {
+                CBlock blockprune;
+                if (blockprune.ReadFromDisk(pindexprune->nFile, 
+                                            pindexprune->nBlockPos, 
+                                            true /*vtx*/)) {
+                    PrunePegForBlock(blockprune, pegdb);
+                }
             }
         }
     }
@@ -1903,7 +1914,7 @@ bool static Reorganize(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindexNew)
         CBlock block;
         if (!block.ReadFromDisk(pindex))
             return error("Reorganize() : ReadFromDisk for disconnect failed");
-        if (!block.DisconnectBlock(txdb, pindex))
+        if (!block.DisconnectBlock(txdb, pegdb, pindex))
             return error("Reorganize() : DisconnectBlock %s failed", pindex->GetBlockHash().ToString());
 
         // Queue memory transactions to resurrect.

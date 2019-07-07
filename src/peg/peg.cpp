@@ -1219,7 +1219,6 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
 
 void PrunePegForBlock(const CBlock& blockprune, CPegDB& pegdb)
 {
-    return;
     for(size_t i=0; i<blockprune.vtx.size(); i++) {
         const CTransaction& tx = blockprune.vtx[i];
         for (size_t j=0; j< tx.vin.size(); j++) {
@@ -1230,16 +1229,34 @@ void PrunePegForBlock(const CBlock& blockprune, CPegDB& pegdb)
         if (!tx.IsCoinStake()) 
             continue;
         
+        uint256 txhash = tx.GetHash();
         for (size_t j=0; j< tx.vout.size(); j++) {
+            auto fkey = uint320(txhash, j);
+            
             CTxOut out = tx.vout[j];
-            const CScript& scriptPubKey = out.scriptPubKey;
     
+            if (out.nValue == 0) {
+                pegdb.Erase(fkey);
+                continue;
+            }
+            
+            const CScript& scriptPubKey = out.scriptPubKey;
             txnouttype type;
             vector<CTxDestination> addresses;
             int nRequired;
     
-            if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired))
+            if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
+                opcodetype opcode1;
+                vector<unsigned char> vch1;
+                CScript::const_iterator pc1 = scriptPubKey.begin();
+                if (scriptPubKey.GetOp(pc1, opcode1, vch1)) {
+                    if (opcode1 == OP_RETURN && scriptPubKey.size()>1) {
+                        pegdb.Erase(fkey);
+                        continue;
+                    }
+                }
                 continue;
+            }
     
             bool voted = false;
             for(const CTxDestination& addr : addresses) {
@@ -1251,7 +1268,6 @@ void PrunePegForBlock(const CBlock& blockprune, CPegDB& pegdb)
             if (!voted) 
                 continue;
             
-            auto fkey = uint320(tx.GetHash(), j);
             pegdb.Erase(fkey);
         }
     }

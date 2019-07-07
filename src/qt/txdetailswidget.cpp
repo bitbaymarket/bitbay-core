@@ -361,8 +361,15 @@ void TxDetailsWidget::openTx(CTransaction & tx,
         }
         ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Confirmations",QString::number(nConfirmations)})));
         ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Hash",thash})));
-        if (pblockindex->nHeight <= nBestHeight-PEG_PRUNE_INTERVAL) {
-            pruned = true;
+        
+        bool fPegPruneEnabled = true;
+        if (!pegdb.ReadPegPruneEnabled(fPegPruneEnabled)) {
+            fPegPruneEnabled = true;
+        }
+        if (fPegPruneEnabled) {
+            if (pblockindex->nHeight <= nBestHeight-PEG_PRUNE_INTERVAL) {
+                pruned = true;
+            }
         }
     }
 

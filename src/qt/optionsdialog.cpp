@@ -6,6 +6,7 @@
 #include "netbase.h"
 #include "optionsmodel.h"
 #include "guiutil.h"
+#include "txdb-leveldb.h"
 
 #include <QDir>
 #include <QIntValidator>
@@ -87,6 +88,17 @@ OptionsDialog::OptionsDialog(QWidget *parent) :
     connect(mapper, SIGNAL(currentIndexChanged(int)), this, SLOT(disableApplyButton()));
     /* setup/change UI elements when proxy IP is invalid/valid */
     connect(this, SIGNAL(proxyIpValid(QValidatedLineEdit *, bool)), this, SLOT(handleProxyIpValid(QValidatedLineEdit *, bool)));
+    
+    {
+        LOCK(cs_main);
+        CTxDB txdb("r");
+        bool fPegPruneEnabled = true;
+        if (!txdb.ReadPegPruneEnabled(fPegPruneEnabled)) {
+            fPegPruneEnabled = true;
+        }
+        ui->prunePegInfo->setChecked(fPegPruneEnabled);
+    }
+    connect(ui->prunePegInfo, SIGNAL(toggled(bool)), this, SLOT(changePegPrune(bool)));
 }
 
 OptionsDialog::~OptionsDialog()
@@ -174,6 +186,11 @@ void OptionsDialog::setSaveButtonState(bool fState)
 void OptionsDialog::on_okButton_clicked()
 {
     mapper->submit();
+    {
+        LOCK(cs_main);
+        CTxDB txdb("r+");
+        txdb.WritePegPruneEnabled(ui->prunePegInfo->isChecked());
+    }
     accept();
 }
 
@@ -185,6 +202,11 @@ void OptionsDialog::on_cancelButton_clicked()
 void OptionsDialog::on_applyButton_clicked()
 {
     mapper->submit();
+    {
+        LOCK(cs_main);
+        CTxDB txdb("r+");
+        txdb.WritePegPruneEnabled(ui->prunePegInfo->isChecked());
+    }
     disableApplyButton();
 }
 
@@ -246,4 +268,8 @@ bool OptionsDialog::eventFilter(QObject *object, QEvent *event)
         }
     }
     return QDialog::eventFilter(object, event);
+}
+
+void OptionsDialog::changePegPrune(bool f)
+{
 }

@@ -212,6 +212,16 @@ bool CPegDB::WritePegStartHeight(int nHeight)
     return Write(string("pegStartHeight"), nHeight);
 }
 
+bool CPegDB::ReadPegPruneEnabled(bool& fEnabled)
+{
+    return Read(string("pegPruneEnabled"), fEnabled);
+}
+
+bool CPegDB::WritePegPruneEnabled(bool fEnabled)
+{
+    return Write(string("pegPruneEnabled"), fEnabled);
+}
+
 bool CPegDB::ReadPegTxActivated(bool& fActivated)
 {
     return Read(string("pegTxActivated"), fActivated);
@@ -290,16 +300,21 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
         }
     }
 
-    bool bBlockIndexIsPegReady = false;
-    if (!txdb.ReadBlockIndexIsPegReady(bBlockIndexIsPegReady)) {
-        bBlockIndexIsPegReady = false;
+    bool fBlockIndexIsPegReady = false;
+    if (!txdb.ReadBlockIndexIsPegReady(fBlockIndexIsPegReady)) {
+        fBlockIndexIsPegReady = false;
     }
 
-    if (!bBlockIndexIsPegReady) {
+    if (!fBlockIndexIsPegReady) {
         if (!SetBlocksIndexesReadyForPeg(txdb, load_msg))
             return error("LoadBlockIndex() : SetBlocksIndexesReadyForPeg failed");
     }
 
+    bool fPegPruneEnabled = true;
+    if (!txdb.ReadPegPruneEnabled(fPegPruneEnabled)) {
+        fPegPruneEnabled = true;
+    }
+    
     { // all is ready, store nPegStartHeight
         if (!txdb.TxnBegin())
             return error("WriteBlockIndexIsPegReady() : TxnBegin failed");
@@ -318,9 +333,17 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
         bool fPegCheck2 = false;
         txdb.ReadPegCheck(PEG_DB_CHECK2, fPegCheck2);
         
+        bool fPegPruneStored = true;
+        if (!pegdb.ReadPegPruneEnabled(fPegPruneStored)) {
+            fPegPruneStored = true;
+        }
+        
         int nPegStartHeightStored = 0;
         pegdb.ReadPegStartHeight(nPegStartHeightStored);
-        if (nPegStartHeightStored != nPegStartHeight || !fPegCheck1 || !fPegCheck2) {
+        if (nPegStartHeightStored != nPegStartHeight 
+                || fPegPruneStored != fPegPruneEnabled 
+                || !fPegCheck1 
+                || !fPegCheck2) {
             // reprocess from nPegStartHeight
 
             if (!txdb.TxnBegin())
@@ -475,18 +498,20 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                         return error("LoadBlockIndex() : pegdb Write failed");
                 }
                 
-                // Prune old spent fractions, back to index
-                int nHeightPrune = pblockindex->nHeight-PEG_PRUNE_INTERVAL;
-                if (nHeightPrune >0 && nHeightPrune >= nPegStartHeight) {
-                    auto pindexprune = pblockindex;
-                    while (pindexprune && pindexprune->nHeight > nHeightPrune)
-                        pindexprune = pindexprune->pprev;
-                    if (pindexprune) {
-                        CBlock blockprune;
-                        if (blockprune.ReadFromDisk(pindexprune->nFile, 
-                                                    pindexprune->nBlockPos, 
-                                                    true /*vtx*/)) {
-                            PrunePegForBlock(blockprune, pegdb);
+                if (fPegPruneEnabled) {
+                    // Prune old spent fractions, back to index
+                    int nHeightPrune = pblockindex->nHeight-PEG_PRUNE_INTERVAL;
+                    if (nHeightPrune >0 && nHeightPrune >= nPegStartHeight) {
+                        auto pindexprune = pblockindex;
+                        while (pindexprune && pindexprune->nHeight > nHeightPrune)
+                            pindexprune = pindexprune->pprev;
+                        if (pindexprune) {
+                            CBlock blockprune;
+                            if (blockprune.ReadFromDisk(pindexprune->nFile, 
+                                                        pindexprune->nBlockPos, 
+                                                        true /*vtx*/)) {
+                                PrunePegForBlock(blockprune, pegdb);
+                            }
                         }
                     }
                 }
@@ -514,6 +539,9 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
             
             if (!pegdb.WritePegWhiteListHash(pegWhiteListHash))
                 return error("WritePegStartHeight() : peg whitelist hash write failed");
+
+            if (!pegdb.WritePegPruneEnabled(fPegPruneEnabled))
+                return error("WritePegPruneEnabled() : peg prune flag write failed");
             
             if (!pegdb.TxnCommit())
                 return error("LoadBlockIndex() : peg TxnCommit failed");

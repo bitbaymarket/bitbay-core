@@ -877,7 +877,7 @@ public:
     }
 
 
-    bool DisconnectBlock(CTxDB& txdb, CBlockIndex* pindex);
+    bool DisconnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex);
     bool ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool fJustCheck=false);
     bool ReadFromDisk(const CBlockIndex* pindex, bool fReadTransactions=true);
     bool SetBestChain(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindexNew);

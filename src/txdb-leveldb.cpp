@@ -304,6 +304,16 @@ bool CTxDB::WritePegCheck(int nCheck, bool bReady)
     return Write(string("pegCheck")+std::to_string(nCheck), bReady);
 }
 
+bool CTxDB::ReadPegPruneEnabled(bool& fEnabled)
+{
+    return Read(string("pegPruneEnabled"), fEnabled);
+}
+
+bool CTxDB::WritePegPruneEnabled(bool fEnabled)
+{
+    return Write(string("pegPruneEnabled"), fEnabled);
+}
+
 bool CTxDB::ReadBestInvalidTrust(CBigNum& bnBestInvalidTrust)
 {
     return Read(string("bnBestInvalidTrust"), bnBestInvalidTrust);

@@ -200,13 +200,20 @@ public:
     bool ReadBestInvalidTrust(CBigNum& bnBestInvalidTrust);
     bool WriteBestInvalidTrust(CBigNum bnBestInvalidTrust);
     bool LoadBlockIndex(LoadMsg load_msg);
+    
     // flags for peg system peg
     bool ReadPegStartHeight(int& nHeight);
     bool WritePegStartHeight(int nHeight);
+    
     bool ReadBlockIndexIsPegReady(bool& bReady);
     bool WriteBlockIndexIsPegReady(bool bReady);
+    
     bool ReadPegCheck(int nCheck, bool& bReady);
     bool WritePegCheck(int nCheck, bool bReady);
+    
+    bool ReadPegPruneEnabled(bool& fEnabled);
+    bool WritePegPruneEnabled(bool fEnabled);
+    
 private:
     bool LoadBlockIndexGuts();
 };

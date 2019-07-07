@@ -1499,7 +1499,9 @@ void TxDetailsWidget::openFractions(QTreeWidgetItem * item, int column)
 
 void TxDetailsWidget::plotFractions(QTreeWidget * table, 
                                     const CFractions & fractions,
-                                    const CPegLevel & level)
+                                    const CPegLevel & level,
+                                    int64_t nLiquidSave,
+                                    int64_t nReserveSave)
 {
     if (!table) return;
     QWidget * top = table->topLevelWidget();
@@ -1533,15 +1535,12 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
         supply = level.nSupply;
     } else {
         supply = level.nSupply + level.nShift;
-        int col = 240;
 
         QStringList row_cycle;
         row_cycle << tr("Cycle") << QString::number(level.nCycle);
         auto row_item_cycle = new QTreeWidgetItem(row_cycle);
         row_item_cycle->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
         row_item_cycle->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        row_item_cycle->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
-        row_item_cycle->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
         table->addTopLevelItem(row_item_cycle);
 
         QStringList row_cyclep;
@@ -1549,8 +1548,6 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
         auto row_item_cyclep = new QTreeWidgetItem(row_cyclep);
         row_item_cyclep->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
         row_item_cyclep->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        row_item_cyclep->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
-        row_item_cyclep->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
         table->addTopLevelItem(row_item_cyclep);
         
         QStringList row_peg;
@@ -1558,8 +1555,6 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
         auto row_item_peg = new QTreeWidgetItem(row_peg);
         row_item_peg->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
         row_item_peg->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        row_item_peg->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
-        row_item_peg->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
         table->addTopLevelItem(row_item_peg);
         
         QStringList row_pegn;
@@ -1567,8 +1562,6 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
         auto row_item_pegn = new QTreeWidgetItem(row_pegn);
         row_item_pegn->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
         row_item_pegn->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        row_item_pegn->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
-        row_item_pegn->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
         table->addTopLevelItem(row_item_pegn);
 
         QStringList row_pegnn;
@@ -1576,8 +1569,6 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
         auto row_item_pegnn = new QTreeWidgetItem(row_pegnn);
         row_item_pegnn->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
         row_item_pegnn->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        row_item_pegnn->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
-        row_item_pegnn->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
         table->addTopLevelItem(row_item_pegnn);
         
         QStringList row_shift;
@@ -1585,8 +1576,6 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
         auto row_item_shift = new QTreeWidgetItem(row_shift);
         row_item_shift->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
         row_item_shift->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        row_item_shift->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
-        row_item_shift->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
         table->addTopLevelItem(row_item_shift);
 
         QStringList row_part;
@@ -1594,8 +1583,6 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
         auto row_item_part = new QTreeWidgetItem(row_part);
         row_item_part->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
         row_item_part->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        row_item_part->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
-        row_item_part->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
         table->addTopLevelItem(row_item_part);
 
         QStringList row_ptot;
@@ -1603,8 +1590,6 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
         auto row_item_ptot = new QTreeWidgetItem(row_ptot);
         row_item_ptot->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
         row_item_ptot->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        row_item_ptot->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
-        row_item_ptot->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
         table->addTopLevelItem(row_item_ptot);
         
         QStringList row_value;
@@ -1612,27 +1597,35 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
         auto row_item_value = new QTreeWidgetItem(row_value);
         row_item_value->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
         row_item_value->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        row_item_value->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
-        row_item_value->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
         table->addTopLevelItem(row_item_value);
 
-        QStringList row_liquid;
-        row_liquid << tr("L") << displayValue(fractions.High(level));
-        auto row_item_liquid = new QTreeWidgetItem(row_liquid);
-        row_item_liquid->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-        row_item_liquid->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        row_item_liquid->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
-        row_item_liquid->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
-        table->addTopLevelItem(row_item_liquid);
+        QStringList row_liquid_calc;
+        row_liquid_calc << tr("Lcalc") << displayValue(fractions.High(level));
+        auto row_item_liquid_calc = new QTreeWidgetItem(row_liquid_calc);
+        row_item_liquid_calc->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_liquid_calc->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        table->addTopLevelItem(row_item_liquid_calc);
 
-        QStringList row_reserve;
-        row_reserve << tr("R") << displayValue(fractions.Low(level));
-        auto row_item_reserve = new QTreeWidgetItem(row_reserve);
-        row_item_reserve->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-        row_item_reserve->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        row_item_reserve->setData(0, Qt::BackgroundColorRole, QColor(col,col,col));
-        row_item_reserve->setData(1, Qt::BackgroundColorRole, QColor(col,col,col));
-        table->addTopLevelItem(row_item_reserve);
+        QStringList row_reserve_calc;
+        row_reserve_calc << tr("Rcalc") << displayValue(fractions.Low(level));
+        auto row_item_reserve_calc = new QTreeWidgetItem(row_reserve_calc);
+        row_item_reserve_calc->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_reserve_calc->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        table->addTopLevelItem(row_item_reserve_calc);
+
+        QStringList row_liquid_save;
+        row_liquid_save << tr("Lsave") << displayValue(nLiquidSave);
+        auto row_item_liquid_save = new QTreeWidgetItem(row_liquid_save);
+        row_item_liquid_save->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_liquid_save->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        table->addTopLevelItem(row_item_liquid_save);
+
+        QStringList row_reserve_save;
+        row_reserve_save << tr("Rsave") << displayValue(nReserveSave);
+        auto row_item_reserve_save = new QTreeWidgetItem(row_reserve_save);
+        row_item_reserve_save->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_reserve_save->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        table->addTopLevelItem(row_item_reserve_save);
         
         QStringList row_space;
         auto row_item_space = new QTreeWidgetItem(row_space);
@@ -1746,14 +1739,25 @@ void TxDetailsWidget::openFractionsMenu(const QPoint & pos)
                     CFractions fractions(0, CFractions::STD);
                     fractions.Unpack(finp);
                     
+                    int64_t nLiquidSave = -1;
+                    int64_t nReserveSave = -1;
+                    
                     CPegLevel level("");
                     try {
                         level.Unpack(finp);
+                        
+                        try {
+                            finp >> nReserveSave;
+                            finp >> nLiquidSave;
+                        }
+                        catch (std::exception &) { 
+                        }
+                        
                     }catch (std::exception &) { 
                         level.nSupply = 0; 
                     }
                     
-                    plotFractions(table, fractions, level);
+                    plotFractions(table, fractions, level, nLiquidSave, nReserveSave);
                 });
             }
         }catch (std::exception &) { ; }

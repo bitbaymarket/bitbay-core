@@ -68,7 +68,9 @@ private slots:
     void openOutMenu(const QPoint &);
     void plotFractions(QTreeWidget *, 
                        const CFractions &, 
-                       const CPegLevel &);
+                       const CPegLevel &,
+                       int64_t nLiquidSave = -1,
+                       int64_t nReserveSave = -1);
 
 private:
     Ui::TxDetails *ui;

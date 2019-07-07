@@ -3463,4 +3463,53 @@ uint32_t CWallet::GetSupportPart() const
     return supportPart;
 }
 
+string scripttoaddress(const CScript& scriptPubKey,
+                       bool* ptrIsNotary,
+                       string* ptrNotary) {
+    int nRequired;
+    txnouttype type;
+    vector<CTxDestination> addresses;
+    if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
+        std::string str_addr_all;
+        bool fNone = true;
+        for(const CTxDestination& addr : addresses) {
+            std::string str_addr = CBitcoinAddress(addr).ToString();
+            if (!str_addr_all.empty())
+                str_addr_all += "\n";
+            str_addr_all += str_addr;
+            fNone = false;
+        }
+        if (!fNone)
+            return str_addr_all;
+    }
+
+    if (ptrNotary || ptrIsNotary) {
+        if (ptrIsNotary) *ptrIsNotary = false;
+        if (ptrNotary) *ptrNotary = "";
+
+        opcodetype opcode1;
+        vector<unsigned char> vch1;
+        CScript::const_iterator pc1 = scriptPubKey.begin();
+        if (scriptPubKey.GetOp(pc1, opcode1, vch1)) {
+            if (opcode1 == OP_RETURN && scriptPubKey.size()>1) {
+                if (ptrIsNotary) *ptrIsNotary = true;
+                if (ptrNotary) {
+                    unsigned long len_bytes = scriptPubKey[1];
+                    if (len_bytes > scriptPubKey.size()-2)
+                        len_bytes = scriptPubKey.size()-2;
+                    for (uint32_t i=0; i< len_bytes; i++) {
+                        ptrNotary->push_back(char(scriptPubKey[i+2]));
+                    }
+                }
+            }
+        }
+    }
+
+    string as_bytes;
+    unsigned long len_bytes = scriptPubKey.size();
+    for(unsigned int i=0; i< len_bytes; i++) {
+        as_bytes += char(scriptPubKey[i]);
+    }
+    return as_bytes;
+}
 

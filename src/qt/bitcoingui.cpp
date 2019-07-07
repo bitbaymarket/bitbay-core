@@ -545,7 +545,6 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     netAccessManager = new QNetworkAccessManager(this);
     connect(netAccessManager, &QNetworkAccessManager::finished,
             this, &BitcoinGUI::ratesReplyFinished);
-    ratesRequestInitiate();
     
     QTimer* timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(ratesRequestInitiate()));
@@ -1066,6 +1065,15 @@ void BitcoinGUI::message(const QString &title, const QString &message, bool moda
     }
     else
         notificator->notify((Notificator::Class)nNotifyIcon, strTitle, message);
+}
+
+void BitcoinGUI::showEvent(QShowEvent *e)
+{
+    QMainWindow::showEvent(e);
+    if (firstTimeRequest) {
+        firstTimeRequest = false;
+        ratesRequestInitiate();
+    }
 }
 
 void BitcoinGUI::changeEvent(QEvent *e)

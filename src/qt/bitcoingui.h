@@ -59,11 +59,13 @@ protected:
     void closeEvent(QCloseEvent *event);
     void dragEnterEvent(QDragEnterEvent *event);
     void dropEvent(QDropEvent *event);
+    void showEvent(QShowEvent *event);
 
 private:
     ClientModel *clientModel;
     WalletModel *walletModel;
 
+    bool firstTimeRequest = true;
     QNetworkAccessManager * netAccessManager;
     std::vector<double> vFirstRetrievedBtcRates;
     std::vector<double> vFirstRetrievedBayRates;

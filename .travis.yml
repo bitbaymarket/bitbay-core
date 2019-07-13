@@ -71,8 +71,20 @@ matrix:
       dist: trusty
       sudo: required
       env:
+        - DEPLOY_FILE=bitbay-wallet-qt_win64.zip
+        - ARCH="qtwallet-win64"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
         - DEPLOY_FILE=bitbayd_win32.zip
         - ARCH="bitbayd-win32"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=bitbayd_win64.zip
+        - ARCH="bitbayd-win64"
     - os: osx
       osx_image: xcode8.3
       compiler: clang
@@ -159,7 +171,15 @@ install:
     export                                                      ;
   fi
 - >
+  if [[ $ARCH == "qtwallet-win64" ]]; then
+    export                                                      ;
+  fi
+- >
   if [[ $ARCH == "bitbayd-win32" ]]; then
+    export                                                      ;
+  fi
+- >
+  if [[ $ARCH == "bitbayd-win64" ]]; then
     export                                                      ;
   fi
 - >
@@ -265,8 +285,16 @@ before_script:
     docker pull bitbayofficial/builder-windows32:qt;
   fi
 - >
+  if [[ $ARCH == "qtwallet-win64" ]]; then
+    docker pull bitbayofficial/builder-windows64:qt;
+  fi
+- >
   if [[ $ARCH == "bitbayd-win32" ]]; then
     docker pull bitbayofficial/builder-windows32:qt;
+  fi
+- >
+  if [[ $ARCH == "bitbayd-win64" ]]; then
+    docker pull bitbayofficial/builder-windows64:qt;
   fi
 - >
   if [[ $ARCH == "qtwallet-mac64" ]]; then
@@ -528,6 +556,25 @@ script:
           make -j2";
   fi
 - >
+  if [[ $ARCH == "qtwallet-win64" ]]; then
+    docker run --rm \
+        -v $(pwd):/mnt \
+        -u $(stat -c %u:%g .) \
+        bitbayofficial/builder-windows64:qt \
+        /bin/bash -c "cd /mnt && qmake -v && \
+          qmake \
+            CICD=travis_x64 \
+            QMAKE_LRELEASE=lrelease \
+            \"USE_QRCODE=1\" \
+            bitbay-qt.pro && \
+            mv Makefile.Release Makefile.tmp && ( \
+              cat Makefile.tmp | \
+              sed -e 's/bin.lrelease\.exe/bin\/lrelease/m' | \
+              sed -e 's/boost_thread-mt/boost_thread_win32-mt/m' > Makefile.Release \
+            ) && \
+          make -j2";
+  fi
+- >
   if [[ $ARCH == "bitbayd-win32" ]]; then
     docker run --rm \
         -v $(pwd):/mnt \
@@ -536,6 +583,25 @@ script:
         /bin/bash -c "cd /mnt && qmake -v && \
           qmake \
             CICD=travis_x32 \
+            QMAKE_LRELEASE=lrelease \
+            \"USE_QRCODE=1\" \
+            bitbayd.pro && \
+            mv Makefile.Release Makefile.tmp && ( \
+              cat Makefile.tmp | \
+              sed -e 's/bin.lrelease\.exe/bin\/lrelease/m' | \
+              sed -e 's/boost_thread-mt/boost_thread_win32-mt/m' > Makefile.Release \
+            ) && \
+          make -j2";
+  fi
+- >
+  if [[ $ARCH == "bitbayd-win64" ]]; then
+    docker run --rm \
+        -v $(pwd):/mnt \
+        -u $(stat -c %u:%g .) \
+        bitbayofficial/builder-windows64:qt \
+        /bin/bash -c "cd /mnt && qmake -v && \
+          qmake \
+            CICD=travis_x64 \
             QMAKE_LRELEASE=lrelease \
             \"USE_QRCODE=1\" \
             bitbayd.pro && \
@@ -622,7 +688,21 @@ script:
     zip $DEPLOY_FILE bitbay-wallet-qt.exe       ;
   fi
 - >
+  if [[ $ARCH == "qtwallet-win64" ]]; then
+    mv release/bitbay-wallet-qt.exe .           &&
+    file bitbay-wallet-qt.exe                   &&
+    ls -l                                       &&
+    zip $DEPLOY_FILE bitbay-wallet-qt.exe       ;
+  fi
+- >
   if [[ $ARCH == "bitbayd-win32" ]]; then
+    mv release/bitbayd.exe .           &&
+    file bitbayd.exe                   &&
+    ls -l                              &&
+    zip $DEPLOY_FILE bitbayd.exe       ;
+  fi
+- >
+  if [[ $ARCH == "bitbayd-win64" ]]; then
     mv release/bitbayd.exe .           &&
     file bitbayd.exe                   &&
     ls -l                              &&

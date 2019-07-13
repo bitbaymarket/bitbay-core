@@ -395,6 +395,11 @@ void RPCConsole::browseHistory(int offset)
 void RPCConsole::startExecutor()
 {
     QThread* thread = new QThread;
+    if (thread->stackSize() < 1024*1024) {
+        // to have at least 1MB stack for ops with mem use
+        // like needed for peg api (alpine/musl has only 80KB per thread)
+        thread->setStackSize(1024*1024);
+    }
     RPCExecutor *executor = new RPCExecutor();
     executor->moveToThread(thread);
 

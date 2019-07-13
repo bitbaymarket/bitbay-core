@@ -37,6 +37,12 @@ matrix:
       env:
         - DEPLOY_FILE=testnet-bitbay-wallet-qt_win32.zip
         - ARCH="testnet-qtwallet-win32"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=testnet-bitbay-wallet-qt_win64.zip
+        - ARCH="testnet-qtwallet-win64"
     - os: osx
       osx_image: xcode8.3
       compiler: clang
@@ -107,6 +113,10 @@ install:
   fi
 - >
   if [[ $ARCH == "testnet-qtwallet-win32" ]]; then
+    export                                                      ;
+  fi
+- >
+  if [[ $ARCH == "testnet-qtwallet-win64" ]]; then
     export                                                      ;
   fi
 - >
@@ -233,6 +243,10 @@ before_script:
 - >
   if [[ $ARCH == "testnet-qtwallet-win32" ]]; then
     docker pull bitbayofficial/builder-windows32:qt;
+  fi
+- >
+  if [[ $ARCH == "testnet-qtwallet-win64" ]]; then
+    docker pull bitbayofficial/builder-windows64:qt;
   fi
 - >
   if [[ $ARCH == "testnet-qtwallet-mac64" ]]; then
@@ -421,6 +435,26 @@ script:
           make -j2";
   fi
 - >
+  if [[ $ARCH == "testnet-qtwallet-win64" ]]; then
+    docker run --rm \
+        -v $(pwd):/mnt \
+        -u $(stat -c %u:%g .) \
+        bitbayofficial/builder-windows64:qt \
+        /bin/bash -c "cd /mnt && qmake -v && \
+          qmake \
+            CICD=travis_x64 \
+            QMAKE_LRELEASE=lrelease \
+            \"USE_TESTNET=1\" \
+            \"USE_QRCODE=1\" \
+            bitbay-qt.pro && \
+            mv Makefile.Release Makefile.tmp && ( \
+              cat Makefile.tmp | \
+              sed -e 's/bin.lrelease\.exe/bin\/lrelease/m' | \
+              sed -e 's/boost_thread-mt/boost_thread_win32-mt/m' > Makefile.Release \
+            ) && \
+          make -j2";
+  fi
+- >
   if [[ $ARCH == "testnet-qtwallet-mac64" ]]; then
     qmake -v &&
     qmake \
@@ -540,6 +574,13 @@ script:
   fi
 - >
   if [[ $ARCH == "testnet-qtwallet-win32" ]]; then
+    mv release/bitbay-wallet-qt.exe .           &&
+    file bitbay-wallet-qt.exe                   &&
+    ls -l                                       &&
+    zip $DEPLOY_FILE bitbay-wallet-qt.exe       ;
+  fi
+- >
+  if [[ $ARCH == "testnet-qtwallet-win64" ]]; then
     mv release/bitbay-wallet-qt.exe .           &&
     file bitbay-wallet-qt.exe                   &&
     ls -l                                       &&

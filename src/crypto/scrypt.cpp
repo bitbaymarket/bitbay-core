@@ -34,6 +34,8 @@
 #include <string.h>
 #include <openssl/sha.h>
 
+#include "sync.h"
+
 #if defined(USE_SSE2) && !defined(USE_SSE2_ALWAYS)
 #ifdef _MSC_VER
 // MSVC 64bit is unable to use inline asm
@@ -322,8 +324,11 @@ void scrypt_detect_sse2()
 }
 #endif
 
+CCriticalSection cs_scrypt;
+
 void scrypt_1024_1_1_256(const char *input, char *output)
 {
+    LOCK(cs_scrypt);
     static char* scratchpad = nullptr;
     if (!scratchpad) {
         scratchpad = new char[SCRYPT_SCRATCHPAD_SIZE];

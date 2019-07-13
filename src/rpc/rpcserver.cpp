@@ -620,8 +620,14 @@ void StartRPCThreads()
     }
 
     rpc_worker_group = new boost::thread_group();
-    for (int i = 0; i < GetArg("-rpcthreads", 4); i++)
-        rpc_worker_group->create_thread(boost::bind(&asio::io_service::run, rpc_io_service));
+    for (int i = 0; i < GetArg("-rpcthreads", 4); i++) {
+        // at least 256KB for rpc (musl 80KB)
+        boost::thread::attributes rpc_thread_attrs;
+        rpc_thread_attrs.set_stack_size(256*1096); 
+        auto rpc_thread = new thread(rpc_thread_attrs,
+                                     boost::bind(&asio::io_service::run, rpc_io_service));
+        rpc_worker_group->add_thread(rpc_thread);
+    }
 }
 
 void StopRPCThreads()

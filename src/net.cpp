@@ -1688,11 +1688,18 @@ void StartNode(boost::thread_group& threadGroup)
     // Initiate outbound connections
     threadGroup.create_thread(boost::bind(&TraceThread<void (*)()>, "opencon", &ThreadOpenConnections));
 
-    // Process messages
-    threadGroup.create_thread(boost::bind(&TraceThread<void (*)()>, "msghand", &ThreadMessageHandler));
-
     // Dump network addresses
     threadGroup.create_thread(boost::bind(&LoopForever<void (*)()>, "dumpaddr", &DumpAddresses, DUMP_ADDRESSES_INTERVAL * 1000));
+    
+    // Process messages
+    {
+        // at least 1MB for messages processing (musl 80KB)
+        boost::thread::attributes nbetmsg_thread_attrs;
+        nbetmsg_thread_attrs.set_stack_size(1096*1096); 
+        auto netmsg_thread = new thread(nbetmsg_thread_attrs,
+                                       boost::bind(&TraceThread<void (*)()>, "msghand", &ThreadMessageHandler));
+        threadGroup.add_thread(netmsg_thread);
+    }
 }
 
 bool StopNode()

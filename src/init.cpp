@@ -790,7 +790,12 @@ bool AppInit2(boost::thread_group& threadGroup)
         BOOST_FOREACH(string strFile, mapMultiArgs["-loadblock"])
             vImportFiles.push_back(strFile);
     }
-    threadGroup.create_thread(boost::bind(&ThreadImport, vImportFiles));
+    // at least 1MB for import (musl 80KB)
+    boost::thread::attributes import_thread_attrs;
+    import_thread_attrs.set_stack_size(1096*1096); 
+    auto import_thread = new thread(import_thread_attrs,
+                                    boost::bind(&ThreadImport, vImportFiles));
+    threadGroup.add_thread(import_thread);
 
     // ********************************************************* Step 10: load peers
 
@@ -838,8 +843,14 @@ bool AppInit2(boost::thread_group& threadGroup)
     // Mine proof-of-stake blocks in the background
     if (!GetBoolArg("-staking", true))
         LogPrintf("Staking disabled\n");
-    else if (pwalletMain)
-        threadGroup.create_thread(boost::bind(&ThreadStakeMiner, pwalletMain));
+    else if (pwalletMain) {
+        // at least 1MB for mining (musl 80KB)
+        boost::thread::attributes miner_thread_attrs;
+        miner_thread_attrs.set_stack_size(1096*1096); 
+        auto miner_thread = new thread(miner_thread_attrs,
+                                       boost::bind(&ThreadStakeMiner, pwalletMain));
+        threadGroup.add_thread(miner_thread);
+    }
 #endif
 
     // ********************************************************* Step 12: finished

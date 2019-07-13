@@ -588,12 +588,6 @@ script:
     zip $DEPLOY_FILE bitbayd.exe       ;
   fi
 - >
-  if [[ $ARCH == "qtwallet-lin64" ]]; then
-    cd src                          &&
-    echo make -j2 -f makefile.unix  &&
-    cd ..                           ;
-  fi
-- >
   if [[ $ARCH == "qtwallet-mac64" ]]; then
     macdeployqt \
         BitBay-Wallet-Qt.app \

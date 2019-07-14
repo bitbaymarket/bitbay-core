@@ -18,9 +18,15 @@
 #include "txmempool.h"
 #include "ui_interface.h"
 #include "peg.h"
+#include "base58.h"
 
 #include <zconf.h>
 #include <zlib.h>
+
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string.hpp>
 
 using namespace std;
 using namespace boost;
@@ -1224,6 +1230,85 @@ bool IsConfirmedInNPrevBlocks(const CTxIndex& txindex, const CBlockIndex* pindex
     return false;
 }
 
+string scripttoaddress(const CScript& scriptPubKey,
+                       bool* ptrIsNotary = nullptr,
+                       string* ptrNotary = nullptr);
+
+bool CTransaction::IsExchangeTx(int & nOut, uint256 & txid) const
+{
+    nOut = -1;
+    txid = uint256();
+    size_t n_out = vout.size();
+    for(size_t i=0; i< n_out; i++) {
+        string sNotary;
+        bool fNotary = false;
+        scripttoaddress(vout[i].scriptPubKey, &fNotary, &sNotary);
+        if (!fNotary) continue;
+        if (!boost::starts_with(sNotary, "XCH:")) continue;
+        vector<string> vOutputArgs;
+        boost::split(vOutputArgs, sNotary, boost::is_any_of(":"));
+        if (vOutputArgs.size() <2) {
+            return true; // no output, just exchange tx
+        }
+        string sOut = vOutputArgs[1];
+        nOut = std::stoi(sOut);
+        if (nOut <0 || nOut >= int(n_out)) {
+            nOut = -1;
+            return true;
+        }
+        
+        if (vOutputArgs.size() <3) {
+            nOut = -1;
+            return true; // no control hash
+        }
+        
+        string sControlHash = vOutputArgs[2];
+        int64_t nAmount = vout[nOut].nValue;
+        string sAddress = scripttoaddress(vout[nOut].scriptPubKey, &fNotary, &sNotary);
+        {
+            { // liquid withdraw control
+                CDataStream ss(SER_GETHASH, 0);
+                size_t n_inp = vin.size();
+                for(size_t j=0; j< n_inp; j++) {
+                    ss << vin[j].prevout.hash;
+                    ss << vin[j].prevout.n;
+                }
+                ss << string("L");
+                ss << sAddress;
+                ss << nAmount;
+                string sHash = Hash(ss.begin(), ss.end()).GetHex();
+                if (sHash == sControlHash) {
+                    txid = uint256(sHash);
+                    return true;
+                }
+            }
+            
+            { // reserve withdraw control
+                CDataStream ss(SER_GETHASH, 0);
+                size_t n_inp = vin.size();
+                for(size_t j=0; j< n_inp; j++) {
+                    ss << vin[j].prevout.hash;
+                    ss << vin[j].prevout.n;
+                }
+                ss << string("R");
+                ss << sAddress;
+                ss << nAmount;
+                string sHash = Hash(ss.begin(), ss.end()).GetHex();
+                if (sHash == sControlHash) {
+                    txid = uint256(sHash);
+                    return true;
+                }
+            }
+            
+            // control id does not match, reset output number
+            nOut = -1;
+        }
+        
+        return true;
+    }
+    return false;
+}
+
 bool CTransaction::DisconnectInputs(CTxDB& txdb)
 {
     // Relinquish previous transactions' spent pointers
@@ -1592,8 +1677,18 @@ bool CBlock::DisconnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex)
 
     // ppcoin: clean up wallet after disconnecting coinstake
     MapFractions mapFractionsSkip;
-    BOOST_FOREACH(CTransaction& tx, vtx)
+    for(const CTransaction& tx : vtx) {
         SyncWithWallets(tx, this, false, mapFractionsSkip);
+    }
+    
+    // Track of exchange txs
+    for(const CTransaction& tx : vtx) {
+        uint256 txid;
+        int nOut = -1;
+        if (!tx.IsExchangeTx(nOut, txid)) continue;
+        if (txid == 0) continue;
+        pegdb.RemovePegTxId(txid);
+    }
 
     return true;
 }
@@ -1635,7 +1730,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     int64_t nValueOut = 0;
     int64_t nStakeReward = 0;
     unsigned int nSigOps = 0;
-    BOOST_FOREACH(CTransaction& tx, vtx)
+    for(CTransaction& tx : vtx)
     {
         uint256 hashTx = tx.GetHash();
 
@@ -1837,8 +1932,9 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     }
     
     // Watch for transactions paying to me
-    for(CTransaction& tx : vtx)
+    for(const CTransaction& tx : vtx) {
         SyncWithWallets(tx, this, true, mapQueuedFractionsChanges);
+    }
 
     // Watch for peg activation transaction
     if (!fPegIsActivatedViaTx && pindex->nHeight % 10 == 0) {
@@ -1870,6 +1966,17 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
                 }
             }
         }
+    }
+    
+    // Track of exchange txs
+    for(const CTransaction& tx : vtx) {
+        uint256 hashTx = tx.GetHash();
+        uint256 txid;
+        int nOut = -1;
+        if (!tx.IsExchangeTx(nOut, txid)) continue;
+        if (txid == 0) continue;
+        if (!pegdb.WritePegTxId(txid, hashTx))
+            return error("ConnectBlock() : peg txid write failed");
     }
     
     return true;
@@ -1905,11 +2012,11 @@ bool static Reorganize(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindexNew)
     reverse(vConnect.begin(), vConnect.end());
 
     LogPrintf("REORGANIZE: Disconnect %u blocks; %s..%s\n", vDisconnect.size(), pfork->GetBlockHash().ToString(), pindexBest->GetBlockHash().ToString());
-    LogPrintf("REORGANIZE: Connect %u blocks; %s..%s\n", vConnect.size(), pfork->GetBlockHash().ToString(), pindexNew->GetBlockHash().ToString());
+    LogPrintf("REORGANIZE: Connect    %u blocks; %s..%s\n", vConnect.size(), pfork->GetBlockHash().ToString(), pindexNew->GetBlockHash().ToString());
 
     // Disconnect shorter branch
     list<CTransaction> vResurrect;
-    BOOST_FOREACH(CBlockIndex* pindex, vDisconnect)
+    for(CBlockIndex* pindex : vDisconnect)
     {
         CBlock block;
         if (!block.ReadFromDisk(pindex))
@@ -1920,9 +2027,12 @@ bool static Reorganize(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindexNew)
         // Queue memory transactions to resurrect.
         // We only do this for blocks after the last checkpoint (reorganisation before that
         // point should only happen with -reindex/-loadblock, or a misbehaving peer.
-        BOOST_REVERSE_FOREACH(const CTransaction& tx, block.vtx)
-            if (!(tx.IsCoinBase() || tx.IsCoinStake()) && pindex->nHeight > Checkpoints::GetTotalBlocksEstimate())
+        for (size_t i = block.vtx.size(); i--;) {
+            const CTransaction& tx = block.vtx.at(i);
+            if (!(tx.IsCoinBase() || tx.IsCoinStake()) && pindex->nHeight > Checkpoints::GetTotalBlocksEstimate()) {
                 vResurrect.push_front(tx);
+            }
+        }
     }
 
     // Connect longer branch
@@ -1940,8 +2050,9 @@ bool static Reorganize(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindexNew)
         }
 
         // Queue memory transactions to delete
-        BOOST_FOREACH(const CTransaction& tx, block.vtx)
+        for(const CTransaction& tx : block.vtx) {
             vDelete.push_back(tx);
+        }
     }
     if (!txdb.WriteHashBestChain(pindexNew->GetBlockHash()))
         return error("Reorganize() : WriteHashBestChain failed");
@@ -1951,21 +2062,26 @@ bool static Reorganize(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindexNew)
         return error("Reorganize() : TxnCommit failed");
 
     // Disconnect shorter branch
-    BOOST_FOREACH(CBlockIndex* pindex, vDisconnect)
-        if (pindex->pprev)
+    for(const CBlockIndex* pindex : vDisconnect) {
+        if (pindex->pprev) {
             pindex->pprev->pnext = NULL;
+        }
+    }
 
     // Connect longer branch
-    BOOST_FOREACH(CBlockIndex* pindex, vConnect)
-        if (pindex->pprev)
+    for(CBlockIndex* pindex : vConnect) {
+        if (pindex->pprev) {
             pindex->pprev->pnext = pindex;
+        }
+    }
 
     // Resurrect memory transactions that were in the disconnected branch
-    BOOST_FOREACH(CTransaction& tx, vResurrect)
+    for(CTransaction& tx : vResurrect) {
         AcceptToMemoryPool(mempool, tx, false, NULL);
+    }
 
     // Delete redundant memory transactions that are in the connected branch
-    BOOST_FOREACH(CTransaction& tx, vDelete) {
+    for(const CTransaction& tx : vDelete) {
         mempool.remove(tx);
         mempool.removeConflicts(tx);
     }
@@ -1995,8 +2111,9 @@ bool CBlock::SetBestChainInner(CTxDB& txdb, CPegDB& pegdb, CBlockIndex *pindexNe
     pindexNew->pprev->pnext = pindexNew;
 
     // Delete redundant memory transactions
-    BOOST_FOREACH(CTransaction& tx, vtx)
+    for(const CTransaction& tx : vtx) {
         mempool.remove(tx);
+    }
 
     return true;
 }
@@ -2048,8 +2165,10 @@ bool CBlock::SetBestChain(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindexNew)
         }
 
         // Connect further blocks
-        BOOST_REVERSE_FOREACH(CBlockIndex *pindex, vpindexSecondary)
+        for (size_t i = vpindexSecondary.size(); i--;)
         {
+            CBlockIndex *pindex = vpindexSecondary[i];
+            
             CBlock block;
             if (!block.ReadFromDisk(pindex))
             {
@@ -4170,3 +4289,54 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
     }
     return true;
 }
+
+string scripttoaddress(const CScript& scriptPubKey,
+                       bool* ptrIsNotary,
+                       string* ptrNotary) {
+    int nRequired;
+    txnouttype type;
+    vector<CTxDestination> addresses;
+    if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
+        std::string str_addr_all;
+        bool fNone = true;
+        for(const CTxDestination& addr : addresses) {
+            std::string str_addr = CBitcoinAddress(addr).ToString();
+            if (!str_addr_all.empty())
+                str_addr_all += "\n";
+            str_addr_all += str_addr;
+            fNone = false;
+        }
+        if (!fNone)
+            return str_addr_all;
+    }
+
+    if (ptrNotary || ptrIsNotary) {
+        if (ptrIsNotary) *ptrIsNotary = false;
+        if (ptrNotary) *ptrNotary = "";
+
+        opcodetype opcode1;
+        vector<unsigned char> vch1;
+        CScript::const_iterator pc1 = scriptPubKey.begin();
+        if (scriptPubKey.GetOp(pc1, opcode1, vch1)) {
+            if (opcode1 == OP_RETURN && scriptPubKey.size()>1) {
+                if (ptrIsNotary) *ptrIsNotary = true;
+                if (ptrNotary) {
+                    unsigned long len_bytes = scriptPubKey[1];
+                    if (len_bytes > scriptPubKey.size()-2)
+                        len_bytes = scriptPubKey.size()-2;
+                    for (uint32_t i=0; i< len_bytes; i++) {
+                        ptrNotary->push_back(char(scriptPubKey[i+2]));
+                    }
+                }
+            }
+        }
+    }
+
+    string as_bytes;
+    unsigned long len_bytes = scriptPubKey.size();
+    for(unsigned int i=0; i< len_bytes; i++) {
+        as_bytes += char(scriptPubKey[i]);
+    }
+    return as_bytes;
+}
+

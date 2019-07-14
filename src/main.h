@@ -437,6 +437,8 @@ public:
     bool GetCoinAge(CTxDB& txdb, const CBlockIndex* pindexPrev, uint64_t& nCoinAge) const;
 
     void GetOutputFor(const CTxIn& input, const MapPrevTx& inputs, CTxOut& txout) const;
+    
+    bool IsExchangeTx(int & nOut, uint256 & id) const;
 };
 
 /** wrapper for CTxOut that provides a more compact serialization */

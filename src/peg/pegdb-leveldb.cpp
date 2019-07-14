@@ -252,6 +252,21 @@ bool CPegDB::WritePegBayPeakRate(double dRate)
     return Write(string("pegBayPeakRate"), dRate);
 }
 
+bool CPegDB::WritePegTxId(uint256 txid, uint256 txhash)
+{
+    return Write(txid, txhash);
+}
+
+bool CPegDB::ReadPegTxId(uint256 txid, uint256& txhash)
+{
+    return Read(txid, txhash);
+}
+
+bool CPegDB::RemovePegTxId(uint256 txid)
+{
+    return Erase(txid);
+}
+
 bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
 {
     // For Peg System activated via TX

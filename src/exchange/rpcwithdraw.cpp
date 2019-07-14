@@ -631,6 +631,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     }
 
     // notation for exchange control
+    string sTxid;
     {
         string sNotary = "XCH:0:";
         CDataStream ss(SER_GETHASH, 0);
@@ -642,7 +643,8 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         ss << string("L");
         ss << sAddress;
         ss << nAmountWithFee;
-        sNotary += Hash(ss.begin(), ss.end()).GetHex();
+        sTxid = Hash(ss.begin(), ss.end()).GetHex();
+        sNotary += sTxid;
         CScript scriptPubKey;
         scriptPubKey.push_back(OP_RETURN);
         unsigned char len_bytes = sNotary.size();
@@ -727,6 +729,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     string txstr = HexStr(ss.begin(), ss.end());
     
     Object result;
+    result.push_back(Pair("withdraw_id", sTxid));
     result.push_back(Pair("completed", true));
     result.push_back(Pair("txhash", sTxhash));
     result.push_back(Pair("rawtx", txstr));
@@ -1097,6 +1100,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     }
 
     // notation for exchange control
+    string sTxid;
     {
         string sNotary = "XCH:";
         sNotary += std::to_string(rawTx.vin.size()) + ":";
@@ -1109,7 +1113,8 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         ss << string("R");
         ss << sAddress;
         ss << nAmountWithFee;
-        sNotary += Hash(ss.begin(), ss.end()).GetHex();
+        sTxid = Hash(ss.begin(), ss.end()).GetHex();
+        sNotary += sTxid;
         CScript scriptPubKey;
         scriptPubKey.push_back(OP_RETURN);
         unsigned char len_bytes = sNotary.size();
@@ -1195,6 +1200,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     string txstr = HexStr(ss.begin(), ss.end());
     
     Object result;
+    result.push_back(Pair("withdraw_id", sTxid));
     result.push_back(Pair("completed", true));
     result.push_back(Pair("txhash", sTxhash));
     result.push_back(Pair("rawtx", txstr));
@@ -1219,6 +1225,44 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         changes.push_back(obj);
     }
     result.push_back(Pair("changes", changes));
+    
+    return result;
+}
+
+Value checkwithdrawstate(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "checkwithdrawstatus "
+                "<withdraw_id>\n"
+            );
+    
+    string withdraw_id = params[0].get_str();
+    
+    Object result;
+    result.push_back(Pair("withdraw_id", withdraw_id));
+    
+    CPegDB pegdb("r");
+    uint256 txid(withdraw_id);
+    uint256 txhash;
+    bool ok = pegdb.ReadPegTxId(txid, txhash);
+    if (ok && txhash != 0) {
+        CTxDB txdb("r");
+        CTxIndex txindex;
+        if (!txdb.ReadTxIndex(txhash, txindex)) {
+            throw JSONRPCError(RPC_MISC_ERROR, "ReadTxIndex tx failed");
+        }
+        int nDepth = txindex.GetDepthInMainChain();
+        
+        result.push_back(Pair("completed", true));
+        result.push_back(Pair("confirmations", nDepth));
+        result.push_back(Pair("txhash", txhash.ToString()));
+    }
+    else {
+        result.push_back(Pair("completed", false));
+        result.push_back(Pair("confirmations", 0));
+        result.push_back(Pair("status", "Transaction is not found in mined blocks"));
+    }
     
     return result;
 }

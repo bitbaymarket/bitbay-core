@@ -1003,8 +1003,6 @@ public:
         return true;
     }
 
-    bool IsExchangeTx(int & nOut) const;
-
     bool WriteToDisk();
 
     int64_t GetTxTime() const;

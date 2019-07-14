@@ -219,6 +219,10 @@ public:
     bool ReadPegBayPeakRate(double& dRate);
     bool WritePegBayPeakRate(double dRate);
     
+    bool ReadPegTxId(uint256 txid, uint256& txhash);
+    bool WritePegTxId(uint256 txid, uint256 txhash);
+    bool RemovePegTxId(uint256 txid);
+    
     // load routine
     bool LoadPegData(CTxDB& txdb, LoadMsg load_msg);
 };

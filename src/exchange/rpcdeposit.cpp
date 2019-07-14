@@ -83,8 +83,9 @@ Value listdeposits(const Array& params, bool fHelp)
         if (out.nDepth < nMinDepth || out.nDepth > nMaxDepth)
             continue;
 
+        uint256 txid;
         int nExchangeOut = -1;
-        bool fExchangeTx = out.tx->IsExchangeTx(nExchangeOut);
+        bool fExchangeTx = out.tx->IsExchangeTx(nExchangeOut, txid);
         if (fExchangeTx && nExchangeOut <0) {
             continue; // exchange tx, internal tx
         }

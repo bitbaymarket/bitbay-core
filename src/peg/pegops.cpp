@@ -753,4 +753,42 @@ bool movereserve(
     return true;
 }
 
+bool removecoins(
+        const std::string & inp_arg1_pegdata64,
+        const std::string & inp_arg2_pegdata64,
+        
+        std::string &   out_arg1_pegdata64,
+        std::string &   out_err)
+{
+    int64_t nArg1Liquid = 0;
+    int64_t nArg1Reserve = 0;
+    CPegLevel peglevel_arg1("");
+    CFractions frArg1(0, CFractions::VALUE);
+    if (!unpackbalance(frArg1, nArg1Reserve, nArg1Liquid, 
+                       peglevel_arg1, inp_arg1_pegdata64, "arg1", out_err)) {
+        return false;
+    }
+    
+    int64_t nArg2Liquid = 0;
+    int64_t nArg2Reserve = 0;
+    CPegLevel peglevel_arg2("");
+    CFractions frArg2(0, CFractions::VALUE);
+    if (!unpackbalance(frArg2, nArg2Reserve, nArg2Liquid,
+                       peglevel_arg2, inp_arg2_pegdata64, "arg2", out_err)) {
+        //skip false if no peglevel
+        //return false;
+    }
+    
+    frArg1 = frArg1.Std();
+    frArg2 = frArg2.Std();
+    
+    frArg1 -= frArg2;
+    
+    nArg1Liquid -= nArg2Liquid;
+    nArg1Reserve -= nArg2Reserve;
+    
+    out_arg1_pegdata64 = packpegbalance(frArg1, peglevel_arg1, nArg1Reserve, nArg1Liquid);
+    return true;
+}
+
 } // namespace

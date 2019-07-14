@@ -37,6 +37,19 @@ string packpegdata(const CFractions & fractions,
     return EncodeBase64(fout.str());
 }
 
+string packpegdata(const CFractions & fractions,
+                   const CPegLevel & peglevel,
+                   int64_t nReserve,
+                   int64_t nLiquid)
+{
+    CDataStream fout(SER_DISK, CLIENT_VERSION);
+    fractions.Pack(fout);
+    peglevel.Pack(fout);
+    fout << nReserve;
+    fout << nLiquid;
+    return EncodeBase64(fout.str());
+}
+
 void unpackpegdata(CFractions & fractions,
                    const string & pegdata64,
                    string tag)
@@ -208,6 +221,6 @@ void printpegbalance(const CFractions & frBalance,
     result.push_back(Pair(prefix+"reserve", nReserve));
     result.push_back(Pair(prefix+"nchange", nNChange));
     if (print_pegdata) {
-        result.push_back(Pair(prefix+"pegdata", packpegdata(frBalance, peglevel)));
+        result.push_back(Pair(prefix+"pegdata", packpegdata(frBalance, peglevel, nReserve, nLiquid)));
     }
 }

@@ -366,3 +366,43 @@ Value movereserve(const Array& params, bool fHelp)
     return result;
 }
 
+Value removecoins(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "removecoins "
+                "<arg1_pegdata_base64> "
+                "<arg2_pegdata_base64>\n"
+            );
+    
+    string inp_arg1_pegdata64 = params[0].get_str();
+    string inp_arg2_pegdata64 = params[1].get_str();
+    
+    string out_arg1_pegdata64;
+    string out_err;
+    
+    bool ok = pegops::removecoins(
+            inp_arg1_pegdata64,
+            inp_arg2_pegdata64,
+            
+            out_arg1_pegdata64,
+            out_err);
+    
+    if (!ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, out_err);
+    }
+    
+    CPegLevel peglevel("");
+    CFractions frArg1(0, CFractions::STD);
+    
+    int64_t nArg1Liquid = 0;
+    int64_t nArg1Reserve = 0;
+    
+    unpackbalance(frArg1, nArg1Reserve, nArg1Liquid, peglevel, out_arg1_pegdata64, "out");
+    
+    Object result;
+    
+    printpegbalance(frArg1, nArg1Reserve, nArg1Liquid, peglevel, result, "out_", true);
+    
+    return result;
+}

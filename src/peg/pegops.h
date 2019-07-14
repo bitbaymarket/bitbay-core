@@ -74,6 +74,13 @@ extern bool movereserve(
         std::string &   out_dst_pegdata64,
         std::string &   out_err);
 
+extern bool removecoins(
+        const std::string & inp_arg1_pegdata64,
+        const std::string & inp_arg2_pegdata64,
+        
+        std::string &   out_arg1_pegdata64,
+        std::string &   out_err);
+
 }
 
 #endif // BITBAY_PEGOPS_H

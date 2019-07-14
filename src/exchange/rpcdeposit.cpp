@@ -82,6 +82,8 @@ Value listdeposits(const Array& params, bool fHelp)
     {
         if (out.nDepth < nMinDepth || out.nDepth > nMaxDepth)
             continue;
+        if (out.tx->IsCoinBase() || out.tx->IsCoinStake())
+            continue;
 
         uint256 txid;
         int nExchangeOut = -1;

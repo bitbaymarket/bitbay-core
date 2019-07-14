@@ -668,6 +668,20 @@ CFractions& CFractions::operator-=(const CFractions& b)
     return *this;
 }
 
+CFractions CFractions::operator+(const CFractions & b) const
+{
+    CFractions a(*this);
+    a += b;
+    return a;
+}
+
+CFractions CFractions::operator-(const CFractions & b) const
+{
+    CFractions a(*this);
+    a += b;
+    return a;
+}
+
 CFractions CFractions::operator&(const CFractions& b) const
 {
     CFractions a = *this;

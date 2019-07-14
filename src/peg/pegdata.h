@@ -104,8 +104,8 @@ public:
 
     CFractions& operator+=(const CFractions& b);
     CFractions& operator-=(const CFractions& b);
-    friend CFractions operator+(CFractions a, const CFractions& b) { a += b; return a; }
-    friend CFractions operator-(CFractions a, const CFractions& b) { a -= b; return a; }
+    CFractions operator+(const CFractions & b) const;
+    CFractions operator-(const CFractions & b) const;
     CFractions operator&(const CFractions& b) const;
     CFractions operator-() const;
 

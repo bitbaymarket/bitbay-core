@@ -840,6 +840,7 @@ bool AppInit2(boost::thread_group& threadGroup)
         StartRPCThreads();
 
 #ifdef ENABLE_WALLET
+#if !defined(ENABLE_EXCHANGE)
     // Mine proof-of-stake blocks in the background
     if (!GetBoolArg("-staking", true))
         LogPrintf("Staking disabled\n");
@@ -851,6 +852,7 @@ bool AppInit2(boost::thread_group& threadGroup)
                                        boost::bind(&ThreadStakeMiner, pwalletMain));
         threadGroup.add_thread(miner_thread);
     }
+#endif
 #endif
 
     // ********************************************************* Step 12: finished

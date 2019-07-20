@@ -38,8 +38,10 @@ static void accountingIsActiveCheck()
             "If you want to enable it, add to your config file enableaccounts=1\n"
             "Same time staking must be disabled, add to your config file staking=0\n");
 
+#if !defined(ENABLE_EXCHANGE)
     if (GetBoolArg("-staking", true))
         throw runtime_error("If you want to use accounting API, staking must be disabled, add to your config file staking=0\n");
+#endif
 }
 
 std::string HelpRequiringPassphrase()

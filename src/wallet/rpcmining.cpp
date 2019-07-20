@@ -145,7 +145,12 @@ Value getstakinginfo(const Array& params, bool fHelp)
 
     Object obj;
 
-    obj.push_back(Pair("enabled", GetBoolArg("-staking", true)));
+    bool enabled = false;
+#if !defined(ENABLE_EXCHANGE)
+    enabled = GetBoolArg("-staking", true);
+#endif
+    
+    obj.push_back(Pair("enabled", enabled));
     obj.push_back(Pair("staking", staking));
     obj.push_back(Pair("errors", GetWarnings("statusbar")));
 

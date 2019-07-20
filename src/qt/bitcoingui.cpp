@@ -418,6 +418,10 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     tabsGroup->addButton(tabStaking);
     leftPanelLayout->addWidget(tabStaking);
     
+#if defined(ENABLE_EXCHANGE)
+    tabStaking->setEnabled(false);
+#endif
+    
     tabInfo = new QToolButton();
     tabInfo->setFixedSize(160,50);
     tabInfo->setText(tr("BLOCKCHAIN"));
@@ -478,6 +482,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     frameBlocksLayout->addStretch();
     leftPanelLayout->addWidget(frameBlocks);
 
+#if !defined(ENABLE_EXCHANGE)
     if (GetBoolArg("-staking", true))
     {
         QTimer *timerStakingIcon = new QTimer(labelStakingIcon);
@@ -485,7 +490,8 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
         timerStakingIcon->start(30 * 1000);
         updateStakingIcon();
     }
-
+#endif
+    
     // Progress bar and label for blocks download
     progressBarLabel = new QLabel();
     progressBarLabel->setStyleSheet("QLabel { padding-left: 10px; }");

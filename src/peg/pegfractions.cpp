@@ -245,10 +245,11 @@ int64_t CFractions::Low(const CPegLevel & peglevel) const
         return Std().Low(peglevel);
 
     int to = peglevel.nSupply + peglevel.nShift;
-    if (to >=0 && 
-            to <PEG_SIZE && 
-            peglevel.nShiftLastPart >0 && 
-            peglevel.nShiftLastTotal >0) {
+    if (to <0) return 0;
+    if (to >= PEG_SIZE) return 0;
+    
+    if (peglevel.nShiftLastPart >0 && 
+        peglevel.nShiftLastTotal >0) {
         // partial value to use
         int64_t v = f[to];
         int64_t vpart = ::RatioPart(v, 
@@ -258,10 +259,11 @@ int64_t CFractions::Low(const CPegLevel & peglevel) const
         nValue += vpart;
         to++;
     }
-    
+
     for(int i=0;i<to;i++) {
         nValue += f[i];
     }
+    
     return nValue;
 }
 
@@ -272,10 +274,11 @@ int64_t CFractions::High(const CPegLevel & peglevel) const
         return Std().High(peglevel);
 
     int from = peglevel.nSupply + peglevel.nShift;
-    if (from >=0 && 
-            from <PEG_SIZE && 
-            peglevel.nShiftLastPart >0 && 
-            peglevel.nShiftLastTotal >0) {
+    if (from <0) return 0;
+    if (from >= PEG_SIZE) return 0;
+            
+    if (peglevel.nShiftLastPart >0 && 
+        peglevel.nShiftLastTotal >0) {
         // partial value to use
         int64_t v = f[from];
         int64_t vpart = ::RatioPart(v, 
@@ -289,6 +292,7 @@ int64_t CFractions::High(const CPegLevel & peglevel) const
     for(int i=from;i<PEG_SIZE;i++) {
         nValue += f[i];
     }
+    
     return nValue;
 }
 

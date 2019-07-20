@@ -73,7 +73,7 @@ void TestPegOps::test1k()
     
     QCOMPARE(pegshift.Total(), 0);
     
-    for(int i=0; i<1000; i++) {
+    for(int i=0; i<10; i++) {
         string exchange1_b64 = packpegdata(exchange, level1);
         string pegshift1_b64 = packpegdata(pegshift, level1);
         

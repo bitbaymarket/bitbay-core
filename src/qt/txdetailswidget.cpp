@@ -1586,14 +1586,14 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
         table->addTopLevelItem(row_item_shift);
 
         QStringList row_part;
-        row_part << tr("Part") << QString::number(level.nShiftLastPart);
+        row_part << tr("Part") << displayValue(level.nShiftLastPart);
         auto row_item_part = new QTreeWidgetItem(row_part);
         row_item_part->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
         row_item_part->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         table->addTopLevelItem(row_item_part);
 
         QStringList row_ptot;
-        row_ptot << tr("PTot") << QString::number(level.nShiftLastTotal);
+        row_ptot << tr("PTot") << displayValue(level.nShiftLastTotal);
         auto row_item_ptot = new QTreeWidgetItem(row_ptot);
         row_item_ptot->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
         row_item_ptot->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));

@@ -387,8 +387,14 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     string sAddress = params[4].get_str();
 
     CBitcoinAddress address(sAddress);
-    if (!address.IsValid())
+    if (!address.IsValid()) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid BitBay address");
+    }
+    
+    if (nAmountWithFee <0) {
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Requested to withdraw negative %d",
+                                                     nAmountWithFee));
+    }
     
     string peglevel_hex = params[5].get_str();
     
@@ -780,8 +786,14 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     string sAddress = params[4].get_str();
 
     CBitcoinAddress address(sAddress);
-    if (!address.IsValid())
+    if (!address.IsValid()) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid BitBay address");
+    }
+    
+    if (nAmountWithFee <0) {
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Requested to withdraw negative %d",
+                                                     nAmountWithFee));
+    }
     
     string peglevel_hex = params[5].get_str();
 

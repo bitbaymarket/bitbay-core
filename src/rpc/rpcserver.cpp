@@ -308,6 +308,7 @@ static const CRPCCommand vRPCCommands[] =
     { "listdeposits",           &listdeposits,           false,     false,     true },
     { "registerdeposit",        &registerdeposit,        false,     false,     true },
     { "getpeglevel",            &getpeglevel,            false,     false,     true },
+    { "makepeglevel",           &makepeglevel,           false,     false,     true },
     { "updatepegbalances",      &updatepegbalances,      false,     false,     true },
     { "movecoins",              &movecoins,              false,     false,     true },
     { "moveliquid",             &moveliquid,             false,     false,     true },

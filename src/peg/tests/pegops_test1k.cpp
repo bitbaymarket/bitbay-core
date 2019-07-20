@@ -22,12 +22,12 @@ bool unpackbalance(CFractions & fractions,
                    const string & pegdata64,
                    string tag,
                    string & err);
-bool unpackbalance(CFractions &     fractions,
+bool unpackbalance(const string &   pegdata64,
+                   string           tag,
+                   CFractions &     fractions,
+                   CPegLevel &      peglevel,
                    int64_t &        nReserve,
                    int64_t &        nLiquid,
-                   CPegLevel &      peglevel,
-                   const string &   pegdata64,
-                   string           tag,
                    string &         err);
 
 }
@@ -82,6 +82,7 @@ void TestPegOps::test1k()
         string out_err;
         
         int peg = 0;
+        int buffer = 3;
         if (i<500) {
             peg = 500+i;
         } else {
@@ -93,9 +94,9 @@ void TestPegOps::test1k()
                     pegshift1_b64,
                     i+2,
                     i+1,
-                    peg,
-                    peg,
-                    peg,
+                    peg+buffer,
+                    peg+buffer,
+                    peg+buffer,
                     
                     peglevel_hex,
                     pegpool_b64,
@@ -168,12 +169,12 @@ void TestPegOps::test1k()
             int64_t src_liquid = 0;
             int64_t src_reserve = 0;
             CFractions src(0, CFractions::STD);
-            bool ok10 = unpackbalance(src,
+            bool ok10 = unpackbalance(user_src, 
+                                      "src", 
+                                      src,
+                                      peglevel_skip, 
                                       src_reserve,
                                       src_liquid,
-                                      peglevel_skip, 
-                                      user_src, 
-                                      "src", 
                                       out_err);
             QVERIFY(ok10 == true);
             

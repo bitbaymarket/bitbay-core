@@ -96,6 +96,7 @@ Value getpeglevel(const Array& params, bool fHelp)
     
     int nPegInterval = Params().PegInterval(nBestHeight);
     int nCycleNow = nBestHeight / nPegInterval;
+    int nBuffer = 3;
     
     string peglevel_hex;
     string pegpool_pegdata64;
@@ -106,9 +107,75 @@ Value getpeglevel(const Array& params, bool fHelp)
                 pegshift_pegdata64,
                 nCycleNow,
                 nCyclePrev,
-                nSupplyNow,
-                nSupplyNext,
-                nSupplyNextNext,
+                nSupplyNow + nBuffer,
+                nSupplyNext + nBuffer,
+                nSupplyNextNext + nBuffer,
+                peglevel_hex,
+                pegpool_pegdata64,
+                err
+    );
+    if (!ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, err);
+    }
+    
+    CFractions frPegPool(0, CFractions::STD);
+    unpackpegdata(frPegPool, pegpool_pegdata64, "pegpool");
+    CPegLevel peglevel(peglevel_hex);
+    
+    Object result;
+    result.push_back(Pair("cycle", peglevel.nCycle));
+
+    printpeglevel(peglevel, result);
+    printpegbalance(frPegPool, peglevel, result, "pegpool_", true);
+    printpegbalance(frExchange, peglevel, result, "exchange_", false);
+    printpegshift(frPegShift, peglevel, result, false);
+    
+    return result;
+}
+
+Value makepeglevel(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 7)
+        throw runtime_error(
+            "makepeglevel "
+                "<current_cycle> "
+                "<previous_cycle> "
+                "<pegsupplyindex> "
+                "<pegsupplyindex_next> "
+                "<pegsupplyindex_nextnext> "
+                "<exchange_pegdata_base64> "
+                "<pegshift_pegdata_base64>\n"
+            );
+    
+    int cycle_now = params[0].get_int();
+    int cycle_prev = params[1].get_int();
+    int supply_now = params[2].get_int();
+    int supply_next = params[3].get_int();
+    int supply_next_next = params[4].get_int();
+    string exchange_pegdata64 = params[5].get_str();
+    string pegshift_pegdata64 = params[6].get_str();
+    
+    CFractions frExchange(0, CFractions::VALUE);
+    CFractions frPegShift(0, CFractions::VALUE);
+
+    unpackpegdata(frExchange, exchange_pegdata64, "exchange");
+    unpackpegdata(frPegShift, pegshift_pegdata64, "pegshift");
+    
+    frExchange = frExchange.Std();
+    frPegShift = frPegShift.Std();
+
+    string peglevel_hex;
+    string pegpool_pegdata64;
+    string err;
+
+    bool ok = pegops::getpeglevel(
+                exchange_pegdata64,
+                pegshift_pegdata64,
+                cycle_now,
+                cycle_prev,
+                supply_now,
+                supply_next,
+                supply_next_next,
                 peglevel_hex,
                 pegpool_pegdata64,
                 err

@@ -65,14 +65,16 @@ void TestPegOps::test7()
     string pegpool2_b64;
     string out_err;
     
+    int buffer = 3;
+    
     bool ok1 = getpeglevel(
                 exchange1_b64,
                 pegshift1_b64,
                 2,
                 1,
-                205,
-                205,
-                205,
+                205+buffer,
+                205+buffer,
+                205+buffer,
                 
                 peglevel2_hex,
                 pegpool2_b64,

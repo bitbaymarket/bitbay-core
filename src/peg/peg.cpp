@@ -565,7 +565,12 @@ bool CalculateStandardFractions(const CTransaction & tx,
 
         auto frInp = mapInputsFractions[fkey].Std();
         if (frInp.Total() != prevtxout.nValue) {
-            sFailCause = "PI04: Input fraction total mismatches value";
+            std::stringstream ss;
+            ss << "PI04: Input fraction " 
+               << prevout.hash.GetHex() << ":" << prevout.n 
+               << " total " << frInp.Total()
+               << " mismatches prevout value " << prevtxout.nValue;
+            sFailCause = ss.str();
             return false;
         }
         

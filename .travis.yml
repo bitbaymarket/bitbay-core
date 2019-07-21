@@ -29,6 +29,12 @@ matrix:
       dist: trusty
       sudo: required
       env:
+        - DEPLOY_FILE=testnet-exchange-node.dockerimage
+        - ARCH="testnet-exchange-node"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
         - DEPLOY_FILE=testnet-bitbay-wallet-qt_linux64.tgz
         - ARCH="testnet-qtwallet-lin64"
     - os: linux
@@ -49,6 +55,12 @@ matrix:
       env:
         - DEPLOY_FILE=testnet-bitbay-wallet-qt_mac.zip
         - ARCH="testnet-qtwallet-mac64"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=testnet-bitbayd_linux64.tgz
+        - ARCH="testnet-bitbayd-lin64"
     - os: linux
       dist: trusty
       sudo: required
@@ -120,6 +132,10 @@ install:
     export                                                      ;
   fi
 - >
+  if [[ $ARCH == "testnet-exchange-node" ]]; then
+    export                                                      ;
+  fi
+- >
   if [[ $ARCH == "testnet-qtwallet-lin64" ]]; then
     export                                                      ;
   fi
@@ -157,6 +173,10 @@ install:
     make install                                                &&
     cd ..                                                       &&
     cd ..                                                       ;
+  fi
+- >
+  if [[ $ARCH == "testnet-bitbayd-lin64" ]]; then
+    export                                                      ;
   fi
 - >
   if [[ $ARCH == "qtwallet-lin64" ]]; then
@@ -257,6 +277,10 @@ before_script:
     docker pull bitbayofficial/builder-linux64:alpine;
   fi
 - >
+  if [[ $ARCH == "testnet-exchange-node" ]]; then
+    docker pull bitbayofficial/builder-linux64:alpine;
+  fi
+- >
   if [[ $ARCH == "testnet-qtwallet-lin64" ]]; then
     docker pull bitbayofficial/builder-linux64:alpine;
   fi
@@ -271,6 +295,10 @@ before_script:
 - >
   if [[ $ARCH == "testnet-qtwallet-mac64" ]]; then
     export QMAKESPEC=macx-clang;
+  fi
+- >
+  if [[ $ARCH == "testnet-bitbayd-lin64" ]]; then
+    docker pull bitbayofficial/builder-linux64:alpine;
   fi
 - >
   if [[ $ARCH == "qtwallet-lin64" ]]; then
@@ -420,6 +448,36 @@ script:
     cd ../..;
   fi
 - >
+  if [[ $ARCH == "testnet-exchange-node" ]]; then
+    echo "LIBS += -static" > bitbayd-local.pri &&
+    echo "CONFIG += silent" >> bitbayd-local.pri &&
+    docker run --rm \
+        -v $(pwd):/mnt \
+        -u $(stat -c %u:%g .) \
+        bitbayofficial/builder-linux64:alpine \
+        /bin/sh -c "qmake-qt5 -v && \
+          cd /mnt && \
+          ls -al && \
+          qmake-qt5 \
+            CICD=travis_x64 \
+            \"USE_DBUS=0\" \
+            \"USE_QRCODE=0\" \
+            \"USE_WALLET=0\" \
+            \"USE_TESTNET=1\" \
+            \"USE_EXCHANGE=1\" \
+            \"BOOST_LIB_SUFFIX=-mt\" \
+            bitbayd.pro && \
+          sed -i 's/\/usr\/lib\/libssl.so/-lssl/' Makefile &&
+          sed -i 's/\/usr\/lib\/libcrypto.so/-lcrypto/' Makefile &&
+          sed -i s:sys/fcntl.h:fcntl.h: src/compat.h &&
+          make -j2" &&
+    cd contrib/docker &&
+    cp ../../bitbayd . &&
+    docker build . -f testnet-exchange-node.dockerfile -t bitbayofficial/testnet-exchange-node:latest &&
+    docker save bitbayofficial/testnet-exchange-node:latest -o ../../testnet-exchange-node.dockerimage &&
+    cd ../..;
+  fi
+- >
   if [[ $ARCH == "testnet-qtwallet-lin64" ]]; then
     echo "LIBS += -static" > bitbay-qt-local.pri &&
     echo "CONFIG += silent" >> bitbay-qt-local.pri &&
@@ -491,6 +549,30 @@ script:
         "USE_QRCODE=1" \
         bitbay-qt.pro &&
     make -j2;
+  fi
+- >
+  if [[ $ARCH == "testnet-bitbayd-lin64" ]]; then
+    echo "LIBS += -static" > bitbayd-local.pri &&
+    echo "CONFIG += silent" >> bitbayd-local.pri &&
+    docker run --rm \
+        -v $(pwd):/mnt \
+        -u $(stat -c %u:%g .) \
+        bitbayofficial/builder-linux64:alpine \
+        /bin/sh -c "qmake-qt5 -v && \
+          cd /mnt && \
+          ls -al && \
+          qmake-qt5 \
+            CICD=travis_x64 \
+            \"USE_DBUS=0\" \
+            \"USE_QRCODE=0\" \
+            \"USE_TESTNET=1\" \
+            \"USE_EXCHANGE=1\" \
+            \"BOOST_LIB_SUFFIX=-mt\" \
+            bitbayd.pro && \
+          sed -i 's/\/usr\/lib\/libssl.so/-lssl/' Makefile &&
+          sed -i 's/\/usr\/lib\/libcrypto.so/-lcrypto/' Makefile &&
+          sed -i s:sys/fcntl.h:fcntl.h: src/compat.h &&
+          make -j2";
   fi
 - >
   if [[ $ARCH == "qtwallet-lin64" ]]; then
@@ -665,6 +747,13 @@ script:
         BitBay-Wallet-Qt.app/Contents/Frameworks/libssl.1.0.0.dylib &&
     ls                                                              &&
     zip -r $DEPLOY_FILE BitBay-Wallet-Qt.app;
+  fi
+- >
+  if [[ $ARCH == "testnet-bitbayd-lin64" ]]; then
+    ldd bitbayd                        &&
+    file bitbayd                       &&
+    ls -l                              &&
+    tar -zcf $DEPLOY_FILE bitbayd      ;
   fi
 - >
   if [[ $ARCH == "qtwallet-lin64" ]]; then

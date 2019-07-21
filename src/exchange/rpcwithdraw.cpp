@@ -21,6 +21,9 @@ using namespace std;
 using namespace boost;
 using namespace json_spirit;
 
+string packpegdata(const CFractions & fractions,
+                   const CPegLevel & peglevel);
+
 void unpackpegdata(CFractions & fractions,
                    const string & pegdata64,
                    string tag);
@@ -225,27 +228,40 @@ static void getAvailableCoins(const set<uint320> & setConsumedInputs,
 static void parseConsumedAndProvided(const string & sConsumedInputs,
                                      const string & sProvidedOutputs,
                                      int nCycleNow,
-                                     int64_t & nAccountMaintenance,
+                                     int64_t & nMaintenance,
+                                     CFractions & frMaintenance,
                                      set<uint320> & setAllOutputs,
                                      set<uint320> & setConsumedInputs,
                                      map<uint320,CCoinToUse> & mapProvidedOutputs)
 {
-    nAccountMaintenance = 0;
+    nMaintenance = 0;
     vector<string> vConsumedInputsArgs;
     vector<string> vProvidedOutputsArgs;
+    vector<string> vMaintenanceArgs;
+    
     boost::split(vConsumedInputsArgs, sConsumedInputs, boost::is_any_of(","));
     boost::split(vProvidedOutputsArgs, sProvidedOutputs, boost::is_any_of(","));
     for(string sConsumedInput : vConsumedInputsArgs) {
         setConsumedInputs.insert(uint320(sConsumedInput));
     }
+    
     for(string sProvidedOutput : vProvidedOutputsArgs) {
         string sAccountMaintenancePrefix = "accountmaintenance:";
         if (boost::starts_with(sProvidedOutput, sAccountMaintenancePrefix)) {
-            auto sAccountMaintenance = sProvidedOutput.substr(sAccountMaintenancePrefix.size());
+            boost::split(vMaintenanceArgs, sProvidedOutput, boost::is_any_of(":"));
+            if (vMaintenanceArgs.size() <3) continue;
+            auto sValueMaintenance = vMaintenanceArgs[1];
             char * pEnd = nullptr;
-            int64_t nConv = strtoll(sAccountMaintenance.c_str(), &pEnd, 0);
-            bool fOk = !(pEnd == sAccountMaintenance.c_str()) && nConv >= 0;
-            if (fOk) nAccountMaintenance = nConv;
+            int64_t nConv = strtoll(sValueMaintenance.c_str(), &pEnd, 0);
+            bool fOk = !(pEnd == sValueMaintenance.c_str()) && nConv >= 0;
+            if (fOk) {
+                CFractions frLoad(0, CFractions::STD);
+                try { unpackpegdata(frLoad, vMaintenanceArgs[2], "maintenance"); }
+                catch (std::exception &) { continue; }
+                
+                nMaintenance = nConv;
+                frMaintenance = frLoad;
+            }
             continue;
         }
         vector<unsigned char> outData(ParseHex(sProvidedOutput));
@@ -336,7 +352,9 @@ static void prepareConsumedProvided(map<uint320,CCoinToUse> & mapProvidedOutputs
                                     const CTransaction & rawTx,
                                     string sAddress,
                                     int nCycleNow,
-                                    int64_t nAccountMaintenance,
+                                    int64_t nMaintenance,
+                                    const CFractions & frMaintenance,
+                                    const CPegLevel & peglevel,
                                     string & sConsumedInputs,
                                     string & sProvidedOutputs)
 {
@@ -376,7 +394,10 @@ static void prepareConsumedProvided(map<uint320,CCoinToUse> & mapProvidedOutputs
         sProvidedOutputs += HexStr(ss.begin(), ss.end());
     }
     if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
-    sProvidedOutputs += "accountmaintenance:"+std::to_string(nAccountMaintenance);
+    sProvidedOutputs += "accountmaintenance:"
+            +std::to_string(nMaintenance)
+            +":"
+            +packpegdata(frMaintenance, peglevel);
 }
 
 Value prepareliquidwithdraw(const Array& params, bool fHelp)
@@ -465,12 +486,14 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     string sConsumedInputs = params[6].get_str();
     string sProvidedOutputs = params[7].get_str();
 
-    int64_t nAccountMaintenance = 0;
+    int64_t nMaintenance = 0;
+    CFractions frMaintenance(0, CFractions::VALUE);
     set<uint320> setAllOutputs;
     set<uint320> setConsumedInputs;
     map<uint320,CCoinToUse> mapProvidedOutputs;
     parseConsumedAndProvided(sConsumedInputs, sProvidedOutputs, nCycleNow,
-                             nAccountMaintenance, setAllOutputs, setConsumedInputs, mapProvidedOutputs);
+                             nMaintenance, frMaintenance,
+                             setAllOutputs, setConsumedInputs, mapProvidedOutputs);
     
     if (!pindexBest) {
         throw JSONRPCError(RPC_MISC_ERROR, "Blockchain is not in sync");
@@ -685,10 +708,10 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     }
     
     // Calculate peg to know 'user' fee
-    CFractions feesFractions(0, CFractions::STD);
+    CFractions feesFractionsCommon(0, CFractions::STD);
     map<int, CFractions> mapTxOutputFractionsSkip;
     computeTxPegForNextCycle(rawTx, peglevel_net, txdb, pegdb, mapAllOutputs,
-                             mapTxOutputFractionsSkip, feesFractions);
+                             mapTxOutputFractionsSkip, feesFractionsCommon);
     
     // for liquid just first output
     if (!mapTxOutputFractionsSkip.count(0)) {
@@ -739,10 +762,12 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     nFeeMaintenance -= nFeeMaintenanceLeft;
     
     // Recalculate peg to update mapTxOutputFractions
-    CFractions feesFractionsSkip(0, CFractions::STD);
+    CFractions feesFractionsNet(0, CFractions::STD);
     map<int, CFractions> mapTxOutputFractions;
     computeTxPegForNextCycle(rawTx, peglevel_net, txdb, pegdb, mapAllOutputs,
-                             mapTxOutputFractions, feesFractionsSkip);
+                             mapTxOutputFractions, feesFractionsNet);
+    CFractions frFeesMaintenance = feesFractionsCommon - feesFractionsNet;
+    frMaintenance += frFeesMaintenance;
     
     // for liquid just first output
     if (!mapTxOutputFractions.count(0)) {
@@ -758,7 +783,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         }
     }
     // for liquid just first output
-    CFractions frProcessed = mapTxOutputFractions[0] + feesFractions;
+    CFractions frProcessed = mapTxOutputFractions[0] + feesFractionsCommon;
     CFractions frRequested = frAmount;
 
     if (frRequested.Total() != nAmountWithFee) {
@@ -789,8 +814,9 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         }
     }
     // get list of consumed and provided outputs
-    nAccountMaintenance += nFeeMaintenance;
-    prepareConsumedProvided(mapProvidedOutputs, rawTx, sAddress, nCycleNow, nAccountMaintenance,
+    nMaintenance += nFeeMaintenance;
+    prepareConsumedProvided(mapProvidedOutputs, rawTx, sAddress, nCycleNow, 
+                            nMaintenance, frMaintenance, peglevel_exchange,
                             sConsumedInputs, sProvidedOutputs);
     
     frBalance -= frRequested;
@@ -923,12 +949,14 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     string sConsumedInputs = params[6].get_str();
     string sProvidedOutputs = params[7].get_str();
 
-    int64_t nAccountMaintenance = 0;
+    int64_t nMaintenance = 0;
+    CFractions frMaintenance(0, CFractions::VALUE);
     set<uint320> setAllOutputs;
     set<uint320> setConsumedInputs;
     map<uint320,CCoinToUse> mapProvidedOutputs;
     parseConsumedAndProvided(sConsumedInputs, sProvidedOutputs, nCycleNow,
-                             nAccountMaintenance, setAllOutputs, setConsumedInputs, mapProvidedOutputs);
+                             nMaintenance, frMaintenance,
+                             setAllOutputs, setConsumedInputs, mapProvidedOutputs);
     
     if (!pindexBest) {
         throw JSONRPCError(RPC_MISC_ERROR, "Blockchain is not in sync");
@@ -1220,10 +1248,10 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     }
     
     // Calculate peg to know 'user' fee
-    CFractions feesFractions(0, CFractions::STD);
+    CFractions feesFractionsCommon(0, CFractions::STD);
     map<int, CFractions> mapTxOutputFractionsSkip;
     computeTxPegForNextCycle(rawTx, peglevel_net, txdb, pegdb, mapAllOutputs,
-                             mapTxOutputFractionsSkip, feesFractions);
+                             mapTxOutputFractionsSkip, feesFractionsCommon);
 
     // first out after F notations (same num as size inputs)
     if (!mapTxOutputFractionsSkip.count(rawTx.vin.size())) {
@@ -1274,10 +1302,12 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     nFeeMaintenance -= nFeeMaintenanceLeft;
     
     // Recalculate peg to update mapTxOutputFractions
-    CFractions feesFractionsSkip(0, CFractions::STD);
+    CFractions feesFractionsNet(0, CFractions::STD);
     map<int, CFractions> mapTxOutputFractions;
     computeTxPegForNextCycle(rawTx, peglevel_net, txdb, pegdb, mapAllOutputs,
-                             mapTxOutputFractions, feesFractionsSkip);
+                             mapTxOutputFractions, feesFractionsNet);
+    CFractions frFeesMaintenance = feesFractionsCommon - feesFractionsNet;
+    frMaintenance += frFeesMaintenance;
     
     // first out after F notations (same num as size inputs)
     if (!mapTxOutputFractions.count(rawTx.vin.size())) {
@@ -1294,7 +1324,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     }
         
     // first out after F notations (same num as size inputs)
-    CFractions frProcessed = mapTxOutputFractions[rawTx.vin.size()] + feesFractions;
+    CFractions frProcessed = mapTxOutputFractions[rawTx.vin.size()] + feesFractionsCommon;
     CFractions frRequested = frAmount;
 
     if (frRequested.Total() != nAmountWithFee) {
@@ -1325,8 +1355,9 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         }
     }
     // get list of consumed and provided outputs
-    nAccountMaintenance += nFeeMaintenance;
-    prepareConsumedProvided(mapProvidedOutputs, rawTx, sAddress, nCycleNow, nAccountMaintenance,
+    nMaintenance += nFeeMaintenance;
+    prepareConsumedProvided(mapProvidedOutputs, rawTx, sAddress, nCycleNow, 
+                            nMaintenance, frMaintenance, peglevel_exchange,
                             sConsumedInputs, sProvidedOutputs);
     
     frBalance -= frRequested;

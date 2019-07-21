@@ -603,7 +603,6 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     map<CTxDestination, int64_t> mapAvailableValuesAt;
     map<CTxDestination, int64_t> mapInputValuesAt;
     map<CTxDestination, int64_t> mapTakeValuesAt;
-    int64_t nValueToTakeFromChange = 0;
     for(const CCoinToUse& coin : vCoins) {
         CTxDestination address;
         if(!ExtractDestination(coin.scriptPubKey, address))
@@ -655,7 +654,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     }
     
     // Calculate change (minus fee and part taken from change)
-    int64_t nTakeFromChangeLeft = nValueToTakeFromChange + nFeeRet;
+    int64_t nTakeFromChangeLeft = nFeeRet;
     map<CTxDestination, int> mapChangeOutputs;
     for (const CTxDestination& address : vInputAddresses) {
         CScript scriptPubKey;
@@ -1439,5 +1438,22 @@ Value checkwithdrawstate(const Array& params, bool fHelp)
         result.push_back(Pair("status", "Transaction is not found in mined blocks"));
     }
     
+    return result;
+}
+
+Value accountmaintenance(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 3)
+        throw runtime_error(
+            "accountmaintenance "
+                "<pegshift_pegdata_base64> "
+                "<consumed_inputs> "
+                "<provided_outputs>\n"
+            );
+    
+    Object result;
+    result.push_back(Pair("completed", true));
+    result.push_back(Pair("processed", false));
+    result.push_back(Pair("status", "Temp off"));
     return result;
 }

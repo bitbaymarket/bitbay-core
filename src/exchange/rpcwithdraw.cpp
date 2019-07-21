@@ -483,8 +483,8 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     cleanupProvided(setWalletOutputs, mapProvidedOutputs);
     
     // read available coin fractions to rate
-    // also consider only coins with are not less than 1% (100 inputs max)
-    // for liquid calculations we use network peglevels
+    // also consider only coins with are not less than 5% (and fit 20 inputs max)
+    // for liquid calculations we use network peg in next interval
     multimap<double,CCoinToUse> ratedOutputs;
     for(const pair<uint320,CCoinToUse>& item : mapAllOutputs) {
         uint320 fkey = item.first;
@@ -496,7 +496,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         int64_t nAvailableLiquid = 0;
         frOut = frOut.HighPart(peglevel_net.nSupplyNext, &nAvailableLiquid);
         
-        if (nAvailableLiquid < (nAmountWithFee / 100)) {
+        if (nAvailableLiquid < (nAmountWithFee / 20)) {
             continue;
         }
         
@@ -529,8 +529,8 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
                                      nAmountWithFee));
     }
     
-    int64_t nFeeRet = 1000000 /*temp fee*/;
-    int64_t nAmount = nAmountWithFee - nFeeRet +1;
+    int64_t nFeeRet = 1000000 /*common fee deducted from user amount, 1M*/;
+    int64_t nAmount = nAmountWithFee - nFeeRet +1; /*+1 for xch notary*/
     
     vector<pair<CScript, int64_t> > vecSend;
     CScript scriptPubKey;
@@ -618,21 +618,24 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     
     // Calculate change (minus fee and part taken from change)
     int64_t nTakeFromChangeLeft = nValueToTakeFromChange + nFeeRet;
+    map<CTxDestination, int> mapChangeOutputs;
     for (const CTxDestination& address : vInputAddresses) {
         CScript scriptPubKey;
         scriptPubKey.SetDestination(address);
-        int64_t nValueTake = mapTakeValuesAt[address];
+        int64_t& nValueTakeAt = mapTakeValuesAt[address];
         int64_t nValueInput = mapInputValuesAt[address];
-        int64_t nValueChange = nValueInput - nValueTake;
+        int64_t nValueChange = nValueInput - nValueTakeAt;
         if (nValueChange > nTakeFromChangeLeft) {
             nValueChange -= nTakeFromChangeLeft;
             nTakeFromChangeLeft = 0;
         }
-        if (nValueChange < nTakeFromChangeLeft) {
+        if (nValueChange <= nTakeFromChangeLeft) {
             nTakeFromChangeLeft -= nValueChange;
             nValueChange = 0;
         }
         if (nValueChange == 0) continue;
+        nValueTakeAt += nValueChange;
+        mapChangeOutputs[address] = rawTx.vout.size();
         rawTx.vout.push_back(CTxOut(nValueChange, scriptPubKey));
     }
 
@@ -666,17 +669,58 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         rawTx.vin.push_back(CTxIn(coin.txhash,coin.i));
     }
     
-    // Calculate peg
+    // Calculate peg to know 'user' fee
     CFractions feesFractions(0, CFractions::STD);
     map<int, CFractions> mapTxOutputFractions;
     computeTxPegForNextCycle(rawTx, peglevel_net, txdb, pegdb, mapAllOutputs,
                              mapTxOutputFractions, feesFractions);
-
+    
     // for liquid just first output
     if (!mapTxOutputFractions.count(0)) {
         throw JSONRPCError(RPC_MISC_ERROR, "No withdraw fractions");
     }
-
+    
+    // Now all inputs and outputs are know, calculate network fee
+    int64_t nFeeNetwork = 200000 + 10000 * (rawTx.vin.size() + rawTx.vout.size());
+    int64_t nFeeMaintenance = nFeeRet - nFeeNetwork;
+    int64_t nFeeMaintenanceLeft = nFeeMaintenance;
+    // Maintenance fee recorded in provided_outputs 
+    // It is returned - distributed over 'change' outputs
+    // First if we can use existing change
+    for (const CTxDestination& address : vInputAddresses) {
+        if (!mapChangeOutputs.count(address)) continue;
+        int nOut = mapChangeOutputs[address];
+        int64_t& nValueTakeAt = mapTakeValuesAt[address];
+        int64_t nValueInput = mapInputValuesAt[address];
+        int64_t nValueForFee = nValueInput - nValueTakeAt;
+        if (nValueForFee > nFeeMaintenanceLeft) {
+            rawTx.vout[nOut].nValue += nFeeMaintenanceLeft;
+            nFeeMaintenanceLeft = 0;
+        }
+        if (nValueForFee <= nFeeMaintenanceLeft) {
+            nFeeMaintenanceLeft -= nValueForFee;
+            rawTx.vout[nOut].nValue += nValueForFee;
+        }
+    }
+    // Second if it is still left we need to add change outputs for maintenance fee
+    for (const CTxDestination& address : vInputAddresses) {
+        if (mapChangeOutputs.count(address)) continue;
+        int64_t nValueTakeAt = mapTakeValuesAt[address];
+        int64_t nValueInput = mapInputValuesAt[address];
+        int64_t nValueForFee = nValueInput - nValueTakeAt;
+        if (nValueForFee > nFeeMaintenanceLeft) {
+            nValueForFee = nFeeMaintenanceLeft;
+            nFeeMaintenanceLeft = 0;
+        }
+        if (nValueForFee <= nFeeMaintenanceLeft) {
+            nFeeMaintenanceLeft -= nValueForFee;
+        }
+        if (nValueForFee == 0) continue;
+        CScript scriptPubKey;
+        scriptPubKey.SetDestination(address);
+        rawTx.vout.push_back(CTxOut(nValueForFee, scriptPubKey));
+    }
+    
     // signing the transaction to get it ready for broadcast
     int nIn = 0;
     for(const CCoinToUse& coin : vCoins) {
@@ -880,7 +924,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     cleanupProvided(setWalletOutputs, mapProvidedOutputs);
     
     // read available coin fractions to rate
-    // also consider only coins with are not less than 1% (100 inputs max)
+    // also consider only coins with are not less than 5% (and 20 inputs max)
     // for reserve calculations we use exchange peglevels
     map<uint320,int64_t> mapAvailableReserve;
     multimap<double,CCoinToUse> ratedOutputs;
@@ -894,7 +938,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         int64_t nAvailableReserve = 0;
         frOut = frOut.LowPart(peglevel_exchange.nSupplyNext, &nAvailableReserve);
         
-        if (nAvailableReserve < (nAmountWithFee / 100)) {
+        if (nAvailableReserve < (nAmountWithFee / 20)) {
             continue;
         }
         
@@ -927,8 +971,8 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
                                      nAmountWithFee));
     }
     
-    int64_t nFeeRet = 1000000 /*temp fee*/;
-    int64_t nAmount = nAmountWithFee - nFeeRet +1;
+    int64_t nFeeRet = 1000000 /*common fee deducted from user amount*/;
+    int64_t nAmount = nAmountWithFee - nFeeRet +1;  /*+1 for xch notary*/
     
     vector<pair<CScript, int64_t> > vecSend;
     CScript scriptPubKey;
@@ -1093,21 +1137,24 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     
     // Calculate change (minus fee and part taken from change)
     int64_t nTakeFromChangeLeft = nValueToTakeFromChange + nFeeRet;
+    map<CTxDestination, int> mapChangeOutputs;
     for (const CTxDestination& address : vInputAddresses) {
         CScript scriptPubKey;
         scriptPubKey.SetDestination(address);
-        int64_t nValueTake = mapTakeValuesAt[address];
+        int64_t& nValueTakeAt = mapTakeValuesAt[address];
         int64_t nValueInput = mapInputValuesAt[address];
-        int64_t nValueChange = nValueInput - nValueTake;
+        int64_t nValueChange = nValueInput - nValueTakeAt;
         if (nValueChange > nTakeFromChangeLeft) {
             nValueChange -= nTakeFromChangeLeft;
             nTakeFromChangeLeft = 0;
         }
-        if (nValueChange < nTakeFromChangeLeft) {
+        if (nValueChange <= nTakeFromChangeLeft) {
             nTakeFromChangeLeft -= nValueChange;
             nValueChange = 0;
         }
         if (nValueChange == 0) continue;
+        nValueTakeAt += nValueChange;
+        mapChangeOutputs[address] = rawTx.vout.size();
         rawTx.vout.push_back(CTxOut(nValueChange, scriptPubKey));
     }
 
@@ -1142,7 +1189,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         rawTx.vin.push_back(CTxIn(coin.txhash,coin.i));
     }
     
-    // Calculate peg
+    // Calculate peg to know 'user' fee
     CFractions feesFractions(0, CFractions::STD);
     map<int, CFractions> mapTxOutputFractions;
     computeTxPegForNextCycle(rawTx, peglevel_net, txdb, pegdb, mapAllOutputs,
@@ -1153,6 +1200,47 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_MISC_ERROR, "No withdraw fractions");
     }
 
+    // Now all inputs and outputs are know, calculate network fee
+    int64_t nFeeNetwork = 200000 + 10000 * (rawTx.vin.size() + rawTx.vout.size());
+    int64_t nFeeMaintenance = nFeeRet - nFeeNetwork;
+    int64_t nFeeMaintenanceLeft = nFeeMaintenance;
+    // Maintenance fee recorded in provided_outputs 
+    // It is returned - distributed over 'change' outputs
+    // First if we can use existing change
+    for (const CTxDestination& address : vInputAddresses) {
+        if (!mapChangeOutputs.count(address)) continue;
+        int nOut = mapChangeOutputs[address];
+        int64_t& nValueTakeAt = mapTakeValuesAt[address];
+        int64_t nValueInput = mapInputValuesAt[address];
+        int64_t nValueForFee = nValueInput - nValueTakeAt;
+        if (nValueForFee > nFeeMaintenanceLeft) {
+            rawTx.vout[nOut].nValue += nFeeMaintenanceLeft;
+            nFeeMaintenanceLeft = 0;
+        }
+        if (nValueForFee <= nFeeMaintenanceLeft) {
+            nFeeMaintenanceLeft -= nValueForFee;
+            rawTx.vout[nOut].nValue += nValueForFee;
+        }
+    }
+    // Second if it is still left we need to add change outputs for maintenance fee
+    for (const CTxDestination& address : vInputAddresses) {
+        if (mapChangeOutputs.count(address)) continue;
+        int64_t nValueTakeAt = mapTakeValuesAt[address];
+        int64_t nValueInput = mapInputValuesAt[address];
+        int64_t nValueForFee = nValueInput - nValueTakeAt;
+        if (nValueForFee > nFeeMaintenanceLeft) {
+            nValueForFee = nFeeMaintenanceLeft;
+            nFeeMaintenanceLeft = 0;
+        }
+        if (nValueForFee <= nFeeMaintenanceLeft) {
+            nFeeMaintenanceLeft -= nValueForFee;
+        }
+        if (nValueForFee == 0) continue;
+        CScript scriptPubKey;
+        scriptPubKey.SetDestination(address);
+        rawTx.vout.push_back(CTxOut(nValueForFee, scriptPubKey));
+    }
+    
     // signing the transaction to get it ready for broadcast
     int nIn = 0;
     for(const CCoinToUse& coin : vCoins) {

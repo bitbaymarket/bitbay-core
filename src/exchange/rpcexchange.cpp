@@ -14,6 +14,7 @@
 #include "wallet.h"
 
 #include "pegops.h"
+#include "pegpack.h"
 #include "pegdata.h"
 
 #include <boost/algorithm/string.hpp>
@@ -23,25 +24,6 @@ using namespace std;
 using namespace boost;
 using namespace boost::assign;
 using namespace json_spirit;
-
-string packpegdata(const CFractions & fractions,
-                   const CPegLevel & peglevel);
-
-void unpackpegdata(CFractions & fractions,
-                   const string & pegdata64,
-                   string tag);
-
-void unpackbalance(CFractions & fractions,
-                      CPegLevel & peglevel,
-                      const string & pegdata64,
-                      string tag);
-
-bool unpackbalance(CFractions &     fractions,
-                   int64_t &        nReserve,
-                   int64_t &        nLiquid,
-                   CPegLevel &      peglevel,
-                   const string &   pegdata64,
-                   string           tag);
 
 void printpegshift(const CFractions & frPegShift,
                    const CPegLevel & peglevel,
@@ -81,11 +63,13 @@ Value getpeglevel(const Array& params, bool fHelp)
     string pegshift_pegdata64 = params[1].get_str();
     int nCyclePrev = params[2].get_int();
     
+    CPegLevel peglevel_exchange("");
+    CPegLevel peglevel_pegshift("");
     CFractions frExchange(0, CFractions::VALUE);
     CFractions frPegShift(0, CFractions::VALUE);
 
-    unpackpegdata(frExchange, exchange_pegdata64, "exchange");
-    unpackpegdata(frPegShift, pegshift_pegdata64, "pegshift");
+    pegops::unpackbalance2(frExchange, peglevel_exchange, exchange_pegdata64, "exchange");
+    pegops::unpackbalance2(frPegShift, peglevel_pegshift, pegshift_pegdata64, "pegshift");
     
     frExchange = frExchange.Std();
     frPegShift = frPegShift.Std();
@@ -122,8 +106,8 @@ Value getpeglevel(const Array& params, bool fHelp)
     int64_t nPegPoolReserve = 0;
     CPegLevel peglevel_pegpool("");
     CFractions frPegPool(0, CFractions::STD);
-    unpackbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, 
-                  peglevel_pegpool, pegpool_pegdata64, "pegpool");
+    pegops::unpackbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, 
+                          peglevel_pegpool, pegpool_pegdata64, "pegpool");
     
     CPegLevel peglevel(peglevel_hex);
     
@@ -160,11 +144,13 @@ Value makepeglevel(const Array& params, bool fHelp)
     string exchange_pegdata64 = params[5].get_str();
     string pegshift_pegdata64 = params[6].get_str();
     
+    CPegLevel peglevel_exchange("");
+    CPegLevel peglevel_pegshift("");
     CFractions frExchange(0, CFractions::VALUE);
     CFractions frPegShift(0, CFractions::VALUE);
 
-    unpackpegdata(frExchange, exchange_pegdata64, "exchange");
-    unpackpegdata(frPegShift, pegshift_pegdata64, "pegshift");
+    pegops::unpackbalance2(frExchange, peglevel_exchange, exchange_pegdata64, "exchange");
+    pegops::unpackbalance2(frPegShift, peglevel_pegshift, pegshift_pegdata64, "pegshift");
     
     frExchange = frExchange.Std();
     frPegShift = frPegShift.Std();
@@ -193,8 +179,8 @@ Value makepeglevel(const Array& params, bool fHelp)
     int64_t nPegPoolReserve = 0;
     CPegLevel peglevel_pegpool("");
     CFractions frPegPool(0, CFractions::STD);
-    unpackbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, 
-                  peglevel_pegpool, pegpool_pegdata64, "pegpool");
+    pegops::unpackbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, 
+                          peglevel_pegpool, pegpool_pegdata64, "pegpool");
     
     CPegLevel peglevel(peglevel_hex);
     
@@ -252,8 +238,8 @@ Value updatepegbalances(const Array& params, bool fHelp)
     int64_t nBalanceReserve = 0;
     int64_t nPegPoolReserve = 0;
     
-    unpackbalance(frBalance, nBalanceReserve, nBalanceLiquid, peglevel_skip1, out_balance_pegdata64, "balance");
-    unpackbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, peglevel_skip2, out_pegpool_pegdata64, "pegpool");
+    pegops::unpackbalance(frBalance, nBalanceReserve, nBalanceLiquid, peglevel_skip1, out_balance_pegdata64, "balance");
+    pegops::unpackbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, peglevel_skip2, out_pegpool_pegdata64, "pegpool");
     
     Object result;
 
@@ -314,8 +300,8 @@ Value movecoins(const Array& params, bool fHelp)
     int64_t nSrcReserve = 0;
     int64_t nDstReserve = 0;
     
-    unpackbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1, out_src_pegdata64, "src");
-    unpackbalance(frDst, nDstReserve, nDstLiquid, peglevel_skip2, out_dst_pegdata64, "dst");
+    pegops::unpackbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1, out_src_pegdata64, "src");
+    pegops::unpackbalance(frDst, nDstReserve, nDstLiquid, peglevel_skip2, out_dst_pegdata64, "dst");
     
     Object result;
     
@@ -374,8 +360,8 @@ Value moveliquid(const Array& params, bool fHelp)
     int64_t nSrcReserve = 0;
     int64_t nDstReserve = 0;
     
-    unpackbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1, out_src_pegdata64, "src");
-    unpackbalance(frDst, nDstReserve, nDstLiquid, peglevel_skip2, out_dst_pegdata64, "dst");
+    pegops::unpackbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1, out_src_pegdata64, "src");
+    pegops::unpackbalance(frDst, nDstReserve, nDstLiquid, peglevel_skip2, out_dst_pegdata64, "dst");
     
     Object result;
     
@@ -434,8 +420,8 @@ Value movereserve(const Array& params, bool fHelp)
     int64_t nSrcReserve = 0;
     int64_t nDstReserve = 0;
     
-    unpackbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1, out_src_pegdata64, "src");
-    unpackbalance(frDst, nDstReserve, nDstLiquid, peglevel_skip2, out_dst_pegdata64, "dst");
+    pegops::unpackbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1, out_src_pegdata64, "src");
+    pegops::unpackbalance(frDst, nDstReserve, nDstLiquid, peglevel_skip2, out_dst_pegdata64, "dst");
     
     Object result;
     
@@ -480,7 +466,7 @@ Value removecoins(const Array& params, bool fHelp)
     int64_t nArg1Liquid = 0;
     int64_t nArg1Reserve = 0;
     
-    unpackbalance(frArg1, nArg1Reserve, nArg1Liquid, peglevel, out_arg1_pegdata64, "out");
+    pegops::unpackbalance(frArg1, nArg1Reserve, nArg1Liquid, peglevel, out_arg1_pegdata64, "out");
     
     Object result;
     

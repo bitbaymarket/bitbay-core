@@ -9,6 +9,7 @@
 #include "init.h"
 #include "wallet.h"
 #include "pegdata.h"
+#include "pegpack.h"
 
 #include <boost/assign/list_of.hpp>
 #include <boost/algorithm/string.hpp>
@@ -18,11 +19,6 @@ using namespace std;
 using namespace boost;
 using namespace boost::assign;
 using namespace json_spirit;
-
-void unpackbalance(CFractions & fractions,
-                   CPegLevel & peglevel,
-                   const string & pegdata64,
-                   string tag);
 
 void printpeglevel(const CPegLevel & peglevel,
                    Object & result);
@@ -189,8 +185,8 @@ Value registerdeposit(const Array& params, bool fHelp)
     CPegLevel peglevel_balance("");
     CPegLevel peglevel_exchange("");
 
-    unpackbalance(frBalance, peglevel_balance, balance_pegdata64, "balance");
-    unpackbalance(frExchange, peglevel_exchange, exchange_pegdata64, "exchange");
+    pegops::unpackbalance2(frBalance, peglevel_balance, balance_pegdata64, "balance");
+    pegops::unpackbalance2(frExchange, peglevel_exchange, exchange_pegdata64, "exchange");
 
     if (!balance_pegdata64.empty() && peglevel_balance.nCycle != peglevel.nCycle) {
         throw JSONRPCError(RPC_MISC_ERROR, "Balance has other cycle than peglevel");

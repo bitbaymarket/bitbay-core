@@ -14,6 +14,7 @@
 #include "wallet.h"
 
 #include "pegops.h"
+#include "pegpack.h"
 #include "pegdata.h"
 
 #include <boost/algorithm/string.hpp>
@@ -24,120 +25,9 @@ using namespace boost;
 using namespace boost::assign;
 using namespace json_spirit;
 
-string packpegdata(const CFractions & fractions,
-                   const CPegLevel & peglevel)
-{
-    CDataStream fout(SER_DISK, CLIENT_VERSION);
-    fractions.Pack(fout);
-    peglevel.Pack(fout);
-    int64_t nReserve = fractions.Low(peglevel);
-    int64_t nLiquid = fractions.High(peglevel);
-    fout << nReserve;
-    fout << nLiquid;
-    return EncodeBase64(fout.str());
-}
 
-string packpegdata(const CFractions & fractions,
-                   const CPegLevel & peglevel,
-                   int64_t nReserve,
-                   int64_t nLiquid)
-{
-    CDataStream fout(SER_DISK, CLIENT_VERSION);
-    fractions.Pack(fout);
-    peglevel.Pack(fout);
-    fout << nReserve;
-    fout << nLiquid;
-    return EncodeBase64(fout.str());
-}
 
-void unpackpegdata(CFractions & fractions,
-                   const string & pegdata64,
-                   string tag)
-{
-    if (pegdata64.empty()) 
-        return;
-    
-    string pegdata = DecodeBase64(pegdata64);
-    CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
-                     SER_DISK, CLIENT_VERSION);
-    
-    if (!fractions.Unpack(finp)) {
-         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
-                            "Can not unpack '"+tag+"' pegdata");
-    }
-}
 
-void unpackbalance(CFractions & fractions,
-                   CPegLevel & peglevel,
-                   const string & pegdata64,
-                   string tag)
-{
-    if (pegdata64.empty()) 
-        return;
-    
-    string pegdata = DecodeBase64(pegdata64);
-    CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
-                     SER_DISK, CLIENT_VERSION);
-    
-    if (!fractions.Unpack(finp)) {
-         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
-                            "Can not unpack '"+tag+"' pegdata");
-    }
-    
-    try { 
-    
-        CPegLevel peglevel_copy = peglevel;
-        if (!peglevel_copy.Unpack(finp)) {
-             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
-                                "Can not unpack '"+tag+"' peglevel");
-        }
-        else peglevel = peglevel_copy;
-    
-    }
-    catch (std::exception &) { ; }
-}
-
-bool unpackbalance(CFractions &     fractions,
-                   int64_t &        nReserve,
-                   int64_t &        nLiquid,
-                   CPegLevel &      peglevel,
-                   const string &   pegdata64,
-                   string           tag)
-{
-    if (pegdata64.empty()) 
-        return true;
-    
-    string pegdata = DecodeBase64(pegdata64);
-    CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
-                     SER_DISK, CLIENT_VERSION);
-    
-    if (!fractions.Unpack(finp)) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
-                           "Can not unpack '"+tag+"' pegdata");
-    }
-    
-    try { 
-    
-        CPegLevel peglevel_copy = peglevel;
-        if (!peglevel_copy.Unpack(finp)) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
-                               "Can not unpack '"+tag+"' peglevel");
-        }
-        else peglevel = peglevel_copy;
-    
-        try {
-            finp >> nReserve;
-            finp >> nLiquid;
-        }
-        catch (std::exception &) { 
-            nLiquid = fractions.High(peglevel);
-            nReserve = fractions.Low(peglevel);
-        }
-    }
-    catch (std::exception &) { ; }
-    
-    return true;
-}
 
 void printpegshift(const CFractions & frPegShift,
                    const CPegLevel & peglevel,
@@ -164,7 +54,11 @@ void printpegshift(const CFractions & frPegShift,
     result.push_back(Pair("pegshift_liquid", nPegShiftLiquid));
     result.push_back(Pair("pegshift_reserve", nPegShiftReserve));
     if (print_pegdata) {
-        result.push_back(Pair("pegshift_pegdata", packpegdata(frPegShift, peglevel)));
+        int64_t nPegShiftLiquid = frPegShift.High(peglevel);
+        int64_t nPegShiftReserve = frPegShift.Low(peglevel);
+        result.push_back(Pair("pegshift_pegdata", 
+                              pegops::packpegdata(frPegShift, peglevel,
+                                                  nPegShiftReserve, nPegShiftLiquid)));
     }
 }
 
@@ -201,7 +95,9 @@ void printpegbalance(const CFractions & frBalance,
     result.push_back(Pair(prefix+"reserve", nReserve));
     result.push_back(Pair(prefix+"nchange", nNChange));
     if (print_pegdata) {
-        result.push_back(Pair(prefix+"pegdata", packpegdata(frBalance, peglevel)));
+        result.push_back(Pair(prefix+"pegdata", 
+                              pegops::packpegdata(frBalance, peglevel,
+                                                  nReserve, nLiquid)));
     }
 }
 
@@ -221,6 +117,6 @@ void printpegbalance(const CFractions & frBalance,
     result.push_back(Pair(prefix+"reserve", nReserve));
     result.push_back(Pair(prefix+"nchange", nNChange));
     if (print_pegdata) {
-        result.push_back(Pair(prefix+"pegdata", packpegdata(frBalance, peglevel, nReserve, nLiquid)));
+        result.push_back(Pair(prefix+"pegdata", pegops::packpegdata(frBalance, peglevel, nReserve, nLiquid)));
     }
 }

@@ -28,10 +28,10 @@ bool unpackbalance(const string &   pegdata64,
                    int64_t &        nReserve,
                    int64_t &        nLiquid,
                    string &         err);
-string packpegbalance(const CFractions &     fractions,
-                      const CPegLevel &      peglevel,
-                      int64_t                nReserve,
-                      int64_t                nLiquid);
+string packpegdata(const CFractions &     fractions,
+                   const CPegLevel &      peglevel,
+                   int64_t                nReserve,
+                   int64_t                nLiquid);
 }
 
 void TestPegOps::test8()
@@ -56,5 +56,5 @@ void TestPegOps::test8()
     
     //nReserve = 0;
     //nLiquid = user1.Total();
-    //qDebug() << QString::fromStdString(packpegbalance(user1, level1, nReserve, nLiquid));
+    //qDebug() << QString::fromStdString(packpegdata(user1, level1, nReserve, nLiquid));
 }

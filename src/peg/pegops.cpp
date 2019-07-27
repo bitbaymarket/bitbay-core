@@ -43,13 +43,25 @@ bool getpeglevel(
     out_err.clear();
     CPegLevel peglevel_exchange("");
     CPegLevel peglevel_pegshift("");
+    
     CFractions frExchange(0, CFractions::VALUE);
     CFractions frPegShift(0, CFractions::VALUE);
 
-    if (!unpackbalance(frExchange, peglevel_exchange, inp_exchange_pegdata64, "exchange", out_err)) {
+    int64_t nExchangeLiquid = 0;
+    int64_t nPegShiftLiquid = 0;
+    int64_t nPegShiftReserve = 0;
+    int64_t nExchangeReserve = 0;
+    
+    if (!unpackbalance(inp_exchange_pegdata64, "exchange", 
+                       frExchange, peglevel_exchange, 
+                       nExchangeReserve, nExchangeLiquid,
+                       out_err)) {
         return false;
     }
-    if (!unpackbalance(frPegShift, peglevel_pegshift, inp_pegshift_pegdata64, "pegshift", out_err)) {
+    if (!unpackbalance(inp_pegshift_pegdata64, "pegshift", 
+                       frPegShift, peglevel_pegshift, 
+                       nPegShiftReserve, nPegShiftLiquid,
+                       out_err)) {
         return false;
     }
     
@@ -131,7 +143,9 @@ bool updatepegbalances(
     CFractions frBalance(0, CFractions::VALUE);
     CFractions frPegPool(0, CFractions::VALUE);
     
+    int64_t nBalanceLiquid = 0;
     int64_t nPegPoolLiquid = 0;
+    int64_t nBalanceReserve = 0;
     int64_t nPegPoolReserve = 0;
     
     if (!unpackbalance(inp_pegpool_pegdata64, "pegpool", 
@@ -140,7 +154,10 @@ bool updatepegbalances(
                        out_err)) {
         return false;
     }
-    if (!unpackbalance(frBalance, peglevel_old, inp_balance_pegdata64, "balance", out_err)) {
+    if (!unpackbalance(inp_balance_pegdata64, "balance", 
+                       frBalance, peglevel_old, 
+                       nBalanceReserve, nBalanceLiquid,
+                       out_err)) {
         return false;
     }
 

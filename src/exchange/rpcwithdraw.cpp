@@ -246,8 +246,16 @@ static void parseConsumedAndProvided(const string & sConsumedInputs,
             if (fOk) {
                 CPegLevel peglevelSkip("");
                 CFractions frLoad(0, CFractions::STD);
-                try { pegops::unpackbalance2(frLoad, peglevelSkip, 
-                                            vMaintenanceArgs[2], "maintenance"); }
+                int64_t nLiquidLoad = 0;
+                int64_t nReserveLoad = 0;
+                try { 
+                    pegops::unpackbalance(
+                            vMaintenanceArgs[2], 
+                            "maintenance", 
+                            frLoad, 
+                            nReserveLoad,nLiquidLoad,
+                            peglevelSkip); 
+                }
                 catch (std::exception &) { continue; }
                 
                 nMaintenance = nConv;
@@ -426,6 +434,10 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_MISC_ERROR, strprintf("Requested to withdraw negative %d",
                                                      nAmountWithFee));
     }
+    if (nAmountWithFee <1000000+2) {
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Requested to withdraw less than 1M fee %d",
+                                                     nAmountWithFee));
+    }
     
     string peglevel_hex = params[5].get_str();
     
@@ -453,13 +465,20 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     CFractions frExchange(0, CFractions::VALUE);
     CFractions frPegShift(0, CFractions::VALUE);
     
+    int64_t nLiquidBalance = 0;
+    int64_t nReserveBalance = 0;
+    int64_t nLiquidExchange = 0;
+    int64_t nReserveExchange = 0;
+    int64_t nLiquidPegShift = 0;
+    int64_t nReservePegShift = 0;
+    
     CPegLevel peglevel_balance("");
     CPegLevel peglevel_exchange_skip("");
     CPegLevel peglevel_pegshift_skip("");
 
-    pegops::unpackbalance2(frBalance, peglevel_balance, balance_pegdata64, "balance");
-    pegops::unpackbalance2(frExchange, peglevel_exchange_skip, exchange_pegdata64, "exchange");
-    pegops::unpackbalance2(frPegShift, peglevel_pegshift_skip, pegshift_pegdata64, "pegshift");
+    pegops::unpackbalance(balance_pegdata64, "balance", frBalance, nReserveBalance, nLiquidBalance, peglevel_balance);
+    pegops::unpackbalance(exchange_pegdata64, "exchange", frExchange, nReserveExchange, nLiquidExchange, peglevel_exchange_skip);
+    pegops::unpackbalance(pegshift_pegdata64, "pegshift", frPegShift, nReservePegShift, nLiquidPegShift, peglevel_pegshift_skip);
 
     if (!balance_pegdata64.empty() && peglevel_balance.nCycle != peglevel_exchange.nCycle) {
         throw JSONRPCError(RPC_MISC_ERROR, "Balance has other cycle than peglevel");
@@ -889,6 +908,10 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_MISC_ERROR, strprintf("Requested to withdraw negative %d",
                                                      nAmountWithFee));
     }
+    if (nAmountWithFee <1000000+2) {
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Requested to withdraw less than 1M fee %d",
+                                                     nAmountWithFee));
+    }
     
     string peglevel_hex = params[5].get_str();
 
@@ -916,13 +939,20 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     CFractions frExchange(0, CFractions::VALUE);
     CFractions frPegShift(0, CFractions::VALUE);
     
+    int64_t nLiquidBalance = 0;
+    int64_t nReserveBalance = 0;
+    int64_t nLiquidExchange = 0;
+    int64_t nReserveExchange = 0;
+    int64_t nLiquidPegShift = 0;
+    int64_t nReservePegShift = 0;
+    
     CPegLevel peglevel_balance("");
     CPegLevel peglevel_exchange_skip("");
     CPegLevel peglevel_pegshift_skip("");
 
-    pegops::unpackbalance2(frBalance, peglevel_balance, balance_pegdata64, "balance");
-    pegops::unpackbalance2(frExchange, peglevel_exchange_skip, exchange_pegdata64, "exchange");
-    pegops::unpackbalance2(frPegShift, peglevel_pegshift_skip, pegshift_pegdata64, "pegshift");
+    pegops::unpackbalance(balance_pegdata64, "balance", frBalance, nReserveBalance, nLiquidBalance, peglevel_balance);
+    pegops::unpackbalance(exchange_pegdata64, "exchange", frExchange, nReserveExchange, nLiquidExchange, peglevel_exchange_skip);
+    pegops::unpackbalance(pegshift_pegdata64, "pegshift", frPegShift, nReservePegShift, nLiquidPegShift, peglevel_pegshift_skip);
 
     if (!balance_pegdata64.empty() && peglevel_balance.nCycle != peglevel_exchange.nCycle) {
         throw JSONRPCError(RPC_MISC_ERROR, "Balance has other cycle than peglevel");

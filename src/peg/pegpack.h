@@ -27,25 +27,18 @@ extern bool unpackbalance(
         int64_t &       out_liquid,
         std::string &   out_err);
 
-extern bool unpackbalance(CFractions &          fractions,
-                          CPegLevel &           peglevel,
-                          const std::string &   pegdata64,
-                          std::string           tag,
-                          std::string &         err);
-
 // json
 
-extern bool unpackbalance(CFractions &          fractions,
-                          int64_t &             nReserve,
-                          int64_t &             nLiquid,
-                          CPegLevel &           peglevel,
-                          const std::string &   pegdata64,
-                          std::string           tag);
+extern bool unpackbalance(
 
-extern void unpackbalance2(CFractions &          fractions,
-                          CPegLevel &           peglevel,
-                          const std::string &   pegdata64,
-                          std::string           tag);
+        const std::string &   pegdata64,
+        std::string           tag,
+        
+        CFractions &          fractions,
+        int64_t &             nReserve,
+        int64_t &             nLiquid,
+        CPegLevel &           peglevel
+        );
 
 }
 

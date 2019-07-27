@@ -182,11 +182,16 @@ Value registerdeposit(const Array& params, bool fHelp)
     CFractions frBalance(0, CFractions::VALUE);
     CFractions frExchange(0, CFractions::VALUE);
 
+    int64_t nLiquidBalance = 0;
+    int64_t nReserveBalance = 0;
+    int64_t nLiquidExchange = 0;
+    int64_t nReserveExchange = 0;
+    
     CPegLevel peglevel_balance("");
     CPegLevel peglevel_exchange("");
 
-    pegops::unpackbalance2(frBalance, peglevel_balance, balance_pegdata64, "balance");
-    pegops::unpackbalance2(frExchange, peglevel_exchange, exchange_pegdata64, "exchange");
+    pegops::unpackbalance(balance_pegdata64, "balance", frBalance, nReserveBalance, nLiquidBalance, peglevel_balance);
+    pegops::unpackbalance(exchange_pegdata64, "exchange", frExchange, nReserveExchange, nLiquidExchange, peglevel_exchange);
 
     if (!balance_pegdata64.empty() && peglevel_balance.nCycle != peglevel.nCycle) {
         throw JSONRPCError(RPC_MISC_ERROR, "Balance has other cycle than peglevel");

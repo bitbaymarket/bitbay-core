@@ -39,38 +39,6 @@ string packpegdata(const CFractions & fractions,
     return EncodeBase64(fout.str());
 }
 
-bool unpackbalance(CFractions &     fractions,
-                   CPegLevel &      peglevel,
-                   const string &   pegdata64,
-                   string           tag,
-                   string &         err)
-{
-    if (pegdata64.empty()) 
-        return true;
-    
-    string pegdata = DecodeBase64(pegdata64);
-    CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
-                     SER_DISK, CLIENT_VERSION);
-    
-    if (!fractions.Unpack(finp)) {
-         err = "Can not unpack '"+tag+"' pegdata";
-         return false;
-    }
-    
-    try { 
-    
-        CPegLevel peglevel_copy = peglevel;
-        if (!peglevel_copy.Unpack(finp)) {
-            err = "Can not unpack '"+tag+"' peglevel";
-            return false;
-        }
-        else peglevel = peglevel_copy;
-    }
-    catch (std::exception &) { ; }
-    
-    return true;
-}
-
 bool unpackbalance(
         const string &   inp_pegdata64,
         string           inp_tag,
@@ -116,42 +84,16 @@ bool unpackbalance(
     return true;
 }
 
-void unpackbalance2(CFractions & fractions,
-                   CPegLevel & peglevel,
-                   const string & pegdata64,
-                   string tag)
-{
-    if (pegdata64.empty()) 
-        return;
-    
-    string pegdata = DecodeBase64(pegdata64);
-    CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
-                     SER_DISK, CLIENT_VERSION);
-    
-    if (!fractions.Unpack(finp)) {
-         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
-                            "Can not unpack '"+tag+"' pegdata");
-    }
-    
-    try { 
-    
-        CPegLevel peglevel_copy = peglevel;
-        if (!peglevel_copy.Unpack(finp)) {
-             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
-                                "Can not unpack '"+tag+"' peglevel");
-        }
-        else peglevel = peglevel_copy;
-    
-    }
-    catch (std::exception &) { ; }
-}
+bool unpackbalance(
 
-bool unpackbalance(CFractions &     fractions,
-                   int64_t &        nReserve,
-                   int64_t &        nLiquid,
-                   CPegLevel &      peglevel,
-                   const string &   pegdata64,
-                   string           tag)
+        const string &   pegdata64,
+        string           tag,
+        
+        CFractions &     fractions,
+        int64_t &        nReserve,
+        int64_t &        nLiquid,
+        CPegLevel &      peglevel
+        )
 {
     if (pegdata64.empty()) 
         return true;

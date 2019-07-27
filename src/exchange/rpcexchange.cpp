@@ -63,13 +63,19 @@ Value getpeglevel(const Array& params, bool fHelp)
     string pegshift_pegdata64 = params[1].get_str();
     int nCyclePrev = params[2].get_int();
     
-    CPegLevel peglevel_exchange("");
-    CPegLevel peglevel_pegshift("");
     CFractions frExchange(0, CFractions::VALUE);
     CFractions frPegShift(0, CFractions::VALUE);
 
-    pegops::unpackbalance2(frExchange, peglevel_exchange, exchange_pegdata64, "exchange");
-    pegops::unpackbalance2(frPegShift, peglevel_pegshift, pegshift_pegdata64, "pegshift");
+    int64_t nLiquidExchange = 0;
+    int64_t nReserveExchange = 0;
+    int64_t nLiquidPegShift = 0;
+    int64_t nReservePegShift = 0;
+    
+    CPegLevel peglevel_exchange("");
+    CPegLevel peglevel_pegshift("");
+    
+    pegops::unpackbalance(exchange_pegdata64, "exchange", frExchange, nReserveExchange, nLiquidExchange, peglevel_exchange);
+    pegops::unpackbalance(pegshift_pegdata64, "pegshift", frPegShift, nReservePegShift, nLiquidPegShift, peglevel_pegshift);
     
     frExchange = frExchange.Std();
     frPegShift = frPegShift.Std();
@@ -106,8 +112,10 @@ Value getpeglevel(const Array& params, bool fHelp)
     int64_t nPegPoolReserve = 0;
     CPegLevel peglevel_pegpool("");
     CFractions frPegPool(0, CFractions::STD);
-    pegops::unpackbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, 
-                          peglevel_pegpool, pegpool_pegdata64, "pegpool");
+    pegops::unpackbalance(pegpool_pegdata64, "pegpool",
+                          frPegPool, 
+                          nPegPoolReserve, nPegPoolLiquid, 
+                          peglevel_pegpool);
     
     CPegLevel peglevel(peglevel_hex);
     
@@ -144,13 +152,19 @@ Value makepeglevel(const Array& params, bool fHelp)
     string exchange_pegdata64 = params[5].get_str();
     string pegshift_pegdata64 = params[6].get_str();
     
-    CPegLevel peglevel_exchange("");
-    CPegLevel peglevel_pegshift("");
     CFractions frExchange(0, CFractions::VALUE);
     CFractions frPegShift(0, CFractions::VALUE);
+    
+    int64_t nLiquidExchange = 0;
+    int64_t nReserveExchange = 0;
+    int64_t nLiquidPegShift = 0;
+    int64_t nReservePegShift = 0;
+    
+    CPegLevel peglevel_exchange("");
+    CPegLevel peglevel_pegshift("");
 
-    pegops::unpackbalance2(frExchange, peglevel_exchange, exchange_pegdata64, "exchange");
-    pegops::unpackbalance2(frPegShift, peglevel_pegshift, pegshift_pegdata64, "pegshift");
+    pegops::unpackbalance(exchange_pegdata64, "exchange", frExchange, nReserveExchange, nLiquidExchange, peglevel_exchange);
+    pegops::unpackbalance(pegshift_pegdata64, "pegshift", frPegShift, nReservePegShift, nLiquidPegShift, peglevel_pegshift);
     
     frExchange = frExchange.Std();
     frPegShift = frPegShift.Std();
@@ -179,8 +193,10 @@ Value makepeglevel(const Array& params, bool fHelp)
     int64_t nPegPoolReserve = 0;
     CPegLevel peglevel_pegpool("");
     CFractions frPegPool(0, CFractions::STD);
-    pegops::unpackbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, 
-                          peglevel_pegpool, pegpool_pegdata64, "pegpool");
+    pegops::unpackbalance(pegpool_pegdata64, "pegpool", 
+                          frPegPool, 
+                          nPegPoolReserve, nPegPoolLiquid, 
+                          peglevel_pegpool);
     
     CPegLevel peglevel(peglevel_hex);
     
@@ -238,8 +254,8 @@ Value updatepegbalances(const Array& params, bool fHelp)
     int64_t nBalanceReserve = 0;
     int64_t nPegPoolReserve = 0;
     
-    pegops::unpackbalance(frBalance, nBalanceReserve, nBalanceLiquid, peglevel_skip1, out_balance_pegdata64, "balance");
-    pegops::unpackbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, peglevel_skip2, out_pegpool_pegdata64, "pegpool");
+    pegops::unpackbalance(out_balance_pegdata64, "balance", frBalance, nBalanceReserve, nBalanceLiquid, peglevel_skip1);
+    pegops::unpackbalance(out_pegpool_pegdata64, "pegpool", frPegPool, nPegPoolReserve, nPegPoolLiquid, peglevel_skip2);
     
     Object result;
 
@@ -300,8 +316,8 @@ Value movecoins(const Array& params, bool fHelp)
     int64_t nSrcReserve = 0;
     int64_t nDstReserve = 0;
     
-    pegops::unpackbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1, out_src_pegdata64, "src");
-    pegops::unpackbalance(frDst, nDstReserve, nDstLiquid, peglevel_skip2, out_dst_pegdata64, "dst");
+    pegops::unpackbalance(out_src_pegdata64, "src", frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1);
+    pegops::unpackbalance(out_dst_pegdata64, "dst", frDst, nDstReserve, nDstLiquid, peglevel_skip2);
     
     Object result;
     
@@ -360,8 +376,8 @@ Value moveliquid(const Array& params, bool fHelp)
     int64_t nSrcReserve = 0;
     int64_t nDstReserve = 0;
     
-    pegops::unpackbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1, out_src_pegdata64, "src");
-    pegops::unpackbalance(frDst, nDstReserve, nDstLiquid, peglevel_skip2, out_dst_pegdata64, "dst");
+    pegops::unpackbalance(out_src_pegdata64, "src", frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1);
+    pegops::unpackbalance(out_dst_pegdata64, "dst", frDst, nDstReserve, nDstLiquid, peglevel_skip2);
     
     Object result;
     
@@ -420,8 +436,8 @@ Value movereserve(const Array& params, bool fHelp)
     int64_t nSrcReserve = 0;
     int64_t nDstReserve = 0;
     
-    pegops::unpackbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1, out_src_pegdata64, "src");
-    pegops::unpackbalance(frDst, nDstReserve, nDstLiquid, peglevel_skip2, out_dst_pegdata64, "dst");
+    pegops::unpackbalance(out_src_pegdata64, "src", frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1);
+    pegops::unpackbalance(out_dst_pegdata64, "dst", frDst, nDstReserve, nDstLiquid, peglevel_skip2);
     
     Object result;
     
@@ -466,7 +482,7 @@ Value removecoins(const Array& params, bool fHelp)
     int64_t nArg1Liquid = 0;
     int64_t nArg1Reserve = 0;
     
-    pegops::unpackbalance(frArg1, nArg1Reserve, nArg1Liquid, peglevel, out_arg1_pegdata64, "out");
+    pegops::unpackbalance(out_arg1_pegdata64, "out", frArg1, nArg1Reserve, nArg1Liquid, peglevel);
     
     Object result;
     

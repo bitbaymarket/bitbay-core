@@ -37,10 +37,10 @@ string packpegdata(const CFractions &   fractions,
     return EncodeBase64(fout.str());
 }
 
-static string packpegbalance(const CFractions &     fractions,
-                             const CPegLevel &      peglevel,
-                             int64_t                nReserve,
-                             int64_t                nLiquid)
+string packpegbalance(const CFractions &     fractions,
+                      const CPegLevel &      peglevel,
+                      int64_t                nReserve,
+                      int64_t                nLiquid)
 {
     CDataStream fout(SER_DISK, CLIENT_VERSION);
     fractions.Pack(fout);
@@ -360,7 +360,7 @@ bool updatepegbalances(
     int64_t nLiquidPool = frPegPool.Total() - nPegPoolReserve;
     if (nLiquidTodo > nLiquidPool) { // exchange liquidity mismatch
         std::stringstream ss;
-        ss << "Not enough liquid " << frPegPool.Total() 
+        ss << "Not enough liquid " << nLiquidPool 
            << " on 'pool' to balance " << nLiquidTodo;
         out_err = ss.str();
         return false;

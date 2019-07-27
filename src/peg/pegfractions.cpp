@@ -257,7 +257,6 @@ int64_t CFractions::Low(const CPegLevel & peglevel) const
                                     peglevel.nShiftLastTotal);
         if (vpart < v) vpart++; // better rounding
         nValue += vpart;
-        to++;
     }
 
     for(int i=0;i<to;i++) {

@@ -118,15 +118,20 @@ Value getpeglevel(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_MISC_ERROR, err);
     }
     
+    int64_t nPegPoolLiquid = 0;
+    int64_t nPegPoolReserve = 0;
+    CPegLevel peglevel_pegpool("");
     CFractions frPegPool(0, CFractions::STD);
-    unpackpegdata(frPegPool, pegpool_pegdata64, "pegpool");
+    unpackbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, 
+                  peglevel_pegpool, pegpool_pegdata64, "pegpool");
+    
     CPegLevel peglevel(peglevel_hex);
     
     Object result;
     result.push_back(Pair("cycle", peglevel.nCycle));
 
     printpeglevel(peglevel, result);
-    printpegbalance(frPegPool, peglevel, result, "pegpool_", true);
+    printpegbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, peglevel, result, "pegpool_", true);
     printpegbalance(frExchange, peglevel, result, "exchange_", false);
     printpegshift(frPegShift, peglevel, result, false);
     
@@ -184,15 +189,20 @@ Value makepeglevel(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_MISC_ERROR, err);
     }
     
+    int64_t nPegPoolLiquid = 0;
+    int64_t nPegPoolReserve = 0;
+    CPegLevel peglevel_pegpool("");
     CFractions frPegPool(0, CFractions::STD);
-    unpackpegdata(frPegPool, pegpool_pegdata64, "pegpool");
+    unpackbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, 
+                  peglevel_pegpool, pegpool_pegdata64, "pegpool");
+    
     CPegLevel peglevel(peglevel_hex);
     
     Object result;
     result.push_back(Pair("cycle", peglevel.nCycle));
 
     printpeglevel(peglevel, result);
-    printpegbalance(frPegPool, peglevel, result, "pegpool_", true);
+    printpegbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, peglevel, result, "pegpool_", true);
     printpegbalance(frExchange, peglevel, result, "exchange_", false);
     printpegshift(frPegShift, peglevel, result, false);
     
@@ -237,8 +247,13 @@ Value updatepegbalances(const Array& params, bool fHelp)
     CFractions frBalance(0, CFractions::STD);
     CFractions frPegPool(0, CFractions::STD);
     
-    unpackbalance(frBalance, peglevel_skip1, out_balance_pegdata64, "balance");
-    unpackbalance(frPegPool, peglevel_skip2, out_pegpool_pegdata64, "pegpool");
+    int64_t nBalanceLiquid = 0;
+    int64_t nPegPoolLiquid = 0;
+    int64_t nBalanceReserve = 0;
+    int64_t nPegPoolReserve = 0;
+    
+    unpackbalance(frBalance, nBalanceReserve, nBalanceLiquid, peglevel_skip1, out_balance_pegdata64, "balance");
+    unpackbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, peglevel_skip2, out_pegpool_pegdata64, "pegpool");
     
     Object result;
 
@@ -246,8 +261,8 @@ Value updatepegbalances(const Array& params, bool fHelp)
     result.push_back(Pair("cycle", peglevel_new.nCycle));
     
     printpeglevel(peglevel_new, result);
-    printpegbalance(frBalance, peglevel_new, result, "balance_", true);
-    printpegbalance(frPegPool, peglevel_new, result, "pegpool_", true);
+    printpegbalance(frBalance, nBalanceReserve, nBalanceLiquid, peglevel_new, result, "balance_", true);
+    printpegbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, peglevel_new, result, "pegpool_", true);
     
     return result;
 }

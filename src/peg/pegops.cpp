@@ -517,8 +517,14 @@ bool movecoins(
         return false;
     }
     
-    out_src_pegdata64 = packpegdata(frSrc, peglevel);
-    out_dst_pegdata64 = packpegdata(frDst, peglevel);
+    // std calc
+    nSrcLiquid = frSrc.High(peglevel);
+    nSrcReserve = frSrc.Low(peglevel);
+    nDstLiquid = frDst.High(peglevel);
+    nDstReserve = frDst.Low(peglevel);
+    
+    out_src_pegdata64 = packpegbalance(frSrc, peglevel, nSrcReserve, nSrcLiquid);
+    out_dst_pegdata64 = packpegbalance(frDst, peglevel, nDstReserve, nDstLiquid);
     return true;
 }
 

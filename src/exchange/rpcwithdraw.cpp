@@ -32,6 +32,15 @@ void unpackbalance(CFractions & fractions,
                    CPegLevel & peglevel,
                    const string & pegdata64,
                    string tag);
+bool unpackbalance(
+        const string &   inp_pegdata64,
+        string           inp_tag,
+        
+        CFractions &     out_fractions,
+        CPegLevel &      out_peglevel,
+        int64_t &        out_reserve,
+        int64_t &        out_liquid,
+        string &         out_err);
 
 void printpegshift(const CFractions & frPegShift,
                    const CPegLevel & peglevel,

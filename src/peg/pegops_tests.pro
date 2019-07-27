@@ -20,6 +20,7 @@ SOURCES += \
     $$PWD/tests/pegops_test5.cpp \
     $$PWD/tests/pegops_test6.cpp \
     $$PWD/tests/pegops_test7.cpp \
+    $$PWD/tests/pegops_test8.cpp \
     $$PWD/tests/pegops_test1k.cpp \
 
 LIBS += -lz

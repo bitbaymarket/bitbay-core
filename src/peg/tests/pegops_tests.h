@@ -20,6 +20,7 @@ private slots:
     void test5();
     void test6();
     void test7();
+    void test8();
     void test1k();
 };
 

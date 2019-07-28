@@ -564,7 +564,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     }
     
     int64_t nFeeRet = 1000000 /*common fee deducted from user amount, 1M*/;
-    int64_t nAmount = nAmountWithFee - nFeeRet +1; /*+1 for xch notary*/
+    int64_t nAmount = nAmountWithFee - nFeeRet;
     
     vector<pair<CScript, int64_t> > vecSend;
     CScript scriptPubKey;
@@ -684,7 +684,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         }
         ss << string("L");
         ss << sAddress;
-        ss << nAmountWithFee;
+        ss << nAmount;
         sTxid = Hash(ss.begin(), ss.end()).GetHex();
         sNotary += sTxid;
         CScript scriptPubKey;
@@ -1044,7 +1044,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     }
     
     int64_t nFeeRet = 1000000 /*common fee deducted from user amount*/;
-    int64_t nAmount = nAmountWithFee - nFeeRet +1;  /*+1 for xch notary*/
+    int64_t nAmount = nAmountWithFee - nFeeRet;
     
     vector<pair<CScript, int64_t> > vecSend;
     CScript scriptPubKey;
@@ -1243,7 +1243,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         }
         ss << string("R");
         ss << sAddress;
-        ss << nAmountWithFee;
+        ss << nAmount;
         sTxid = Hash(ss.begin(), ss.end()).GetHex();
         sNotary += sTxid;
         CScript scriptPubKey;

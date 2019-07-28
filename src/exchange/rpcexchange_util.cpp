@@ -14,7 +14,6 @@
 #include "wallet.h"
 
 #include "pegops.h"
-#include "pegpack.h"
 #include "pegdata.h"
 
 #include <boost/algorithm/string.hpp>
@@ -25,41 +24,38 @@ using namespace boost;
 using namespace boost::assign;
 using namespace json_spirit;
 
-
-
-
-
 void printpegshift(const CFractions & frPegShift,
                    const CPegLevel & peglevel,
-                   Object & result,
-                   bool print_pegdata)
+                   Object & result)
 {
-    int64_t nPegShiftValue = frPegShift.Positive(nullptr).Total();
-    int64_t nPegShiftLiquid = nPegShiftValue;
-    int64_t nPegShiftReserve = nPegShiftValue;
-    CFractions frPegShiftLiquid = frPegShift.HighPart(peglevel, nullptr);
-    CFractions frPegShiftReserve = frPegShift.LowPart(peglevel, nullptr);
-    int64_t nPegShiftLiquidNegative = 0;
-    int64_t nPegShiftLiquidPositive = 0;
-    frPegShiftLiquid.Negative(&nPegShiftLiquidNegative);
-    frPegShiftLiquid.Positive(&nPegShiftLiquidPositive);
-    int64_t nPegShiftReserveNegative = 0;
-    int64_t nPegShiftReservePositive = 0;
-    frPegShiftReserve.Negative(&nPegShiftReserveNegative);
-    frPegShiftReserve.Positive(&nPegShiftReservePositive);
-    nPegShiftLiquid = std::min(nPegShiftLiquidPositive, -nPegShiftLiquidNegative);
-    nPegShiftReserve = std::min(nPegShiftReservePositive, -nPegShiftReserveNegative);
+    int64_t nValue = frPegShift.Positive(nullptr).Total();
+    CFractions frLiquid = frPegShift.HighPart(peglevel, nullptr);
+    CFractions frReserve = frPegShift.LowPart(peglevel, nullptr);
+    
+    int64_t nLiquidNegative = 0;
+    int64_t nLiquidPositive = 0;
+    frLiquid.Negative(&nLiquidNegative);
+    frLiquid.Positive(&nLiquidPositive);
+    
+    int64_t nReserveNegative = 0;
+    int64_t nReservePositive = 0;
+    frReserve.Negative(&nReserveNegative);
+    frReserve.Positive(&nReservePositive);
+    
+    int64_t nLiquidPart = std::min(nLiquidPositive, -nLiquidNegative);
+    int64_t nReservePart = std::min(nReservePositive, -nReserveNegative);
 
-    result.push_back(Pair("pegshift_value", nPegShiftValue));
-    result.push_back(Pair("pegshift_liquid", nPegShiftLiquid));
-    result.push_back(Pair("pegshift_reserve", nPegShiftReserve));
-    if (print_pegdata) {
-        int64_t nPegShiftLiquid = frPegShift.High(peglevel);
-        int64_t nPegShiftReserve = frPegShift.Low(peglevel);
-        result.push_back(Pair("pegshift_pegdata", 
-                              pegops::packpegdata(frPegShift, peglevel,
-                                                  nPegShiftReserve, nPegShiftLiquid)));
-    }
+    result.push_back(Pair("pegshift_absvalue", nValue));
+    result.push_back(Pair("pegshift_liquidpart", nLiquidPart));
+    result.push_back(Pair("pegshift_reservepart", nReservePart));
+
+    CPegData pegdata;
+    pegdata.fractions = frPegShift;
+    pegdata.peglevel = peglevel;
+    pegdata.nLiquid = frPegShift.High(peglevel);
+    pegdata.nReserve = frPegShift.Low(peglevel);
+    
+    result.push_back(Pair("pegshift_pegdata", pegdata.ToString()));
 }
 
 void printpeglevel(const CPegLevel & peglevel,
@@ -78,44 +74,17 @@ void printpeglevel(const CPegLevel & peglevel,
     result.push_back(Pair("peglevel_info", info));
 }
 
-void printpegbalance(const CFractions & frBalance,
-                     const CPegLevel & peglevel,
+void printpegbalance(const CPegData & pegdata,
                      Object & result,
-                     string prefix,
-                     bool print_pegdata)
+                     string prefix)
 {
-    int64_t nValue      = frBalance.Total();
-    int64_t nLiquid     = frBalance.High(peglevel);
-    int64_t nReserve    = frBalance.Low(peglevel);
-    int64_t nNChange    = frBalance.NChange(peglevel);
+    int64_t nValue      = pegdata.fractions.Total();
+    int64_t nNChange    = pegdata.fractions.NChange(pegdata.peglevel);
 
     result.push_back(Pair(prefix+"value", nValue));
-    result.push_back(Pair(prefix+"liquid", nLiquid));
-    result.push_back(Pair(prefix+"reserve", nReserve));
+    result.push_back(Pair(prefix+"liquid", pegdata.nLiquid));
+    result.push_back(Pair(prefix+"reserve", pegdata.nReserve));
     result.push_back(Pair(prefix+"nchange", nNChange));
-    if (print_pegdata) {
-        result.push_back(Pair(prefix+"pegdata", 
-                              pegops::packpegdata(frBalance, peglevel,
-                                                  nReserve, nLiquid)));
-    }
+    result.push_back(Pair(prefix+"pegdata", pegdata.ToString()));
 }
 
-void printpegbalance(const CFractions & frBalance,
-                     int64_t nReserve,
-                     int64_t nLiquid,
-                     const CPegLevel & peglevel,
-                     Object & result,
-                     string prefix,
-                     bool print_pegdata)
-{
-    int64_t nValue      = frBalance.Total();
-    int64_t nNChange    = frBalance.NChange(peglevel);
-
-    result.push_back(Pair(prefix+"value", nValue));
-    result.push_back(Pair(prefix+"liquid", nLiquid));
-    result.push_back(Pair(prefix+"reserve", nReserve));
-    result.push_back(Pair(prefix+"nchange", nNChange));
-    if (print_pegdata) {
-        result.push_back(Pair(prefix+"pegdata", pegops::packpegdata(frBalance, peglevel, nReserve, nLiquid)));
-    }
-}

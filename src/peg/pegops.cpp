@@ -4,7 +4,6 @@
 
 #include "pegops.h"
 #include "pegopsp.h"
-#include "pegpack.h"
 #include "pegdata.h"
 #include "pegutil.h"
 

@@ -14,24 +14,6 @@
 using namespace std;
 using namespace pegops;
 
-namespace pegops {
-string packpegdata(const CFractions & fractions,
-                   const CPegLevel & peglevel);
-bool unpackbalance(CFractions & fractions,
-                   CPegLevel & peglevel,
-                   const string & pegdata64,
-                   string tag,
-                   string & err);
-bool unpackbalance(const string &   pegdata64,
-                   string           tag,
-                   CFractions &     fractions,
-                   CPegLevel &      peglevel,
-                   int64_t &        nReserve,
-                   int64_t &        nLiquid,
-                   string &         err);
-
-}
-
 void TestPegOps::test1k()
 {
     //return;
@@ -51,7 +33,12 @@ void TestPegOps::test1k()
             user.f[i] = distribution(generator) / (i*5/6+1);
         }
         users.push_back(user);
-        string user_b64 = packpegdata(user, level1);
+        CPegData pdUser;
+        pdUser.fractions = user;
+        pdUser.peglevel = level1;
+        pdUser.nLiquid = user.High(level1);
+        pdUser.nReserve = user.Low(level1);
+        string user_b64 = pdUser.ToString();
         user_balances.push_back(user_b64);
     }
     
@@ -73,9 +60,22 @@ void TestPegOps::test1k()
     
     QCOMPARE(pegshift.Total(), 0);
     
-    for(int i=0; i<10; i++) {
-        string exchange1_b64 = packpegdata(exchange, level1);
-        string pegshift1_b64 = packpegdata(pegshift, level1);
+    for(int i=0; i<100; i++) {
+        
+        CPegData pdExchange;
+        pdExchange.fractions = exchange;
+        pdExchange.peglevel = level1;
+        pdExchange.nReserve = exchange.Low(level1);
+        pdExchange.nLiquid = exchange.High(level1);
+
+        CPegData pdPegShift;
+        pdPegShift.fractions = pegshift;
+        pdPegShift.peglevel = level1;
+        pdPegShift.nReserve = pegshift.Low(level1);
+        pdPegShift.nLiquid = pegshift.High(level1);
+        
+        string exchange1_b64 = pdExchange.ToString();
+        string pegshift1_b64 = pdPegShift.ToString();
         
         string peglevel_hex;
         string pegpool_b64;
@@ -90,13 +90,13 @@ void TestPegOps::test1k()
         }
         
         bool ok1 = getpeglevel(
-                    exchange1_b64,
-                    pegshift1_b64,
                     i+2,
                     i+1,
                     peg+buffer,
                     peg+buffer,
                     peg+buffer,
+                    exchange1_b64,
+                    pegshift1_b64,
                     
                     peglevel_hex,
                     pegpool_b64,
@@ -139,18 +139,15 @@ void TestPegOps::test1k()
         }
         
         // pool should be empty
-        CPegLevel peglevel_skip("");
-        CFractions pegpool(0, CFractions::STD);
-        bool ok99 = unpackbalance(pegpool,
-                                  peglevel_skip, 
-                                  pegpool_b64, 
-                                  "pegppol", out_err);
+        CPegData pdPegPool(pegpool_b64);
+        if (!pdPegPool.IsValid()) {
+            QVERIFY(false);
+        }
         
-        QVERIFY(ok99 == true);
-        if (pegpool.Total() != 0) {
+        if (pdPegPool.fractions.Total() != 0) {
             qDebug() << pegpool_b64.c_str();
         }
-        QVERIFY(pegpool.Total() == 0);
+        QVERIFY(pdPegPool.fractions.Total() == 0);
         
         // some trades
         for(int j=0; j<1000; j++) {
@@ -166,25 +163,18 @@ void TestPegOps::test1k()
             string src_out_b64;
             string dst_out_b64;
             
-            int64_t src_liquid = 0;
-            int64_t src_reserve = 0;
-            CFractions src(0, CFractions::STD);
-            bool ok10 = unpackbalance(user_src, 
-                                      "src", 
-                                      src,
-                                      peglevel_skip, 
-                                      src_reserve,
-                                      src_liquid,
-                                      out_err);
-            QVERIFY(ok10 == true);
+            CPegData pdSrc(user_src);
+            if (!pdSrc.IsValid()) {
+                QVERIFY(false);
+            }
             
             string user_src_copy = user_src;
             string user_dst_copy = user_dst;
             
             if (src_idx % 2 == 0) {
                 
-                int64_t amount = (src_liquid * (distribution(generator)/100+1)) /10;
-                amount = std::min(amount, src_liquid);
+                int64_t amount = (pdSrc.nLiquid * (distribution(generator)/100+1)) /10;
+                amount = std::min(amount, pdSrc.nLiquid);
                 bool ok11 = moveliquid(
                             amount,
                             user_src,
@@ -252,8 +242,8 @@ void TestPegOps::test1k()
                 */
             }
             else {
-                int64_t amount = (src_reserve * (distribution(generator)/100+1)) /10;
-                amount = std::min(amount, src_reserve);
+                int64_t amount = (pdSrc.nReserve * (distribution(generator)/100+1)) /10;
+                amount = std::min(amount, pdSrc.nReserve);
                 bool ok12 = movereserve(
                             amount,
                             user_src,
@@ -286,29 +276,37 @@ void TestPegOps::test1k()
         
         CFractions exchange1(0,CFractions::STD);
         for(int k=0; k< 1000; k++) {
-            CPegLevel user_skip("");
-            CFractions user(0, CFractions::STD);
-            bool ok = unpackbalance(user,
-                                      user_skip, 
-                                      user_balances[k], 
-                                      "user", out_err);
-            if (!ok) {
-                qDebug() << out_err.c_str();
-            }
-            QVERIFY(ok == true);
             
-            exchange1 += user;
+            CPegData pdUser(user_balances[k]);
+            if (!pdUser.IsValid()) {
+                QVERIFY(false);
+            }
+            
+            exchange1 += pdUser.fractions;
         }
         
         for(int k=0;k<PEG_SIZE; k++) {
             if (exchange.f[k] != exchange1.f[k]) {
-                qDebug() << "exchange orig";
-                qDebug() << packpegdata(exchange, level1).c_str();
-                qDebug() << "exchange new";
-                qDebug() << packpegdata(exchange1, level1).c_str();
+                
+//                int64_t nLiquidExchange = exchange.High(level1);
+//                int64_t nReserveExchange = exchange.Low(level1);
+//                int64_t nLiquidExchange1 = exchange1.High(level1);
+//                int64_t nReserveExchange1 = exchange1.Low(level1);
+                
+//                qDebug() << "exchange orig";
+//                qDebug() << packpegdata(exchange, level1, nReserveExchange, nLiquidExchange).c_str();
+//                qDebug() << "exchange new";
+//                qDebug() << packpegdata(exchange1, level1, nReserveExchange1, nLiquidExchange1).c_str();
                 qDebug() << "exchange diff";
                 CFractions diff = exchange1 - exchange;
-                qDebug() << packpegdata(diff, level1).c_str();
+                
+                CPegData pdDiff;
+                pdDiff.fractions = diff;
+                pdDiff.peglevel = level1;
+                pdDiff.nLiquid = diff.High(level1);
+                pdDiff.nReserve = diff.Low(level1);
+                
+                qDebug() << pdDiff.ToString().c_str();
             }
             QVERIFY(exchange.f[k] == exchange1.f[k]);
         }

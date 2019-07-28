@@ -12,7 +12,6 @@
 #include "wallet.h"
 
 #include "pegops.h"
-#include "pegpack.h"
 #include "pegdata.h"
 
 #include <boost/algorithm/string.hpp>
@@ -24,22 +23,11 @@ using namespace json_spirit;
 
 void printpegshift(const CFractions & frPegShift,
                    const CPegLevel & peglevel,
-                   Object & result,
-                   bool print_pegdata);
+                   Object & result);
 
-void printpegbalance(const CFractions & frBalance,
-                     const CPegLevel & peglevel,
+void printpegbalance(const CPegData & pegdata,
                      Object & result,
-                     string prefix,
-                     bool print_pegdata);
-
-void printpegbalance(const CFractions & frBalance,
-                     int64_t nReserve,
-                     int64_t nLiquid,
-                     const CPegLevel & peglevel,
-                     Object & result,
-                     string prefix,
-                     bool print_pegdata);
+                     string prefix);
 
 string scripttoaddress(const CScript& scriptPubKey,
                        bool* ptrIsNotary,
@@ -77,6 +65,7 @@ static void consumereservepegshift(CFractions & frBalance,
                                    const CPegLevel & peglevel_exchange)
 {
     int nSupplyEffective = peglevel_exchange.nSupply + peglevel_exchange.nShift;
+    
     CFractions frPegShiftReserve = frPegShift.LowPart(nSupplyEffective, nullptr);
     consumepegshift(frBalance, frExchange, frPegShift, frPegShiftReserve);
 
@@ -94,6 +83,11 @@ static void consumeliquidpegshift(CFractions & frBalance,
                                   const CPegLevel & peglevel_exchange)
 {
     int nSupplyEffective = peglevel_exchange.nSupply + peglevel_exchange.nShift;
+    bool fPartial = peglevel_exchange.nShiftLastPart >0 && peglevel_exchange.nShiftLastTotal >0;
+    if (fPartial) {
+        nSupplyEffective++;
+    }
+    
     CFractions frPegShiftLiquid = frPegShift.HighPart(nSupplyEffective, nullptr);
     consumepegshift(frBalance, frExchange, frPegShift, frPegShiftLiquid);
 
@@ -383,14 +377,16 @@ static void prepareConsumedProvided(map<uint320,CCoinToUse> & mapProvidedOutputs
     }
     if (!sProvidedOutputs.empty()) sProvidedOutputs += ",";
     
-    int64_t nMaintenanceLiquid = frMaintenance.High(peglevel);
-    int64_t nMaintenanceReserve = frMaintenance.Low(peglevel);
+    CPegData pdSave;
+    pdSave.fractions = frMaintenance;
+    pdSave.peglevel = peglevel;
+    pdSave.nReserve = frMaintenance.Low(peglevel);
+    pdSave.nLiquid = frMaintenance.High(peglevel);
+    
     sProvidedOutputs += "accountmaintenance:"
             +std::to_string(nMaintenance)
             +":"
-            +pegops::packpegdata(
-                frMaintenance, peglevel,
-                nMaintenanceReserve, nMaintenanceLiquid);
+            +pdSave.ToString();
 }
 
 Value prepareliquidwithdraw(const Array& params, bool fHelp)
@@ -471,10 +467,6 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     if (!balance_pegdata64.empty() && pdBalance.peglevel.nCycle != peglevel_exchange.nCycle) {
         throw JSONRPCError(RPC_MISC_ERROR, "Balance has other cycle than peglevel");
     }
-
-    pdBalance.fractions = pdBalance.fractions.Std();
-    pdExchange.fractions = pdExchange.fractions.Std();
-    pdPegShift.fractions = pdPegShift.fractions.Std();
 
     if (nAmountWithFee > pdBalance.nLiquid) {
         throw JSONRPCError(RPC_MISC_ERROR, 
@@ -803,14 +795,10 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     // save fractions
     string sTxhash = rawTx.GetHash().GetHex();
 
-    // get list of changes and add to current provided outputs
-    map<string, int64_t> mapTxChanges;
+    // write provided outputs to pegdb
     {
         CPegDB pegdbrw;
         for (size_t i=1; i< rawTx.vout.size(); i++) { // skip 0 (withdraw)
-            // make map of change outputs
-            string txout = sTxhash+":"+itostr(i);
-            mapTxChanges[txout] = rawTx.vout[i].nValue;
             // save these outputs in pegdb, so they can be used in next withdraws
             auto fkey = uint320(rawTx.GetHash(), i);
             pegdbrw.WriteFractions(fkey, mapTxOutputFractions[i]);
@@ -826,11 +814,32 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     pdExchange.fractions -= frRequested;
     pdPegShift.fractions += (frRequested - frProcessed);
     
+    pdBalance.nLiquid -= nAmountWithFee;
+    
     // consume liquid part of pegshift by balance
     // as computation were completed by pegnext it may use fractions
     // of current reserves - at current supply not to consume these fractions
-    consumeliquidpegshift(pdBalance.fractions, pdExchange.fractions, pdPegShift.fractions, peglevel_exchange);
+    consumeliquidpegshift(pdBalance.fractions, 
+                          pdExchange.fractions, 
+                          pdPegShift.fractions, 
+                          peglevel_exchange);
 
+    pdExchange.peglevel = peglevel_exchange;
+    pdExchange.nLiquid = pdExchange.fractions.High(peglevel_exchange);
+    pdExchange.nReserve = pdExchange.fractions.Low(peglevel_exchange);
+
+    CPegData pdProcessed;
+    pdProcessed.fractions = frProcessed;
+    pdProcessed.peglevel = peglevel_exchange;
+    pdProcessed.nLiquid = pdProcessed.fractions.High(peglevel_exchange);
+    pdProcessed.nReserve = pdProcessed.fractions.Low(peglevel_exchange);
+
+    CPegData pdRequested;
+    pdRequested.fractions = frRequested;
+    pdRequested.peglevel = peglevel_exchange;
+    pdRequested.nLiquid = pdRequested.fractions.High(peglevel_exchange);
+    pdRequested.nReserve = pdRequested.fractions.Low(peglevel_exchange);
+    
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << rawTx;
     
@@ -845,23 +854,18 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     result.push_back(Pair("consumed_inputs", sConsumedInputs));
     result.push_back(Pair("provided_outputs", sProvidedOutputs));
 
+    result.push_back(Pair("created_on_cycle", peglevel_exchange.nCycle));
+    result.push_back(Pair("broadcast_on_cycle", peglevel_exchange.nCycle+1));
+    
     result.push_back(Pair("created_on_peg", peglevel_net.nSupply));
     result.push_back(Pair("broadcast_on_peg", peglevel_net.nSupplyNext));
     
-    printpegbalance(pdBalance.fractions, peglevel_exchange, result, "balance_", true);
-    printpegbalance(frProcessed, peglevel_exchange, result, "processed_", true);
-    printpegbalance(pdExchange.fractions, peglevel_exchange, result, "exchange_", true);
+    printpegbalance(pdBalance, result, "balance_");
+    printpegbalance(pdExchange, result, "exchange_");
+    printpegbalance(pdProcessed, result, "processed_");
+    printpegbalance(pdRequested, result, "requested_");
     
-    printpegshift(pdPegShift.fractions, peglevel_net, result, true);
-    
-    Array changes;
-    for(const pair<string, int64_t> & item : mapTxChanges) {
-        Object obj;
-        obj.push_back(Pair("txout", item.first));
-        obj.push_back(Pair("amount", item.second));
-        changes.push_back(obj);
-    }
-    result.push_back(Pair("changes", changes));
+    printpegshift(pdPegShift.fractions, peglevel_net, result);
     
     return result;
 }
@@ -1351,14 +1355,10 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     // save fractions
     string sTxhash = rawTx.GetHash().GetHex();
 
-    // get list of changes and add to current provided outputs
-    map<string, int64_t> mapTxChanges;
+    // write provided outputs to pegdb
     {
         CPegDB pegdbrw;
-        for (size_t i=rawTx.vin.size()+1; i< rawTx.vout.size(); i++) { // skip notations and withdraw
-            // make map of change outputs
-            string txout = rawTx.GetHash().GetHex()+":"+itostr(i);
-            mapTxChanges[txout] = rawTx.vout[i].nValue;
+        for (size_t i=rawTx.vin.size()+1; i< rawTx.vout.size(); i++) { // skip F notations and withdraw
             // save these outputs in pegdb, so they can be used in next withdraws
             auto fkey = uint320(rawTx.GetHash(), i);
             pegdbrw.WriteFractions(fkey, mapTxOutputFractions[i]);
@@ -1373,11 +1373,32 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     pdBalance.fractions -= frRequested;
     pdExchange.fractions -= frRequested;
     pdPegShift.fractions += (frRequested - frProcessed);
+
+    pdBalance.nReserve -= nAmountWithFee;
     
     // consume reserve part of pegshift by balance
     // as computation were completed by pegnext it may use fractions
     // of current liquid - at current supply not to consume these fractions
-    consumereservepegshift(pdBalance.fractions, pdExchange.fractions, pdPegShift.fractions, peglevel_exchange);
+    consumereservepegshift(pdBalance.fractions, 
+                           pdExchange.fractions, 
+                           pdPegShift.fractions, 
+                           peglevel_exchange);
+    
+    pdExchange.peglevel = peglevel_exchange;
+    pdExchange.nLiquid = pdExchange.fractions.High(peglevel_exchange);
+    pdExchange.nReserve = pdExchange.fractions.Low(peglevel_exchange);
+    
+    CPegData pdProcessed;
+    pdProcessed.fractions = frProcessed;
+    pdProcessed.peglevel = peglevel_exchange;
+    pdProcessed.nLiquid = pdProcessed.fractions.High(peglevel_exchange);
+    pdProcessed.nReserve = pdProcessed.fractions.Low(peglevel_exchange);
+
+    CPegData pdRequested;
+    pdRequested.fractions = frRequested;
+    pdRequested.peglevel = peglevel_exchange;
+    pdRequested.nLiquid = pdRequested.fractions.High(peglevel_exchange);
+    pdRequested.nReserve = pdRequested.fractions.Low(peglevel_exchange);
     
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << rawTx;
@@ -1393,23 +1414,18 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     result.push_back(Pair("consumed_inputs", sConsumedInputs));
     result.push_back(Pair("provided_outputs", sProvidedOutputs));
 
+    result.push_back(Pair("created_on_cycle", peglevel_exchange.nCycle));
+    result.push_back(Pair("broadcast_on_cycle", peglevel_exchange.nCycle+1));
+    
     result.push_back(Pair("created_on_peg", peglevel_net.nSupply));
     result.push_back(Pair("broadcast_on_peg", peglevel_net.nSupplyNext));
     
-    printpegbalance(pdBalance.fractions, peglevel_exchange, result, "balance_", true);
-    printpegbalance(frProcessed, peglevel_exchange, result, "processed_", true);
-    printpegbalance(pdExchange.fractions, peglevel_exchange, result, "exchange_", true);
+    printpegbalance(pdBalance, result, "balance_");
+    printpegbalance(pdExchange, result, "exchange_");
+    printpegbalance(pdProcessed, result, "processed_");
+    printpegbalance(pdRequested, result, "requested_");
     
-    printpegshift(pdPegShift.fractions, peglevel_net, result, true);
-    
-    Array changes;
-    for(const pair<string, int64_t> & item : mapTxChanges) {
-        Object obj;
-        obj.push_back(Pair("txout", item.first));
-        obj.push_back(Pair("amount", item.second));
-        changes.push_back(obj);
-    }
-    result.push_back(Pair("changes", changes));
+    printpegshift(pdPegShift.fractions, peglevel_net, result);
     
     return result;
 }

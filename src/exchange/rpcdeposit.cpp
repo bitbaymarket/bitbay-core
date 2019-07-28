@@ -9,7 +9,6 @@
 #include "init.h"
 #include "wallet.h"
 #include "pegdata.h"
-#include "pegpack.h"
 
 #include <boost/assign/list_of.hpp>
 #include <boost/algorithm/string.hpp>
@@ -23,11 +22,9 @@ using namespace json_spirit;
 void printpeglevel(const CPegLevel & peglevel,
                    Object & result);
 
-void printpegbalance(const CFractions & frBalance,
-                     const CPegLevel & peglevel,
+void printpegbalance(const CPegData & pegdata,
                      Object & result,
-                     string prefix,
-                     bool print_pegdata);
+                     string prefix);
 
 // API calls
 
@@ -249,6 +246,14 @@ Value registerdeposit(const Array& params, bool fHelp)
     pdBalance.fractions += frDeposit;
     pdExchange.fractions += frDeposit;
     
+    pdBalance.peglevel = peglevel;
+    pdBalance.nLiquid = pdBalance.fractions.High(peglevel);
+    pdBalance.nReserve = pdBalance.fractions.Low(peglevel);
+
+    pdExchange.peglevel = peglevel;
+    pdExchange.nLiquid = pdExchange.fractions.High(peglevel);
+    pdExchange.nReserve = pdExchange.fractions.Low(peglevel);
+    
     result.push_back(Pair("deposited", true));
     result.push_back(Pair("status", "Registered"));
     result.push_back(Pair("atblock", nRegisterHeight));
@@ -256,8 +261,8 @@ Value registerdeposit(const Array& params, bool fHelp)
     result.push_back(Pair("cycle", peglevel.nCycle));
     
     printpeglevel(peglevel, result);
-    printpegbalance(pdBalance.fractions, peglevel, result, "balance_", true);
-    printpegbalance(pdExchange.fractions, peglevel, result, "exchange_", true);
+    printpegbalance(pdBalance, result, "balance_");
+    printpegbalance(pdExchange, result, "exchange_");
     
     return result;
 }

@@ -3,7 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "pegopsp.h"
-#include "pegpack.h"
 #include "pegdata.h"
 #include "pegutil.h"
 
@@ -119,11 +118,17 @@ bool updatepegbalances(
 
     // if partial last reserve fraction then take reserve from this idx
     int nSupplyEffective = peglevelNew.nSupply + peglevelNew.nShift;
+    if (nSupplyEffective <0 &&
+        nSupplyEffective >=PEG_SIZE) {
+        std::stringstream ss;
+        ss << "Effective supply out of range " << nSupplyEffective;
+        sErr = ss.str();
+        return false;
+    }
+    bool fPartial = peglevelNew.nShiftLastPart >0 && peglevelNew.nShiftLastTotal >0;
+    
     int nLastIdx = nSupplyEffective;
-    if (nLastIdx >=0 &&
-        nLastIdx <PEG_SIZE &&
-        peglevelNew.nShiftLastPart >0 &&
-        peglevelNew.nShiftLastTotal >0) {
+    if (fPartial) {
 
         int64_t nLastTotal = pdPegPool.fractions.f[nLastIdx];
         int64_t nLastReserve = frReserve.f[nLastIdx];
@@ -158,6 +163,7 @@ bool updatepegbalances(
     }
 
     // liquid is just normed to pool
+    int64_t nLiquid = nValue - nReserve;
     int64_t nLiquidTodo = nValue - nReserve - frLiquid.Total();
     int64_t nLiquidPool = pdPegPool.fractions.Total() - pdPegPool.nReserve;
     if (nLiquidTodo > nLiquidPool) { // exchange liquidity mismatch
@@ -197,6 +203,8 @@ bool updatepegbalances(
 
     pdBalance.fractions = frReserve + frLiquid;
     pdBalance.peglevel = peglevelNew;
+    pdBalance.nReserve = nReserve;
+    pdBalance.nLiquid = nLiquid;
 
     if (nValue != pdBalance.fractions.Total()) {
         std::stringstream ss;
@@ -204,6 +212,64 @@ bool updatepegbalances(
            << " vs " << nValue;
         sErr = ss.str();
         return false;
+    }
+    
+    // match total
+    if ((pdBalance.nReserve+pdBalance.nLiquid) != pdBalance.fractions.Total()) {
+        std::stringstream ss;
+        ss << "Balance mimatch liquid+reserve after update " 
+           << pdBalance.nLiquid << "+" << pdBalance.nReserve
+           << " vs " << pdBalance.fractions.Total();
+        sErr = ss.str();
+        return false;
+    }
+    
+    // validate liquid/reserve match peglevel
+    if (fPartial) {
+        int nSupplyEffective = peglevelNew.nSupply + peglevelNew.nShift +1;
+        int64_t nLiquidWithoutPartial = pdBalance.fractions.High(nSupplyEffective);
+        int64_t nReserveWithoutPartial = pdBalance.fractions.Low(nSupplyEffective-1);
+        if (pdBalance.nLiquid < nLiquidWithoutPartial) {
+            std::stringstream ss;
+            ss << "Balance liquid less than without partial after update " 
+               << pdBalance.nLiquid 
+               << " vs " 
+               << nLiquidWithoutPartial;
+            sErr = ss.str();
+            return false;
+        }
+        if (pdBalance.nReserve < nReserveWithoutPartial) {
+            std::stringstream ss;
+            ss << "Balance reserve less than without partial after update " 
+               << pdBalance.nReserve 
+               << " vs " 
+               << nReserveWithoutPartial;
+            sErr = ss.str();
+            return false;
+        }
+    }
+    else {
+        int nSupplyEffective = peglevelNew.nSupply + peglevelNew.nShift;
+        int64_t nLiquidCalc = pdBalance.fractions.High(nSupplyEffective);
+        int64_t nReserveCalc = pdBalance.fractions.Low(nSupplyEffective);
+        if (pdBalance.nLiquid != nLiquidCalc) {
+            std::stringstream ss;
+            ss << "Balance liquid mismatch calculated after update " 
+               << pdBalance.nLiquid 
+               << " vs " 
+               << nLiquidCalc;
+            sErr = ss.str();
+            return false;
+        }
+        if (pdBalance.nReserve != nReserveCalc) {
+            std::stringstream ss;
+            ss << "Balance reserve mismatch calculated after update " 
+               << pdBalance.nReserve 
+               << " vs " 
+               << nReserveCalc;
+            sErr = ss.str();
+            return false;
+        }
     }
 
     int64_t nPegPoolValue = pdPegPool.fractions.Total();

@@ -13,45 +13,47 @@
 using namespace std;
 using namespace pegops;
 
-namespace pegops {
-string packpegdata(const CFractions & fractions,
-                   const CPegLevel & peglevel);
-bool unpackbalance(CFractions & fractions,
-                   CPegLevel & peglevel,
-                   const string & pegdata64,
-                   string tag,
-                   string & err);
-}
-
 void TestPegOps::test5()
 {
-    CFractions user1(0,CFractions::STD);
+    CFractions user1(0, CFractions::STD);
     for(int i=0;i<PEG_SIZE;i++) {
         user1.f[i] = 23;
     }
-    CFractions pegshift(0,CFractions::STD);
     
-    CPegLevel level1(1,0,0,0,0);
+    CPegData pdPegShift;
     
-    string user1_b64 = packpegdata(user1, level1);
-    string shift_b64 = packpegdata(pegshift, level1);
+    CPegLevel level1(1,0,3,3,3);
+    
+    pdPegShift.peglevel = level1;
+    
+    CPegData pdUser1;
+    pdUser1.fractions = user1;
+    pdUser1.peglevel = level1;
+    pdUser1.nLiquid = pdUser1.fractions.High(level1);
+    pdUser1.nReserve = pdUser1.fractions.Low(level1);
+
+    string user1_b64 = pdUser1.ToString();
+    string shift_b64 = pdPegShift.ToString();
     
     string exchange1_b64 = user1_b64;
     string pegshift1_b64 = shift_b64;
+    
+    qDebug() << "exchange1_b64" << exchange1_b64.c_str();
+    qDebug() << "pegshift1_b64" << pegshift1_b64.c_str();
     
     string peglevel1_hex;
     string pegpool1_b64;
     string out_err;
     
     bool ok1 = getpeglevel(
-                exchange1_b64,
-                pegshift1_b64,
                 1,
                 0,
                 
                 3,
                 3,
                 3,
+                exchange1_b64,
+                pegshift1_b64,
                 
                 peglevel1_hex,
                 pegpool1_b64,
@@ -81,8 +83,8 @@ void TestPegOps::test5()
                 out_err
                 );
     
-    qDebug() << user1_r2_b64.c_str();
-    qDebug() << pegpool1_r2_b64.c_str();
+    qDebug() << "user1_r2_b64" << user1_r2_b64.c_str();
+    qDebug() << "pegpool1_r2_b64" << pegpool1_r2_b64.c_str();
     qDebug() << out_err.c_str();
     QVERIFY(ok2 == true);
     
@@ -92,13 +94,13 @@ void TestPegOps::test5()
     string pegpool2_b64;
     
     bool ok3 = getpeglevel(
-                exchange1_b64,
-                pegshift1_b64,
                 2,
                 1,
                 13,
                 13,
                 13,
+                exchange1_b64,
+                pegshift1_b64,
                 
                 peglevel2_hex,
                 pegpool2_b64,
@@ -124,7 +126,7 @@ void TestPegOps::test5()
                 out_err
                 );
     
-    qDebug() << user1_r3_b64.c_str();
+    qDebug() << "user1_r3_b64" << user1_r3_b64.c_str();
     qDebug() << pegpool1_r3_b64.c_str();
     qDebug() << out_err.c_str();
     QVERIFY(ok4 == true);
@@ -137,13 +139,13 @@ void TestPegOps::test5()
     string pegpool3_b64;
     
     bool ok5 = getpeglevel(
-                exchange1_b64,
-                pegshift1_b64,
                 3,
                 2,
                 23,
                 23,
                 23,
+                exchange1_b64,
+                pegshift1_b64,
                 
                 peglevel3_hex,
                 pegpool3_b64,
@@ -181,25 +183,39 @@ void TestPegOps::test5()
         user2.f[i] = 79;
     }
     
-    CFractions exchange2 = user1 + user2;
+    CFractions exchange2 = pdUser1.fractions + user2;
     CPegLevel level3(3,0,0,0,0);
     
-    string user2_b64 = packpegdata(user2, level3);
-    string exchange2_b64 = packpegdata(exchange2, level3);
+    CPegData pdUser2;
+    pdUser2.fractions = user2;
+    pdUser2.peglevel = level3;
+    pdUser2.nLiquid = user2.High(level3);
+    pdUser2.nReserve = user2.Low(level3);
 
+    CPegData pdExchange2;
+    pdExchange2.fractions = exchange2;
+    pdExchange2.peglevel = level3;
+    pdExchange2.nLiquid = exchange2.High(level3);
+    pdExchange2.nReserve = exchange2.Low(level3);
+    
+    string user2_b64 = pdUser2.ToString();
+    string exchange2_b64 = pdExchange2.ToString();
+
+    qDebug() << "exchange2_b64" << exchange2_b64.c_str();
+    
     // move to cycle4, peg +10
     
     string peglevel4_hex;
     string pegpool4_b64;
     
     bool ok7 = getpeglevel(
-                exchange2_b64,
-                pegshift1_b64,
                 4,
                 3,
                 33,
                 33,
                 33,
+                exchange2_b64,
+                pegshift1_b64,
                 
                 peglevel4_hex,
                 pegpool4_b64,
@@ -254,13 +270,13 @@ void TestPegOps::test5()
     string pegpool5_b64;
     
     bool ok10 = getpeglevel(
-                exchange2_b64,
-                pegshift1_b64,
                 5,
                 4,
                 28,
                 28,
                 28,
+                exchange2_b64,
+                pegshift1_b64,
                 
                 peglevel5_hex,
                 pegpool5_b64,

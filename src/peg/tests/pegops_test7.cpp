@@ -13,18 +13,10 @@
 using namespace std;
 using namespace pegops;
 
-namespace pegops {
-string packpegdata(const CFractions & fractions,
-                   const CPegLevel & peglevel);
-bool unpackbalance(CFractions & fractions,
-                   CPegLevel & peglevel,
-                   const string & pegdata64,
-                   string tag,
-                   string & err);
-}
-
 void TestPegOps::test7()
 {
+    int buffer = 3;
+    
     CFractions user1(0,CFractions::STD);
     for(int i=0;i<PEG_SIZE;i++) {
         user1.f[i] = 23;
@@ -48,33 +40,62 @@ void TestPegOps::test7()
     
     QCOMPARE(pegshift1.Total(), 0);
     
-    CPegLevel level1(1,0,200,200,200,
+    CPegLevel level1(1,0,
+                     200+buffer,
+                     200+buffer,
+                     200+buffer,
                      exchange1, pegshift1);
     
     qDebug() << level1.nSupply << level1.nShift << level1.nShiftLastPart << level1.nShiftLastTotal;
 
-    string user1_r1_b64 = packpegdata(user1, level1);
-    string user2_r1_b64 = packpegdata(user2, level1);
-    string exchange1_b64 = packpegdata(exchange1, level1);
-    string pegshift1_b64 = packpegdata(pegshift1, level1);
+    CPegData pdUser1;
+    CPegData pdUser2;
+    CPegData pdExchange;
+    CPegData pdPegShift;
+
+    pdUser1.fractions = user1;
+    pdUser2.fractions = user2;
+    pdExchange.fractions = exchange1;
+    pdPegShift.fractions = pegshift1;
     
-    CPegLevel level2(2,1,205,205,205,
+    pdUser1.peglevel = level1;
+    pdUser2.peglevel = level1;
+    pdExchange.peglevel = level1;
+    pdPegShift.peglevel = level1;
+    
+    pdUser1.nLiquid = user1.High(level1);
+    pdUser1.nReserve = user1.Low(level1);
+    pdUser2.nLiquid = user2.High(level1);
+    pdUser2.nReserve = user2.Low(level1);
+
+    pdExchange.nLiquid = exchange1.High(level1);
+    pdExchange.nReserve = exchange1.Low(level1);
+    pdPegShift.nLiquid = pegshift1.High(level1);
+    pdPegShift.nReserve = pegshift1.Low(level1);
+    
+    string user1_r1_b64 = pdUser1.ToString();
+    string user2_r1_b64 = pdUser2.ToString();
+    string exchange1_b64 = pdExchange.ToString();
+    string pegshift1_b64 = pdPegShift.ToString();
+    
+    CPegLevel level2(2,1,
+                     205+buffer,
+                     205+buffer,
+                     205+buffer,
                      exchange1, pegshift1);
     
     string peglevel2_hex;
     string pegpool2_b64;
     string out_err;
-    
-    int buffer = 3;
-    
+        
     bool ok1 = getpeglevel(
-                exchange1_b64,
-                pegshift1_b64,
                 2,
                 1,
                 205+buffer,
                 205+buffer,
                 205+buffer,
+                exchange1_b64,
+                pegshift1_b64,
                 
                 peglevel2_hex,
                 pegpool2_b64,
@@ -105,6 +126,7 @@ void TestPegOps::test7()
     qDebug() << user1_r2_b64.c_str();
     qDebug() << pegpool2_r1_b64.c_str();
     qDebug() << out_err.c_str();
+    qDebug() << "ok8" << ok8;
     QVERIFY(ok8 == true);
     
     // trade to fail (not update balance

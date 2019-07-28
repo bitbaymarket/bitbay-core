@@ -15,7 +15,6 @@
 
 #include "pegops.h"
 #include "pegopsp.h"
-#include "pegpack.h"
 #include "pegdata.h"
 
 #include <boost/algorithm/string.hpp>
@@ -28,25 +27,14 @@ using namespace json_spirit;
 
 void printpegshift(const CFractions & frPegShift,
                    const CPegLevel & peglevel,
-                   Object & result,
-                   bool print_pegdata);
+                   Object & result);
 
 void printpeglevel(const CPegLevel & peglevel,
                    Object & result);
 
-void printpegbalance(const CFractions & frBalance,
-                     const CPegLevel & peglevel,
+void printpegbalance(const CPegData & pegdata,
                      Object & result,
-                     string prefix,
-                     bool print_pegdata);
-
-void printpegbalance(const CFractions & frBalance,
-                     int64_t nReserve,
-                     int64_t nLiquid,
-                     const CPegLevel & peglevel,
-                     Object & result,
-                     string prefix,
-                     bool print_pegdata);
+                     string prefix);
 
 // API calls
 
@@ -105,13 +93,18 @@ Value getpeglevel(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_MISC_ERROR, err);
     }
     
+    // update exchange datas 
+    pdExchange.peglevel = peglevel;
+    pdExchange.nLiquid = pdExchange.fractions.High(peglevel);
+    pdExchange.nReserve = pdExchange.fractions.Low(peglevel);
+    
     Object result;
     result.push_back(Pair("cycle", peglevel.nCycle));
 
     printpeglevel(peglevel, result);
-    printpegbalance(pdPegPool.fractions, pdPegPool.nReserve, pdPegPool.nLiquid, peglevel, result, "pegpool_", true);
-    printpegbalance(pdExchange.fractions, peglevel, result, "exchange_", false);
-    printpegshift(pdPegShift.fractions, peglevel, result, false);
+    printpegbalance(pdPegPool, result, "pegpool_");
+    printpegbalance(pdExchange, result, "exchange_");
+    printpegshift(pdPegShift.fractions, peglevel, result);
     
     return result;
 }
@@ -171,13 +164,18 @@ Value makepeglevel(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_MISC_ERROR, err);
     }
     
+    // update exchange datas 
+    pdExchange.peglevel = peglevel;
+    pdExchange.nLiquid = pdExchange.fractions.High(peglevel);
+    pdExchange.nReserve = pdExchange.fractions.Low(peglevel);
+    
     Object result;
     result.push_back(Pair("cycle", peglevel.nCycle));
 
     printpeglevel(peglevel, result);
-    printpegbalance(pdPegPool.fractions, pdPegPool.nReserve, pdPegPool.nLiquid, peglevel, result, "pegpool_", true);
-    printpegbalance(pdExchange.fractions, peglevel, result, "exchange_", false);
-    printpegshift(pdPegShift.fractions, peglevel, result, false);
+    printpegbalance(pdPegPool, result, "pegpool_");
+    printpegbalance(pdExchange, result, "exchange_");
+    printpegshift(pdPegShift.fractions, peglevel, result);
     
     return result;
 }
@@ -233,8 +231,8 @@ Value updatepegbalances(const Array& params, bool fHelp)
     result.push_back(Pair("cycle", peglevelNew.nCycle));
     
     printpeglevel(peglevelNew, result);
-    printpegbalance(pdBalance.fractions, pdBalance.nReserve, pdBalance.nLiquid, peglevelNew, result, "balance_", true);
-    printpegbalance(pdPegPool.fractions, pdPegPool.nReserve, pdPegPool.nLiquid, peglevelNew, result, "pegpool_", true);
+    printpegbalance(pdBalance, result, "balance_");
+    printpegbalance(pdPegPool, result, "pegpool_");
     
     return result;
 }
@@ -293,8 +291,8 @@ Value movecoins(const Array& params, bool fHelp)
     result.push_back(Pair("cycle", peglevel.nCycle));
     
     printpeglevel(peglevel, result);
-    printpegbalance(pdSrc.fractions, pdSrc.nReserve, pdSrc.nLiquid, peglevel, result, "src_", true);
-    printpegbalance(pdDst.fractions, pdDst.nReserve, pdDst.nLiquid, peglevel, result, "dst_", true);
+    printpegbalance(pdSrc, result, "src_");
+    printpegbalance(pdDst, result, "dst_");
     
     return result;
 }
@@ -352,8 +350,8 @@ Value moveliquid(const Array& params, bool fHelp)
     result.push_back(Pair("cycle", peglevel.nCycle));
     
     printpeglevel(peglevel, result);
-    printpegbalance(pdSrc.fractions, pdSrc.nReserve, pdSrc.nLiquid, peglevel, result, "src_", true);
-    printpegbalance(pdDst.fractions, pdDst.nReserve, pdDst.nLiquid, peglevel, result, "dst_", true);
+    printpegbalance(pdSrc, result, "src_");
+    printpegbalance(pdDst, result, "dst_");
     
     return result;
 }
@@ -411,8 +409,8 @@ Value movereserve(const Array& params, bool fHelp)
     result.push_back(Pair("cycle", peglevel.nCycle));
     
     printpeglevel(peglevel, result);
-    printpegbalance(pdSrc.fractions, pdSrc.nReserve, pdSrc.nLiquid, peglevel, result, "src_", true);
-    printpegbalance(pdDst.fractions, pdDst.nReserve, pdDst.nLiquid, peglevel, result, "dst_", true);
+    printpegbalance(pdSrc, result, "src_");
+    printpegbalance(pdDst, result, "dst_");
     
     return result;
 }
@@ -447,7 +445,7 @@ Value removecoins(const Array& params, bool fHelp)
     
     Object result;
     
-    printpegbalance(pdFrom.fractions, pdFrom.nReserve, pdFrom.nLiquid, pdFrom.peglevel, result, "out_", true);
+    printpegbalance(pdFrom, result, "out_");
     
     return result;
 }

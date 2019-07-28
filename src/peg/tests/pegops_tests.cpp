@@ -13,16 +13,6 @@
 using namespace std;
 using namespace pegops;
 
-namespace pegops {
-string packpegdata(const CFractions & fractions,
-                   const CPegLevel & peglevel);
-bool unpackbalance(CFractions & fractions,
-                   CPegLevel & peglevel,
-                   const string & pegdata64,
-                   string tag,
-                   string & err);
-}
-
 TestPegOps::TestPegOps(QObject * p) :QObject(p) {
     qputenv("QTEST_FUNCTION_TIMEOUT", "36000000");
 }
@@ -160,21 +150,17 @@ void TestPegOps::test4a()
     string dst_out_b64;
     string out_err;
     
-    CPegLevel src_skip("");
-    CFractions src(0, CFractions::STD);
-    unpackbalance(src,
-                  src_skip, 
-                  user_src, 
-                 "src", out_err);
+    CPegData pdSrc(user_src);
+    if (!pdSrc.IsValid()) {
+        QVERIFY(false);
+    }
 
-    CPegLevel dst_skip("");
-    CFractions dst(0, CFractions::STD);
-    unpackbalance(dst,
-                  dst_skip, 
-                  user_dst, 
-                 "dst", out_err);
-    
-    CFractions inp = src+dst;
+    CPegData pdDst(user_dst);
+    if (!pdDst.IsValid()) {
+        QVERIFY(false);
+    }
+
+    CFractions inp = pdSrc.fractions+pdDst.fractions;
     
     bool ok11 = moveliquid(
                 amount,
@@ -186,19 +172,17 @@ void TestPegOps::test4a()
                 dst_out_b64,
                 out_err);
     
-    CFractions src_out(0, CFractions::STD);
-    unpackbalance(src_out,
-                  src_skip, 
-                  src_out_b64, 
-                 "src", out_err);
+    CPegData pdSrcOut(src_out_b64);
+    if (!pdSrcOut.IsValid()) {
+        QVERIFY(false);
+    }
 
-    CFractions dst_out(0, CFractions::STD);
-    unpackbalance(dst_out,
-                  dst_skip, 
-                  dst_out_b64, 
-                 "dst", out_err);
+    CPegData pdDstOut(dst_out_b64);
+    if (!pdSrcOut.IsValid()) {
+        QVERIFY(false);
+    }
     
-    CFractions inp_out = src_out+dst_out;
+    CFractions inp_out = pdSrcOut.fractions+pdDstOut.fractions;
     
     qDebug() << out_err.c_str();
     QVERIFY(ok11 == true);

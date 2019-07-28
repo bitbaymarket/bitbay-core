@@ -66,11 +66,10 @@ Value listdeposits(const Array& params, bool fHelp)
 
     Array results;
     vector<COutput> vecOutputs;
-    vector<COutput> vecOutputsFrozen;
     assert(pwalletMain != NULL);
     unsigned int nLastBlockTime = pindexBest->nTime;
     pwalletMain->AvailableCoins(vecOutputs, false, true, NULL);
-    pwalletMain->FrozenCoins(vecOutputsFrozen, false, false, NULL);
+    pwalletMain->FrozenCoins(vecOutputs, false, false, NULL);
     for(const COutput& out : vecOutputs)
     {
         if (out.nDepth < nMinDepth || out.nDepth > nMaxDepth)
@@ -122,7 +121,7 @@ Value listdeposits(const Array& params, bool fHelp)
                     entry.push_back(Pair("redeemScript", HexStr(redeemScript.begin(), redeemScript.end())));
             }
         }
-        entry.push_back(Pair("amount",ValueFromAmount(nValue)));
+        entry.push_back(Pair("amount", ValueFromAmount(nValue)));
         if (pindexBest && out.tx->vOutFractions.size() > size_t(out.i)) {
             int nSupply = pindexBest->nPegSupplyIndex;
             const CFractions & fractions = out.tx->vOutFractions[out.i];
@@ -132,9 +131,13 @@ Value listdeposits(const Array& params, bool fHelp)
             }
         }
         bool fFrozen = out.IsFrozen(nLastBlockTime);
-        entry.push_back(Pair("confirmations",out.nDepth));
+        entry.push_back(Pair("confirmations", out.nDepth));
         entry.push_back(Pair("spendable", out.fSpendable & !fFrozen));
         entry.push_back(Pair("frozen", fFrozen));
+        if (fFrozen) {
+            entry.push_back(Pair("unlocktime", out.FrozenUnlockTime()));
+            entry.push_back(Pair("lastblocktime", uint64_t(nLastBlockTime)));
+        }
         results.push_back(entry);
     }
 
@@ -231,7 +234,7 @@ Value registerdeposit(const Array& params, bool fHelp)
         result.push_back(Pair("status", strprintf("Need to wait for registration at %d block", nRegisterHeight)));
         return result;
     }
-
+    
     CPegDB pegdb("r");
     auto fkey = uint320(txhash, nout);
     CFractions frDeposit(tx.vout[nout].nValue, CFractions::VALUE);
@@ -239,6 +242,19 @@ Value registerdeposit(const Array& params, bool fHelp)
         result.push_back(Pair("deposited", false));
         result.push_back(Pair("atblock", nRegisterHeight));
         result.push_back(Pair("status", "No peg data read failed"));
+        return result;
+    }
+    
+    unsigned int nLastBlockTime = pindexBest->nTime;
+    bool fF = frDeposit.nFlags & CFractions::NOTARY_F;
+    bool fV = frDeposit.nFlags & CFractions::NOTARY_V;
+    fF &= frDeposit.nLockTime >= nLastBlockTime;
+    fV &= frDeposit.nLockTime >= nLastBlockTime;
+    if (fF || fV) {
+        result.push_back(Pair("deposited", false));
+        result.push_back(Pair("frozen", true));
+        result.push_back(Pair("until", frDeposit.nLockTime));
+        result.push_back(Pair("status", "Need to wait to unfreeze"));
         return result;
     }
     

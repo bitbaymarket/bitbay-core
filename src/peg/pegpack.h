@@ -17,29 +17,6 @@ extern std::string packpegdata(const CFractions &     fractions,
                                int64_t                nReserve,
                                int64_t                nLiquid);
 
-extern bool unpackbalance(
-        const std::string & inp_pegdata64,
-        std::string         inp_tag,
-        
-        CFractions &    out_fractions,
-        CPegLevel &     out_peglevel,
-        int64_t &       out_reserve,
-        int64_t &       out_liquid,
-        std::string &   out_err);
-
-// json
-
-extern bool unpackbalance(
-
-        const std::string &   pegdata64,
-        std::string           tag,
-        
-        CFractions &          fractions,
-        int64_t &             nReserve,
-        int64_t &             nLiquid,
-        CPegLevel &           peglevel
-        );
-
 }
 
 #endif // BITBAY_PEGPACK_H

@@ -244,22 +244,11 @@ static void parseConsumedAndProvided(const string & sConsumedInputs,
             int64_t nConv = strtoll(sValueMaintenance.c_str(), &pEnd, 0);
             bool fOk = !(pEnd == sValueMaintenance.c_str()) && nConv >= 0;
             if (fOk) {
-                CPegLevel peglevelSkip("");
-                CFractions frLoad(0, CFractions::STD);
-                int64_t nLiquidLoad = 0;
-                int64_t nReserveLoad = 0;
-                try { 
-                    pegops::unpackbalance(
-                            vMaintenanceArgs[2], 
-                            "maintenance", 
-                            frLoad, 
-                            nReserveLoad,nLiquidLoad,
-                            peglevelSkip); 
+                CPegData pdLoad(vMaintenanceArgs[2]);
+                if (pdLoad.IsValid()) {
+                    nMaintenance = nConv;
+                    frMaintenance = pdLoad.fractions;
                 }
-                catch (std::exception &) { continue; }
-                
-                nMaintenance = nConv;
-                frMaintenance = frLoad;
             }
             continue;
         }
@@ -461,41 +450,40 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
                            nSupplyNext,
                            nSupplyNextNext);
     
-    CFractions frBalance(0, CFractions::VALUE);
-    CFractions frExchange(0, CFractions::VALUE);
-    CFractions frPegShift(0, CFractions::VALUE);
-    
-    int64_t nLiquidBalance = 0;
-    int64_t nReserveBalance = 0;
-    int64_t nLiquidExchange = 0;
-    int64_t nReserveExchange = 0;
-    int64_t nLiquidPegShift = 0;
-    int64_t nReservePegShift = 0;
-    
-    CPegLevel peglevel_balance("");
-    CPegLevel peglevel_exchange_skip("");
-    CPegLevel peglevel_pegshift_skip("");
+    CPegData pdBalance(balance_pegdata64);
+    if (!pdBalance.IsValid()) {
+        string err = "Can not unpack 'balance' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
 
-    pegops::unpackbalance(balance_pegdata64, "balance", frBalance, nReserveBalance, nLiquidBalance, peglevel_balance);
-    pegops::unpackbalance(exchange_pegdata64, "exchange", frExchange, nReserveExchange, nLiquidExchange, peglevel_exchange_skip);
-    pegops::unpackbalance(pegshift_pegdata64, "pegshift", frPegShift, nReservePegShift, nLiquidPegShift, peglevel_pegshift_skip);
+    CPegData pdExchange(exchange_pegdata64);
+    if (!pdExchange.IsValid()) {
+        string err = "Can not unpack 'exchange' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
 
-    if (!balance_pegdata64.empty() && peglevel_balance.nCycle != peglevel_exchange.nCycle) {
+    CPegData pdPegShift(pegshift_pegdata64);
+    if (!pdPegShift.IsValid()) {
+        string err = "Can not unpack 'pegshift' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
+    
+    if (!balance_pegdata64.empty() && pdBalance.peglevel.nCycle != peglevel_exchange.nCycle) {
         throw JSONRPCError(RPC_MISC_ERROR, "Balance has other cycle than peglevel");
     }
 
-    frBalance = frBalance.Std();
-    frExchange = frExchange.Std();
-    frPegShift = frPegShift.Std();
-    
-    int64_t nBalanceLiquid = 0;
-    CFractions frBalanceLiquid = frBalance.HighPart(peglevel_exchange, &nBalanceLiquid);
-    if (nAmountWithFee > nBalanceLiquid) {
+    pdBalance.fractions = pdBalance.fractions.Std();
+    pdExchange.fractions = pdExchange.fractions.Std();
+    pdPegShift.fractions = pdPegShift.fractions.Std();
+
+    if (nAmountWithFee > pdBalance.nLiquid) {
         throw JSONRPCError(RPC_MISC_ERROR, 
                            strprintf("Not enough liquid %d on 'balance' to withdraw %d",
-                                     nBalanceLiquid,
+                                     pdBalance.nLiquid,
                                      nAmountWithFee));
     }
+    
+    CFractions frBalanceLiquid = pdBalance.fractions.HighPart(peglevel_exchange, nullptr);
     CFractions frAmount = frBalanceLiquid.RatioPart(nAmountWithFee);
 
     // inputs, outputs
@@ -834,14 +822,14 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
                             nMaintenance, frMaintenance, peglevel_exchange,
                             sConsumedInputs, sProvidedOutputs);
     
-    frBalance -= frRequested;
-    frExchange -= frRequested;
-    frPegShift += (frRequested - frProcessed);
+    pdBalance.fractions -= frRequested;
+    pdExchange.fractions -= frRequested;
+    pdPegShift.fractions += (frRequested - frProcessed);
     
     // consume liquid part of pegshift by balance
     // as computation were completed by pegnext it may use fractions
     // of current reserves - at current supply not to consume these fractions
-    consumeliquidpegshift(frBalance, frExchange, frPegShift, peglevel_exchange);
+    consumeliquidpegshift(pdBalance.fractions, pdExchange.fractions, pdPegShift.fractions, peglevel_exchange);
 
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << rawTx;
@@ -860,11 +848,11 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     result.push_back(Pair("created_on_peg", peglevel_net.nSupply));
     result.push_back(Pair("broadcast_on_peg", peglevel_net.nSupplyNext));
     
-    printpegbalance(frBalance, peglevel_exchange, result, "balance_", true);
+    printpegbalance(pdBalance.fractions, peglevel_exchange, result, "balance_", true);
     printpegbalance(frProcessed, peglevel_exchange, result, "processed_", true);
-    printpegbalance(frExchange, peglevel_exchange, result, "exchange_", true);
+    printpegbalance(pdExchange.fractions, peglevel_exchange, result, "exchange_", true);
     
-    printpegshift(frPegShift, peglevel_net, result, true);
+    printpegshift(pdPegShift.fractions, peglevel_net, result, true);
     
     Array changes;
     for(const pair<string, int64_t> & item : mapTxChanges) {
@@ -935,41 +923,36 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
                            nSupplyNext,
                            nSupplyNextNext);
     
-    CFractions frBalance(0, CFractions::VALUE);
-    CFractions frExchange(0, CFractions::VALUE);
-    CFractions frPegShift(0, CFractions::VALUE);
-    
-    int64_t nLiquidBalance = 0;
-    int64_t nReserveBalance = 0;
-    int64_t nLiquidExchange = 0;
-    int64_t nReserveExchange = 0;
-    int64_t nLiquidPegShift = 0;
-    int64_t nReservePegShift = 0;
-    
-    CPegLevel peglevel_balance("");
-    CPegLevel peglevel_exchange_skip("");
-    CPegLevel peglevel_pegshift_skip("");
+    CPegData pdBalance(balance_pegdata64);
+    if (!pdBalance.IsValid()) {
+        string err = "Can not unpack 'balance' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
 
-    pegops::unpackbalance(balance_pegdata64, "balance", frBalance, nReserveBalance, nLiquidBalance, peglevel_balance);
-    pegops::unpackbalance(exchange_pegdata64, "exchange", frExchange, nReserveExchange, nLiquidExchange, peglevel_exchange_skip);
-    pegops::unpackbalance(pegshift_pegdata64, "pegshift", frPegShift, nReservePegShift, nLiquidPegShift, peglevel_pegshift_skip);
+    CPegData pdExchange(exchange_pegdata64);
+    if (!pdExchange.IsValid()) {
+        string err = "Can not unpack 'exchange' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
 
-    if (!balance_pegdata64.empty() && peglevel_balance.nCycle != peglevel_exchange.nCycle) {
+    CPegData pdPegShift(pegshift_pegdata64);
+    if (!pdPegShift.IsValid()) {
+        string err = "Can not unpack 'pegshift' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
+    
+    if (!balance_pegdata64.empty() && pdBalance.peglevel.nCycle != peglevel_exchange.nCycle) {
         throw JSONRPCError(RPC_MISC_ERROR, "Balance has other cycle than peglevel");
     }
-
-    frBalance = frBalance.Std();
-    frExchange = frExchange.Std();
-    frPegShift = frPegShift.Std();
     
-    int64_t nBalanceReserve = 0;
-    CFractions frBalanceReserve = frBalance.LowPart(peglevel_exchange.nSupplyNext, &nBalanceReserve);
-    if (nAmountWithFee > nBalanceReserve) {
+    if (nAmountWithFee > pdBalance.nReserve) {
         throw JSONRPCError(RPC_MISC_ERROR, 
                            strprintf("Not enough reserve %d on 'balance' to withdraw %d",
-                                     nBalanceReserve,
+                                     pdBalance.nReserve,
                                      nAmountWithFee));
     }
+
+    CFractions frBalanceReserve = pdBalance.fractions.LowPart(peglevel_exchange.nSupplyNext, nullptr);
     CFractions frAmount = frBalanceReserve.RatioPart(nAmountWithFee);
 
     // inputs, outputs
@@ -1387,14 +1370,14 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
                             nMaintenance, frMaintenance, peglevel_exchange,
                             sConsumedInputs, sProvidedOutputs);
     
-    frBalance -= frRequested;
-    frExchange -= frRequested;
-    frPegShift += (frRequested - frProcessed);
+    pdBalance.fractions -= frRequested;
+    pdExchange.fractions -= frRequested;
+    pdPegShift.fractions += (frRequested - frProcessed);
     
     // consume reserve part of pegshift by balance
     // as computation were completed by pegnext it may use fractions
     // of current liquid - at current supply not to consume these fractions
-    consumereservepegshift(frBalance, frExchange, frPegShift, peglevel_exchange);
+    consumereservepegshift(pdBalance.fractions, pdExchange.fractions, pdPegShift.fractions, peglevel_exchange);
     
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << rawTx;
@@ -1413,11 +1396,11 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     result.push_back(Pair("created_on_peg", peglevel_net.nSupply));
     result.push_back(Pair("broadcast_on_peg", peglevel_net.nSupplyNext));
     
-    printpegbalance(frBalance, peglevel_exchange, result, "balance_", true);
+    printpegbalance(pdBalance.fractions, peglevel_exchange, result, "balance_", true);
     printpegbalance(frProcessed, peglevel_exchange, result, "processed_", true);
-    printpegbalance(frExchange, peglevel_exchange, result, "exchange_", true);
+    printpegbalance(pdExchange.fractions, peglevel_exchange, result, "exchange_", true);
     
-    printpegshift(frPegShift, peglevel_net, result, true);
+    printpegshift(pdPegShift.fractions, peglevel_net, result, true);
     
     Array changes;
     for(const pair<string, int64_t> & item : mapTxChanges) {

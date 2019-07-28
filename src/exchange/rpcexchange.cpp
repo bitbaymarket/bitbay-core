@@ -14,6 +14,7 @@
 #include "wallet.h"
 
 #include "pegops.h"
+#include "pegopsp.h"
 #include "pegpack.h"
 #include "pegdata.h"
 
@@ -63,23 +64,18 @@ Value getpeglevel(const Array& params, bool fHelp)
     string pegshift_pegdata64 = params[1].get_str();
     int nCyclePrev = params[2].get_int();
     
-    CFractions frExchange(0, CFractions::VALUE);
-    CFractions frPegShift(0, CFractions::VALUE);
+    CPegData pdExchange(exchange_pegdata64);
+    if (!pdExchange.IsValid()) {
+        string err = "Can not unpack 'exchange' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
 
-    int64_t nLiquidExchange = 0;
-    int64_t nReserveExchange = 0;
-    int64_t nLiquidPegShift = 0;
-    int64_t nReservePegShift = 0;
+    CPegData pdPegShift(pegshift_pegdata64);
+    if (!pdPegShift.IsValid()) {
+        string err = "Can not unpack 'pegshift' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
     
-    CPegLevel peglevel_exchange("");
-    CPegLevel peglevel_pegshift("");
-    
-    pegops::unpackbalance(exchange_pegdata64, "exchange", frExchange, nReserveExchange, nLiquidExchange, peglevel_exchange);
-    pegops::unpackbalance(pegshift_pegdata64, "pegshift", frPegShift, nReservePegShift, nLiquidPegShift, peglevel_pegshift);
-    
-    frExchange = frExchange.Std();
-    frPegShift = frPegShift.Std();
-
     int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
     int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
     int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
@@ -88,44 +84,34 @@ Value getpeglevel(const Array& params, bool fHelp)
     int nCycleNow = nBestHeight / nPegInterval;
     int nBuffer = 3;
     
-    string peglevel_hex;
-    string pegpool_pegdata64;
     string err;
-
+    CPegLevel peglevel("");
+    CPegData pdPegPool;
+    
     bool ok = pegops::getpeglevel(
-                exchange_pegdata64,
-                pegshift_pegdata64,
                 nCycleNow,
                 nCyclePrev,
                 nSupplyNow + nBuffer,
                 nSupplyNext + nBuffer,
                 nSupplyNextNext + nBuffer,
-                peglevel_hex,
-                pegpool_pegdata64,
+                pdExchange,
+                pdPegShift,
+                
+                peglevel,
+                pdPegPool,
                 err
     );
     if (!ok) {
         throw JSONRPCError(RPC_MISC_ERROR, err);
     }
     
-    int64_t nPegPoolLiquid = 0;
-    int64_t nPegPoolReserve = 0;
-    CPegLevel peglevel_pegpool("");
-    CFractions frPegPool(0, CFractions::STD);
-    pegops::unpackbalance(pegpool_pegdata64, "pegpool",
-                          frPegPool, 
-                          nPegPoolReserve, nPegPoolLiquid, 
-                          peglevel_pegpool);
-    
-    CPegLevel peglevel(peglevel_hex);
-    
     Object result;
     result.push_back(Pair("cycle", peglevel.nCycle));
 
     printpeglevel(peglevel, result);
-    printpegbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, peglevel, result, "pegpool_", true);
-    printpegbalance(frExchange, peglevel, result, "exchange_", false);
-    printpegshift(frPegShift, peglevel, result, false);
+    printpegbalance(pdPegPool.fractions, pdPegPool.nReserve, pdPegPool.nLiquid, peglevel, result, "pegpool_", true);
+    printpegbalance(pdExchange.fractions, peglevel, result, "exchange_", false);
+    printpegshift(pdPegShift.fractions, peglevel, result, false);
     
     return result;
 }
@@ -152,61 +138,46 @@ Value makepeglevel(const Array& params, bool fHelp)
     string exchange_pegdata64 = params[5].get_str();
     string pegshift_pegdata64 = params[6].get_str();
     
-    CFractions frExchange(0, CFractions::VALUE);
-    CFractions frPegShift(0, CFractions::VALUE);
-    
-    int64_t nLiquidExchange = 0;
-    int64_t nReserveExchange = 0;
-    int64_t nLiquidPegShift = 0;
-    int64_t nReservePegShift = 0;
-    
-    CPegLevel peglevel_exchange("");
-    CPegLevel peglevel_pegshift("");
+    CPegData pdExchange(exchange_pegdata64);
+    if (!pdExchange.IsValid()) {
+        string err = "Can not unpack 'exchange' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
 
-    pegops::unpackbalance(exchange_pegdata64, "exchange", frExchange, nReserveExchange, nLiquidExchange, peglevel_exchange);
-    pegops::unpackbalance(pegshift_pegdata64, "pegshift", frPegShift, nReservePegShift, nLiquidPegShift, peglevel_pegshift);
+    CPegData pdPegShift(pegshift_pegdata64);
+    if (!pdPegShift.IsValid()) {
+        string err = "Can not unpack 'pegshift' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
     
-    frExchange = frExchange.Std();
-    frPegShift = frPegShift.Std();
-
-    string peglevel_hex;
-    string pegpool_pegdata64;
     string err;
+    CPegLevel peglevel("");
+    CPegData pdPegPool;
 
     bool ok = pegops::getpeglevel(
-                exchange_pegdata64,
-                pegshift_pegdata64,
                 cycle_now,
                 cycle_prev,
                 supply_now,
                 supply_next,
                 supply_next_next,
-                peglevel_hex,
-                pegpool_pegdata64,
+                pdExchange,
+                pdPegShift,
+                
+                peglevel,
+                pdPegPool,
                 err
     );
     if (!ok) {
         throw JSONRPCError(RPC_MISC_ERROR, err);
     }
     
-    int64_t nPegPoolLiquid = 0;
-    int64_t nPegPoolReserve = 0;
-    CPegLevel peglevel_pegpool("");
-    CFractions frPegPool(0, CFractions::STD);
-    pegops::unpackbalance(pegpool_pegdata64, "pegpool", 
-                          frPegPool, 
-                          nPegPoolReserve, nPegPoolLiquid, 
-                          peglevel_pegpool);
-    
-    CPegLevel peglevel(peglevel_hex);
-    
     Object result;
     result.push_back(Pair("cycle", peglevel.nCycle));
 
     printpeglevel(peglevel, result);
-    printpegbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, peglevel, result, "pegpool_", true);
-    printpegbalance(frExchange, peglevel, result, "exchange_", false);
-    printpegshift(frPegShift, peglevel, result, false);
+    printpegbalance(pdPegPool.fractions, pdPegPool.nReserve, pdPegPool.nLiquid, peglevel, result, "pegpool_", true);
+    printpegbalance(pdExchange.fractions, peglevel, result, "exchange_", false);
+    printpegshift(pdPegShift.fractions, peglevel, result, false);
     
     return result;
 }
@@ -224,47 +195,46 @@ Value updatepegbalances(const Array& params, bool fHelp)
     string inp_balance_pegdata64 = params[0].get_str();
     string inp_pegpool_pegdata64 = params[1].get_str();
     string inp_peglevel_hex = params[2].get_str();
-    
-    string out_balance_pegdata64;
-    string out_pegpool_pegdata64;
-    string out_err;
-    
-    bool ok = pegops::updatepegbalances(
-            inp_balance_pegdata64,
-            inp_pegpool_pegdata64,
-            inp_peglevel_hex,
-            
-            out_balance_pegdata64,
-            out_pegpool_pegdata64,
-            out_err);
-    
-    if (!ok) {
-        throw JSONRPCError(RPC_MISC_ERROR, out_err);
+        
+    CPegData pdBalance(inp_balance_pegdata64);
+    if (!pdBalance.IsValid()) {
+        string err = "Can not unpack 'balance' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
     }
 
-    CPegLevel peglevel_new(inp_peglevel_hex);
-    CPegLevel peglevel_skip1("");
-    CPegLevel peglevel_skip2("");
+    CPegData pdPegPool(inp_pegpool_pegdata64);
+    if (!pdPegPool.IsValid()) {
+        string err = "Can not unpack 'pegpool' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
     
-    CFractions frBalance(0, CFractions::STD);
-    CFractions frPegPool(0, CFractions::STD);
+    CPegLevel peglevelNew(inp_peglevel_hex);
+    if (!peglevelNew.IsValid()) {
+        string err = "Can not unpack peglevel";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
+
+    string err;
     
-    int64_t nBalanceLiquid = 0;
-    int64_t nPegPoolLiquid = 0;
-    int64_t nBalanceReserve = 0;
-    int64_t nPegPoolReserve = 0;
+    bool ok = pegops::updatepegbalances(
+            pdBalance,
+            pdPegPool,
+            peglevelNew,
+
+            err);
     
-    pegops::unpackbalance(out_balance_pegdata64, "balance", frBalance, nBalanceReserve, nBalanceLiquid, peglevel_skip1);
-    pegops::unpackbalance(out_pegpool_pegdata64, "pegpool", frPegPool, nPegPoolReserve, nPegPoolLiquid, peglevel_skip2);
-    
+    if (!ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, err);
+    }
+
     Object result;
 
     result.push_back(Pair("completed", true));
-    result.push_back(Pair("cycle", peglevel_new.nCycle));
+    result.push_back(Pair("cycle", peglevelNew.nCycle));
     
-    printpeglevel(peglevel_new, result);
-    printpegbalance(frBalance, nBalanceReserve, nBalanceLiquid, peglevel_new, result, "balance_", true);
-    printpegbalance(frPegPool, nPegPoolReserve, nPegPoolLiquid, peglevel_new, result, "pegpool_", true);
+    printpeglevel(peglevelNew, result);
+    printpegbalance(pdBalance.fractions, pdBalance.nReserve, pdBalance.nLiquid, peglevelNew, result, "balance_", true);
+    printpegbalance(pdPegPool.fractions, pdPegPool.nReserve, pdPegPool.nLiquid, peglevelNew, result, "pegpool_", true);
     
     return result;
 }
@@ -285,47 +255,46 @@ Value movecoins(const Array& params, bool fHelp)
     string inp_dst_pegdata64 = params[2].get_str();
     string inp_peglevel_hex = params[3].get_str();
     
-    string out_src_pegdata64;
-    string out_dst_pegdata64;
-    string out_err;
-    
-    bool ok = pegops::movecoins(
-            inp_move_amount,
-            inp_src_pegdata64,
-            inp_dst_pegdata64,
-            inp_peglevel_hex,
-            true,
-            
-            out_src_pegdata64,
-            out_dst_pegdata64,
-            out_err);
-    
-    if (!ok) {
-        throw JSONRPCError(RPC_MISC_ERROR, out_err);
+    CPegData pdSrc(inp_src_pegdata64);
+    if (!pdSrc.IsValid()) {
+        string err = "Can not unpack 'src' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
+
+    CPegData pdDst(inp_dst_pegdata64);
+    if (!pdDst.IsValid()) {
+        string err = "Can not unpack 'dst' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
     }
     
     CPegLevel peglevel(inp_peglevel_hex);
-    CPegLevel peglevel_skip1("");
-    CPegLevel peglevel_skip2("");
+    if (!peglevel.IsValid()) {
+        string err = "Can not unpack peglevel";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
     
-    CFractions frSrc(0, CFractions::STD);
-    CFractions frDst(0, CFractions::STD);
+    string err;
     
-    int64_t nSrcLiquid = 0;
-    int64_t nDstLiquid = 0;
-    int64_t nSrcReserve = 0;
-    int64_t nDstReserve = 0;
+    bool ok = pegops::movecoins(
+                inp_move_amount,
+                pdSrc,
+                pdDst,
+                peglevel,
+                true,
+            
+                err);
     
-    pegops::unpackbalance(out_src_pegdata64, "src", frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1);
-    pegops::unpackbalance(out_dst_pegdata64, "dst", frDst, nDstReserve, nDstLiquid, peglevel_skip2);
+    if (!ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, err);
+    }
     
     Object result;
     
     result.push_back(Pair("cycle", peglevel.nCycle));
     
     printpeglevel(peglevel, result);
-    printpegbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel, result, "src_", true);
-    printpegbalance(frDst, nDstReserve, nDstLiquid, peglevel, result, "dst_", true);
+    printpegbalance(pdSrc.fractions, pdSrc.nReserve, pdSrc.nLiquid, peglevel, result, "src_", true);
+    printpegbalance(pdDst.fractions, pdDst.nReserve, pdDst.nLiquid, peglevel, result, "dst_", true);
     
     return result;
 }
@@ -346,46 +315,45 @@ Value moveliquid(const Array& params, bool fHelp)
     string inp_dst_pegdata64 = params[2].get_str();
     string inp_peglevel_hex = params[3].get_str();
     
-    string out_src_pegdata64;
-    string out_dst_pegdata64;
-    string out_err;
-    
-    bool ok = pegops::moveliquid(
-            inp_move_liquid,
-            inp_src_pegdata64,
-            inp_dst_pegdata64,
-            inp_peglevel_hex,
-            
-            out_src_pegdata64,
-            out_dst_pegdata64,
-            out_err);
-    
-    if (!ok) {
-        throw JSONRPCError(RPC_MISC_ERROR, out_err);
+    CPegData pdSrc(inp_src_pegdata64);
+    if (!pdSrc.IsValid()) {
+        string err = "Can not unpack 'src' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
+
+    CPegData pdDst(inp_dst_pegdata64);
+    if (!pdDst.IsValid()) {
+        string err = "Can not unpack 'dst' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
     }
     
     CPegLevel peglevel(inp_peglevel_hex);
-    CPegLevel peglevel_skip1("");
-    CPegLevel peglevel_skip2("");
+    if (!peglevel.IsValid()) {
+        string err = "Can not unpack peglevel";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
     
-    CFractions frSrc(0, CFractions::STD);
-    CFractions frDst(0, CFractions::STD);
+    string err;
     
-    int64_t nSrcLiquid = 0;
-    int64_t nDstLiquid = 0;
-    int64_t nSrcReserve = 0;
-    int64_t nDstReserve = 0;
+    bool ok = pegops::moveliquid(
+            inp_move_liquid,
+            pdSrc,
+            pdDst,
+            peglevel,
+            
+            err);
     
-    pegops::unpackbalance(out_src_pegdata64, "src", frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1);
-    pegops::unpackbalance(out_dst_pegdata64, "dst", frDst, nDstReserve, nDstLiquid, peglevel_skip2);
+    if (!ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, err);
+    }
     
     Object result;
     
     result.push_back(Pair("cycle", peglevel.nCycle));
     
     printpeglevel(peglevel, result);
-    printpegbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel, result, "src_", true);
-    printpegbalance(frDst, nDstReserve, nDstLiquid, peglevel, result, "dst_", true);
+    printpegbalance(pdSrc.fractions, pdSrc.nReserve, pdSrc.nLiquid, peglevel, result, "src_", true);
+    printpegbalance(pdDst.fractions, pdDst.nReserve, pdDst.nLiquid, peglevel, result, "dst_", true);
     
     return result;
 }
@@ -406,46 +374,45 @@ Value movereserve(const Array& params, bool fHelp)
     string inp_dst_pegdata64 = params[2].get_str();
     string inp_peglevel_hex = params[3].get_str();
     
-    string out_src_pegdata64;
-    string out_dst_pegdata64;
-    string out_err;
-    
-    bool ok = pegops::movereserve(
-            inp_move_reserve,
-            inp_src_pegdata64,
-            inp_dst_pegdata64,
-            inp_peglevel_hex,
-            
-            out_src_pegdata64,
-            out_dst_pegdata64,
-            out_err);
-    
-    if (!ok) {
-        throw JSONRPCError(RPC_MISC_ERROR, out_err);
+    CPegData pdSrc(inp_src_pegdata64);
+    if (!pdSrc.IsValid()) {
+        string err = "Can not unpack 'src' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
+
+    CPegData pdDst(inp_dst_pegdata64);
+    if (!pdDst.IsValid()) {
+        string err = "Can not unpack 'dst' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
     }
     
     CPegLevel peglevel(inp_peglevel_hex);
-    CPegLevel peglevel_skip1("");
-    CPegLevel peglevel_skip2("");
+    if (!peglevel.IsValid()) {
+        string err = "Can not unpack peglevel";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
     
-    CFractions frSrc(0, CFractions::STD);
-    CFractions frDst(0, CFractions::STD);
+    string err;
     
-    int64_t nSrcLiquid = 0;
-    int64_t nDstLiquid = 0;
-    int64_t nSrcReserve = 0;
-    int64_t nDstReserve = 0;
+    bool ok = pegops::movereserve(
+            inp_move_reserve,
+            pdSrc,
+            pdDst,
+            peglevel,
+            
+            err);
     
-    pegops::unpackbalance(out_src_pegdata64, "src", frSrc, nSrcReserve, nSrcLiquid, peglevel_skip1);
-    pegops::unpackbalance(out_dst_pegdata64, "dst", frDst, nDstReserve, nDstLiquid, peglevel_skip2);
+    if (!ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, err);
+    }
     
     Object result;
     
     result.push_back(Pair("cycle", peglevel.nCycle));
     
     printpeglevel(peglevel, result);
-    printpegbalance(frSrc, nSrcReserve, nSrcLiquid, peglevel, result, "src_", true);
-    printpegbalance(frDst, nDstReserve, nDstLiquid, peglevel, result, "dst_", true);
+    printpegbalance(pdSrc.fractions, pdSrc.nReserve, pdSrc.nLiquid, peglevel, result, "src_", true);
+    printpegbalance(pdDst.fractions, pdDst.nReserve, pdDst.nLiquid, peglevel, result, "dst_", true);
     
     return result;
 }
@@ -455,38 +422,32 @@ Value removecoins(const Array& params, bool fHelp)
     if (fHelp || params.size() != 2)
         throw runtime_error(
             "removecoins "
-                "<arg1_pegdata_base64> "
-                "<arg2_pegdata_base64>\n"
+                "<from_pegdata_base64> "
+                "<remove_pegdata_base64>\n"
             );
     
-    string inp_arg1_pegdata64 = params[0].get_str();
-    string inp_arg2_pegdata64 = params[1].get_str();
+    string inp_from_pegdata64 = params[0].get_str();
+    string inp_remove_pegdata64 = params[1].get_str();
     
-    string out_arg1_pegdata64;
-    string out_err;
-    
-    bool ok = pegops::removecoins(
-            inp_arg1_pegdata64,
-            inp_arg2_pegdata64,
-            
-            out_arg1_pegdata64,
-            out_err);
-    
-    if (!ok) {
-        throw JSONRPCError(RPC_MISC_ERROR, out_err);
+    CPegData pdFrom(inp_from_pegdata64);
+    if (!pdFrom.IsValid()) {
+        string err = "Can not unpack 'from' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
+
+    CPegData pdRemove(inp_remove_pegdata64);
+    if (!pdRemove.IsValid()) {
+        string err = "Can not unpack 'remove' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
     }
     
-    CPegLevel peglevel("");
-    CFractions frArg1(0, CFractions::STD);
-    
-    int64_t nArg1Liquid = 0;
-    int64_t nArg1Reserve = 0;
-    
-    pegops::unpackbalance(out_arg1_pegdata64, "out", frArg1, nArg1Reserve, nArg1Liquid, peglevel);
+    pdFrom.fractions    -= pdRemove.fractions;
+    pdFrom.nLiquid      -= pdRemove.nLiquid;
+    pdFrom.nReserve     -= pdRemove.nReserve;
     
     Object result;
     
-    printpegbalance(frArg1, nArg1Reserve, nArg1Liquid, peglevel, result, "out_", true);
+    printpegbalance(pdFrom.fractions, pdFrom.nReserve, pdFrom.nLiquid, pdFrom.peglevel, result, "out_", true);
     
     return result;
 }

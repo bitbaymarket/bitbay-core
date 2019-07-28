@@ -8,6 +8,7 @@ HEADERS += \
 
 SOURCES += \
     $$PWD/pegops.cpp \
+    $$PWD/pegopsp.cpp \
     $$PWD/pegpack.cpp \
     $$PWD/pegdata.cpp \
     $$PWD/pegutil.cpp \

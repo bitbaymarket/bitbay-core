@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "pegdata.h"
+#include "pegutil.h"
 
 #include <map>
 #include <set>
@@ -18,6 +19,7 @@
 
 using namespace std;
 using namespace boost;
+using namespace pegutil;
 
 int64_t RatioPart(int64_t nValue,
                   int64_t nPartValue,
@@ -45,3 +47,58 @@ int64_t RatioPart(int64_t nValue,
     
     return (nValue*nPartValue)/nTotalValue;
 }
+
+CPegData::CPegData(std::string pegdata64)
+{
+    if (pegdata64.empty()) {
+        peglevel = CPegLevel(0,0,0,0,0);
+        return; // defaults, zeros
+    }
+    
+    string pegdata = DecodeBase64(pegdata64);
+    CDataStream finp(pegdata.data(), 
+                     pegdata.data() + pegdata.size(),
+                     SER_DISK, CLIENT_VERSION);
+    
+    bool ok = Unpack(finp);
+    if (!ok) { 
+        // peglevel to inicate invalid
+        peglevel = CPegLevel();
+    }
+}
+
+bool CPegData::IsValid() const
+{
+    return peglevel.IsValid();
+}
+
+bool CPegData::Pack(CDataStream & fout) const {
+    //fout << nVersion;
+    fractions.Pack(fout);
+    peglevel.Pack(fout);
+    fout << nReserve;
+    fout << nLiquid;
+    return true;
+}
+
+bool CPegData::Unpack(CDataStream & finp) {
+    try {
+        //finp >> nVersion;
+        if (!fractions.Unpack(finp)) return false;
+        if (!peglevel.Unpack(finp)) return false;
+        finp >> nReserve;
+        finp >> nLiquid;
+    }
+    catch (std::exception &) {
+        return false;
+    }
+    fractions = fractions.Std();
+    return true;
+}
+
+std::string CPegData::ToString() const {
+    CDataStream fout(SER_DISK, CLIENT_VERSION);
+    Pack(fout);
+    return EncodeBase64(fout.str());
+}
+

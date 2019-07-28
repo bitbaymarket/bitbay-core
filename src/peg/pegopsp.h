@@ -5,81 +5,63 @@
 #ifndef BITBAY_PEGOPSP_H
 #define BITBAY_PEGOPSP_H
 
+/**
+  * Internal API
+  * The use of the API requires includes for classes
+  * CFractions, CPegLevel, CPegData for declarations.
+  */
+
 #include <string>
+
+class CPegData;
+class CPegLevel;
 
 namespace pegops {
 
-//extern bool getpeglevel(
-//        const std::string & inp_exchange_pegdata64,
-//        const std::string & inp_pegshift_pegdata64,
-//        int                 inp_cycle_now,
-//        int                 inp_cycle_prev,
-//        int                 inp_peg_now,
-//        int                 inp_peg_next,
-//        int                 inp_peg_next_next,
+extern bool getpeglevel(
+        int                 nCycleNow,
+        int                 nCyclePrev,
+        int                 nPegNow,
+        int                 nPegNext,
+        int                 nPegNextNext,
+        const CPegData &    pdExchange,
+        const CPegData &    pdPegShift,
         
-//        std::string &   out_peglevel_hex,
-//        std::string &   out_pegpool_pegdata64,
-//        std::string &   out_err);
+        CPegLevel &     peglevel,
+        CPegData &      pdPegPool,
+        std::string &   sErr);
 
-//extern bool getpeglevelinfo(
-//        const std::string & inp_peglevel_hex,
+extern bool updatepegbalances(
+        CPegData &          pdBalance,
+        CPegData &          pdPegPool,
+        const CPegLevel &   peglevelNew,
         
-//        int &       out_cycle_now,
-//        int &       out_cycle_prev,
-//        int &       out_peg_now,
-//        int &       out_peg_next,
-//        int &       out_peg_next_next,
-//        int &       out_shift,
-//        int64_t &   out_shiftlastpart,
-//        int64_t &   out_shiftlasttotal);
+        std::string &   sErr);
 
-//extern bool updatepegbalances(
-//        const std::string & inp_balance_pegdata64,
-//        const std::string & inp_pegpool_pegdata64,
-//        const std::string & inp_peglevel_hex,
-        
-//        std::string &   out_balance_pegdata64,
-//        std::string &   out_pegpool_pegdata64,
-//        std::string &   out_err);
+extern bool movecoins(
+        int64_t             nMoveAmount,
+        CPegData &          pdSrc,
+        CPegData &          pdDst,
+        const CPegLevel &   peglevel,
+        bool                fCrossCycles,
 
-//extern bool movecoins(
-//        int64_t             inp_move_amount,
-//        const std::string & inp_src_pegdata64,
-//        const std::string & inp_dst_pegdata64,
-//        const std::string & inp_peglevel_hex,
-//        bool                inp_cross_cycles,
-        
-//        std::string &   out_src_pegdata64,
-//        std::string &   out_dst_pegdata64,
-//        std::string &   out_err);
+        std::string &   sErr);
 
-//extern bool moveliquid(
-//        int64_t             inp_move_liquid,
-//        const std::string & inp_src_pegdata64,
-//        const std::string & inp_dst_pegdata64,
-//        const std::string & inp_peglevel_hex,
-        
-//        std::string &   out_src_pegdata64,
-//        std::string &   out_dst_pegdata64,
-//        std::string &   out_err);
+extern bool moveliquid(
+        int64_t             nMoveAmount,
+        CPegData &          pdSrc,
+        CPegData &          pdDst,
+        const CPegLevel &   peglevel,
 
-//extern bool movereserve(
-//        int64_t             inp_move_reserve,
-//        const std::string & inp_src_pegdata64,
-//        const std::string & inp_dst_pegdata64,
-//        const std::string & inp_peglevel_hex,
-        
-//        std::string &   out_src_pegdata64,
-//        std::string &   out_dst_pegdata64,
-//        std::string &   out_err);
+        std::string &   sErr);
 
-//extern bool removecoins(
-//        const std::string & inp_arg1_pegdata64,
-//        const std::string & inp_arg2_pegdata64,
-        
-//        std::string &   out_arg1_pegdata64,
-//        std::string &   out_err);
+extern bool movereserve(
+        int64_t             nMoveAmount,
+        CPegData &          pdSrc,
+        CPegData &          pdDst,
+        const CPegLevel &   peglevel,
+
+        std::string &   sErr);
 
 }
 

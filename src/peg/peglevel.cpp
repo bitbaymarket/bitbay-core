@@ -21,16 +21,23 @@ using namespace std;
 using namespace boost;
 using namespace pegutil;
 
+CPegLevel::CPegLevel() {
+    // invalid
+    nSupply         = -1;
+    nSupplyNext     = -1;
+    nSupplyNextNext = -1;
+}
+
 CPegLevel::CPegLevel(std::string str) {
     vector<unsigned char> data(ParseHex(str));
     CDataStream finp(data, SER_DISK, CLIENT_VERSION);
     if (!Unpack(finp)) {
         // invalid
-        nSupply = -1;
-        nSupplyNext = -1;
+        nSupply         = -1;
+        nSupplyNext     = -1;
         nSupplyNextNext = -1;
-        nShift = 0;
-        nShiftLastPart = 0;
+        nShift          = 0;
+        nShiftLastPart  = 0;
         nShiftLastTotal = 0;
     }
 }
@@ -48,7 +55,6 @@ CPegLevel::CPegLevel(int cycle,
     nShift          = 0;
     nShiftLastPart  = 0;
     nShiftLastTotal = 0;
-    nShiftLiquidity = 0;
 }
 
 CPegLevel::CPegLevel(int cycle,
@@ -66,7 +72,6 @@ CPegLevel::CPegLevel(int cycle,
     nShift          = 0;
     nShiftLastPart  = 0;
     nShiftLastTotal = 0;
-    nShiftLiquidity = 0;
     
     CFractions frOutput = frInput + frDistortion;
     int64_t nInputLiquid = frInput.High(nSupply);
@@ -93,7 +98,6 @@ CPegLevel::CPegLevel(int cycle,
             i++;
         }
         nShiftLastPart = nLiquidDiffLeft;
-        nShiftLiquidity = nOutputLiquid - nInputLiquid;
     }
 }
 
@@ -111,19 +115,14 @@ bool CPegLevel::IsValid() const {
 }
 
 bool CPegLevel::Pack(CDataStream & fout) const {
-    try {
-        fout << nCycle;
-        fout << nCyclePrev;
-        fout << nSupply;
-        fout << nSupplyNext;
-        fout << nSupplyNextNext;
-        fout << nShift;
-        fout << nShiftLastPart;     // to distribute (part)
-        fout << nShiftLastTotal;    // to distribute (total)
-    }
-    catch (std::exception &) {
-        return false;
-    }
+    fout << nCycle;
+    fout << nCyclePrev;
+    fout << nSupply;
+    fout << nSupplyNext;
+    fout << nSupplyNextNext;
+    fout << nShift;
+    fout << nShiftLastPart;     // to distribute (part)
+    fout << nShiftLastTotal;    // to distribute (total)
     return true;
 }
 

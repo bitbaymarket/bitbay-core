@@ -160,14 +160,16 @@ Value registerdeposit(const Array& params, bool fHelp)
     boost::split(vTxoutArgs, sTxout, boost::is_any_of(":"));
     
     if (vTxoutArgs.size() != 2) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Txout is not recognized, format txid:nout");
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
+                           "Txout is not recognized, format txid:nout");
     }
     
     string sTxid = vTxoutArgs[0];
     char * pEnd = nullptr;
     long nout = strtol(vTxoutArgs[1].c_str(), &pEnd, 0);
     if (pEnd == vTxoutArgs[1].c_str()) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Txout is not recognized, nout is not number");
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
+                           "Txout is not recognized, format txid:nout, nout is not number");
     }
 
     string balance_pegdata64 = params[1].get_str();
@@ -179,26 +181,21 @@ Value registerdeposit(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_MISC_ERROR, "Can not unpack peglevel");
     }
 
-    CFractions frBalance(0, CFractions::VALUE);
-    CFractions frExchange(0, CFractions::VALUE);
-
-    int64_t nLiquidBalance = 0;
-    int64_t nReserveBalance = 0;
-    int64_t nLiquidExchange = 0;
-    int64_t nReserveExchange = 0;
-    
-    CPegLevel peglevel_balance("");
-    CPegLevel peglevel_exchange("");
-
-    pegops::unpackbalance(balance_pegdata64, "balance", frBalance, nReserveBalance, nLiquidBalance, peglevel_balance);
-    pegops::unpackbalance(exchange_pegdata64, "exchange", frExchange, nReserveExchange, nLiquidExchange, peglevel_exchange);
-
-    if (!balance_pegdata64.empty() && peglevel_balance.nCycle != peglevel.nCycle) {
-        throw JSONRPCError(RPC_MISC_ERROR, "Balance has other cycle than peglevel");
+    CPegData pdBalance(balance_pegdata64);
+    if (!pdBalance.IsValid()) {
+        string err = "Can not unpack 'balance' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
     }
 
-    frBalance = frBalance.Std();
-    frExchange = frExchange.Std();
+    CPegData pdExchange(exchange_pegdata64);
+    if (!pdExchange.IsValid()) {
+        string err = "Can not unpack 'exchange' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
+    
+    if (!balance_pegdata64.empty() && pdBalance.peglevel.nCycle != peglevel.nCycle) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Balance has other cycle than peglevel");
+    }
 
     uint256 txhash;
     txhash.SetHex(sTxid);
@@ -249,8 +246,8 @@ Value registerdeposit(const Array& params, bool fHelp)
     }
     
     frDeposit = frDeposit.Std();
-    frBalance += frDeposit;
-    frExchange += frDeposit;
+    pdBalance.fractions += frDeposit;
+    pdExchange.fractions += frDeposit;
     
     result.push_back(Pair("deposited", true));
     result.push_back(Pair("status", "Registered"));
@@ -259,8 +256,8 @@ Value registerdeposit(const Array& params, bool fHelp)
     result.push_back(Pair("cycle", peglevel.nCycle));
     
     printpeglevel(peglevel, result);
-    printpegbalance(frBalance, peglevel, result, "balance_", true);
-    printpegbalance(frExchange, peglevel, result, "exchange_", true);
+    printpegbalance(pdBalance.fractions, peglevel, result, "balance_", true);
+    printpegbalance(pdExchange.fractions, peglevel, result, "exchange_", true);
     
     return result;
 }

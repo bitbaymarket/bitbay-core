@@ -75,7 +75,6 @@ void printpeglevel(const CPegLevel & peglevel,
     info.push_back(Pair("shift", peglevel.nShift));
     info.push_back(Pair("shiftlastpart", peglevel.nShiftLastPart));
     info.push_back(Pair("shiftlasttotal", peglevel.nShiftLastTotal));
-    info.push_back(Pair("shiftliquidity", peglevel.nShiftLiquidity));
     result.push_back(Pair("peglevel_info", info));
 }
 

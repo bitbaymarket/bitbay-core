@@ -5,18 +5,24 @@
 #ifndef BITBAY_PEGOPS_H
 #define BITBAY_PEGOPS_H
 
+/**
+  * External API
+  * The use of the API requires only std::string.
+  * No internal classes declarations to be exposed.
+  */
+
 #include <string>
 
 namespace pegops {
 
 extern bool getpeglevel(
-        const std::string & inp_exchange_pegdata64,
-        const std::string & inp_pegshift_pegdata64,
         int                 inp_cycle_now,
         int                 inp_cycle_prev,
         int                 inp_peg_now,
         int                 inp_peg_next,
         int                 inp_peg_next_next,
+        const std::string & inp_exchange_pegdata64,
+        const std::string & inp_pegshift_pegdata64,
         
         std::string &   out_peglevel_hex,
         std::string &   out_pegpool_pegdata64,

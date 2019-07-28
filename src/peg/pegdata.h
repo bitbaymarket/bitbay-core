@@ -38,7 +38,6 @@ public:
     int16_t nShift          = 0;
     int64_t nShiftLastPart  = 0;
     int64_t nShiftLastTotal = 0;
-    int64_t nShiftLiquidity = 0;
 
     CPegLevel(int cycle,
               int cycle_prev,
@@ -53,6 +52,7 @@ public:
               const CFractions & fractions, 
               const CFractions & distortion);
     CPegLevel(std::string);
+    CPegLevel();
     
     friend bool operator<(const CPegLevel &a, const CPegLevel &b);
     friend bool operator==(const CPegLevel &a, const CPegLevel &b);
@@ -131,5 +131,23 @@ private:
 };
 
 typedef std::map<uint320, CFractions> MapFractions;
+
+class CPegData {
+public:
+    CPegData() {}
+    CPegData(std::string);
+    
+    bool IsValid() const;
+    
+    int64_t     nVersion    = 1;
+    CFractions  fractions;
+    CPegLevel   peglevel;
+    int64_t     nLiquid     = 0;
+    int64_t     nReserve    = 0;
+    
+    bool Pack(CDataStream &) const;
+    bool Unpack(CDataStream &);
+    std::string ToString() const;
+};
 
 #endif

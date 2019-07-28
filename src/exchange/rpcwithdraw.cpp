@@ -671,6 +671,11 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         mapChangeOutputs[address] = rawTx.vout.size();
         rawTx.vout.push_back(CTxOut(nValueChange, scriptPubKey));
     }
+    
+    // Fill vin
+    for(const CCoinToUse& coin : vCoins) {
+        rawTx.vin.push_back(CTxIn(coin.txhash,coin.i));
+    }
 
     // notation for exchange control
     string sTxid;
@@ -696,12 +701,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         }
         rawTx.vout.push_back(CTxOut(1, scriptPubKey));
     }
-    
-    // Fill vin
-    for(const CCoinToUse& coin : vCoins) {
-        rawTx.vin.push_back(CTxIn(coin.txhash,coin.i));
-    }
-    
+
     // Calculate peg to know 'user' fee
     CFractions feesFractionsCommon(0, CFractions::STD);
     map<int, CFractions> mapTxOutputFractionsSkip;
@@ -1230,6 +1230,11 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         rawTx.vout.push_back(CTxOut(nValueChange, scriptPubKey));
     }
 
+    // Fill vin
+    for(const CCoinToUse& coin : vCoins) {
+        rawTx.vin.push_back(CTxIn(coin.txhash,coin.i));
+    }
+    
     // notation for exchange control
     string sTxid;
     {
@@ -1254,11 +1259,6 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
             scriptPubKey.push_back(sNotary[j]);
         }
         rawTx.vout.push_back(CTxOut(1, scriptPubKey));
-    }
-    
-    // Fill vin
-    for(const CCoinToUse& coin : vCoins) {
-        rawTx.vin.push_back(CTxIn(coin.txhash,coin.i));
     }
     
     // Calculate peg to know 'user' fee

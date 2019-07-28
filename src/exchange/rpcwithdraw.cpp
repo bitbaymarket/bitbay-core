@@ -649,8 +649,8 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
         nValueLeft -= nValueTake;
     }
     
-    // Calculate change (minus fee and part taken from change)
-    int64_t nTakeFromChangeLeft = nFeeRet;
+    // Calculate change (minus fee, notary and part taken from change)
+    int64_t nTakeFromChangeLeft = nFeeRet+1;
     map<CTxDestination, int> mapChangeOutputs;
     for (const CTxDestination& address : vInputAddresses) {
         CScript scriptPubKey;
@@ -1207,8 +1207,8 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         nValueToTakeFromChange += nValueLeft;
     }
     
-    // Calculate change (minus fee and part taken from change)
-    int64_t nTakeFromChangeLeft = nValueToTakeFromChange + nFeeRet;
+    // Calculate change (minus fee, notary and part taken from change)
+    int64_t nTakeFromChangeLeft = nValueToTakeFromChange + nFeeRet +1;
     map<CTxDestination, int> mapChangeOutputs;
     for (const CTxDestination& address : vInputAddresses) {
         CScript scriptPubKey;

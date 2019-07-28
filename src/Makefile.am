@@ -77,6 +77,7 @@ BITCOIN_CORE_H = \
   peg/pegdata.h \
   peg/pegdb-leveldb.h \
   peg/pegops.h \
+  peg/pegopsp.h \
   peg/pegutil.h
 
 build/build.h: FORCE
@@ -136,6 +137,7 @@ libbitcoin_server_a_SOURCES = \
   peg/pegfractions.cpp \
   peg/peglevel.cpp \
   peg/pegops.cpp \
+  peg/pegopsp.cpp \
   peg/pegutil.cpp \
   exchange/rpcdeposit.cpp \
   exchange/rpcexchange.cpp \

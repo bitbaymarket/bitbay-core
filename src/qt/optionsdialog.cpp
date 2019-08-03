@@ -97,6 +97,9 @@ OptionsDialog::OptionsDialog(QWidget *parent) :
             fPegPruneEnabled = true;
         }
         ui->prunePegInfo->setChecked(fPegPruneEnabled);
+#ifdef ENABLE_EXCHANGE
+        ui->prunePegInfo->setEnabled(false);
+#endif
     }
     connect(ui->prunePegInfo, SIGNAL(toggled(bool)), this, SLOT(changePegPrune(bool)));
 }

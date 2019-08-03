@@ -306,7 +306,12 @@ bool CTxDB::WritePegCheck(int nCheck, bool bReady)
 
 bool CTxDB::ReadPegPruneEnabled(bool& fEnabled)
 {
+#ifdef ENABLE_EXCHANGE
+    fEnabled = false;
+    return true;
+#else
     return Read(string("pegPruneEnabled"), fEnabled);
+#endif
 }
 
 bool CTxDB::WritePegPruneEnabled(bool fEnabled)

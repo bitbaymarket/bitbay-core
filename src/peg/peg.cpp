@@ -746,10 +746,16 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             nLiquidityIn -= nFrozenValueOut;
                         }
                         else if (fNotaryC) { 
+                            CBitcoinAddress address(sAddress);
+                            if (!address.IsValid()) {
+                                sFailCause = "PI10-2: Cold notary: input address is not valid";
+                                return false;
+                            }
                             CFractions frozenOut = frInp.RatioPart(nFrozenValueOut);
                             frozenTxOut.fractions += frozenOut;
                             frozenTxOut.fractions.nFlags |= CFractions::NOTARY_C;
                             frozenTxOut.fractions.nLockTime = 0;
+                            frozenTxOut.fractions.sReturnAddr = sAddress;
                             int64_t nReserveDeduct = 0;
                             int64_t nLiquidityDeduct = 0;
                             frReserve -= frozenOut.LowPart(nSupply, &nReserveDeduct);

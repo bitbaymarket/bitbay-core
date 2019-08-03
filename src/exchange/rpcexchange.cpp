@@ -72,6 +72,13 @@ Value getpeglevel(const Array& params, bool fHelp)
     int nCycleNow = nBestHeight / nPegInterval;
     int nBuffer = 3;
     
+    if (nBestHeight < nPegStartHeight) { // run on zero levels before the peg
+        nBuffer = 0;
+        nSupplyNow = 0;
+        nSupplyNext = 0;
+        nSupplyNextNext = 0;
+    }
+    
     string err;
     CPegLevel peglevel("");
     CPegData pdPegPool;

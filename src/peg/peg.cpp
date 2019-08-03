@@ -648,7 +648,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     // no mark already on frozenTxOut.fractions
                 } else {
                     frozenTxOut.fractions.nFlags |= CFractions::NOTARY_F;
-                    frozenTxOut.fractions.nLockTime = nTime + Params().PegFrozenTime();
+                    frozenTxOut.fractions.nLockTime = nTime + 4 * Params().PegFrozenTime();
                 }
                 
                 // deduct whole frInp - not frOut

@@ -83,6 +83,7 @@ bool CFractions::Pack(CDataStream& out, unsigned long* report_len) const
         out << uint32_t(nFlags | SER_VALUE);
         out << nLockTime;
         out << f[0];
+        out << sReturnAddr;
     } else {
         int64_t deltas[PEG_SIZE];
         ToDeltas(deltas);
@@ -100,6 +101,7 @@ bool CFractions::Pack(CDataStream& out, unsigned long* report_len) const
             auto ser = reinterpret_cast<const char *>(zout);
             out << zlen;
             out.write(ser, zlen);
+            out << sReturnAddr;
         }
         else {
             if (report_len) *report_len = PEG_SIZE*sizeof(int64_t);
@@ -107,6 +109,7 @@ bool CFractions::Pack(CDataStream& out, unsigned long* report_len) const
             out << nLockTime;
             auto ser = reinterpret_cast<const char *>(f);
             out.write(ser, PEG_SIZE*sizeof(int64_t));
+            out << sReturnAddr;
         }
     }
     return true;
@@ -152,6 +155,8 @@ bool CFractions::Unpack(CDataStream& inp)
         nFlags = nSerFlags | STD;
     }
     nFlags &= SER_MASK;
+    inp >> sReturnAddr;
+    
     return true;
 }
 

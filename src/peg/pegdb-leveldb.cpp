@@ -310,6 +310,8 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                 return error("WritePegCheck() : flag1 write failed");
             if (!txdb.WritePegCheck(PEG_DB_CHECK2, false))
                 return error("WritePegCheck() : flag2 write failed");
+            if (!txdb.WritePegCheck(PEG_DB_CHECK3, false))
+                return error("WritePegCheck() : flag3 write failed");
             if (!txdb.TxnCommit())
                 return error("WriteBlockIndexIsPegReady() : TxnCommit failed");
         }
@@ -347,6 +349,9 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
 
         bool fPegCheck2 = false;
         txdb.ReadPegCheck(PEG_DB_CHECK2, fPegCheck2);
+
+        bool fPegCheck3 = false;
+        txdb.ReadPegCheck(PEG_DB_CHECK3, fPegCheck3);
         
         bool fPegPruneStored = true;
         if (!pegdb.ReadPegPruneEnabled(fPegPruneStored)) {
@@ -358,7 +363,8 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
         if (nPegStartHeightStored != nPegStartHeight 
                 || fPegPruneStored != fPegPruneEnabled 
                 || !fPegCheck1 
-                || !fPegCheck2) {
+                || !fPegCheck2
+                || !fPegCheck3) {
             // reprocess from nPegStartHeight
 
             if (!txdb.TxnBegin())
@@ -545,6 +551,9 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
 
             if (!txdb.WritePegCheck(PEG_DB_CHECK2, true))
                 return error("WritePegCheck() : flag2 write failed");
+
+            if (!txdb.WritePegCheck(PEG_DB_CHECK3, true))
+                return error("WritePegCheck() : flag3 write failed");
             
             if (!pegdb.WritePegStartHeight(nPegStartHeight))
                 return error("WritePegStartHeight() : peg start write failed");

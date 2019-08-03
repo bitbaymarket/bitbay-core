@@ -18,6 +18,7 @@ enum
     PEG_SUBPREMIUM_RATING   = 200,
     PEG_DB_CHECK1           = 1, // testnet: update1 for votes calculation
     PEG_DB_CHECK2           = 2, // testnet: update2 for stake liquidity calculation
+    PEG_DB_CHECK3           = 3, // testnet: update3 for cold tx support
     PEG_PRUNE_INTERVAL      = 10000
 };
 
@@ -67,8 +68,9 @@ public:
 
 class CFractions {
 public:
-    uint32_t nFlags;
-    uint64_t nLockTime = 0;
+    uint32_t    nFlags     = VALUE;
+    uint64_t    nLockTime  = 0;
+    std::string sReturnAddr;
     enum
     {
         VALUE       = (1 << 0),

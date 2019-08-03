@@ -642,7 +642,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 boost::split(vOutputArgs, sOutputDef, boost::is_any_of(":"));
                 
                 if (fNotaryC && vOutputArgs.size() != 1) {
-                    sFailCause = "PI07-1: Cold notary: not refer one output";
+                    sFailCause = "PI07-1: Cold notary: refer more than one output";
                     return false;
                 }
                 
@@ -718,6 +718,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             frReserve.MoveRatioPartTo(nFrozenValueOut, frozenOut);
                             frozenTxOut.fractions += frozenOut;
                             frozenTxOut.fractions.nFlags |= CFractions::NOTARY_F;
+                            frozenTxOut.fractions.nLockTime = nTime + Params().PegFrozenTime();
                             frInp -= frozenOut;
                             nReserveIn -= nFrozenValueOut;
                         }
@@ -726,6 +727,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             frLiquidity.MoveRatioPartTo(nFrozenValueOut, frozenOut);
                             frozenTxOut.fractions += frozenOut;
                             frozenTxOut.fractions.nFlags |= CFractions::NOTARY_V;
+                            frozenTxOut.fractions.nLockTime = nTime + Params().PegVFrozenTime();
                             frInp -= frozenOut;
                             nLiquidityIn -= nFrozenValueOut;
                         }
@@ -739,6 +741,9 @@ bool CalculateStandardFractions(const CTransaction & tx,
                         }
                         else if (fNotaryC) { 
                             CFractions frozenOut = frInp.RatioPart(nFrozenValueOut);
+                            frozenTxOut.fractions += frozenOut;
+                            frozenTxOut.fractions.nFlags |= CFractions::NOTARY_C;
+                            frozenTxOut.fractions.nLockTime = 0;
                             int64_t nReserveDeduct = 0;
                             int64_t nLiquidityDeduct = 0;
                             frReserve -= frozenOut.LowPart(nSupply, &nReserveDeduct);

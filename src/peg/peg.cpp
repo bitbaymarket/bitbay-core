@@ -587,13 +587,6 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 return false;
             }
         }
-
-        if (frInp.nFlags & CFractions::NOTARY_C) {
-            if (frInp.nLockTime > tx.nTime) {
-                sFailCause = "PI06-1: Cold input used before time expired";
-                return false;
-            }
-        }
         
         int64_t nReserveIn = 0;
         auto & frReserve = poolReserves[sAddress];
@@ -602,7 +595,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
         int64_t nLiquidityIn = 0;
         auto & frLiquidity = poolLiquidity[sAddress];
         frLiquidity += frInp.HighPart(nSupply, &nLiquidityIn);
-
+        
         // check if intend to transfer frozen
         // if so need to do appropriate deductions from pools
         // if there is a notary on same position as input
@@ -626,6 +619,47 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     }
                 }
             }
+            
+            if (fNotary && (frInp.nFlags & CFractions::NOTARY_C)) {
+                sFailCause = "PI07-1: Can not notary for input cold coins";
+                return false;
+            }
+            
+            if (frInp.nFlags & CFractions::NOTARY_C) {
+                // input is cold, 
+                // it can return back to original address
+                // or go to any address but then get into frozen state
+                unsigned int nOutIndex = i; // same index as input
+                int64_t nValueOut = tx.vout[size_t(nOutIndex)].nValue;
+                auto & frozenTxOut = poolFrozen[nOutIndex];
+                
+                if (frozenTxOut.nValue >0 || frozenTxOut.fractions.Total() != 0) {
+                    sFailCause = "PI07-2: Cold notary output has already assigned value";
+                    return false;
+                }
+                
+                CFractions frOut = frInp.RatioPart(nValueOut);
+                frozenTxOut.nValue = nValueOut;
+                frozenTxOut.fractions += frOut;
+                frozenTxOut.fractions.nLockTime = 0;
+                frozenTxOut.fIsColdOutput = true;
+                
+                if (frInp.sReturnAddr == sAddress) { 
+                    // no mark already on frozenTxOut.fractions
+                } else {
+                    frozenTxOut.fractions.nFlags |= CFractions::NOTARY_F;
+                    frozenTxOut.fractions.nLockTime = nTime + Params().PegFrozenTime();
+                }
+                
+                // deduct whole frInp - not frOut
+                // the diff can go only to fee fractions
+                int64_t nReserveDeduct = 0;
+                int64_t nLiquidityDeduct = 0;
+                frReserve -= frInp.LowPart(nSupply, &nReserveDeduct);
+                frLiquidity -= frInp.HighPart(nSupply, &nLiquidityDeduct);
+                nReserveIn -= nReserveDeduct;
+                nLiquidityIn -= nLiquidityDeduct;
+            }
 
             bool fNotaryF = boost::starts_with(sNotary, "**F**");
             bool fNotaryV = boost::starts_with(sNotary, "**V**");
@@ -642,7 +676,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 boost::split(vOutputArgs, sOutputDef, boost::is_any_of(":"));
                 
                 if (fNotaryC && vOutputArgs.size() != 1) {
-                    sFailCause = "PI07-1: Cold notary: refer more than one output";
+                    sFailCause = "PI07-2: Cold notary: refer more than one output";
                     return false;
                 }
                 
@@ -661,17 +695,21 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     
                     int64_t nFrozenValueOut = tx.vout[size_t(nFrozenIndex)].nValue;
                     auto & frozenTxOut = poolFrozen[nFrozenIndex];
+                    
+                    if (frozenTxOut.fIsColdOutput) {
+                        sFailCause = "PI08-1: Freeze notary: output already referenced as cold output";
+                        return false;
+                    }
+                    
                     frozenTxOut.nValue = nFrozenValueOut;
                     frozenTxOut.sAddress = sAddress;
-                    frozenTxOut.nFairWithdrawFromEscrowIndex1 = -1;
-                    frozenTxOut.nFairWithdrawFromEscrowIndex2 = -1;
                     bool fMarkSet = false;
                     if (fNotaryF) fMarkSet = frozenTxOut.fractions.SetMark(CFractions::NOTARY_F);
                     if (fNotaryV) fMarkSet = frozenTxOut.fractions.SetMark(CFractions::NOTARY_V);
                     if (fNotaryL) fMarkSet = frozenTxOut.fractions.SetMark(CFractions::NOTARY_L);
                     if (fNotaryC) fMarkSet = frozenTxOut.fractions.SetMark(CFractions::NOTARY_C);
                     if (!fMarkSet) {
-                        sFailCause = "PI08-1: Freeze notary: crossing marks are detected";
+                        sFailCause = "PI08-2: Freeze notary: crossing marks are detected";
                         return false;
                     }
                     vFrozenIndexes.push_back(nFrozenIndex);
@@ -745,7 +783,11 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             frInp -= frozenOut;
                             nLiquidityIn -= nFrozenValueOut;
                         }
-                        else if (fNotaryC) { 
+                        else if (fNotaryC) {
+                            if (frozenTxOut.fractions.Total() != 0) {
+                                sFailCause = "PI10-2: Cold notary output has already assigned value";
+                                return false;
+                            }
                             CBitcoinAddress address(sAddress);
                             if (!address.IsValid()) {
                                 sFailCause = "PI10-2: Cold notary: input address is not valid";
@@ -756,10 +798,12 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             frozenTxOut.fractions.nFlags |= CFractions::NOTARY_C;
                             frozenTxOut.fractions.nLockTime = 0;
                             frozenTxOut.fractions.sReturnAddr = sAddress;
+                            // deduct whole frInp - not frozenOut 
+                            // the diff can go only to fee fractions
                             int64_t nReserveDeduct = 0;
                             int64_t nLiquidityDeduct = 0;
-                            frReserve -= frozenOut.LowPart(nSupply, &nReserveDeduct);
-                            frLiquidity -= frozenOut.HighPart(nSupply, &nLiquidityDeduct);
+                            frReserve -= frInp.LowPart(nSupply, &nReserveDeduct);
+                            frLiquidity -= frInp.HighPart(nSupply, &nLiquidityDeduct);
                             nReserveIn -= nReserveDeduct;
                             nLiquidityIn -= nLiquidityDeduct;
                         }
@@ -886,7 +930,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
         }
         else {
             if (!poolFrozen.count(i)) { // not frozen
-                if (poolReserves.count(sAddress)) { // to reserve
+                if (poolReserves.count(sAddress)) { // back to reserve
                     int64_t nValueLeft = nValue;
                     int64_t nValueToTake = nValueLeft;
 

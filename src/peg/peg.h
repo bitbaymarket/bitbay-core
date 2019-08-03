@@ -58,11 +58,12 @@ enum PegRewardType {
 };
 
 struct FrozenTxOut {
-    int64_t nValue;
+    int64_t nValue                      = 0;
+    bool fIsColdOutput                  = false;
+    long nFairWithdrawFromEscrowIndex1  = -1;
+    long nFairWithdrawFromEscrowIndex2  = -1;
     std::string sAddress;
     CFractions fractions;
-    long nFairWithdrawFromEscrowIndex1;
-    long nFairWithdrawFromEscrowIndex2;
 };
 
 bool ReadWhitelistInfo();

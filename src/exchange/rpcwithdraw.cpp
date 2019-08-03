@@ -475,8 +475,31 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
                                      nAmountWithFee));
     }
     
-    CFractions frBalanceLiquid = pdBalance.fractions.HighPart(peglevel_exchange, nullptr);
+    int nSupplyEffective = peglevel_exchange.nSupply + peglevel_exchange.nShift;
+    bool fPartial = peglevel_exchange.nShiftLastPart >0 && peglevel_exchange.nShiftLastTotal >0;
+    
+    CFractions frBalanceLiquid = pdBalance.fractions.HighPart(nSupplyEffective, nullptr);
+    
+    if (fPartial) {
+        int64_t nPartialLiquid = pdBalance.nLiquid - frBalanceLiquid.Total();
+        if (nPartialLiquid < 0) {
+            throw JSONRPCError(RPC_MISC_ERROR, 
+                               strprintf("Mismatch on nPartialLiquid %d",
+                                         nPartialLiquid));
+        }
+        
+        frBalanceLiquid.f[nSupplyEffective-1] = nPartialLiquid;
+    }
+    
+    if (frBalanceLiquid.Total() < nAmountWithFee) {
+        throw JSONRPCError(RPC_MISC_ERROR, 
+                           strprintf("Not enough liquid(1) %d  on 'src' to move %d",
+                                     frBalanceLiquid.Total(),
+                                     nAmountWithFee));
+    }
+    
     CFractions frAmount = frBalanceLiquid.RatioPart(nAmountWithFee);
+    CFractions frRequested = frAmount;
 
     // inputs, outputs
     string sConsumedInputs = params[6].get_str();
@@ -779,7 +802,6 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     }
     // for liquid just first output
     CFractions frProcessed = mapTxOutputFractions[0] + feesFractionsCommon;
-    CFractions frRequested = frAmount;
 
     if (frRequested.Total() != nAmountWithFee) {
         throw JSONRPCError(RPC_MISC_ERROR, 
@@ -955,9 +977,24 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
                                      pdBalance.nReserve,
                                      nAmountWithFee));
     }
+    
+    int nSupplyEffective = peglevel_exchange.nSupply + peglevel_exchange.nShift;
+    bool fPartial = peglevel_exchange.nShiftLastPart >0 && peglevel_exchange.nShiftLastTotal >0;
+    
+    CFractions frBalanceReserve = pdBalance.fractions.LowPart(nSupplyEffective, nullptr);
+    if (fPartial) {
+        int64_t nPartialReserve = pdBalance.nReserve - frBalanceReserve.Total();
+        if (nPartialReserve < 0) {
+            throw JSONRPCError(RPC_MISC_ERROR, 
+                               strprintf("Mismatch on nPartialReserve %d",
+                                         nPartialReserve));
+        }
 
-    CFractions frBalanceReserve = pdBalance.fractions.LowPart(peglevel_exchange.nSupplyNext, nullptr);
+        frBalanceReserve.f[nSupplyEffective] = nPartialReserve;
+    }
+
     CFractions frAmount = frBalanceReserve.RatioPart(nAmountWithFee);
+    CFractions frRequested = frAmount;
 
     // inputs, outputs
     string sConsumedInputs = params[6].get_str();
@@ -1339,7 +1376,6 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
         
     // first out after F notations (same num as size inputs)
     CFractions frProcessed = mapTxOutputFractions[rawTx.vin.size()] + feesFractionsCommon;
-    CFractions frRequested = frAmount;
 
     if (frRequested.Total() != nAmountWithFee) {
         throw JSONRPCError(RPC_MISC_ERROR, 

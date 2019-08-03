@@ -1041,6 +1041,7 @@ public:
     uint64_t FrozenUnlockTime() const;
     bool IsFrozen(unsigned int nLastBlockTime) const;
     bool IsFrozenMark() const;
+    bool IsColdMark() const;
 };
 
 

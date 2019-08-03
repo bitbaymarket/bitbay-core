@@ -248,6 +248,7 @@ Value registerdeposit(const Array& params, bool fHelp)
     unsigned int nLastBlockTime = pindexBest->nTime;
     bool fF = frDeposit.nFlags & CFractions::NOTARY_F;
     bool fV = frDeposit.nFlags & CFractions::NOTARY_V;
+    bool fC = frDeposit.nFlags & CFractions::NOTARY_C;
     fF &= frDeposit.nLockTime >= nLastBlockTime;
     fV &= frDeposit.nLockTime >= nLastBlockTime;
     if (fF || fV) {
@@ -255,6 +256,12 @@ Value registerdeposit(const Array& params, bool fHelp)
         result.push_back(Pair("frozen", true));
         result.push_back(Pair("until", frDeposit.nLockTime));
         result.push_back(Pair("status", "Need to wait to unfreeze"));
+        return result;
+    }
+    if (fC) {
+        result.push_back(Pair("deposited", false));
+        result.push_back(Pair("frozen", true));
+        result.push_back(Pair("status", "Can not register cold output"));
         return result;
     }
     

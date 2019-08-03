@@ -587,6 +587,13 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 return false;
             }
         }
+
+        if (frInp.nFlags & CFractions::NOTARY_C) {
+            if (frInp.nLockTime > tx.nTime) {
+                sFailCause = "PI06-1: Cold input used before time expired";
+                return false;
+            }
+        }
         
         int64_t nReserveIn = 0;
         auto & frReserve = poolReserves[sAddress];
@@ -623,6 +630,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
             bool fNotaryF = boost::starts_with(sNotary, "**F**");
             bool fNotaryV = boost::starts_with(sNotary, "**V**");
             bool fNotaryL = boost::starts_with(sNotary, "**L**");
+            bool fNotaryC = boost::starts_with(sNotary, "**C**");
             
             // #NOTE5
             if (fNotary && (fNotaryF || fNotaryV || fNotaryL)) {
@@ -632,6 +640,12 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 set<long> setFrozenIndexes;
                 vector<string> vOutputArgs;
                 boost::split(vOutputArgs, sOutputDef, boost::is_any_of(":"));
+                
+                if (fNotaryC && vOutputArgs.size() != 1) {
+                    sFailCause = "PI07-1: Cold notary: not refer one output";
+                    return false;
+                }
+                
                 for(string sOutputArg : vOutputArgs) {
                     char * pEnd = nullptr;
                     long nFrozenIndex = strtol(sOutputArg.c_str(), &pEnd, 0);
@@ -654,6 +668,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     if (fNotaryF) frozenTxOut.fractions.nFlags |= CFractions::NOTARY_F;
                     if (fNotaryV) frozenTxOut.fractions.nFlags |= CFractions::NOTARY_V;
                     if (fNotaryL) frozenTxOut.fractions.nFlags |= CFractions::NOTARY_L;
+                    if (fNotaryC) frozenTxOut.fractions.nFlags |= CFractions::NOTARY_C;
                     vFrozenIndexes.push_back(nFrozenIndex);
                     setFrozenIndexes.insert(nFrozenIndex);
                 }
@@ -691,6 +706,10 @@ bool CalculateStandardFractions(const CTransaction & tx,
                         sFailCause = "PI10: Freeze notary: not enough input liquidity";
                         return false;
                     }
+                    else if (fNotaryC && frInp.Total() < nFrozenValueOut) {
+                        sFailCause = "PI10-1: Cold notary: not enough input value";
+                        return false;
+                    }
     
                     // deductions if not shared freeze
                     if (!fSharedFreeze) {
@@ -717,6 +736,15 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             frozenTxOut.fractions.nFlags |= CFractions::NOTARY_L;
                             frInp -= frozenOut;
                             nLiquidityIn -= nFrozenValueOut;
+                        }
+                        else if (fNotaryC) { 
+                            CFractions frozenOut = frInp.RatioPart(nFrozenValueOut);
+                            int64_t nReserveDeduct = 0;
+                            int64_t nLiquidityDeduct = 0;
+                            frReserve -= frozenOut.LowPart(nSupply, &nReserveDeduct);
+                            frLiquidity -= frozenOut.HighPart(nSupply, &nLiquidityDeduct);
+                            nReserveIn -= nReserveDeduct;
+                            nLiquidityIn -= nLiquidityDeduct;
                         }
                     }
                 }

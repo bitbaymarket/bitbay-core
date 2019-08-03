@@ -75,7 +75,8 @@ public:
         STD         = (1 << 1),
         NOTARY_F    = (1 << 2),
         NOTARY_L    = (1 << 3),
-        NOTARY_V    = (1 << 4)
+        NOTARY_V    = (1 << 4),
+        NOTARY_C    = (1 << 5)
     };
     enum {
         SER_MASK    = 0xffff,

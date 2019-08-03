@@ -1440,6 +1440,7 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins,
                     COutput cout(pcoin, i, nDepth, mine & MINE_SPENDABLE);
                     if (cout.IsFrozen(nLastBlockTime)) continue;
                     if (cout.IsFrozenMark() && !fUseFrozenUnlocked) continue;
+                    if (cout.IsColdMark()) continue;
                     vCoins.push_back(cout);
                 }
             }
@@ -1746,9 +1747,10 @@ bool COutput::IsFrozen(unsigned int nLastBlockTime) const
 {
     bool fF = tx->vOutFractions[i].nFlags & CFractions::NOTARY_F;
     bool fV = tx->vOutFractions[i].nFlags & CFractions::NOTARY_V;
+    bool fC = tx->vOutFractions[i].nFlags & CFractions::NOTARY_C;
     fF &= tx->vOutFractions[i].nLockTime >= nLastBlockTime;
     fV &= tx->vOutFractions[i].nLockTime >= nLastBlockTime;
-    return fF || fV;
+    return fF || fV || fC;
 }
 
 bool COutput::IsFrozenMark() const
@@ -1756,6 +1758,11 @@ bool COutput::IsFrozenMark() const
     bool fF = tx->vOutFractions[i].nFlags & CFractions::NOTARY_F;
     bool fV = tx->vOutFractions[i].nFlags & CFractions::NOTARY_V;
     return fF || fV;
+}
+
+bool COutput::IsColdMark() const
+{
+    return tx->vOutFractions[i].nFlags & CFractions::NOTARY_C;
 }
 
 uint64_t COutput::FrozenUnlockTime() const

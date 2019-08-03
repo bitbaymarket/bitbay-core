@@ -155,7 +155,10 @@ bool CFractions::Unpack(CDataStream& inp)
         nFlags = nSerFlags | STD;
     }
     nFlags &= SER_MASK;
-    inp >> sReturnAddr;
+    
+    try { // for compatibility (pegdata)
+        inp >> sReturnAddr;
+    } catch (std::exception &) {}
     
     return true;
 }

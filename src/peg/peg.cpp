@@ -633,7 +633,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
             bool fNotaryC = boost::starts_with(sNotary, "**C**");
             
             // #NOTE5
-            if (fNotary && (fNotaryF || fNotaryV || fNotaryL)) {
+            if (fNotary && (fNotaryF || fNotaryV || fNotaryL || fNotaryC)) {
                 bool fSharedFreeze = false;
                 auto sOutputDef = sNotary.substr(5 /*length **F** */);
                 vector<long> vFrozenIndexes;
@@ -665,10 +665,15 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     frozenTxOut.sAddress = sAddress;
                     frozenTxOut.nFairWithdrawFromEscrowIndex1 = -1;
                     frozenTxOut.nFairWithdrawFromEscrowIndex2 = -1;
-                    if (fNotaryF) frozenTxOut.fractions.nFlags |= CFractions::NOTARY_F;
-                    if (fNotaryV) frozenTxOut.fractions.nFlags |= CFractions::NOTARY_V;
-                    if (fNotaryL) frozenTxOut.fractions.nFlags |= CFractions::NOTARY_L;
-                    if (fNotaryC) frozenTxOut.fractions.nFlags |= CFractions::NOTARY_C;
+                    bool fMarkSet = false;
+                    if (fNotaryF) fMarkSet = frozenTxOut.fractions.SetMark(CFractions::NOTARY_F);
+                    if (fNotaryV) fMarkSet = frozenTxOut.fractions.SetMark(CFractions::NOTARY_V);
+                    if (fNotaryL) fMarkSet = frozenTxOut.fractions.SetMark(CFractions::NOTARY_L);
+                    if (fNotaryC) fMarkSet = frozenTxOut.fractions.SetMark(CFractions::NOTARY_C);
+                    if (!fMarkSet) {
+                        sFailCause = "PI08-1: Freeze notary: crossing marks are detected";
+                        return false;
+                    }
                     vFrozenIndexes.push_back(nFrozenIndex);
                     setFrozenIndexes.insert(nFrozenIndex);
                 }
@@ -677,6 +682,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     fFreezeAll = true;
                     fSharedFreeze = true;
                 }
+                
                 if (vFrozenIndexes.size() == 2) {
                     long nFrozenIndex1 = vFrozenIndexes.front();
                     long nFrozenIndex2 = vFrozenIndexes.back();

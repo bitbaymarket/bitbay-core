@@ -129,6 +129,8 @@ public:
     bool IsPositive() const;
     bool IsNegative() const;
 
+    bool SetMark(uint32_t nMark);
+    
 private:
     void ToStd();
 };

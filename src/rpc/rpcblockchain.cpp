@@ -148,7 +148,7 @@ Object blockToJSON(const CBlock& block, const CBlockIndex* blockindex, const Map
     result.push_back(Pair("pegvotesdeflate", blockindex->nPegVotesDeflate));
     result.push_back(Pair("pegvotesnochange", blockindex->nPegVotesNochange));
     Array txinfo;
-    BOOST_FOREACH (const CTransaction& tx, block.vtx)
+    for(const CTransaction& tx : block.vtx)
     {
         if (fPrintTransactionDetail)
         {
@@ -216,8 +216,9 @@ Value getrawmempool(const Array& params, bool fHelp)
     mempool.queryHashes(vtxid);
 
     Array a;
-    BOOST_FOREACH(const uint256& hash, vtxid)
+    for(const uint256& hash : vtxid) {
         a.push_back(hash.ToString());
+    }
 
     return a;
 }

@@ -281,7 +281,7 @@ inline std::string ValueString(const std::vector<unsigned char>& vch)
 inline std::string StackString(const std::vector<std::vector<unsigned char> >& vStack)
 {
     std::string str;
-    BOOST_FOREACH(const std::vector<unsigned char>& vch, vStack)
+    for(const std::vector<unsigned char>& vch : vStack)
     {
         if (!str.empty())
             str += " ";

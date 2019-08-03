@@ -488,7 +488,7 @@ void ParseParameters(int argc, const char* const argv[])
     }
 
     // New 0.6 features:
-    BOOST_FOREACH(const PAIRTYPE(string,string)& entry, mapArgs)
+    for(const pair<string,string>& entry : mapArgs)
     {
         string name = entry.first;
 

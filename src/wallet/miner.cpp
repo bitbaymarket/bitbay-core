@@ -184,7 +184,7 @@ unique_ptr<CBlock> CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, i
             double dPriority = 0;
             int64_t nTotalIn = 0;
             bool fMissingInputs = false;
-            BOOST_FOREACH(const CTxIn& txin, tx.vin)
+            for(const CTxIn& txin : tx.vin)
             {
                 // Read prev transaction
                 CTransaction txPrev;
@@ -341,7 +341,7 @@ unique_ptr<CBlock> CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, i
             uint256 hash = tx.GetHash();
             if (mapDependers.count(hash))
             {
-                BOOST_FOREACH(COrphan* porphan, mapDependers[hash])
+                for(COrphan* porphan : mapDependers[hash])
                 {
                     if (!porphan->setDependsOn.empty())
                     {

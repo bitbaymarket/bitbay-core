@@ -815,6 +815,15 @@ void CoinControlDialog::updateView()
             itemOutput->setText(COLUMN_RESERVE_INT64, strPad(QString::number(nReserve), 15, " ")); // padding so that sorting works correctly
             itemOutput->setText(COLUMN_LIQUIDITY_INT64, strPad(QString::number(nLiquidity), 15, " ")); // padding so that sorting works correctly
             
+            if (txType == PEG_MAKETX_SEND_LIQUIDITY || 
+                txType == PEG_MAKETX_FREEZE_LIQUIDITY) {
+                itemOutput->setData(COLUMN_RESERVE, Qt::ForegroundRole, QColor(180,180,180));
+            }
+            else if (txType == PEG_MAKETX_SEND_RESERVE || 
+                     txType == PEG_MAKETX_FREEZE_RESERVE) {
+                itemOutput->setData(COLUMN_LIQUIDITY, Qt::ForegroundRole, QColor(180,180,180));
+            }
+            
             if (nFlags & CFractions::NOTARY_F) {
                 itemOutput->setData(COLUMN_RESERVE, Qt::DecorationPropertyRole, pmNotaryF);
                 itemOutput->setData(COLUMN_LIQUIDITY, Qt::DecorationPropertyRole, pmNotaryF);
@@ -879,6 +888,15 @@ void CoinControlDialog::updateView()
             itemWalletAddress->setText(COLUMN_RESERVE_INT64, strPad(QString::number(nSumReserve), 15, " "));
             itemWalletAddress->setText(COLUMN_LIQUIDITY_INT64, strPad(QString::number(nSumLiquidity), 15, " "));
             itemWalletAddress->setText(COLUMN_PRIORITY_INT64, strPad(QString::number((int64_t)dPrioritySum), 20, " "));
+            
+            if (txType == PEG_MAKETX_SEND_LIQUIDITY || 
+                txType == PEG_MAKETX_FREEZE_LIQUIDITY) {
+                itemWalletAddress->setData(COLUMN_RESERVE, Qt::ForegroundRole, QColor(180,180,180));
+            }
+            else if (txType == PEG_MAKETX_SEND_RESERVE || 
+                     txType == PEG_MAKETX_FREEZE_RESERVE) {
+                itemWalletAddress->setData(COLUMN_LIQUIDITY, Qt::ForegroundRole, QColor(180,180,180));
+            }
         }
     }
 

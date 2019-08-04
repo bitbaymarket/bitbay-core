@@ -102,6 +102,9 @@ SendCoinsDialog::SendCoinsDialog(QWidget *parent) :
     ui->comboBoxTxType->addItem(tr("Transfer reserve and freeze it for 1 month"), PEG_MAKETX_SEND_RESERVE);
     ui->comboBoxTxType->addItem(tr("Freeze reserve for 1 month (such funds have 20 BAY staking reward)"), PEG_MAKETX_FREEZE_RESERVE);
     ui->comboBoxTxType->addItem(tr("Freeze liquidity for 4 month (such funds have 40 BAY staking reward)"), PEG_MAKETX_FREEZE_LIQUIDITY);
+    ui->comboBoxTxType->insertSeparator(4);
+    ui->comboBoxTxType->addItem(tr("Transfer coins to cold wallet"), PEG_MAKETX_SEND_TOCOLD);
+    ui->comboBoxTxType->addItem(tr("Return coins from cold wallet"), PEG_MAKETX_SEND_FROMCOLD);
 
     connect(ui->comboBoxTxType, SIGNAL(activated(int)), this, SLOT(clear()));
 }
@@ -588,8 +591,8 @@ void SendCoinsDialog::coinControlButtonClicked()
     PegTxType txType = static_cast<PegTxType>(ui->comboBoxTxType->currentData().toInt());
     
     CoinControlDialog dlg;
-    dlg.setModel(model);
     dlg.setTxType(txType);
+    dlg.setModel(model);
     dlg.exec();
     coinControlUpdateLabels();
 }

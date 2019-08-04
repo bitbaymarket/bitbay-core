@@ -589,6 +589,22 @@ static QString displayValueR(int64_t nValue, int len=0) {
     return sValue;
 }
 
+static QString extractAddress(const CTxOut & txout) {
+    QString fromAddr;
+    int nRequired;
+    txnouttype type;
+    vector<CTxDestination> addresses;
+    if (ExtractDestinations(txout.scriptPubKey, type, addresses, nRequired)) {
+        if (addresses.size()==1) {
+            fromAddr = QString::fromStdString(CBitcoinAddress(addresses.front()).ToString());
+        }
+        else if (addresses.size()>1) {
+            fromAddr = QString("multisig").rightJustified(34);
+        }
+    }
+    return fromAddr;
+}
+
 void BlockchainPage::updateMempool()
 {
     set<int> removeIndexes;
@@ -628,6 +644,9 @@ void BlockchainPage::updateMempool()
             QStringList txcols;
             txcols << QString::fromStdString(newTxhash.ToString());
             auto txitem = new QTreeWidgetItem(ui->mempoolView, txcols);
+            QFont f = txitem->font(0);
+            f.setBold(true);
+            txitem->setFont(0, f);
             ui->mempoolView->expandItem(txitem);
             
             size_t nVin = tx.vin.size();
@@ -653,7 +672,6 @@ void BlockchainPage::updateMempool()
             {
                 QStringList inpcols;
                 inpcols << QString::fromStdString(tx.vin[i].prevout.ToString());
-                auto inpitem = new QTreeWidgetItem(txitem, inpcols);
 
                 const COutPoint & prevout = tx.vin[i].prevout;
                 auto fkey = uint320(prevout.hash, prevout.n);
@@ -662,57 +680,46 @@ void BlockchainPage::updateMempool()
                 if (!mempool.mapPrevOuts.at(newTxhash).count(fkey)) continue;
                 
                 const CTxOut & txout = mempool.mapPrevOuts.at(newTxhash).at(fkey);
-                QString fromAddr;
-                int nRequired;
-                txnouttype type;
-                vector<CTxDestination> addresses;
-                if (ExtractDestinations(txout.scriptPubKey, type, addresses, nRequired)) {
-                    for(const CTxDestination& addr : addresses) {
-                        if (!fromAddr.isEmpty()) fromAddr += "\n";
-                        fromAddr += QString::fromStdString(CBitcoinAddress(addr).ToString());
-                    }
-                }
+                QString fromAddr = extractAddress(txout);
                 
+                auto inpitem = new QTreeWidgetItem(txitem, inpcols);
                 inpitem->setText(0, fromAddr + " " + displayValueR(txout.nValue, nAlignInpHigh) + " --> ");
             }
             
-            if (nVout > nVin) {
-                for(size_t i=nVin; i< nVout; i++)
+            size_t nOuts = 0;
+            nAlignInpHigh = 0;
+            for(size_t i=0; i< nVout; i++)
+            {
+                const CTxOut & txout = tx.vout[i];
+                QString toAddr = extractAddress(txout);
+                if (toAddr.isEmpty()) continue;
+                QString text = displayValue(txout.nValue);
+                if (text.length() > nAlignInpHigh)
+                    nAlignInpHigh = text.length();
+                nOuts++;
+            }
+            
+            if (nOuts > nVin) {
+                for(size_t i=nVin; i< nOuts; i++)
                 {
                     auto inpitem = new QTreeWidgetItem(txitem);
                     inpitem->setText(0, QString(" ").repeated(34+1+nAlignInpHigh)+" --> ");
                 }
             }
             
-            nAlignInpHigh = 0;
+            size_t nOut = 0;
             for(size_t i=0; i< nVout; i++)
             {
                 const CTxOut & txout = tx.vout[i];
-                QString text = displayValue(txout.nValue);
-                if (text.length() > nAlignInpHigh)
-                    nAlignInpHigh = text.length();
-            }
-            
-            for(size_t i=0; i< nVout; i++)
-            {
-                auto outitem = txitem->child(i);
+                QString toAddr = extractAddress(txout);
+                if (toAddr.isEmpty()) continue;
+
+                auto outitem = txitem->child(nOut);
                 QString text = outitem->text(0);
-                
-                const CTxOut & txout = tx.vout[i];
-                
-                QString toAddr;
-                int nRequired;
-                txnouttype type;
-                vector<CTxDestination> addresses;
-                if (ExtractDestinations(txout.scriptPubKey, type, addresses, nRequired)) {
-                    for(const CTxDestination& addr : addresses) {
-                        if (!toAddr.isEmpty()) toAddr += "\n";
-                        toAddr += QString::fromStdString(CBitcoinAddress(addr).ToString());
-                    }
-                }
                 
                 text += toAddr + " " + displayValueR(txout.nValue, nAlignInpHigh);
                 outitem->setText(0, text);
+                nOut++;
             }
         }
     }

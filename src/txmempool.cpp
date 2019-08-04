@@ -28,6 +28,7 @@ void CTxMemPool::AddTransactionsUpdated(unsigned int n)
 
 bool CTxMemPool::addUnchecked(const uint256& hash, 
                               CTransaction &tx, 
+                              const MapPrevOut& mapInputs,
                               MapFractions& mapFractions)
 {
     // Add to memory pool without checking anything.
@@ -36,6 +37,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash,
     LOCK(cs);
     {
         mapTx[hash] = tx;
+        mapPrevOuts[hash] = mapInputs;
         for (unsigned int i = 0; i < tx.vin.size(); i++)
             mapNextTx[tx.vin[i].prevout] = CInPoint(&mapTx[hash], i);
         nTransactionsUpdated++;
@@ -46,6 +48,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash,
             (*mi).second.Pack(fout);
             mapPackedFractions[(*mi).first] = fout.str();
         }
+        mapPrevOuts[hash] = mapInputs;
     }
     return true;
 }
@@ -73,6 +76,7 @@ bool CTxMemPool::remove(const CTransaction &tx, bool fRecursive)
                 mapPackedFractions.erase(fkey);
             }
             mapTx.erase(hash);
+            mapPrevOuts.erase(hash);
             nTransactionsUpdated++;
         }
     }
@@ -200,6 +204,7 @@ void CTxMemPool::clear()
 {
     LOCK(cs);
     mapTx.clear();
+    mapPrevOuts.clear();
     mapNextTx.clear();
     ++nTransactionsUpdated;
 }

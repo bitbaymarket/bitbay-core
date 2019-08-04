@@ -654,21 +654,22 @@ bool AcceptToMemoryPool(CTxMemPool& pool,
 
     // Check for conflicts with in-memory transactions
     {
-    LOCK(pool.cs); // protect pool.mapNextTx
-    for (unsigned int i = 0; i < tx.vin.size(); i++)
-    {
-        COutPoint outpoint = tx.vin[i].prevout;
-        if (pool.mapNextTx.count(outpoint))
+        LOCK(pool.cs); // protect pool.mapNextTx
+        for (unsigned int i = 0; i < tx.vin.size(); i++)
         {
-            // Disable replacement feature for now
-            return false;
+            COutPoint outpoint = tx.vin[i].prevout;
+            if (pool.mapNextTx.count(outpoint))
+            {
+                // Disable replacement feature for now
+                return false;
+            }
         }
-    }
     }
 
     MapPrevTx mapInputs;
     MapFractions mapInputsFractions;
     map<uint256, CTxIndex> mapUnused;
+    MapPrevOut mapPrevOuts;
     MapFractions mapOutputsFractions;
     CFractions feesFractions;
     
@@ -690,6 +691,15 @@ bool AcceptToMemoryPool(CTxMemPool& pool,
             return false;
         }
 
+        size_t n_vin = tx.vin.size();
+        for (unsigned int i = 0; i < n_vin; i++)
+        {
+            const COutPoint & prevout = tx.vin[i].prevout;
+            CTransaction& txPrev = mapInputs[prevout.hash].second;
+            auto fkey = uint320(prevout.hash, prevout.n);
+            mapPrevOuts[fkey] = txPrev.vout[prevout.n];
+        }
+        
         // Check for non-standard pay-to-script-hash in inputs
         if (!TestNet() && !AreInputsStandard(tx, mapInputs))
             return error("AcceptToMemoryPool : nonstandard transaction input");
@@ -772,13 +782,19 @@ bool AcceptToMemoryPool(CTxMemPool& pool,
     }
 
     // Store transaction in memory
-    pool.addUnchecked(hash, tx, mapOutputsFractions);
+    pool.addUnchecked(hash, tx, mapPrevOuts, mapOutputsFractions);
 
     SyncWithWallets(tx, NULL, true, mapOutputsFractions);
 
+    unsigned int nPoolSize = 0;
+    {
+        LOCK(pool.cs);
+        nPoolSize = pool.mapTx.size();
+    }
+    
     LogPrint("mempool", "AcceptToMemoryPool : accepted %s (poolsz %u)\n",
            hash.ToString(),
-           pool.mapTx.size());
+           nPoolSize);
     return true;
 }
 

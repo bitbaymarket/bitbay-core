@@ -56,7 +56,10 @@ public slots:
     void openTx(CTransaction & tx, 
                 CBlockIndex* pblockindex, 
                 uint txidx, 
+                int nCycle, 
                 int nSupply, 
+                int nSupplyN, 
+                int nSupplyNN, 
                 unsigned int nTime);
 
 private slots:

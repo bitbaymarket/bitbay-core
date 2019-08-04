@@ -361,7 +361,15 @@ void SendCoinsDialog::txPreviewButtonClicked()
         vbox->addWidget(buttonBox);
         dlg.setLayout(vbox);
         
-        txdetails->openTx(wtx, nullptr, 0, model->getPegSupplyIndex(), wtx.nTime);
+        int nPegInterval = Params().PegInterval(nBestHeight);
+        int nCycle = nBestHeight / nPegInterval;
+        
+        txdetails->openTx(wtx, nullptr, 0, 
+                          nCycle,
+                          model->getPegSupplyIndex(), 
+                          model->getPegSupplyNIndex(), 
+                          model->getPegSupplyNNIndex(), 
+                          wtx.nTime);
         dlg.resize(1400,800);
         dlg.exec();
         break;

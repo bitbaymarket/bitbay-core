@@ -38,7 +38,10 @@ public:
         TxNumRole,
         OutNumRole,
         FractionsRole,
+        PegCycleRole,
         PegSupplyRole,
+        PegSupplyNRole,
+        PegSupplyNNRole,
         ValueForCopy
     };
 

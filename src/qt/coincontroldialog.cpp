@@ -805,6 +805,8 @@ void CoinControlDialog::updateView()
             vfractions.setValue(out.tx->vOutFractions[out.i]);
             itemOutput->setData(COLUMN_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
             itemOutput->setData(COLUMN_FRACTIONS, BlockchainModel::PegSupplyRole, model->getPegSupplyIndex());
+            itemOutput->setData(COLUMN_FRACTIONS, BlockchainModel::PegSupplyNRole, model->getPegSupplyNIndex());
+            itemOutput->setData(COLUMN_FRACTIONS, BlockchainModel::PegSupplyNNRole, model->getPegSupplyNNIndex());
             itemOutput->setData(COLUMN_AMOUNT, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
             itemOutput->setText(COLUMN_AMOUNT, BitcoinUnits::formatR(nDisplayUnit, out.tx->vout[out.i].nValue));
             itemOutput->setData(COLUMN_RESERVE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
@@ -874,6 +876,8 @@ void CoinControlDialog::updateView()
             vfractions.setValue(sumFractions);
             itemWalletAddress->setData(COLUMN_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
             itemWalletAddress->setData(COLUMN_FRACTIONS, BlockchainModel::PegSupplyRole, model->getPegSupplyIndex());
+            itemWalletAddress->setData(COLUMN_FRACTIONS, BlockchainModel::PegSupplyNRole, model->getPegSupplyNIndex());
+            itemWalletAddress->setData(COLUMN_FRACTIONS, BlockchainModel::PegSupplyNNRole, model->getPegSupplyNNIndex());
             dPrioritySum = dPrioritySum / (nInputSum + 78);
             itemWalletAddress->setText(COLUMN_CHECKBOX, "(" + QString::number(nChildren) + ")");
             itemWalletAddress->setData(COLUMN_AMOUNT, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));

@@ -323,14 +323,25 @@ void TxDetailsWidget::openTx(uint256 blockhash, uint txidx)
     if (txidx >= block.vtx.size())
         return;
 
+    int nPegInterval = Params().PegInterval(pblockindex->nHeight);
+    int nCycle = pblockindex->nHeight / nPegInterval;
+    
     CTransaction & tx = block.vtx[txidx];
-    openTx(tx, pblockindex, txidx, pblockindex->nPegSupplyIndex, pblockindex->nTime);
+    openTx(tx, pblockindex, txidx, 
+           nCycle,
+           pblockindex->nPegSupplyIndex, 
+           pblockindex->GetNextIntervalPegSupplyIndex(),
+           pblockindex->GetNextNextIntervalPegSupplyIndex(),
+           pblockindex->nTime);
 }
 
 void TxDetailsWidget::openTx(CTransaction & tx, 
                              CBlockIndex* pblockindex, 
                              uint txidx, 
+                             int nCycle, 
                              int nSupply, 
+                             int nSupplyN, 
+                             int nSupplyNN, 
                              unsigned int nTime)
 {
     ui->txValues->clear();
@@ -536,9 +547,12 @@ void TxDetailsWidget::openTx(CTransaction & tx,
             vfractions.setValue(mapInputsFractions[fkey]);
             input->setData(COL_INP_FRACTIONS, BlockchainModel::HashRole, prev_input);
             input->setData(COL_INP_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
-            input->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, peg_whitelisted
-                           ? nSupply
-                           : 0);
+            input->setData(COL_INP_FRACTIONS, BlockchainModel::PegCycleRole, nCycle);
+            if (peg_whitelisted) {
+                input->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, nSupply);
+                input->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyNRole, nSupplyN);
+                input->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyNNRole, nSupplyNN);
+            }
             if (mapInputsFractions[fkey].nFlags & CFractions::NOTARY_F) {
                 input->setData(COL_INP_VALUE, Qt::DecorationPropertyRole, pmNotaryF);
             }
@@ -578,9 +592,12 @@ void TxDetailsWidget::openTx(CTransaction & tx,
         QVariant vfractions;
         vfractions.setValue(CFractions(nMined, CFractions::STD));
         inputMined->setData(COL_INP_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
-        inputMined->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, peg_whitelisted
-                            ? nSupply
-                            : 0);
+        inputMined->setData(COL_INP_FRACTIONS, BlockchainModel::PegCycleRole, nCycle);
+        if (peg_whitelisted) {
+            inputMined->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, nSupply);
+            inputMined->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyNRole, nSupplyN);
+            inputMined->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyNNRole, nSupplyNN);
+        }
         inputMined->setData(COL_INP_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         inputMined->setData(COL_INP_VALUE, BlockchainModel::ValueForCopy, qlonglong(nMined));
         ui->txInputs->addTopLevelItem(inputMined);
@@ -594,9 +611,12 @@ void TxDetailsWidget::openTx(CTransaction & tx,
         auto inputFees = new QTreeWidgetItem(rowFees);
         vfractions.setValue(feesFractions);
         inputFees->setData(COL_INP_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
-        inputFees->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, peg_whitelisted
-                           ? nSupply
-                           : 0);
+        inputFees->setData(COL_INP_FRACTIONS, BlockchainModel::PegCycleRole, nCycle);
+        if (peg_whitelisted) {
+            inputFees->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyRole, nSupply);
+            inputFees->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyNRole, nSupplyN);
+            inputFees->setData(COL_INP_FRACTIONS, BlockchainModel::PegSupplyNNRole, nSupplyNN);
+        }
         inputFees->setData(COL_INP_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         inputFees->setData(COL_INP_VALUE, BlockchainModel::ValueForCopy, qlonglong(nFeesValue));
         ui->txInputs->addTopLevelItem(inputFees);
@@ -727,7 +747,10 @@ void TxDetailsWidget::openTx(CTransaction & tx,
             }
             vFractions.setValue(inpStake);
             output->setData(COL_OUT_TX, BlockchainModel::FractionsRole, vFractions);
+            output->setData(COL_OUT_TX, BlockchainModel::PegCycleRole, nCycle);
             output->setData(COL_OUT_TX, BlockchainModel::PegSupplyRole, nSupply);
+            output->setData(COL_OUT_TX, BlockchainModel::PegSupplyNRole, nSupplyN);
+            output->setData(COL_OUT_TX, BlockchainModel::PegSupplyNNRole, nSupplyNN);
         }
         auto fkey = uint320(hash, i);
         if (mapFractionsUnused.find(fkey) != mapFractionsUnused.end()) {
@@ -735,7 +758,10 @@ void TxDetailsWidget::openTx(CTransaction & tx,
             vFractions.setValue(mapFractionsUnused[fkey]);
             output->setData(COL_OUT_FRACTIONS, BlockchainModel::HashRole, titleSpend);
             output->setData(COL_OUT_FRACTIONS, BlockchainModel::FractionsRole, vFractions);
+            output->setData(COL_OUT_FRACTIONS, BlockchainModel::PegCycleRole, nCycle);
             output->setData(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyRole, nSupply);
+            output->setData(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyNRole, nSupplyN);
+            output->setData(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyNNRole, nSupplyNN);
             if (mapFractionsUnused[fkey].nFlags & CFractions::NOTARY_F) {
                 output->setData(COL_OUT_VALUE, Qt::DecorationPropertyRole, pmNotaryF);
                 fIndicateFrozen = true;
@@ -816,10 +842,14 @@ void TxDetailsWidget::openTx(CTransaction & tx,
         if (peg_whitelisted) {
             vfractions.setValue(feesFractions);
             outputFees->setData(COL_OUT_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
+            outputFees->setData(COL_OUT_FRACTIONS, BlockchainModel::PegCycleRole, nCycle);
             outputFees->setData(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyRole, nSupply);
+            outputFees->setData(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyNRole, nSupplyN);
+            outputFees->setData(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyNNRole, nSupplyNN);
         } else {
             vfractions.setValue(CFractions(nValueIn - nValueOut, CFractions::STD));
             outputFees->setData(COL_OUT_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
+            outputFees->setData(COL_OUT_FRACTIONS, BlockchainModel::PegCycleRole, nCycle);
             outputFees->setData(COL_OUT_FRACTIONS, BlockchainModel::PegSupplyRole, 0);
         }
         outputFees->setData(COL_OUT_VALUE, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
@@ -1469,7 +1499,10 @@ void TxDetailsWidget::openFractions(QTreeWidgetItem * item, int column)
             this, SLOT(openFractionsMenu(const QPoint &)));
 
     auto txhash = item->data(4, BlockchainModel::HashRole).toString();
+    auto cycle = item->data(4, BlockchainModel::PegCycleRole).toInt();
     auto supply = item->data(4, BlockchainModel::PegSupplyRole).toInt();
+    auto supplyn = item->data(4, BlockchainModel::PegSupplyNRole).toInt();
+    auto supplynn = item->data(4, BlockchainModel::PegSupplyNNRole).toInt();
     auto vfractions = item->data(4, BlockchainModel::FractionsRole);
     auto fractions = vfractions.value<CFractions>();
 
@@ -1497,7 +1530,11 @@ void TxDetailsWidget::openFractions(QTreeWidgetItem * item, int column)
     curvePeg->attach(fplot);
     
     CPegLevel level("");
+    level.nCycle = cycle;
+    level.nCyclePrev = cycle-1;
     level.nSupply = supply;
+    level.nSupplyNext = supplyn;
+    level.nSupplyNextNext = supplynn;
     plotFractions(ui.fractions, fractions, level);
     
     dlg->setWindowTitle(txhash+" "+tr("fractions"));
@@ -1542,102 +1579,109 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
         supply = level.nSupply;
     } else {
         supply = level.nSupply + level.nShift;
-
-        QStringList row_cycle;
-        row_cycle << tr("Cycle") << QString::number(level.nCycle);
-        auto row_item_cycle = new QTreeWidgetItem(row_cycle);
-        row_item_cycle->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-        row_item_cycle->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        table->addTopLevelItem(row_item_cycle);
-
-        QStringList row_cyclep;
-        row_cyclep << tr("Prev") << QString::number(level.nCyclePrev);
-        auto row_item_cyclep = new QTreeWidgetItem(row_cyclep);
-        row_item_cyclep->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-        row_item_cyclep->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        table->addTopLevelItem(row_item_cyclep);
-        
-        QStringList row_peg;
-        row_peg << tr("Peg") << QString::number(level.nSupply);
-        auto row_item_peg = new QTreeWidgetItem(row_peg);
-        row_item_peg->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-        row_item_peg->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        table->addTopLevelItem(row_item_peg);
-        
-        QStringList row_pegn;
-        row_pegn << tr("PegN") << QString::number(level.nSupplyNext);
-        auto row_item_pegn = new QTreeWidgetItem(row_pegn);
-        row_item_pegn->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-        row_item_pegn->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        table->addTopLevelItem(row_item_pegn);
-
-        QStringList row_pegnn;
-        row_pegnn << tr("PegNN") << QString::number(level.nSupplyNextNext);
-        auto row_item_pegnn = new QTreeWidgetItem(row_pegnn);
-        row_item_pegnn->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-        row_item_pegnn->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        table->addTopLevelItem(row_item_pegnn);
-        
-        QStringList row_shift;
-        row_shift << tr("Shift") << QString::number(level.nShift);
-        auto row_item_shift = new QTreeWidgetItem(row_shift);
-        row_item_shift->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-        row_item_shift->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        table->addTopLevelItem(row_item_shift);
-
-        QStringList row_part;
-        row_part << tr("Part") << displayValue(level.nShiftLastPart);
-        auto row_item_part = new QTreeWidgetItem(row_part);
-        row_item_part->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-        row_item_part->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        table->addTopLevelItem(row_item_part);
-
-        QStringList row_ptot;
-        row_ptot << tr("PTot") << displayValue(level.nShiftLastTotal);
-        auto row_item_ptot = new QTreeWidgetItem(row_ptot);
-        row_item_ptot->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-        row_item_ptot->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        table->addTopLevelItem(row_item_ptot);
-        
-        QStringList row_value;
-        row_value << tr("V") << displayValue(fractions.Total());
-        auto row_item_value = new QTreeWidgetItem(row_value);
-        row_item_value->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-        row_item_value->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        table->addTopLevelItem(row_item_value);
-
-        QStringList row_liquid_calc;
-        row_liquid_calc << tr("Lcalc") << displayValue(fractions.High(level));
-        auto row_item_liquid_calc = new QTreeWidgetItem(row_liquid_calc);
-        row_item_liquid_calc->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-        row_item_liquid_calc->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        table->addTopLevelItem(row_item_liquid_calc);
-
-        QStringList row_reserve_calc;
-        row_reserve_calc << tr("Rcalc") << displayValue(fractions.Low(level));
-        auto row_item_reserve_calc = new QTreeWidgetItem(row_reserve_calc);
-        row_item_reserve_calc->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-        row_item_reserve_calc->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        table->addTopLevelItem(row_item_reserve_calc);
-
-        QStringList row_liquid_save;
-        row_liquid_save << tr("Lsave") << displayValue(nLiquidSave);
-        auto row_item_liquid_save = new QTreeWidgetItem(row_liquid_save);
-        row_item_liquid_save->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-        row_item_liquid_save->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        table->addTopLevelItem(row_item_liquid_save);
-
-        QStringList row_reserve_save;
-        row_reserve_save << tr("Rsave") << displayValue(nReserveSave);
-        auto row_item_reserve_save = new QTreeWidgetItem(row_reserve_save);
-        row_item_reserve_save->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-        row_item_reserve_save->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        table->addTopLevelItem(row_item_reserve_save);
-        
-        QStringList row_space;
-        auto row_item_space = new QTreeWidgetItem(row_space);
-        table->addTopLevelItem(row_item_space);
     }
+
+    QStringList row_cycle;
+    row_cycle << tr("Cycle") << QString::number(level.nCycle);
+    auto row_item_cycle = new QTreeWidgetItem(row_cycle);
+    row_item_cycle->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+    row_item_cycle->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    table->addTopLevelItem(row_item_cycle);
+
+    QStringList row_cyclep;
+    row_cyclep << tr("Prev") << QString::number(level.nCyclePrev);
+    auto row_item_cyclep = new QTreeWidgetItem(row_cyclep);
+    row_item_cyclep->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+    row_item_cyclep->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    table->addTopLevelItem(row_item_cyclep);
+    
+    QStringList row_peg;
+    row_peg << tr("Peg") << QString::number(level.nSupply);
+    auto row_item_peg = new QTreeWidgetItem(row_peg);
+    row_item_peg->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+    row_item_peg->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    table->addTopLevelItem(row_item_peg);
+    
+    QStringList row_pegn;
+    row_pegn << tr("PegN") << QString::number(level.nSupplyNext);
+    auto row_item_pegn = new QTreeWidgetItem(row_pegn);
+    row_item_pegn->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+    row_item_pegn->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    table->addTopLevelItem(row_item_pegn);
+
+    QStringList row_pegnn;
+    row_pegnn << tr("PegNN") << QString::number(level.nSupplyNextNext);
+    auto row_item_pegnn = new QTreeWidgetItem(row_pegnn);
+    row_item_pegnn->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+    row_item_pegnn->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    table->addTopLevelItem(row_item_pegnn);
+    
+    QStringList row_shift;
+    row_shift << tr("Shift") << QString::number(level.nShift);
+    auto row_item_shift = new QTreeWidgetItem(row_shift);
+    row_item_shift->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+    row_item_shift->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    table->addTopLevelItem(row_item_shift);
+
+    QStringList row_part;
+    row_part << tr("Part") << displayValue(level.nShiftLastPart);
+    auto row_item_part = new QTreeWidgetItem(row_part);
+    row_item_part->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+    row_item_part->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    row_item_part->setData(1, BlockchainModel::ValueForCopy, qlonglong(level.nShiftLastPart));
+    table->addTopLevelItem(row_item_part);
+
+    QStringList row_ptot;
+    row_ptot << tr("PTot") << displayValue(level.nShiftLastTotal);
+    auto row_item_ptot = new QTreeWidgetItem(row_ptot);
+    row_item_ptot->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+    row_item_ptot->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    row_item_ptot->setData(1, BlockchainModel::ValueForCopy, qlonglong(level.nShiftLastTotal));
+    table->addTopLevelItem(row_item_ptot);
+    
+    QStringList row_value;
+    row_value << tr("V") << displayValue(fractions.Total());
+    auto row_item_value = new QTreeWidgetItem(row_value);
+    row_item_value->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+    row_item_value->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    row_item_value->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.Total()));
+    table->addTopLevelItem(row_item_value);
+
+    QStringList row_liquid_calc;
+    row_liquid_calc << tr("Lcalc") << displayValue(fractions.High(level));
+    auto row_item_liquid_calc = new QTreeWidgetItem(row_liquid_calc);
+    row_item_liquid_calc->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+    row_item_liquid_calc->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    row_item_liquid_calc->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.High(level)));
+    table->addTopLevelItem(row_item_liquid_calc);
+
+    QStringList row_reserve_calc;
+    row_reserve_calc << tr("Rcalc") << displayValue(fractions.Low(level));
+    auto row_item_reserve_calc = new QTreeWidgetItem(row_reserve_calc);
+    row_item_reserve_calc->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+    row_item_reserve_calc->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    row_item_reserve_calc->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.Low(level)));
+    table->addTopLevelItem(row_item_reserve_calc);
+
+    QStringList row_liquid_save;
+    row_liquid_save << tr("Lsave") << (nLiquidSave <0 ? "" : displayValue(nLiquidSave));
+    auto row_item_liquid_save = new QTreeWidgetItem(row_liquid_save);
+    row_item_liquid_save->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+    row_item_liquid_save->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    row_item_liquid_save->setData(1, BlockchainModel::ValueForCopy, qlonglong(nLiquidSave));
+    table->addTopLevelItem(row_item_liquid_save);
+
+    QStringList row_reserve_save;
+    row_reserve_save << tr("Rsave") << (nReserveSave <0 ? "" : displayValue(nReserveSave));
+    auto row_item_reserve_save = new QTreeWidgetItem(row_reserve_save);
+    row_item_reserve_save->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+    row_item_reserve_save->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    row_item_reserve_save->setData(1, BlockchainModel::ValueForCopy, qlonglong(nReserveSave));
+    table->addTopLevelItem(row_item_reserve_save);
+    
+    QStringList row_space;
+    auto row_item_space = new QTreeWidgetItem(row_space);
+    table->addTopLevelItem(row_item_space);
     
     if (supply <0) {
         supply = 0;

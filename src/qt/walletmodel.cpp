@@ -43,6 +43,14 @@ int WalletModel::getPegSupplyIndex() const {
     return wallet->GetPegSupplyIndex();
 }
 
+int WalletModel::getPegSupplyNIndex() const {
+    return wallet->GetPegSupplyNIndex();
+}
+
+int WalletModel::getPegSupplyNNIndex() const {
+    return wallet->GetPegSupplyNNIndex();
+}
+
 qint64 WalletModel::getBalance(const CCoinControl *coinControl) const
 {
     if (coinControl)

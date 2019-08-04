@@ -695,10 +695,40 @@ int CWallet::GetPegSupplyIndex() const
         LOCK(cs_main);
         auto pblockindex = mapBlockIndex[hashBestChain];
         nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
+        nLastPegSupplyNIndex = pblockindex->GetNextIntervalPegSupplyIndex();
+        nLastPegSupplyNNIndex = pblockindex->GetNextNextIntervalPegSupplyIndex();
         nLastBlockTime = pblockindex->nTime;
         nLastHashBestChain = hashBestChain;
     }
     return nLastPegSupplyIndex;
+}
+
+int CWallet::GetPegSupplyNIndex() const
+{
+    if (nLastHashBestChain != hashBestChain) {
+        LOCK(cs_main);
+        auto pblockindex = mapBlockIndex[hashBestChain];
+        nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
+        nLastPegSupplyNIndex = pblockindex->GetNextIntervalPegSupplyIndex();
+        nLastPegSupplyNNIndex = pblockindex->GetNextNextIntervalPegSupplyIndex();
+        nLastBlockTime = pblockindex->nTime;
+        nLastHashBestChain = hashBestChain;
+    }
+    return nLastPegSupplyNIndex;
+}
+
+int CWallet::GetPegSupplyNNIndex() const
+{
+    if (nLastHashBestChain != hashBestChain) {
+        LOCK(cs_main);
+        auto pblockindex = mapBlockIndex[hashBestChain];
+        nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
+        nLastPegSupplyNIndex = pblockindex->GetNextIntervalPegSupplyIndex();
+        nLastPegSupplyNNIndex = pblockindex->GetNextNextIntervalPegSupplyIndex();
+        nLastBlockTime = pblockindex->nTime;
+        nLastHashBestChain = hashBestChain;
+    }
+    return nLastPegSupplyNNIndex;
 }
 
 int64_t CWallet::GetFrozen(uint256 txhash, long n, const CTxOut& txout,

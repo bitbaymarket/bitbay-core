@@ -94,6 +94,7 @@ public:
 
     bool Pack(CDataStream &, unsigned long* len =nullptr) const;
     bool Unpack(CDataStream &);
+    bool Unpack1(CDataStream &);
 
     CFractions Std() const;
     CFractions Positive(int64_t* total) const;
@@ -152,6 +153,7 @@ public:
     
     bool Pack(CDataStream &) const;
     bool Unpack(CDataStream &);
+    bool Unpack1(CDataStream &);
     std::string ToString() const;
 };
 

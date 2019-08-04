@@ -31,6 +31,7 @@ int64_t RatioPart(int64_t nValue,
 
 class CPegLevel {
 public:
+    uint8_t nVersion        = 1;
     int64_t nCycle          = 0;
     int64_t nCyclePrev      = 0;
     int16_t nSupply         = 0;
@@ -68,6 +69,7 @@ public:
 
 class CFractions {
 public:
+    uint8_t     nVersion   = 1;
     uint32_t    nFlags     = VALUE;
     uint64_t    nLockTime  = 0;
     std::string sReturnAddr;
@@ -94,7 +96,6 @@ public:
 
     bool Pack(CDataStream &, unsigned long* len =nullptr) const;
     bool Unpack(CDataStream &);
-    bool Unpack1(CDataStream &);
 
     CFractions Std() const;
     CFractions Positive(int64_t* total) const;
@@ -134,6 +135,8 @@ public:
     
 private:
     void ToStd();
+    friend class CPegData;
+    bool Unpack1(CDataStream &);
 };
 
 typedef std::map<uint320, CFractions> MapFractions;
@@ -153,8 +156,11 @@ public:
     
     bool Pack(CDataStream &) const;
     bool Unpack(CDataStream &);
-    bool Unpack1(CDataStream &);
     std::string ToString() const;
+    
+private: // compat
+    bool Unpack1(CDataStream &);
+    bool Unpack2(CDataStream &);
 };
 
 #endif

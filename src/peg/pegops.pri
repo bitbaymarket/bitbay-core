@@ -9,6 +9,7 @@ SOURCES += \
     $$PWD/pegops.cpp \
     $$PWD/pegopsp.cpp \
     $$PWD/pegdata.cpp \
+    $$PWD/pegdata_compat.cpp \
     $$PWD/pegutil.cpp \
     $$PWD/peglevel.cpp \
     $$PWD/pegfractions.cpp \

@@ -56,6 +56,7 @@ private slots:
     void showBlockPage();
     void showTxPage();
     void showNetPage();
+    void showMempoolPage();
     void openBlock(uint256);
     void openBlock(const QModelIndex &);
     void openBlock(QTreeWidgetItem*,int);
@@ -68,6 +69,7 @@ private slots:
     void openChainMenu(const QPoint &);
     void openBlockMenu(const QPoint &);
     void updateConnections(const CNodeShortStats &);
+    void updateMempool();
 
 private:
     Ui::BlockchainPage* ui;

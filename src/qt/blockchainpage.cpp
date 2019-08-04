@@ -21,8 +21,9 @@
 #include "qwt/qwt_plot_curve.h"
 #include "qwt/qwt_plot_barchart.h"
 
-#include <QTime>
 #include <QMenu>
+#include <QTime>
+#include <QTimer>
 #include <QDebug>
 #include <QPainter>
 #include <QKeyEvent>
@@ -70,6 +71,7 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     connect(ui->buttonBlock, SIGNAL(clicked()), this, SLOT(showBlockPage()));
     connect(ui->buttonTx, SIGNAL(clicked()), this, SLOT(showTxPage()));
     connect(ui->buttonNet, SIGNAL(clicked()), this, SLOT(showNetPage()));
+    connect(ui->buttonMempool, SIGNAL(clicked()), this, SLOT(showMempoolPage()));
 
     ui->blockchainView->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->blockValues->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -112,14 +114,17 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     ui->blockValues->setStyleSheet(hstyle);
     ui->blockchainView->setStyleSheet(hstyle);
     ui->netNodes->setStyleSheet(hstyle);
+    ui->mempoolView->setStyleSheet(hstyle);
 
     ui->blockValues->setFont(font);
     ui->blockchainView->setFont(font);
     ui->netNodes->setFont(font);
+    ui->mempoolView->setFont(font);
 
     ui->blockValues->header()->setFont(font);
     ui->blockchainView->header()->setFont(font);
     ui->netNodes->header()->setFont(font);
+    ui->mempoolView->header()->setFont(font);
 
     connect(ui->lineJumpToBlock, SIGNAL(returnPressed()),
             this, SLOT(jumpToBlock()));
@@ -131,6 +136,11 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     ui->netNodes->header()->resizeSection(0 /*addr*/, 250);
     ui->netNodes->header()->resizeSection(1 /*protocol*/, 100);
     ui->netNodes->header()->resizeSection(2 /*version*/, 250);
+    
+    QTimer * t = new QTimer(this);
+    t->setInterval(10 * 1000);
+    connect(t, SIGNAL(timeout()), this, SLOT(updateMempool()));
+    t->start();
 }
 
 BlockchainPage::~BlockchainPage()
@@ -161,6 +171,11 @@ void BlockchainPage::showTxPage()
 void BlockchainPage::showNetPage()
 {
     ui->tabs->setCurrentWidget(ui->pageNet);
+}
+
+void BlockchainPage::showMempoolPage()
+{
+    ui->tabs->setCurrentWidget(ui->pageMempool);
 }
 
 void BlockchainPage::jumpToBlock()
@@ -547,5 +562,158 @@ void BlockchainPage::updateConnections(const CNodeShortStats & stats)
         twi->setText(2, QString::fromStdString(node.strSubVer));
         twi->setText(3, QString::number(node.nStartingHeight));
         ui->netNodes->addTopLevelItem(twi);
+    }
+}
+
+static QString displayValue(int64_t nValue) {
+    QString sValue = QString::number(nValue);
+    if (sValue.length() <8) {
+        sValue = sValue.rightJustified(8, QChar(' '));
+    }
+    sValue.insert(sValue.length()-8, QChar('.'));
+    if (sValue.length() > (8+1+3))
+        sValue.insert(sValue.length()-8-1-3, QChar(','));
+    if (sValue.length() > (8+1+3+1+3))
+        sValue.insert(sValue.length()-8-1-3-1-3, QChar(','));
+    if (sValue.length() > (8+1+3+1+3+1+3))
+        sValue.insert(sValue.length()-8-1-3-1-3-1-3, QChar(','));
+    return sValue;
+}
+
+static QString displayValueR(int64_t nValue, int len=0) {
+    if (len==0) {
+        len = 8+1+3+1+3+1+3+5;
+    }
+    QString sValue = displayValue(nValue);
+    sValue = sValue.rightJustified(len, QChar(' '));
+    return sValue;
+}
+
+void BlockchainPage::updateMempool()
+{
+    set<int> removeIndexes;
+    set<uint256> oldTxhashes;
+    set<uint256> newTxhashes;
+    set<uint256> insertTxhashes;
+    {
+        LOCK(mempool.cs);
+        for (map<uint256, CTransaction>::iterator mi = mempool.mapTx.begin(); mi != mempool.mapTx.end(); ++mi)
+        {
+            newTxhashes.insert((*mi).first);
+        }
+    }
+    for(int i =0; i< ui->mempoolView->topLevelItemCount(); i++) {
+        auto item = ui->mempoolView->topLevelItem(i);
+        auto oldTxhash = item->data(0, Qt::UserRole).value<uint256>();
+        if (!newTxhashes.count(oldTxhash)) {
+            removeIndexes.insert(i);
+        } else {
+            oldTxhashes.insert(oldTxhash);
+        }
+    }
+    for (set<int>::reverse_iterator rit = removeIndexes.rbegin(); rit != removeIndexes.rend(); rit++) {
+        auto item = ui->mempoolView->takeTopLevelItem(*rit);
+        if (item) { delete item; }
+    }
+    for (uint256 newTxhash : newTxhashes) {
+        if (oldTxhashes.count(newTxhash)) { continue; }
+        insertTxhashes.insert(newTxhash);
+    }
+    
+    {
+        LOCK(mempool.cs);
+        for (uint256 newTxhash : insertTxhashes) {
+            if (!mempool.mapTx.count(newTxhash)) continue;
+            const auto & tx = mempool.mapTx.at(newTxhash);
+            QStringList txcols;
+            txcols << QString::fromStdString(newTxhash.ToString());
+            auto txitem = new QTreeWidgetItem(ui->mempoolView, txcols);
+            ui->mempoolView->expandItem(txitem);
+            
+            size_t nVin = tx.vin.size();
+            size_t nVout = tx.vout.size();
+            
+            int nAlignInpHigh = 0;
+            for(size_t i=0; i< nVin; i++)
+            {
+                const COutPoint & prevout = tx.vin[i].prevout;
+                auto fkey = uint320(prevout.hash, prevout.n);
+                
+                if (!mempool.mapPrevOuts.count(newTxhash)) continue;
+                if (!mempool.mapPrevOuts.at(newTxhash).count(fkey)) continue;
+
+                const CTxOut & txout = mempool.mapPrevOuts.at(newTxhash).at(fkey);
+                
+                QString text = displayValue(txout.nValue);
+                if (text.length() > nAlignInpHigh)
+                    nAlignInpHigh = text.length();
+            }
+            
+            for(size_t i=0; i< nVin; i++)
+            {
+                QStringList inpcols;
+                inpcols << QString::fromStdString(tx.vin[i].prevout.ToString());
+                auto inpitem = new QTreeWidgetItem(txitem, inpcols);
+
+                const COutPoint & prevout = tx.vin[i].prevout;
+                auto fkey = uint320(prevout.hash, prevout.n);
+                
+                if (!mempool.mapPrevOuts.count(newTxhash)) continue;
+                if (!mempool.mapPrevOuts.at(newTxhash).count(fkey)) continue;
+                
+                const CTxOut & txout = mempool.mapPrevOuts.at(newTxhash).at(fkey);
+                QString fromAddr;
+                int nRequired;
+                txnouttype type;
+                vector<CTxDestination> addresses;
+                if (ExtractDestinations(txout.scriptPubKey, type, addresses, nRequired)) {
+                    for(const CTxDestination& addr : addresses) {
+                        if (!fromAddr.isEmpty()) fromAddr += "\n";
+                        fromAddr += QString::fromStdString(CBitcoinAddress(addr).ToString());
+                    }
+                }
+                
+                inpitem->setText(0, fromAddr + " " + displayValueR(txout.nValue, nAlignInpHigh) + " --> ");
+            }
+            
+            if (nVout > nVin) {
+                for(size_t i=nVin; i< nVout; i++)
+                {
+                    auto inpitem = new QTreeWidgetItem(txitem);
+                    inpitem->setText(0, QString(" ").repeated(34+1+nAlignInpHigh)+" --> ");
+                }
+            }
+            
+            nAlignInpHigh = 0;
+            for(size_t i=0; i< nVout; i++)
+            {
+                const CTxOut & txout = tx.vout[i];
+                QString text = displayValue(txout.nValue);
+                if (text.length() > nAlignInpHigh)
+                    nAlignInpHigh = text.length();
+            }
+            
+            for(size_t i=0; i< nVout; i++)
+            {
+                auto outitem = txitem->child(i);
+                QString text = outitem->text(0);
+                
+                const CTxOut & txout = tx.vout[i];
+                
+                QString toAddr;
+                int nRequired;
+                txnouttype type;
+                vector<CTxDestination> addresses;
+                if (ExtractDestinations(txout.scriptPubKey, type, addresses, nRequired)) {
+                    for(const CTxDestination& addr : addresses) {
+                        if (!toAddr.isEmpty()) toAddr += "\n";
+                        toAddr += QString::fromStdString(CBitcoinAddress(addr).ToString());
+                    }
+                }
+                
+                text += toAddr + " " + displayValueR(txout.nValue, nAlignInpHigh);
+                outitem->setText(0, text);
+            }
+        }
     }
 }

@@ -1774,41 +1774,18 @@ void TxDetailsWidget::openFractionsMenu(const QPoint & pos)
         QString text = QApplication::clipboard()->text();
         
         try {
-            string pegdata = DecodeBase64(text.toStdString());
-            CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
-                             SER_DISK, CLIENT_VERSION);
-            
-            CFractions fractions(0, CFractions::STD);
-            if (fractions.Unpack(finp)) {
+            CPegData pegdata(text.toStdString());
+            if (pegdata.IsValid()) {
                 a = m.addAction(tr("Paste pegdata"));
                 connect(a, &QAction::triggered, [&] {
                     QString text = QApplication::clipboard()->text();
-                    string pegdata = DecodeBase64(text.toStdString());
-                    CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(),
-                                     SER_DISK, CLIENT_VERSION);
+                    CPegData pegdata(text.toStdString());
                     
-                    CFractions fractions(0, CFractions::STD);
-                    fractions.Unpack(finp);
-                    
-                    int64_t nLiquidSave = -1;
-                    int64_t nReserveSave = -1;
-                    
-                    CPegLevel level("");
-                    try {
-                        level.Unpack(finp);
-                        
-                        try {
-                            finp >> nReserveSave;
-                            finp >> nLiquidSave;
-                        }
-                        catch (std::exception &) { 
-                        }
-                        
-                    }catch (std::exception &) { 
-                        level.nSupply = 0; 
-                    }
-                    
-                    plotFractions(table, fractions, level, nLiquidSave, nReserveSave);
+                    plotFractions(table, 
+                                  pegdata.fractions, 
+                                  pegdata.peglevel, 
+                                  pegdata.nLiquid, 
+                                  pegdata.nReserve);
                 });
             }
         }catch (std::exception &) { ; }

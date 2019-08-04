@@ -18,7 +18,7 @@ enum
     PEG_SUBPREMIUM_RATING   = 200,
     PEG_DB_CHECK1           = 1, // testnet: update1 for votes calculation
     PEG_DB_CHECK2           = 2, // testnet: update2 for stake liquidity calculation
-    PEG_DB_CHECK3           = 3, // testnet: update3 for cold tx support
+    PEG_DB_CHECK3           = 35, // testnet: update3 for cold tx support
     PEG_PRUNE_INTERVAL      = 10000
 };
 
@@ -65,6 +65,10 @@ public:
     bool Pack(CDataStream &) const;
     bool Unpack(CDataStream &);
     std::string ToString() const;
+    
+private:
+    friend class CPegData;
+    bool Unpack1(CDataStream &);
 };
 
 class CFractions {
@@ -137,6 +141,7 @@ private:
     void ToStd();
     friend class CPegData;
     bool Unpack1(CDataStream &);
+    bool Unpack2(CDataStream &);
 };
 
 typedef std::map<uint320, CFractions> MapFractions;
@@ -153,6 +158,7 @@ public:
     CPegLevel   peglevel;
     int64_t     nLiquid     = 0;
     int64_t     nReserve    = 0;
+    int32_t     nId         = 0;
     
     bool Pack(CDataStream &) const;
     bool Unpack(CDataStream &);

@@ -58,19 +58,26 @@ CPegData::CPegData(std::string pegdata64)
     string pegdata = DecodeBase64(pegdata64);
     CDataStream finp(pegdata.data(), 
                      pegdata.data() + pegdata.size(),
-                     SER_DISK, CLIENT_VERSION);
-    
+                     SER_NETWORK, CLIENT_VERSION);
     bool ok = Unpack(finp);
     if (!ok) { 
-        // try prev version
-        CDataStream finp2(pegdata.data(), 
-                          pegdata.data() + pegdata.size(),
-                          SER_DISK, CLIENT_VERSION);
-        ok = Unpack1(finp2);
+        // try prev versions
+        CDataStream finp(pegdata.data(), 
+                         pegdata.data() + pegdata.size(),
+                         SER_DISK, CLIENT_VERSION);
         
+        bool ok = Unpack2(finp);
         if (!ok) { 
-            // peglevel to inicate invalid
-            peglevel = CPegLevel();
+            // try prev versions
+            CDataStream finp(pegdata.data(), 
+                              pegdata.data() + pegdata.size(),
+                              SER_DISK, CLIENT_VERSION);
+            ok = Unpack1(finp);
+            
+            if (!ok) { 
+                // peglevel to inicate invalid
+                peglevel = CPegLevel();
+            }
         }
     }
 }
@@ -81,21 +88,23 @@ bool CPegData::IsValid() const
 }
 
 bool CPegData::Pack(CDataStream & fout) const {
-    //fout << nVersion;
+    fout << nVersion;
     fractions.Pack(fout);
     peglevel.Pack(fout);
     fout << nReserve;
     fout << nLiquid;
+    fout << nId;
     return true;
 }
 
 bool CPegData::Unpack(CDataStream & finp) {
     try {
-        //finp >> nVersion;
+        finp >> nVersion;
         if (!fractions.Unpack(finp)) return false;
         if (!peglevel.Unpack(finp)) return false;
         finp >> nReserve;
         finp >> nLiquid;
+        finp >> nId;
         
         // match total
         if ((nReserve+nLiquid) != fractions.Total()) return false;
@@ -126,7 +135,7 @@ bool CPegData::Unpack(CDataStream & finp) {
 }
 
 std::string CPegData::ToString() const {
-    CDataStream fout(SER_DISK, CLIENT_VERSION);
+    CDataStream fout(SER_NETWORK, CLIENT_VERSION);
     Pack(fout);
     return EncodeBase64(fout.str());
 }

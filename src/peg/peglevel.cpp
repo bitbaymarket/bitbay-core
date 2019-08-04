@@ -30,15 +30,19 @@ CPegLevel::CPegLevel() {
 
 CPegLevel::CPegLevel(std::string str) {
     vector<unsigned char> data(ParseHex(str));
-    CDataStream finp(data, SER_DISK, CLIENT_VERSION);
+    CDataStream finp(data, SER_NETWORK, CLIENT_VERSION);
     if (!Unpack(finp)) {
-        // invalid
-        nSupply         = -1;
-        nSupplyNext     = -1;
-        nSupplyNextNext = -1;
-        nShift          = 0;
-        nShiftLastPart  = 0;
-        nShiftLastTotal = 0;
+        // previous version
+        CDataStream finp(data, SER_DISK, CLIENT_VERSION);
+        if (!Unpack1(finp)) {
+            // invalid
+            nSupply         = -1;
+            nSupplyNext     = -1;
+            nSupplyNextNext = -1;
+            nShift          = 0;
+            nShiftLastPart  = 0;
+            nShiftLastTotal = 0;
+        }
     }
 }
 
@@ -115,6 +119,7 @@ bool CPegLevel::IsValid() const {
 }
 
 bool CPegLevel::Pack(CDataStream & fout) const {
+    fout << nVersion;
     fout << nCycle;
     fout << nCyclePrev;
     fout << nSupply;
@@ -128,6 +133,7 @@ bool CPegLevel::Pack(CDataStream & fout) const {
 
 bool CPegLevel::Unpack(CDataStream & finp) {
     try {
+        finp >> nVersion;
         finp >> nCycle;
         finp >> nCyclePrev;
         finp >> nSupply;
@@ -144,7 +150,7 @@ bool CPegLevel::Unpack(CDataStream & finp) {
 }
 
 std::string CPegLevel::ToString() const {
-    CDataStream fout(SER_DISK, CLIENT_VERSION);
+    CDataStream fout(SER_NETWORK, CLIENT_VERSION);
     Pack(fout);
     return HexStr(fout.begin(), fout.end());
 }

@@ -218,11 +218,31 @@ Value getfractionsbase64(const Array& params, bool fHelp)
             return obj;
         }
     }
-    fractions = fractions.Std();
     
-    CDataStream fout(SER_DISK, CLIENT_VERSION);
-    fractions.Pack(fout);
-    return EncodeBase64(fout.str());
+    CPegData pd;
+    pd.peglevel = CPegLevel(1,0,0,0,0); // can get block of
+    {
+        CTxDB txdb("r");
+        CTxIndex txindex;
+        if (txdb.ReadTxIndex(txhash, txindex)) {
+            CBlock block;
+            if (block.ReadFromDisk(txindex.pos.nFile, txindex.pos.nBlockPos, false)) {
+                map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(block.GetHash());
+                if (mi != mapBlockIndex.end()) {
+                    CBlockIndex* pindex = (*mi).second;
+                    int nPegInterval = Params().PegInterval(pindex->nHeight);
+                    pd.peglevel.nCycle = pindex->nHeight / nPegInterval;
+                    pd.peglevel.nSupply = pindex->nPegSupplyIndex;
+                    pd.peglevel.nSupplyNext = pindex->GetNextIntervalPegSupplyIndex();
+                    pd.peglevel.nSupplyNextNext = pindex->GetNextNextIntervalPegSupplyIndex();
+                }
+            }
+        }
+    }
+    pd.fractions = fractions.Std();
+    pd.nLiquid = fractions.High(pd.peglevel);
+    pd.nReserve = fractions.Low(pd.peglevel);
+    return pd.ToString();
 }
 
 Value getliquidityrate(const Array& params, bool fHelp)

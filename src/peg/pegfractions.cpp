@@ -80,10 +80,11 @@ bool CFractions::Pack(CDataStream& out, unsigned long* report_len) const
 {
     if (nFlags & VALUE) {
         if (report_len) *report_len = sizeof(int64_t);
+        out << nVersion;
         out << uint32_t(nFlags | SER_VALUE);
         out << nLockTime;
-        out << f[0];
         out << sReturnAddr;
+        out << f[0];
     } else {
         int64_t deltas[PEG_SIZE];
         ToDeltas(deltas);
@@ -96,20 +97,22 @@ bool CFractions::Pack(CDataStream& out, unsigned long* report_len) const
         int res = ::compress2(zout, &zlen, src, n, zlevel);
         if (res == Z_OK) {
             if (report_len) *report_len = zlen;
+            out << nVersion;
             out << uint32_t(nFlags | SER_ZDELTA);
             out << nLockTime;
+            out << sReturnAddr;
             auto ser = reinterpret_cast<const char *>(zout);
             out << zlen;
             out.write(ser, zlen);
-            out << sReturnAddr;
         }
         else {
             if (report_len) *report_len = PEG_SIZE*sizeof(int64_t);
+            out << nVersion;
             out << uint32_t(nFlags | SER_RAW);
             out << nLockTime;
+            out << sReturnAddr;
             auto ser = reinterpret_cast<const char *>(f);
             out.write(ser, PEG_SIZE*sizeof(int64_t));
-            out << sReturnAddr;
         }
     }
     return true;
@@ -118,8 +121,11 @@ bool CFractions::Pack(CDataStream& out, unsigned long* report_len) const
 bool CFractions::Unpack(CDataStream& inp)
 {
     uint32_t nSerFlags = 0;
+    inp >> nVersion;
     inp >> nSerFlags;
     inp >> nLockTime;
+    inp >> sReturnAddr;
+    
     if (nSerFlags & SER_VALUE) {
         nFlags = nSerFlags | VALUE;
         inp >> f[0];
@@ -155,56 +161,7 @@ bool CFractions::Unpack(CDataStream& inp)
         nFlags = nSerFlags | STD;
     }
     nFlags &= SER_MASK;
-    
-    try { // for compatibility (pegdata)
-        inp >> sReturnAddr;
-    } catch (std::exception &) {}
-    
-    return true;
-}
-
-bool CFractions::Unpack1(CDataStream& inp)
-{
-    uint32_t nSerFlags = 0;
-    inp >> nSerFlags;
-    inp >> nLockTime;
-    if (nSerFlags & SER_VALUE) {
-        nFlags = nSerFlags | VALUE;
-        inp >> f[0];
-    }
-    else if (nSerFlags & SER_ZDELTA) {
-        unsigned long zlen = 0;
-        inp >> zlen;
-
-        if (zlen>(2*PEG_SIZE*sizeof(int64_t))) {
-            // data are broken, no read
-            return false;
-        }
-
-        unsigned char zinp[2*PEG_SIZE*sizeof(int64_t)];
-        unsigned long n = PEG_SIZE*sizeof(int64_t);
-        auto ser = reinterpret_cast<char *>(zinp);
-        inp.read(ser, zlen);
-
-        int64_t deltas[PEG_SIZE];
-        auto src = reinterpret_cast<const unsigned char *>(ser);
-        auto dst = reinterpret_cast<unsigned char *>(deltas);
-        int res = ::uncompress(dst, &n, src, zlen);
-        if (res != Z_OK) {
-            // data are broken, can not uncompress
-            return false;
-        }
-        FromDeltas(deltas);
-        nFlags = nSerFlags | STD;
-    }
-    else if (nSerFlags & SER_RAW) {
-        auto ser = reinterpret_cast<char *>(f);
-        inp.read(ser, PEG_SIZE*sizeof(int64_t));
-        nFlags = nSerFlags | STD;
-    }
-    nFlags &= SER_MASK;
-    
-    
+        
     return true;
 }
 

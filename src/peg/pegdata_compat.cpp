@@ -5,27 +5,123 @@
 #include "pegdata.h"
 #include "pegutil.h"
 
-//#include <map>
-//#include <set>
-//#include <cstdint>
-//#include <utility>
-//#include <algorithm> 
-//#include <type_traits>
+#include <map>
+#include <set>
+#include <cstdint>
 
-//#include <boost/multiprecision/cpp_int.hpp>
+#include <zconf.h>
+#include <zlib.h>
 
-//#include <zconf.h>
-//#include <zlib.h>
+bool CPegLevel::Unpack1(CDataStream & finp) {
+    try {
+        finp >> nCycle;
+        finp >> nCyclePrev;
+        finp >> nSupply;
+        finp >> nSupplyNext;
+        finp >> nSupplyNextNext;
+        finp >> nShift;
+        finp >> nShiftLastPart;     // to distribute (part)
+        finp >> nShiftLastTotal;    // to distribute (total)
+    }
+    catch (std::exception &) {
+        return false;
+    }
+    return true;
+}
 
-//using namespace std;
-//using namespace boost;
-//using namespace pegutil;
+bool CFractions::Unpack2(CDataStream& inp)
+{
+    uint32_t nSerFlags = 0;
+    inp >> nSerFlags;
+    inp >> nLockTime;
+    if (nSerFlags & SER_VALUE) {
+        nFlags = nSerFlags | VALUE;
+        inp >> f[0];
+    }
+    else if (nSerFlags & SER_ZDELTA) {
+        unsigned long zlen = 0;
+        inp >> zlen;
+
+        if (zlen>(2*PEG_SIZE*sizeof(int64_t))) {
+            // data are broken, no read
+            return false;
+        }
+
+        unsigned char zinp[2*PEG_SIZE*sizeof(int64_t)];
+        unsigned long n = PEG_SIZE*sizeof(int64_t);
+        auto ser = reinterpret_cast<char *>(zinp);
+        inp.read(ser, zlen);
+
+        int64_t deltas[PEG_SIZE];
+        auto src = reinterpret_cast<const unsigned char *>(ser);
+        auto dst = reinterpret_cast<unsigned char *>(deltas);
+        int res = ::uncompress(dst, &n, src, zlen);
+        if (res != Z_OK) {
+            // data are broken, can not uncompress
+            return false;
+        }
+        FromDeltas(deltas);
+        nFlags = nSerFlags | STD;
+    }
+    else if (nSerFlags & SER_RAW) {
+        auto ser = reinterpret_cast<char *>(f);
+        inp.read(ser, PEG_SIZE*sizeof(int64_t));
+        nFlags = nSerFlags | STD;
+    }
+    nFlags &= SER_MASK;
+    
+    inp >> sReturnAddr;
+    
+    return true;
+}
+
+bool CFractions::Unpack1(CDataStream& inp)
+{
+    uint32_t nSerFlags = 0;
+    inp >> nSerFlags;
+    inp >> nLockTime;
+    if (nSerFlags & SER_VALUE) {
+        nFlags = nSerFlags | VALUE;
+        inp >> f[0];
+    }
+    else if (nSerFlags & SER_ZDELTA) {
+        unsigned long zlen = 0;
+        inp >> zlen;
+
+        if (zlen>(2*PEG_SIZE*sizeof(int64_t))) {
+            // data are broken, no read
+            return false;
+        }
+
+        unsigned char zinp[2*PEG_SIZE*sizeof(int64_t)];
+        unsigned long n = PEG_SIZE*sizeof(int64_t);
+        auto ser = reinterpret_cast<char *>(zinp);
+        inp.read(ser, zlen);
+
+        int64_t deltas[PEG_SIZE];
+        auto src = reinterpret_cast<const unsigned char *>(ser);
+        auto dst = reinterpret_cast<unsigned char *>(deltas);
+        int res = ::uncompress(dst, &n, src, zlen);
+        if (res != Z_OK) {
+            // data are broken, can not uncompress
+            return false;
+        }
+        FromDeltas(deltas);
+        nFlags = nSerFlags | STD;
+    }
+    else if (nSerFlags & SER_RAW) {
+        auto ser = reinterpret_cast<char *>(f);
+        inp.read(ser, PEG_SIZE*sizeof(int64_t));
+        nFlags = nSerFlags | STD;
+    }
+    nFlags &= SER_MASK;
+    return true;
+}
 
 bool CPegData::Unpack2(CDataStream & finp) {
     try {
-        //finp >> nVersion;
-        if (!fractions.Unpack(finp)) return false;
-        if (!peglevel.Unpack(finp)) return false;
+        if (!fractions.Unpack2(finp)) return false;
+        if (!peglevel.Unpack1(finp)) return false;
         finp >> nReserve;
         finp >> nLiquid;
         
@@ -58,11 +154,9 @@ bool CPegData::Unpack2(CDataStream & finp) {
 }
 
 bool CPegData::Unpack1(CDataStream & finp) {
-
-    // try prev version
     try {
         if (!fractions.Unpack1(finp)) return false;
-        if (!peglevel.Unpack(finp)) return false;
+        if (!peglevel.Unpack1(finp)) return false;
         finp >> nReserve;
         finp >> nLiquid;
         

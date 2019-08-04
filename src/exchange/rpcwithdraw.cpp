@@ -477,6 +477,9 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     
     int nSupplyEffective = peglevel_exchange.nSupply + peglevel_exchange.nShift;
     bool fPartial = peglevel_exchange.nShiftLastPart >0 && peglevel_exchange.nShiftLastTotal >0;
+    if (fPartial) {
+        nSupplyEffective++;
+    }
     
     CFractions frBalanceLiquid = pdBalance.fractions.HighPart(nSupplyEffective, nullptr);
     

@@ -750,20 +750,3 @@ double CFractions::Distortion(const CFractions& b) const
     return 0;
 }
 
-bool CFractions::SetMark(uint32_t nMark)
-{
-    uint32_t nNewFlags = nFlags | nMark;
-    
-    int nMarks = 0;
-    if (nNewFlags & CFractions::NOTARY_F) nMarks++;
-    if (nNewFlags & CFractions::NOTARY_V) nMarks++;
-    if (nNewFlags & CFractions::NOTARY_L) nMarks++;
-    if (nNewFlags & CFractions::NOTARY_C) nMarks++;
-    
-    if (nMarks > 1) { /* marks are crossing */
-        return false;
-    }
-    
-    nFlags = nNewFlags;
-    return true;
-}

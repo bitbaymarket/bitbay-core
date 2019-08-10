@@ -86,6 +86,11 @@ public:
         NOTARY_V    = (1 << 4),
         NOTARY_C    = (1 << 5)
     };
+    enum MarkAction {
+        MARK_SET            = 0,
+        MARK_TRANSFER       = 1,
+        MARK_COLD_TO_FROZEN = 2
+    };
     enum {
         SER_MASK    = 0xffff,
         SER_VALUE   = (1 << 16),
@@ -135,7 +140,7 @@ public:
     bool IsPositive() const;
     bool IsNegative() const;
 
-    bool SetMark(uint32_t nMark);
+    bool SetMark(MarkAction, uint32_t nMark, uint64_t nTime);
     
 private:
     void ToStd();

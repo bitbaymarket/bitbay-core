@@ -647,11 +647,10 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 if (frInp.sReturnAddr == sAddress) { 
                     // no mark already on frozenTxOut.fractions
                 } else {
-                    if (!frozenTxOut.fractions.SetMark(CFractions::NOTARY_F)) {
+                    if (!frozenTxOut.fractions.SetMark(CFractions::MARK_COLD_TO_FROZEN, CFractions::NOTARY_F, nTime)) {
                         sFailCause = "P-I-C-2: Crossing marks are detected";
                         return false;
                     }
-                    frozenTxOut.fractions.nLockTime = nTime + 4 * Params().PegFrozenTime();
                 }
                 
                 // deduct whole frInp - not frOut
@@ -707,10 +706,10 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     frozenTxOut.nValue = nFrozenValueOut;
                     frozenTxOut.sAddress = sAddress;
                     bool fMarkSet = false;
-                    if (fNotaryF) fMarkSet = frozenTxOut.fractions.SetMark(CFractions::NOTARY_F);
-                    if (fNotaryV) fMarkSet = frozenTxOut.fractions.SetMark(CFractions::NOTARY_V);
-                    if (fNotaryL) fMarkSet = frozenTxOut.fractions.SetMark(CFractions::NOTARY_L);
-                    if (fNotaryC) fMarkSet = frozenTxOut.fractions.SetMark(CFractions::NOTARY_C);
+                    if (fNotaryF) fMarkSet = frozenTxOut.fractions.SetMark(CFractions::MARK_SET, CFractions::NOTARY_F, nTime);
+                    if (fNotaryV) fMarkSet = frozenTxOut.fractions.SetMark(CFractions::MARK_SET, CFractions::NOTARY_V, nTime);
+                    if (fNotaryL) fMarkSet = frozenTxOut.fractions.SetMark(CFractions::MARK_SET, CFractions::NOTARY_L, nTime);
+                    if (fNotaryC) fMarkSet = frozenTxOut.fractions.SetMark(CFractions::MARK_SET, CFractions::NOTARY_C, nTime);
                     if (!fMarkSet) {
                         sFailCause = "P-I-N-6: Crossing marks are detected";
                         return false;
@@ -764,11 +763,10 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             CFractions frozenOut(0, CFractions::STD);
                             frReserve.MoveRatioPartTo(nFrozenValueOut, frozenOut);
                             frozenTxOut.fractions += frozenOut;
-                            if (!frozenTxOut.fractions.SetMark(CFractions::NOTARY_F)) {
+                            if (!frozenTxOut.fractions.SetMark(CFractions::MARK_SET, CFractions::NOTARY_F, nTime)) {
                                 sFailCause = "P-I-N-9: Crossing marks are detected";
                                 return false;
                             }
-                            frozenTxOut.fractions.nLockTime = nTime + Params().PegFrozenTime();
                             frInp -= frozenOut;
                             nReserveIn -= nFrozenValueOut;
                         }
@@ -776,11 +774,10 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             CFractions frozenOut(0, CFractions::STD);
                             frLiquidity.MoveRatioPartTo(nFrozenValueOut, frozenOut);
                             frozenTxOut.fractions += frozenOut;
-                            if (!frozenTxOut.fractions.SetMark(CFractions::NOTARY_V)) {
+                            if (!frozenTxOut.fractions.SetMark(CFractions::MARK_SET, CFractions::NOTARY_V, nTime)) {
                                 sFailCause = "P-I-N-10: Crossing marks are detected";
                                 return false;
                             }
-                            frozenTxOut.fractions.nLockTime = nTime + Params().PegVFrozenTime();
                             frInp -= frozenOut;
                             nLiquidityIn -= nFrozenValueOut;
                         }
@@ -788,7 +785,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             CFractions frozenOut(0, CFractions::STD);
                             frLiquidity.MoveRatioPartTo(nFrozenValueOut, frozenOut);
                             frozenTxOut.fractions += frozenOut;
-                            if (!frozenTxOut.fractions.SetMark(CFractions::NOTARY_L)) {
+                            if (!frozenTxOut.fractions.SetMark(CFractions::MARK_SET, CFractions::NOTARY_L, nTime)) {
                                 sFailCause = "P-I-N-11: Crossing marks are detected";
                                 return false;
                             }
@@ -807,11 +804,10 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             }
                             CFractions frozenOut = frInp.RatioPart(nFrozenValueOut);
                             frozenTxOut.fractions += frozenOut;
-                            if (!frozenTxOut.fractions.SetMark(CFractions::NOTARY_C)) {
+                            if (!frozenTxOut.fractions.SetMark(CFractions::MARK_SET, CFractions::NOTARY_C, nTime)) {
                                 sFailCause = "P-I-N-14: Crossing marks are detected";
                                 return false;
                             }
-                            frozenTxOut.fractions.nLockTime = 0;
                             frozenTxOut.fractions.sReturnAddr = sAddress;
                             // deduct whole frInp - not frozenOut 
                             // the diff can go only to fee fractions
@@ -865,20 +861,18 @@ bool CalculateStandardFractions(const CTransaction & tx,
             }
             else {
                 if (poolFrozen[i].fractions.nFlags & CFractions::NOTARY_V) {
-                    if (!frOut.SetMark(CFractions::NOTARY_V)) {
+                    if (!frOut.SetMark(CFractions::MARK_SET, CFractions::NOTARY_V, nTime)) {
                         sFailCause = "P-O-N-1: Crossing marks are detected";
                         return false;
                     }
-                    frOut.nLockTime = nTime + Params().PegVFrozenTime();
                     frCommonLiquidity.MoveRatioPartTo(nValue, frOut);
                     nCommonLiquidity -= nValue;
                 }
                 else if (poolFrozen[i].fractions.nFlags & CFractions::NOTARY_F) {
-                    if (!frOut.SetMark(CFractions::NOTARY_F)) {
+                    if (!frOut.SetMark(CFractions::MARK_SET, CFractions::NOTARY_F, nTime)) {
                         sFailCause = "P-O-N-2: Crossing marks are detected";
                         return false;
                     }
-                    frOut.nLockTime = nTime + Params().PegFrozenTime();
 
                     vector<string> vAddresses;
                     auto sFrozenAddress = poolFrozen[i].sAddress;
@@ -1260,18 +1254,16 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
             
             // transfer marks and locktime
             if (frStake.nFlags & CFractions::NOTARY_F) {
-                if (!frOut.SetMark(CFractions::NOTARY_F)) {
+                if (!frOut.SetMark(CFractions::MARK_TRANSFER, CFractions::NOTARY_F, frStake.nLockTime)) {
                     sFailCause = "P-O-2: Crossing marks are detected";
                     fFailedPegOut = true;
                 }
-                frOut.nLockTime = frStake.nLockTime;
             }
             else if (frStake.nFlags & CFractions::NOTARY_V) {
-                if (!frOut.SetMark(CFractions::NOTARY_V)) {
+                if (!frOut.SetMark(CFractions::MARK_TRANSFER, CFractions::NOTARY_V, frStake.nLockTime)) {
                     sFailCause = "P-O-3: Crossing marks are detected";
                     fFailedPegOut = true;
                 }
-                frOut.nLockTime = frStake.nLockTime;
             }
             
             nStakeOut = i;
@@ -1398,3 +1390,44 @@ void PrunePegForBlock(const CBlock& blockprune, CPegDB& pegdb)
     }
 }
 
+// to be in peg.cpp as reference Params()
+
+bool CFractions::SetMark(MarkAction action, uint32_t nMark, uint64_t nTime)
+{
+    uint32_t nNewFlags = nFlags | nMark;
+    
+    int nMarks = 0;
+    if (nNewFlags & CFractions::NOTARY_F) nMarks++;
+    if (nNewFlags & CFractions::NOTARY_V) nMarks++;
+    if (nNewFlags & CFractions::NOTARY_L) nMarks++;
+    if (nNewFlags & CFractions::NOTARY_C) nMarks++;
+    
+    if (nMarks > 1) { /* marks are crossing */
+        return false;
+    }
+    
+    nFlags = nNewFlags;
+    
+    if (action == MARK_SET) {
+        if (nFlags & CFractions::NOTARY_F) {
+            nLockTime = nTime + Params().PegFrozenTime();
+        }
+        else if (nFlags & CFractions::NOTARY_V) {
+            nLockTime = nTime + Params().PegVFrozenTime();
+        }
+        else if (nFlags & CFractions::NOTARY_L) {
+            nLockTime = 0;
+        }
+        else if (nFlags & CFractions::NOTARY_C) {
+            nLockTime = 0;
+        }
+    }
+    else if (action == MARK_TRANSFER) {
+        nLockTime = nTime;
+    }
+    else if (action == MARK_COLD_TO_FROZEN) {
+        nLockTime = nTime + 4 * Params().PegFrozenTime();
+    }
+    
+    return true;
+}

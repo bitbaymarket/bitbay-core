@@ -133,6 +133,7 @@ libbitcoin_server_a_SOURCES = \
   peg/peg.cpp \
   peg/peg_compat.cpp \
   peg/pegdata.cpp \
+  peg/pegdata_compat.cpp \
   peg/pegdb-leveldb.cpp \
   peg/pegfractions.cpp \
   peg/peglevel.cpp \

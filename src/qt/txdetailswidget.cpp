@@ -1683,6 +1683,50 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
     auto row_item_space = new QTreeWidgetItem(row_space);
     table->addTopLevelItem(row_item_space);
     
+    if (fractions.nFlags & CFractions::NOTARY_F ||
+        fractions.nFlags & CFractions::NOTARY_V ||
+        fractions.nFlags & CFractions::NOTARY_C) {
+        
+        if (fractions.nFlags & CFractions::NOTARY_F) {
+            QStringList row_cols_f;
+            row_cols_f << tr("Mark") << tr("Frozen");
+            auto row_f = new QTreeWidgetItem(row_cols_f);
+            table->addTopLevelItem(row_f);
+            
+            QStringList row_cols_unlock;
+            row_cols_unlock << tr("Lock") << QString::number(fractions.nLockTime);
+            auto row_unlock = new QTreeWidgetItem(row_cols_unlock);
+            table->addTopLevelItem(row_unlock);
+        }
+        
+        if (fractions.nFlags & CFractions::NOTARY_V) {
+            QStringList row_cols_v;
+            row_cols_v << tr("Mark") << tr("VFrozen");
+            auto row_v = new QTreeWidgetItem(row_cols_v);
+            table->addTopLevelItem(row_v);
+            
+            QStringList row_cols_unlock;
+            row_cols_unlock << tr("Lock") << QString::number(fractions.nLockTime);
+            auto row_unlock = new QTreeWidgetItem(row_cols_unlock);
+            table->addTopLevelItem(row_unlock);
+        }
+        
+        if (fractions.nFlags & CFractions::NOTARY_C) {
+            QStringList row_cols_c;
+            row_cols_c << tr("Mark") << tr("Cold");
+            auto row_c = new QTreeWidgetItem(row_cols_c);
+            table->addTopLevelItem(row_c);
+            
+            QStringList row_cols_return;
+            row_cols_return << tr("Back") << QString::fromStdString(fractions.sReturnAddr);
+            auto row_return = new QTreeWidgetItem(row_cols_return);
+            table->addTopLevelItem(row_return);
+        }
+        
+        auto row_item_space = new QTreeWidgetItem(row_space);
+        table->addTopLevelItem(row_item_space);
+    }
+    
     if (supply <0) {
         supply = 0;
     }

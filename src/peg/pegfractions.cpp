@@ -44,6 +44,7 @@ CFractions::CFractions(int64_t value, uint32_t flags)
 CFractions::CFractions(const CFractions & o)
     :nFlags(o.nFlags)
     ,nLockTime(o.nLockTime)
+    ,sReturnAddr(o.sReturnAddr)
 {
     for(int i=0; i< PEG_SIZE; i++) {
         f[i] = o.f[i];
@@ -171,6 +172,8 @@ CFractions CFractions::Std() const
         return *this;
 
     CFractions fstd;
+    fstd.sReturnAddr = sReturnAddr;
+    fstd.nLockTime = nLockTime;
     fstd.nFlags = nFlags;
     fstd.nFlags &= ~uint32_t(VALUE);
     fstd.nFlags |= STD;

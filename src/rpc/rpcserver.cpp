@@ -317,6 +317,7 @@ static const CRPCCommand vRPCCommands[] =
     { "preparereservewithdraw", &preparereservewithdraw, false,     false,     true },
     { "checkwithdrawstate",     &checkwithdrawstate,     false,     false,     true },
     { "accountmaintenance",     &accountmaintenance,     false,     false,     true },
+    { "ctxtest1",               &ctxtest1,               false,     false,     true },
 #endif
 #ifdef ENABLE_FAUCET
     { "faucet",                 &faucet,                 false,     false,     true },

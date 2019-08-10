@@ -538,6 +538,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
     map<string, CFractions> poolReserves;
     map<string, CFractions> poolLiquidity;
     map<long, FrozenTxOut> poolFrozen;
+    CFractions frColdFees(0, CFractions::VALUE);
     bool fFreezeAll = false;
 
     set<string> setInputAddresses;
@@ -631,6 +632,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 // or go to any address but then get into frozen state
                 unsigned int nOutIndex = i; // same index as input
                 int64_t nValueOut = tx.vout[size_t(nOutIndex)].nValue;
+                string sOutAddress = toAddress(tx.vout[size_t(nOutIndex)].scriptPubKey);
                 auto & frozenTxOut = poolFrozen[nOutIndex];
                 
                 if (frozenTxOut.nValue >0 || frozenTxOut.fractions.Total() != 0) {
@@ -644,7 +646,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 frozenTxOut.fractions.nLockTime = 0;
                 frozenTxOut.fIsColdOutput = true;
                 
-                if (frInp.sReturnAddr == sAddress) { 
+                if (frInp.sReturnAddr == sOutAddress) { 
                     // no mark already on frozenTxOut.fractions
                 } else {
                     if (!frozenTxOut.fractions.SetMark(CFractions::MARK_COLD_TO_FROZEN, CFractions::NOTARY_F, nTime)) {
@@ -661,6 +663,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 frLiquidity -= frInp.HighPart(nSupply, &nLiquidityDeduct);
                 nReserveIn -= nReserveDeduct;
                 nLiquidityIn -= nLiquidityDeduct;
+                frColdFees += (frInp - frOut);
             }
 
             bool fNotaryF = boost::starts_with(sNotary, "**F**");
@@ -809,12 +812,12 @@ bool CalculateStandardFractions(const CTransaction & tx,
                                 return false;
                             }
                             frozenTxOut.fractions.sReturnAddr = sAddress;
-                            // deduct whole frInp - not frozenOut 
-                            // the diff can go only to fee fractions
+                            // deduct frozenOut for this C output as it is once
+                            // the diff can go to other outputs
                             int64_t nReserveDeduct = 0;
                             int64_t nLiquidityDeduct = 0;
-                            frReserve -= frInp.LowPart(nSupply, &nReserveDeduct);
-                            frLiquidity -= frInp.HighPart(nSupply, &nLiquidityDeduct);
+                            frReserve -= frozenOut.LowPart(nSupply, &nReserveDeduct);
+                            frLiquidity -= frozenOut.HighPart(nSupply, &nLiquidityDeduct);
                             nReserveIn -= nReserveDeduct;
                             nLiquidityIn -= nLiquidityDeduct;
                         }
@@ -1041,6 +1044,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
     int64_t nFee = nValueIn - nValueOut;
     CFractions txFeeFractions(0, CFractions::STD);
     txFeeFractions += frCommonLiquidity;
+    txFeeFractions += frColdFees;
     for(const auto & item : poolReserves) {
         txFeeFractions += item.second;
     }

@@ -199,6 +199,7 @@ extern json_spirit::Value prepareliquidwithdraw(const json_spirit::Array& params
 extern json_spirit::Value preparereservewithdraw(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value checkwithdrawstate(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value accountmaintenance(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value ctxtest1(const json_spirit::Array& params, bool fHelp);
 
 extern json_spirit::Value faucet(const json_spirit::Array& params, bool fHelp);
 

@@ -1523,3 +1523,156 @@ Value accountmaintenance(const Array& params, bool fHelp)
     result.push_back(Pair("status", "Temp off"));
     return result;
 }
+
+Value ctxtest1(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "ctxtest1 "
+                "<txhash:output> "
+                "<address> \n"
+            );
+    
+    string txhashnout = params[0].get_str();
+    vector<string> txhashnout_args;
+    boost::split(txhashnout_args, txhashnout, boost::is_any_of(":"));
+    
+    if (txhashnout_args.size() != 2) {
+        throw runtime_error(
+            "getfractionsbase64 <txhash:output>\n"
+            "First parameter should refer transaction output txhash:output");
+    }
+    string txhash_str = txhashnout_args.front();
+    int nout = std::stoi(txhashnout_args.back());
+    
+    uint256 txhash;
+    txhash.SetHex(txhash_str);
+    
+    Object obj;
+    CTxDB txdb("r");
+    CPegDB pegdb("r");
+    auto fkey = uint320(txhash, nout);
+    CFractions fractions(0, CFractions::VALUE);
+    if (!pegdb.ReadFractions(fkey, fractions, true)) {
+        if (!mempool.lookup(txhash, nout, fractions)) {
+            return obj;
+        }
+    }
+
+    vector<COutput> vecCoins;
+    CCoinToUse coinToUse;
+    pwalletMain->AvailableCoins(vecCoins, false, true, NULL);
+    
+    bool found = false;
+    for(const COutput& coin : vecCoins)
+    {
+        auto coin_txhash = coin.tx->GetHash();
+        if (coin_txhash != txhash) continue;
+        if (coin.i != nout) continue;
+        
+        CCoinToUse & out = coinToUse;
+        out.i = coin.i;
+        out.txhash = coin_txhash;
+        out.nValue = coin.tx->vout[coin.i].nValue;
+        out.scriptPubKey = coin.tx->vout[coin.i].scriptPubKey;
+        found = true;
+    }
+    
+    if (!found) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Coin not found");
+    }
+    
+    int64_t nAmountWithFee = fractions.Total();
+    
+    string sAddress = params[1].get_str();
+
+    CBitcoinAddress address(sAddress);
+    if (!address.IsValid()) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid BitBay address");
+    }
+    
+    if (nAmountWithFee <0) {
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Requested to withdraw negative %d",
+                                                     nAmountWithFee));
+    }
+    
+    if (!pindexBest) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Blockchain is not in sync");
+    }
+    
+    assert(pwalletMain != NULL);
+    
+    int64_t nFeeRet = 1000000 /*common fee deducted from user amount*/;
+    int64_t nAmount = nAmountWithFee - nFeeRet;
+    
+    vector<pair<CScript, int64_t> > vecSend;
+    CScript scriptPubKey;
+    scriptPubKey.SetDestination(address.Get());
+    vecSend.push_back(make_pair(scriptPubKey, nAmount));
+    
+    int64_t nValue = 0;
+    for(const pair<CScript, int64_t>& s : vecSend) {
+        nValue += s.second;
+    }
+    
+    CTransaction rawTx;
+    
+    // Notations for frozen **C**
+    {
+        // prepare indexes to freeze
+        string out_indexes;
+        
+        auto out_index = std::to_string(1);
+        out_indexes = out_index;
+            
+        // Fill vout with freezing instructions
+        CScript scriptPubKey;
+        scriptPubKey.push_back(OP_RETURN);
+        unsigned char len_bytes = out_indexes.size();
+        scriptPubKey.push_back(len_bytes+5);
+        scriptPubKey.push_back('*');
+        scriptPubKey.push_back('*');
+        scriptPubKey.push_back('C');
+        scriptPubKey.push_back('*');
+        scriptPubKey.push_back('*');
+        for (size_t j=0; j< out_indexes.size(); j++) {
+            scriptPubKey.push_back(out_indexes[j]);
+        }
+        rawTx.vout.push_back(CTxOut(PEG_MAKETX_FREEZE_VALUE, scriptPubKey));
+    }
+    
+    // vouts to the payees
+    for(const pair<CScript, int64_t>& s : vecSend) {
+        rawTx.vout.push_back(CTxOut(s.second, s.first));
+    }
+    
+    CReserveKey reservekey(pwalletMain);
+    reservekey.ReturnKey();
+    
+    // Fill vin
+    rawTx.vin.push_back(CTxIn(txhash,nout));
+        
+    // signing the transaction to get it ready for broadcast
+    int nIn = 0;
+    if (!SignSignature(*pwalletMain, coinToUse.scriptPubKey, rawTx, nIn++)) {
+        throw JSONRPCError(RPC_MISC_ERROR, 
+                           strprintf("Fail on signing input (%d)", nIn-1));
+    }
+    
+    // save fractions
+    string sTxhash = rawTx.GetHash().GetHex();
+    
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << rawTx;
+    
+    string txstr = HexStr(ss.begin(), ss.end());
+    
+    Object result;
+    result.push_back(Pair("completed", true));
+    result.push_back(Pair("txhash", sTxhash));
+    result.push_back(Pair("rawtx", txstr));
+    
+    return result;
+}
+
+

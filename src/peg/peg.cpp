@@ -647,7 +647,10 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 if (frInp.sReturnAddr == sAddress) { 
                     // no mark already on frozenTxOut.fractions
                 } else {
-                    frozenTxOut.fractions.nFlags |= CFractions::NOTARY_F;
+                    if (!frozenTxOut.fractions.SetMark(CFractions::NOTARY_F)) {
+                        sFailCause = "PI07-3: Freeze notary: crossing marks are detected";
+                        return false;
+                    }
                     frozenTxOut.fractions.nLockTime = nTime + 4 * Params().PegFrozenTime();
                 }
                 
@@ -761,7 +764,10 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             CFractions frozenOut(0, CFractions::STD);
                             frReserve.MoveRatioPartTo(nFrozenValueOut, frozenOut);
                             frozenTxOut.fractions += frozenOut;
-                            frozenTxOut.fractions.nFlags |= CFractions::NOTARY_F;
+                            if (!frozenTxOut.fractions.SetMark(CFractions::NOTARY_F)) {
+                                sFailCause = "PI10-2: Crossing marks are detected";
+                                return false;
+                            }
                             frozenTxOut.fractions.nLockTime = nTime + Params().PegFrozenTime();
                             frInp -= frozenOut;
                             nReserveIn -= nFrozenValueOut;
@@ -770,7 +776,10 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             CFractions frozenOut(0, CFractions::STD);
                             frLiquidity.MoveRatioPartTo(nFrozenValueOut, frozenOut);
                             frozenTxOut.fractions += frozenOut;
-                            frozenTxOut.fractions.nFlags |= CFractions::NOTARY_V;
+                            if (!frozenTxOut.fractions.SetMark(CFractions::NOTARY_V)) {
+                                sFailCause = "PI10-3: Crossing marks are detected";
+                                return false;
+                            }
                             frozenTxOut.fractions.nLockTime = nTime + Params().PegVFrozenTime();
                             frInp -= frozenOut;
                             nLiquidityIn -= nFrozenValueOut;
@@ -779,7 +788,10 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             CFractions frozenOut(0, CFractions::STD);
                             frLiquidity.MoveRatioPartTo(nFrozenValueOut, frozenOut);
                             frozenTxOut.fractions += frozenOut;
-                            frozenTxOut.fractions.nFlags |= CFractions::NOTARY_L;
+                            if (!frozenTxOut.fractions.SetMark(CFractions::NOTARY_L)) {
+                                sFailCause = "PI10-3: Crossing marks are detected";
+                                return false;
+                            }
                             frInp -= frozenOut;
                             nLiquidityIn -= nFrozenValueOut;
                         }
@@ -795,7 +807,10 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             }
                             CFractions frozenOut = frInp.RatioPart(nFrozenValueOut);
                             frozenTxOut.fractions += frozenOut;
-                            frozenTxOut.fractions.nFlags |= CFractions::NOTARY_C;
+                            if (!frozenTxOut.fractions.SetMark(CFractions::NOTARY_C)) {
+                                sFailCause = "PI10-3: Crossing marks are detected";
+                                return false;
+                            }
                             frozenTxOut.fractions.nLockTime = 0;
                             frozenTxOut.fractions.sReturnAddr = sAddress;
                             // deduct whole frInp - not frozenOut 
@@ -850,13 +865,19 @@ bool CalculateStandardFractions(const CTransaction & tx,
             }
             else {
                 if (poolFrozen[i].fractions.nFlags & CFractions::NOTARY_V) {
-                    frOut.nFlags |= CFractions::NOTARY_V;
+                    if (!frOut.SetMark(CFractions::NOTARY_V)) {
+                        sFailCause = "P09-1: Crossing marks are detected";
+                        return false;
+                    }
                     frOut.nLockTime = nTime + Params().PegVFrozenTime();
                     frCommonLiquidity.MoveRatioPartTo(nValue, frOut);
                     nCommonLiquidity -= nValue;
                 }
                 else if (poolFrozen[i].fractions.nFlags & CFractions::NOTARY_F) {
-                    frOut.nFlags |= CFractions::NOTARY_F;
+                    if (!frOut.SetMark(CFractions::NOTARY_F)) {
+                        sFailCause = "P09-1: Crossing marks are detected";
+                        return false;
+                    }
                     frOut.nLockTime = nTime + Params().PegFrozenTime();
 
                     vector<string> vAddresses;
@@ -1239,17 +1260,27 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
             
             // transfer marks and locktime
             if (frStake.nFlags & CFractions::NOTARY_F) {
-                frOut.nFlags |= CFractions::NOTARY_F;
+                if (!frOut.SetMark(CFractions::NOTARY_F)) {
+                    sFailCause = "PO01-1: Crossing marks are detected";
+                    fFailedPegOut = true;
+                }
                 frOut.nLockTime = frStake.nLockTime;
             }
             else if (frStake.nFlags & CFractions::NOTARY_V) {
-                frOut.nFlags |= CFractions::NOTARY_V;
+                if (!frOut.SetMark(CFractions::NOTARY_V)) {
+                    sFailCause = "PO01-2: Crossing marks are detected";
+                    fFailedPegOut = true;
+                }
                 frOut.nLockTime = frStake.nLockTime;
             }
             
             nStakeOut = i;
             break;
         }
+    }
+    
+    if (fFailedPegOut) {
+        return false;
     }
     
     if (nStakeOut == 0 && !fFailedPegOut) {

@@ -72,6 +72,16 @@ Value getpeglevel(const Array& params, bool fHelp)
     int nCycleNow = nBestHeight / nPegInterval;
     int nBuffer = 3;
     
+    if (nCycleNow <= nCyclePrev) {
+        std::stringstream ss;
+        ss << "Current cycle "
+           << nCycleNow
+           << " should be greater than previous "
+           << nCyclePrev;
+        string err = ss.str();
+        throw JSONRPCError(RPC_MISC_ERROR, err);
+    }
+    
     if (nBestHeight < nPegStartHeight) { // run on zero levels before the peg
         nBuffer = 0;
         nSupplyNow = 0;

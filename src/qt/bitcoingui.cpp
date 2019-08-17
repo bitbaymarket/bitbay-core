@@ -1490,13 +1490,20 @@ void BitcoinGUI::detectShutdown()
 
 void BitcoinGUI::ratesRequestInitiate()
 {
-    QUrl ratedb_url = QUrl("https://bitbaymarket.github.io/ratedb/rates1k.json");
+    QUrl ratedb_url = QUrl("https://bitbaymarket.github.io/ratedb/rates.json");
+    QUrl ratedb_1k_url = QUrl("https://bitbaymarket.github.io/ratedb/rates1k.json");
     if (TestNet()) {
-        ratedb_url = QUrl("https://bitbaymarket.github.io/ratedb-testnet/rates1k.json");
+        ratedb_url = QUrl("https://bitbaymarket.github.io/ratedb-testnet/rates.json");
+        ratedb_1k_url = QUrl("https://bitbaymarket.github.io/ratedb-testnet/rates1k.json");
     } 
+
     QNetworkRequest req_rates(ratedb_url);
     req_rates.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     netAccessManager->get(req_rates);
+    
+    QNetworkRequest req_rates_1k(ratedb_1k_url);
+    req_rates_1k.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    netAccessManager->get(req_rates_1k);
 }
 
 void BitcoinGUI::ratesReplyFinished(QNetworkReply *reply)
@@ -1511,63 +1518,112 @@ void BitcoinGUI::ratesReplyFinished(QNetworkReply *reply)
     }
     QByteArray data = reply->readAll();
     auto json_doc = QJsonDocument::fromJson(data);
-    auto records = json_doc.array();
     
-    bool have_rate = false;
-    double btc_in_usd = 1.;
-    double bay_in_usd = 1.;
-    double usd_in_bay = 1.;
-    deque<double> btc_rates;
-    deque<double> bay_rates;
-    
-    for(int i=0; i<records.size(); i++) {
-        auto record = records.at(i);
-        if (!record.isObject()) continue;
-        auto record_obj = record.toObject();
+    if (reply->url().path().endsWith("rates1k.json")) {
+        
+        auto records = json_doc.array();
+        
+        bool have_rate = false;
+        double btc_in_usd = 1.;
+        double bay_in_usd = 1.;
+        double usd_in_bay = 1.;
+        deque<double> btc_rates;
+        deque<double> bay_rates;
+        
+        for(int i=0; i<records.size(); i++) {
+            auto record = records.at(i);
+            if (!record.isObject()) continue;
+            auto record_obj = record.toObject();
+            auto record_bay = record_obj["BAY"];
+            auto record_btc = record_obj["BTC"];
+            if (!record_bay.isObject()) continue;
+            if (!record_btc.isObject()) continue;
+            auto record_btc_obj = record_btc.toObject();
+            auto record_bay_obj = record_bay.toObject();
+            auto record_btc_price = record_btc_obj["price"];
+            auto record_bay_price = record_bay_obj["price"];
+            if (!record_bay_price.isDouble()) continue;
+            if (!record_btc_price.isDouble()) continue;
+            bay_in_usd = record_bay_price.toDouble();
+            if (bay_in_usd >0) {
+                have_rate = true;
+                usd_in_bay = 1. / bay_in_usd;
+            }
+            btc_in_usd = record_btc_price.toDouble();
+            
+            btc_rates.push_back(btc_in_usd);
+            bay_rates.push_back(bay_in_usd);
+            
+            while (btc_rates.size() > 1000) {
+                btc_rates.pop_front();
+            }
+            while (bay_rates.size() > 1000) {
+                bay_rates.pop_front();
+            }
+        }
+        
+        
+        if (have_rate) {
+            oneBayRateLabel->setText(tr("1 BAY = %1 USD").arg(bay_in_usd));
+            oneUsdRateLabel->setText(tr("1 USD = %1 BAY").arg(usd_in_bay));
+            
+            vector<double> v_btc_rates;
+            vector<double> v_bay_rates;
+            for(size_t i=0; i<btc_rates.size(); ++i) v_btc_rates.push_back(btc_rates[i]);
+            for(size_t i=0; i<bay_rates.size(); ++i) v_bay_rates.push_back(bay_rates[i]);
+            
+            if (walletModel) {
+                walletModel->setBtcRates(v_btc_rates);
+                walletModel->setBayRates(v_bay_rates);
+            } else {
+                vFirstRetrievedBtcRates = v_btc_rates;
+                vFirstRetrievedBayRates = v_bay_rates;
+            }
+        }
+    }
+    else if (reply->url().path().endsWith("rates.json")) {
+        bool have_rate = false;
+        double bay_in_usd = 1.;
+        double usd_in_bay = 1.;
+        double bay_floor_in_usd = 1.;
+        
+        auto record_obj = json_doc.object();
         auto record_bay = record_obj["BAY"];
         auto record_btc = record_obj["BTC"];
-        if (!record_bay.isObject()) continue;
-        if (!record_btc.isObject()) continue;
+        if (!record_bay.isObject()) return;
+        if (!record_btc.isObject()) return;
         auto record_btc_obj = record_btc.toObject();
         auto record_bay_obj = record_bay.toObject();
         auto record_btc_price = record_btc_obj["price"];
         auto record_bay_price = record_bay_obj["price"];
-        if (!record_bay_price.isDouble()) continue;
-        if (!record_btc_price.isDouble()) continue;
+        auto record_bay_floor = record_bay_obj["floor"];
+        if (!record_bay_price.isDouble()) return;
+        if (!record_bay_floor.isDouble()) return;
+        if (!record_btc_price.isDouble()) return;
+        bay_floor_in_usd = record_bay_floor.toDouble();
         bay_in_usd = record_bay_price.toDouble();
         if (bay_in_usd >0) {
             have_rate = true;
             usd_in_bay = 1. / bay_in_usd;
         }
-        btc_in_usd = record_btc_price.toDouble();
         
-        btc_rates.push_back(btc_in_usd);
-        bay_rates.push_back(bay_in_usd);
-        
-        while (btc_rates.size() > 1000) {
-            btc_rates.pop_front();
-        }
-        while (bay_rates.size() > 1000) {
-            bay_rates.pop_front();
-        }
-    }
-    
-    
-    if (have_rate) {
-        oneBayRateLabel->setText(tr("1 BAY = %1 USD").arg(bay_in_usd));
-        oneUsdRateLabel->setText(tr("1 USD = %1 BAY").arg(usd_in_bay));
-        
-        vector<double> v_btc_rates;
-        vector<double> v_bay_rates;
-        for(size_t i=0; i<btc_rates.size(); ++i) v_btc_rates.push_back(btc_rates[i]);
-        for(size_t i=0; i<bay_rates.size(); ++i) v_bay_rates.push_back(bay_rates[i]);
-        
-        if (walletModel) {
-            walletModel->setBtcRates(v_btc_rates);
-            walletModel->setBayRates(v_bay_rates);
-        } else {
-            vFirstRetrievedBtcRates = v_btc_rates;
-            vFirstRetrievedBayRates = v_bay_rates;
+        if (have_rate) {
+            oneBayRateLabel->setText(tr("1 BAY = %1 USD").arg(bay_in_usd));
+            oneUsdRateLabel->setText(tr("1 USD = %1 BAY").arg(usd_in_bay));
+            
+            auto record_bay_vote = record_bay_obj["pegvote"];
+            if (!record_bay_vote.isString()) return;
+            
+            QString pegvote = record_bay_vote.toString();
+            if (pegvote == "inflate") {
+                walletModel->setTrackerVote(PEG_VOTE_INFLATE, bay_floor_in_usd);
+            } else if (pegvote == "deflate") {
+                walletModel->setTrackerVote(PEG_VOTE_DEFLATE, bay_floor_in_usd);
+            } else if (pegvote == "nochange") {
+                walletModel->setTrackerVote(PEG_VOTE_NOCHANGE, bay_floor_in_usd);
+            } else {
+                walletModel->setTrackerVote(PEG_VOTE_NONE, bay_floor_in_usd);
+            }
         }
     }
 }

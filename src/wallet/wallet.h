@@ -117,6 +117,7 @@ private:
 
     // peg vote type for staking
     PegVoteType pegVoteType = PEG_VOTE_AUTO;
+    PegVoteType trackerVoteType = PEG_VOTE_NONE;
     PegVoteType lastAutoPegVoteType = PEG_VOTE_NONE;
     
     std::vector<double> vBayRates;
@@ -408,6 +409,7 @@ public:
     
     void SetBayRates(std::vector<double>);
     void SetBtcRates(std::vector<double>);
+    void SetTrackerVote(PegVoteType, double dPeakRate);
     
     bool SetRewardAddress(std::string addr, bool write_wallet);
     std::string GetRewardAddress() const;

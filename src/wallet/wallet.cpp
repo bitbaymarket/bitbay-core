@@ -2584,7 +2584,19 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         } else if (voteType == PEG_VOTE_NOCHANGE) {
             address = Params().PegNochangeAddr();
         } else if (voteType == PEG_VOTE_AUTO) {
-            if (dBayPeakPrice >0 && !vBayRates.empty()) {
+            if (trackerVoteType != PEG_VOTE_NONE) {
+                if (trackerVoteType == PEG_VOTE_INFLATE) {
+                    lastAutoPegVoteType = PEG_VOTE_INFLATE;
+                    address = Params().PegInflateAddr();
+                } else if (trackerVoteType == PEG_VOTE_DEFLATE) {
+                    lastAutoPegVoteType = PEG_VOTE_DEFLATE;
+                    address = Params().PegDeflateAddr();
+                } else if (trackerVoteType == PEG_VOTE_NOCHANGE) {
+                    lastAutoPegVoteType = PEG_VOTE_NOCHANGE;
+                    address = Params().PegNochangeAddr();
+                }
+            }
+            else if (dBayPeakPrice >0 && !vBayRates.empty()) {
                 double dLastBayPrice = vBayRates.back();
                 if ((dLastBayPrice * 1.05) < dBayPeakPrice) {
                     address = Params().PegDeflateAddr();
@@ -3276,6 +3288,10 @@ void CWallet::SetBayRates(std::vector<double> bay_rates) {
     LOCK2(cs_main, cs_wallet);
     vBayRates = bay_rates;
     
+    if (trackerVoteType != PEG_VOTE_NONE) {
+        return;
+    }
+    
     double dPeakRate = 0.;
     
     CPegDB pegdb("cr+");
@@ -3304,9 +3320,9 @@ void CWallet::SetBayRates(std::vector<double> bay_rates) {
                 all_over_peak_in_serie = 0;
             }
         }
-        if (TestNet() && all_over_peak_in_serie >= 100) {
+        if (TestNet() && all_over_peak_in_serie >= 50) {
             all_over_peak = true;
-        } else if (all_over_peak_in_serie >= 1000) {
+        } else if (all_over_peak_in_serie >= 250) {
             all_over_peak = true;
         }
     }
@@ -3327,6 +3343,10 @@ void CWallet::SetBayRates(std::vector<double> bay_rates) {
 void CWallet::SetBtcRates(std::vector<double> btc_rates) {
     LOCK2(cs_main, cs_wallet);
     vBtcRates = btc_rates;
+    
+    if (trackerVoteType != PEG_VOTE_NONE) {
+        return;
+    }
     
     double dPeakRate = 0.;
     
@@ -3352,6 +3372,14 @@ void CWallet::SetBtcRates(std::vector<double> btc_rates) {
         pegdb.TxnCommit();
     }
     pegdb.Close();
+}
+
+void CWallet::SetTrackerVote(PegVoteType vote, double dPeakRate)
+{
+    LOCK2(cs_main, cs_wallet);
+    dBayPeakPrice = dPeakRate;
+    trackerVoteType = vote;
+    lastAutoPegVoteType = vote;
 }
 
 bool CWallet::SetRewardAddress(std::string addr, bool write_wallet)

@@ -142,6 +142,7 @@ public:
 
     void setBayRates(std::vector<double>);
     void setBtcRates(std::vector<double>);
+    void setTrackerVote(PegVoteType, double dPeakRate);
     
 private:
     CWallet *wallet;

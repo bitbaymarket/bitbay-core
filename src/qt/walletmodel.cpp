@@ -725,3 +725,7 @@ void WalletModel::setBtcRates(std::vector<double> vRates) {
     wallet->SetBtcRates(vRates);
 }
 
+void WalletModel::setTrackerVote(PegVoteType vote, double dPeakRate) {
+    wallet->SetTrackerVote(vote, dPeakRate);
+}
+

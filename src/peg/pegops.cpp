@@ -110,6 +110,8 @@ bool updatepegbalances(
         const std::string & inp_peglevel_hex,
 
         std::string &   out_balance_pegdata64,
+        int64_t     &   out_balance_liquid,
+        int64_t     &   out_balance_reserve,
         std::string &   out_pegpool_pegdata64,
         std::string &   out_err)
 {
@@ -148,8 +150,10 @@ bool updatepegbalances(
         return false;
     }
    
-    out_pegpool_pegdata64 = pdPegPool.ToString();
-    out_balance_pegdata64 = pdBalance.ToString();
+    out_pegpool_pegdata64   = pdPegPool.ToString();
+    out_balance_pegdata64   = pdBalance.ToString();
+    out_balance_liquid      = pdBalance.nLiquid;
+    out_balance_reserve     = pdBalance.nReserve;
 
     return true;
 }
@@ -162,7 +166,11 @@ bool movecoins(
         bool                inp_cross_cycles,
 
         std::string &   out_src_pegdata64,
+        int64_t     &   out_src_liquid,
+        int64_t     &   out_src_reserve,
         std::string &   out_dst_pegdata64,
+        int64_t     &   out_dst_liquid,
+        int64_t     &   out_dst_reserve,
         std::string &   out_err)
 {
     out_err.clear();
@@ -195,8 +203,13 @@ bool movecoins(
         return false;
     }
     
-    out_src_pegdata64 = pdSrc.ToString();
-    out_dst_pegdata64 = pdDst.ToString();
+    out_src_pegdata64   = pdSrc.ToString();
+    out_src_liquid      = pdSrc.nLiquid;
+    out_src_reserve     = pdSrc.nReserve;
+    
+    out_dst_pegdata64   = pdDst.ToString();
+    out_dst_liquid      = pdDst.nLiquid;
+    out_dst_reserve     = pdDst.nReserve;
     
     return true;
 }
@@ -208,7 +221,11 @@ bool moveliquid(
         const std::string & inp_peglevel_hex,
 
         std::string &   out_src_pegdata64,
+        int64_t     &   out_src_liquid,
+        int64_t     &   out_src_reserve,
         std::string &   out_dst_pegdata64,
+        int64_t     &   out_dst_liquid,
+        int64_t     &   out_dst_reserve,
         std::string &   out_err)
 {
     CPegLevel peglevel(inp_peglevel_hex);
@@ -238,8 +255,13 @@ bool moveliquid(
         return false;
     }
 
-    out_src_pegdata64 = pdSrc.ToString();
-    out_dst_pegdata64 = pdDst.ToString();
+    out_src_pegdata64   = pdSrc.ToString();
+    out_src_liquid      = pdSrc.nLiquid;
+    out_src_reserve     = pdSrc.nReserve;
+    
+    out_dst_pegdata64   = pdDst.ToString();
+    out_dst_liquid      = pdDst.nLiquid;
+    out_dst_reserve     = pdDst.nReserve;
     
     return true;
 }
@@ -251,7 +273,11 @@ bool movereserve(
         const std::string & inp_peglevel_hex,
 
         std::string &   out_src_pegdata64,
+        int64_t     &   out_src_liquid,
+        int64_t     &   out_src_reserve,
         std::string &   out_dst_pegdata64,
+        int64_t     &   out_dst_liquid,
+        int64_t     &   out_dst_reserve,
         std::string &   out_err)
 {
     CPegLevel peglevel(inp_peglevel_hex);
@@ -281,8 +307,14 @@ bool movereserve(
         return false;
     }
 
-    out_src_pegdata64 = pdSrc.ToString();
-    out_dst_pegdata64 = pdDst.ToString();
+    out_src_pegdata64   = pdSrc.ToString();
+    out_src_liquid      = pdSrc.nLiquid;
+    out_src_reserve     = pdSrc.nReserve;
+    
+    out_dst_pegdata64   = pdDst.ToString();
+    out_dst_liquid      = pdDst.nLiquid;
+    out_dst_reserve     = pdDst.nReserve;
+    
     return true;
 }
 
@@ -291,6 +323,8 @@ bool removecoins(
         const std::string & inp_remove_pegdata64,
 
         std::string &   out_from_pegdata64,
+        int64_t     &   out_from_liquid,
+        int64_t     &   out_from_reserve,
         std::string &   out_err)
 {
     CPegData pdFrom(inp_from_pegdata64);
@@ -309,7 +343,10 @@ bool removecoins(
     pdFrom.nLiquid      -= pdRemove.nLiquid;
     pdFrom.nReserve     -= pdRemove.nReserve;
 
-    out_from_pegdata64 = pdFrom.ToString();
+    out_from_pegdata64  = pdFrom.ToString();
+    out_from_liquid     = pdFrom.nLiquid;
+    out_from_reserve    = pdFrom.nReserve;
+    
     return true;
 }
 

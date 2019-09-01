@@ -46,6 +46,8 @@ extern bool updatepegbalances(
         const std::string & inp_peglevel_hex,
         
         std::string &   out_balance_pegdata64,
+        int64_t     &   out_balance_liquid,
+        int64_t     &   out_balance_reserve,
         std::string &   out_pegpool_pegdata64,
         std::string &   out_err);
 
@@ -57,7 +59,11 @@ extern bool movecoins(
         bool                inp_cross_cycles,
         
         std::string &   out_src_pegdata64,
+        int64_t     &   out_src_liquid,
+        int64_t     &   out_src_reserve,
         std::string &   out_dst_pegdata64,
+        int64_t     &   out_dst_liquid,
+        int64_t     &   out_dst_reserve,
         std::string &   out_err);
 
 extern bool moveliquid(
@@ -67,7 +73,11 @@ extern bool moveliquid(
         const std::string & inp_peglevel_hex,
         
         std::string &   out_src_pegdata64,
+        int64_t     &   out_src_liquid,
+        int64_t     &   out_src_reserve,
         std::string &   out_dst_pegdata64,
+        int64_t     &   out_dst_liquid,
+        int64_t     &   out_dst_reserve,
         std::string &   out_err);
 
 extern bool movereserve(
@@ -77,14 +87,20 @@ extern bool movereserve(
         const std::string & inp_peglevel_hex,
         
         std::string &   out_src_pegdata64,
+        int64_t     &   out_src_liquid,
+        int64_t     &   out_src_reserve,
         std::string &   out_dst_pegdata64,
+        int64_t     &   out_dst_liquid,
+        int64_t     &   out_dst_reserve,
         std::string &   out_err);
 
 extern bool removecoins(
-        const std::string & inp_arg1_pegdata64,
-        const std::string & inp_arg2_pegdata64,
+        const std::string & inp_from_pegdata64,
+        const std::string & inp_remove_pegdata64,
         
-        std::string &   out_arg1_pegdata64,
+        std::string &   out_from_pegdata64,
+        int64_t     &   out_from_liquid,
+        int64_t     &   out_from_reserve,
         std::string &   out_err);
 
 }

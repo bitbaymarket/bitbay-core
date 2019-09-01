@@ -116,6 +116,8 @@ void TestPegOps::test1k()
             
             string pegpool_out_b64;
             string user_balance_out_b64;
+            int64_t user_balance_out_liquid;
+            int64_t user_balance_out_reserve;
             
             bool ok8 = updatepegbalances(
                         user_balance,
@@ -123,6 +125,8 @@ void TestPegOps::test1k()
                         peglevel_hex,
                         
                         user_balance_out_b64,
+                        user_balance_out_liquid,
+                        user_balance_out_reserve,
                         pegpool_out_b64,
                         out_err
                         );
@@ -163,6 +167,11 @@ void TestPegOps::test1k()
             string src_out_b64;
             string dst_out_b64;
             
+            int64_t src_out_liquid;
+            int64_t src_out_reserve;
+            int64_t dst_out_liquid;
+            int64_t dst_out_reserve;
+            
             CPegData pdSrc(user_src);
             if (!pdSrc.IsValid()) {
                 QVERIFY(false);
@@ -182,7 +191,11 @@ void TestPegOps::test1k()
                             peglevel_hex,
                             
                             src_out_b64,
+                            src_out_liquid,
+                            src_out_reserve,
                             dst_out_b64,
+                            dst_out_liquid,
+                            dst_out_reserve,
                             out_err);
                 
                 if (!ok11) {
@@ -251,7 +264,11 @@ void TestPegOps::test1k()
                             peglevel_hex,
                             
                             src_out_b64,
+                            src_out_liquid,
+                            src_out_reserve,
                             dst_out_b64,
+                            dst_out_liquid,
+                            dst_out_reserve,
                             out_err);
                 
                 if (!ok12) {

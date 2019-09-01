@@ -103,6 +103,8 @@ void TestPegOps::test6()
     
     string pegpool2_r1_b64;
     string user1_r2_b64;
+    int64_t user1_r2_liquid;
+    int64_t user1_r2_reserve;
     
     bool ok8 = updatepegbalances(
                 user1_r1_b64,
@@ -110,6 +112,8 @@ void TestPegOps::test6()
                 peglevel2_hex,
                 
                 user1_r2_b64,
+                user1_r2_liquid,
+                user1_r2_reserve,
                 pegpool2_r1_b64,
                 out_err
                 );
@@ -121,6 +125,8 @@ void TestPegOps::test6()
     
     string pegpool2_r2_b64;
     string user2_r2_b64;
+    int64_t user2_r2_liquid;
+    int64_t user2_r2_reserve;
     
     bool ok9 = updatepegbalances(
                 user2_r1_b64,
@@ -128,6 +134,8 @@ void TestPegOps::test6()
                 peglevel2_hex,
                 
                 user2_r2_b64,
+                user2_r2_liquid,
+                user2_r2_reserve,
                 pegpool2_r2_b64,
                 out_err
                 );

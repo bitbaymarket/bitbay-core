@@ -138,6 +138,8 @@ bool updatepegbalances(
     if (pdBalance.peglevel.nCycle == peglevelNew.nCycle) { // already up-to-dated
         out_pegpool_pegdata64 = inp_pegpool_pegdata64;
         out_balance_pegdata64 = inp_balance_pegdata64;
+        out_balance_liquid    = pdBalance.nLiquid;
+        out_balance_reserve   = pdBalance.nReserve;
         out_err = "Already up-to-dated";
         return true;
     }

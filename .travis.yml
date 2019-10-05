@@ -462,7 +462,7 @@ script:
             CICD=travis_x64 \
             \"USE_DBUS=0\" \
             \"USE_QRCODE=0\" \
-            \"USE_WALLET=0\" \
+            \"USE_WALLET=1\" \
             \"USE_TESTNET=1\" \
             \"USE_EXCHANGE=1\" \
             \"BOOST_LIB_SUFFIX=-mt\" \

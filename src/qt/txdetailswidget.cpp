@@ -1586,6 +1586,7 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
     auto row_item_cycle = new QTreeWidgetItem(row_cycle);
     row_item_cycle->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
     row_item_cycle->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    row_item_cycle->setFlags(row_item_cycle->flags() | Qt::ItemIsEditable );
     table->addTopLevelItem(row_item_cycle);
 
     QStringList row_cyclep;
@@ -1593,6 +1594,7 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
     auto row_item_cyclep = new QTreeWidgetItem(row_cyclep);
     row_item_cyclep->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
     row_item_cyclep->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    row_item_cyclep->setFlags(row_item_cycle->flags() | Qt::ItemIsEditable );
     table->addTopLevelItem(row_item_cyclep);
     
     QStringList row_peg;
@@ -1777,6 +1779,43 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
     fplot->replot();
 }
 
+void TxDetailsWidget::copyPegData(QTreeWidget * table)
+{
+    if (!table) return;
+    int n = table->topLevelItemCount();
+    
+    CPegData pegdata;
+    pegdata.fractions = pegdata.fractions.Std();
+    
+    for(int i=0; i<n; i++) {
+        QString name = table->topLevelItem(i)->text(0);
+        QString value = table->topLevelItem(i)->text(1);
+        value = value.replace(".", "");
+        value = value.replace(",", "");
+        
+        if (name == tr("Cycle")) pegdata.peglevel.nCycle = value.toInt();
+        if (name == tr("Prev")) pegdata.peglevel.nCyclePrev = value.toInt();
+        if (name == tr("Peg")) pegdata.peglevel.nSupply = value.toInt();
+        if (name == tr("PegN")) pegdata.peglevel.nSupplyNext = value.toInt();
+        if (name == tr("PegNN")) pegdata.peglevel.nSupplyNextNext = value.toInt();
+        if (name == tr("Shift")) pegdata.peglevel.nShift = value.toInt();
+        if (name == tr("Part")) pegdata.peglevel.nShiftLastPart = value.toInt();
+        if (name == tr("PTot")) pegdata.peglevel.nShiftLastTotal = value.toInt();
+        if (name == tr("Lsave")) pegdata.nLiquid = value.toLongLong();
+        if (name == tr("Rsave")) pegdata.nReserve = value.toLongLong();
+        
+        bool isIndex = false;
+        int index = name.toInt(&isIndex);
+        if (isIndex && index >=0 && index < PEG_SIZE) {
+            pegdata.fractions.f[index] = value.toLongLong();
+        }
+        qDebug() << pegdata.fractions.Total();
+    }
+    
+    QString b64 = QString::fromStdString(pegdata.ToString());
+    QApplication::clipboard()->setText(b64);
+}
+
 void TxDetailsWidget::openFractionsMenu(const QPoint & pos)
 {
     QTreeWidget * table = dynamic_cast<QTreeWidget *>(sender());
@@ -1830,6 +1869,10 @@ void TxDetailsWidget::openFractionsMenu(const QPoint & pos)
                                   pegdata.peglevel, 
                                   pegdata.nLiquid, 
                                   pegdata.nReserve);
+                });
+                a = m.addAction(tr("Copy pegdata"));
+                connect(a, &QAction::triggered, [&] {
+                    copyPegData(table);
                 });
             }
         }catch (std::exception &) { ; }

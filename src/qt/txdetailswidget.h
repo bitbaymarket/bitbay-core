@@ -74,6 +74,7 @@ private slots:
                        const CPegLevel &,
                        int64_t nLiquidSave = -1,
                        int64_t nReserveSave = -1);
+    void copyPegData(QTreeWidget *);
 
 private:
     Ui::TxDetails *ui;

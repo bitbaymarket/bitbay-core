@@ -793,7 +793,7 @@ bool AppInit2(boost::thread_group& threadGroup)
     // at least 1MB for import (musl 80KB)
     boost::thread::attributes import_thread_attrs;
     import_thread_attrs.set_stack_size(1096*1096); 
-    auto import_thread = new thread(import_thread_attrs,
+    auto import_thread = new boost::thread(import_thread_attrs,
                                     boost::bind(&ThreadImport, vImportFiles));
     threadGroup.add_thread(import_thread);
 

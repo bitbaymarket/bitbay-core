@@ -16,90 +16,67 @@
 #include <QPainter>
 #include <QTimer>
 
-#define DECORATION_SIZE 64
-#define NUM_ITEMS 10
-
-class TxViewDelegate : public QAbstractItemDelegate
+void TxViewDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
+					  const QModelIndex &index ) const
 {
-    Q_OBJECT
-public:
-    TxViewDelegate(): QAbstractItemDelegate(), unit(BitcoinUnits::BTC)
-    {
+	painter->save();
 
-    }
-
-    inline void paint(QPainter *painter, const QStyleOptionViewItem &option,
-                      const QModelIndex &index ) const
-    {
-        painter->save();
-
-        QIcon icon = qvariant_cast<QIcon>(index.data(Qt::DecorationRole));
-        QRect mainRect = option.rect;
+	QIcon icon = qvariant_cast<QIcon>(index.data(Qt::DecorationRole));
+	QRect mainRect = option.rect;
 //        QRect decorationRect(mainRect.topLeft(), QSize(DECORATION_SIZE, DECORATION_SIZE));
 //        int xspace = DECORATION_SIZE + 8;
-        int xspace = 0;
-        int ypad = 6;
-        //int halfheight = (mainRect.height() - 2*ypad)/2;
-        int halfheight = (mainRect.height() - 2*ypad);
-        QRect amountRect(mainRect.left() + xspace, mainRect.top()+ypad, mainRect.width() - xspace, halfheight);
-        //QRect addressRect(mainRect.left() + xspace, mainRect.top()+ypad+halfheight, mainRect.width() - xspace, halfheight);
-        //icon.paint(painter, decorationRect);
+	int xspace = 0;
+	int ypad = 6;
+	//int halfheight = (mainRect.height() - 2*ypad)/2;
+	int halfheight = (mainRect.height() - 2*ypad);
+	QRect amountRect(mainRect.left() + xspace, mainRect.top()+ypad, mainRect.width() - xspace, halfheight);
+	//QRect addressRect(mainRect.left() + xspace, mainRect.top()+ypad+halfheight, mainRect.width() - xspace, halfheight);
+	//icon.paint(painter, decorationRect);
 
-        QDateTime date = index.data(TransactionTableModel::DateRole).toDateTime();
-        QString address = index.data(Qt::DisplayRole).toString();
-        qint64 amount = index.data(TransactionTableModel::AmountRole).toLongLong();
-        bool confirmed = index.data(TransactionTableModel::ConfirmedRole).toBool();
-        QVariant value = index.data(Qt::ForegroundRole);
-        QColor foreground = option.palette.color(QPalette::Text);
-        if(qVariantCanConvert<QColor>(value))
-        {
-            foreground = qvariant_cast<QColor>(value);
-        }
+	QDateTime date = index.data(TransactionTableModel::DateRole).toDateTime();
+	QString address = index.data(Qt::DisplayRole).toString();
+	qint64 amount = index.data(TransactionTableModel::AmountRole).toLongLong();
+	bool confirmed = index.data(TransactionTableModel::ConfirmedRole).toBool();
+	QVariant value = index.data(Qt::ForegroundRole);
+	QColor foreground = option.palette.color(QPalette::Text);
+	if(qVariantCanConvert<QColor>(value))
+	{
+		foreground = qvariant_cast<QColor>(value);
+	}
 
-        painter->setPen(foreground);
-        //painter->drawText(addressRect, Qt::AlignLeft|Qt::AlignVCenter, address);
+	painter->setPen(foreground);
+	//painter->drawText(addressRect, Qt::AlignLeft|Qt::AlignVCenter, address);
 
-        if(amount < 0)
-        {
-            foreground = COLOR_NEGATIVE;
-        }
-        else if(!confirmed)
-        {
-            foreground = COLOR_UNCONFIRMED;
-        }
-        else
-        {
-            foreground = option.palette.color(QPalette::Text);
-        }
-        painter->setPen(foreground);
-        QString amountText = BitcoinUnits::formatWithUnit(unit, amount, true);
-        if(!confirmed)
-        {
-            amountText = QString("[") + amountText + QString("]");
-        }
-        QFont f = painter->font();
-        QFont fb = f;
-        fb.setBold(true);
-        painter->setFont(fb);
-        painter->drawText(amountRect, Qt::AlignRight|Qt::AlignVCenter, amountText);
+	if(amount < 0)
+	{
+		foreground = COLOR_NEGATIVE;
+	}
+	else if(!confirmed)
+	{
+		foreground = COLOR_UNCONFIRMED;
+	}
+	else
+	{
+		foreground = option.palette.color(QPalette::Text);
+	}
+	painter->setPen(foreground);
+	QString amountText = BitcoinUnits::formatWithUnit(unit, amount, true);
+	if(!confirmed)
+	{
+		amountText = QString("[") + amountText + QString("]");
+	}
+	QFont f = painter->font();
+	QFont fb = f;
+	fb.setBold(true);
+	painter->setFont(fb);
+	painter->drawText(amountRect, Qt::AlignRight|Qt::AlignVCenter, amountText);
 
-        painter->setFont(f);
-        painter->setPen(QPen("#666666"));
-        painter->drawText(amountRect, Qt::AlignLeft|Qt::AlignVCenter, GUIUtil::dateTimeStr(date));
+	painter->setFont(f);
+	painter->setPen(QPen("#666666"));
+	painter->drawText(amountRect, Qt::AlignLeft|Qt::AlignVCenter, GUIUtil::dateTimeStr(date));
 
-        painter->restore();
-    }
-
-    inline QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
-    {
-        //return QSize(DECORATION_SIZE, DECORATION_SIZE);
-        return QSize(DECORATION_SIZE, DECORATION_SIZE/2);
-    }
-
-    int unit;
-
-};
-#include "overviewpage.moc"
+	painter->restore();
+}
 
 OverviewPage::OverviewPage(QWidget *parent) :
     QWidget(parent),

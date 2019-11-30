@@ -2,8 +2,10 @@
 #define OVERVIEWPAGE_H
 
 #include <QWidget>
+#include <QAbstractItemDelegate>
 #include "walletmodel.h"
 #include "wallet.h"
+#include "bitcoinunits.h"
 
 namespace Ui {
     class OverviewPage;
@@ -15,6 +17,7 @@ class TransactionFilterProxy;
 
 QT_BEGIN_NAMESPACE
 class QModelIndex;
+class QStyleOptionViewItem;
 QT_END_NAMESPACE
 
 /** Overview ("home") page widget */
@@ -61,6 +64,31 @@ private slots:
     void updateAlerts();
     void updateAlerts(const QString &warnings);
     void openFrozenCoinsInfo();
+};
+
+#define DECORATION_SIZE 64
+#define NUM_ITEMS 10
+
+class TxViewDelegate : public QAbstractItemDelegate
+{
+    Q_OBJECT
+public:
+    TxViewDelegate(): QAbstractItemDelegate(), unit(BitcoinUnits::BTC)
+    {
+
+    }
+
+    void paint(QPainter *painter, const QStyleOptionViewItem &option,
+			   const QModelIndex &index ) const;
+
+    inline QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
+    {
+        //return QSize(DECORATION_SIZE, DECORATION_SIZE);
+        return QSize(DECORATION_SIZE, DECORATION_SIZE/2);
+    }
+
+    int unit;
+
 };
 
 #endif // OVERVIEWPAGE_H

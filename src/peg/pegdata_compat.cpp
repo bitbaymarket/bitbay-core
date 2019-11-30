@@ -64,7 +64,7 @@ bool CFractions::Unpack2(CDataStream& inp)
         nFlags = nSerFlags | STD;
     }
     else if (nSerFlags & SER_RAW) {
-        auto ser = reinterpret_cast<char *>(f);
+        auto ser = reinterpret_cast<char *>(f.get());
         inp.read(ser, PEG_SIZE*sizeof(int64_t));
         nFlags = nSerFlags | STD;
     }
@@ -110,7 +110,7 @@ bool CFractions::Unpack1(CDataStream& inp)
         nFlags = nSerFlags | STD;
     }
     else if (nSerFlags & SER_RAW) {
-        auto ser = reinterpret_cast<char *>(f);
+        auto ser = reinterpret_cast<char *>(f.get());
         inp.read(ser, PEG_SIZE*sizeof(int64_t));
         nFlags = nSerFlags | STD;
     }

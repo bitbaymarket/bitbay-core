@@ -23,11 +23,13 @@ using namespace boost;
 
 CFractions::CFractions()
     :nFlags(VALUE)
+    ,f(new int64_t[PEG_SIZE])
 {
     f[0] = 0; // fast init first item
 }
 CFractions::CFractions(int64_t value, uint32_t flags)
     :nFlags(flags)
+    ,f(new int64_t[PEG_SIZE])
 {
     if (flags & VALUE)
         f[0] = value; // fast init first item
@@ -45,10 +47,22 @@ CFractions::CFractions(const CFractions & o)
     :nFlags(o.nFlags)
     ,nLockTime(o.nLockTime)
     ,sReturnAddr(o.sReturnAddr)
+    ,f(new int64_t[PEG_SIZE])
 {
     for(int i=0; i< PEG_SIZE; i++) {
         f[i] = o.f[i];
     }
+}
+
+CFractions& CFractions::operator=(const CFractions& o)
+{
+    nFlags = o.nFlags;
+    nLockTime = o.nLockTime;
+    sReturnAddr = o.sReturnAddr;
+    for(int i=0; i< PEG_SIZE; i++) {
+        f[i] = o.f[i];
+    }
+    return *this;
 }
 
 void CFractions::ToDeltas(int64_t* deltas) const
@@ -112,7 +126,7 @@ bool CFractions::Pack(CDataStream& out, unsigned long* report_len) const
             out << uint32_t(nFlags | SER_RAW);
             out << nLockTime;
             out << sReturnAddr;
-            auto ser = reinterpret_cast<const char *>(f);
+            auto ser = reinterpret_cast<const char *>(f.get());
             out.write(ser, PEG_SIZE*sizeof(int64_t));
         }
     }
@@ -157,7 +171,7 @@ bool CFractions::Unpack(CDataStream& inp)
         nFlags = nSerFlags | STD;
     }
     else if (nSerFlags & SER_RAW) {
-        auto ser = reinterpret_cast<char *>(f);
+        auto ser = reinterpret_cast<char *>(f.get());
         inp.read(ser, PEG_SIZE*sizeof(int64_t));
         nFlags = nSerFlags | STD;
     }

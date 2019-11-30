@@ -6,6 +6,8 @@
 #define BITBAY_PEGDATA_H
 
 #include "bignum.h"
+#include <cstdint>
+#include <string>
 
 enum
 {
@@ -97,11 +99,12 @@ public:
         SER_ZDELTA  = (1 << 17),
         SER_RAW     = (1 << 18)
     };
-    int64_t f[PEG_SIZE];
+    std::unique_ptr<int64_t[]> f;
 
     CFractions();
     CFractions(int64_t, uint32_t flags);
     CFractions(const CFractions &);
+    CFractions& operator=(const CFractions&);
 
     bool Pack(CDataStream &, unsigned long* len =nullptr) const;
     bool Unpack(CDataStream &);

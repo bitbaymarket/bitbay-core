@@ -172,6 +172,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "movecoins", 0 },
     { "moveliquid", 0 },
     { "movereserve", 0 },
+    { "prepareliquidwithdraw", 3 },
+    { "preparereservewithdraw", 3 },
 };
 
 class CRPCConvertTable

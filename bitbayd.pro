@@ -195,6 +195,7 @@ LIBS += $$join(OPENSSL_LIB_PATH,,-L,)
 LIBS += -lssl -lcrypto 
 LIBS += -ldb$$BDB_LIB_SUFFIX 
 LIBS += -ldb_cxx$$BDB_LIB_SUFFIX
+LIBS += -lz
 
 # -lgdi32 has to happen after -lcrypto (see  #681)
 windows:LIBS += -lws2_32 -lshlwapi -lmswsock -lole32 -loleaut32 -luuid -lgdi32

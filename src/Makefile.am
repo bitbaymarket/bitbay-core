@@ -130,21 +130,6 @@ libbitcoin_server_a_SOURCES = \
   wallet/rpcwallet.cpp \
   wallet/wallet.cpp \
   wallet/walletdb.cpp \
-  peg/peg.cpp \
-  peg/peg_compat.cpp \
-  peg/pegdata.cpp \
-  peg/pegdata_compat.cpp \
-  peg/pegdb-leveldb.cpp \
-  peg/pegfractions.cpp \
-  peg/peglevel.cpp \
-  peg/pegops.cpp \
-  peg/pegopsp.cpp \
-  peg/pegutil.cpp \
-  exchange/rpcdeposit.cpp \
-  exchange/rpcexchange.cpp \
-  exchange/rpcexchange_util.cpp \
-  exchange/rpcfaucet.cpp \
-  exchange/rpcwithdraw.cpp \
   $(BITCOIN_CORE_H)
 
 if GLIBC_BACK_COMPAT

@@ -1,8 +1,10 @@
 
 macx {
 
-TARGET = "BitBay-Wallet-Qt"
-QMAKE_INFO_PLIST = share/qt/Info.plist
+qt {
+    TARGET = "BitBay-Wallet-Qt"
+    QMAKE_INFO_PLIST = share/qt/Info.plist
+}
 
 LEVELDB_CXXFLAGS = -mmacosx-version-min=10.9
 

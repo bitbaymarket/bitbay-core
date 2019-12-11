@@ -1,6 +1,11 @@
 
 macx {
 
+TARGET = "BitBay-Wallet-Qt"
+QMAKE_INFO_PLIST = share/qt/Info.plist
+
+LEVELDB_CXXFLAGS = -mmacosx-version-min=10.9
+
 # mac: default path to brew packages
 INCLUDEPATH += /usr/local/opt/boost/include
 INCLUDEPATH += /usr/local/opt/openssl/include
@@ -35,6 +40,10 @@ isEmpty(BOOST_LIB_PATH) {
 
 isEmpty(BOOST_INCLUDE_PATH) {
     BOOST_INCLUDE_PATH = /usr/local/opt/boost/include
+}
+
+isEmpty(BOOST_LIB_SUFFIX) {
+    macx:BOOST_LIB_SUFFIX = -mt
 }
 
 }

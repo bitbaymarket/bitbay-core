@@ -204,7 +204,7 @@ LIBS += -lboost_system$$BOOST_LIB_SUFFIX
 LIBS += -lboost_filesystem$$BOOST_LIB_SUFFIX 
 LIBS += -lboost_program_options$$BOOST_LIB_SUFFIX 
 LIBS += -lboost_thread$$BOOST_THREAD_LIB_SUFFIX
-windows:LIBS += -lboost_chrono$$BOOST_LIB_SUFFIX
+LIBS += -lboost_chrono$$BOOST_LIB_SUFFIX
 
 DISTFILES += \
     src/makefile.osx \

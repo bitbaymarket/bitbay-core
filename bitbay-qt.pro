@@ -39,7 +39,6 @@ CONFIG += no_include_pwd
 CONFIG += thread
 CONFIG += c++11
 CONFIG += wallet
-#CONFIG += faucet
 
 QT += widgets
 DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0
@@ -115,7 +114,6 @@ HEADERS += src/txdb-leveldb.h
 SOURCES += src/txdb-leveldb.cpp
 !win32 {
     # we use QMAKE_CXXFLAGS_RELEASE even without RELEASE=1 because we use RELEASE to indicate linking preferences not -O preferences
-    macx:LEVELDB_CXXFLAGS=-mmacosx-version-min=10.9
     genleveldb.commands = cd $$PWD/src/leveldb && CC=$$QMAKE_CC CXX=$$QMAKE_CXX $(MAKE) OPT=\"$$QMAKE_CXXFLAGS $$LEVELDB_CXXFLAGS $$QMAKE_CXXFLAGS_RELEASE\" out-static/libleveldb.a out-static/libmemenv.a
 } else {
     # make an educated guess about what the ranlib command is called
@@ -171,7 +169,6 @@ include(src/core.pri)
 
 QWT_CONFIG += QwtPlot
 QWT_CONFIG += QwtWidgets
-#DEFINES += QWT_MOC_INCLUDE
 include(src/qt/qwt/qwt.pri)
 
 CODECFORTR = UTF-8
@@ -195,7 +192,6 @@ OTHER_FILES += \
 
 # platform specific defaults, if not overridden on command line
 isEmpty(BOOST_LIB_SUFFIX) {
-    macx:BOOST_LIB_SUFFIX = -mt
     windows:BOOST_LIB_SUFFIX = -mt
 }
 
@@ -218,18 +214,31 @@ windows:!contains(MINGW_THREAD_BUGFIX, 0) {
     QMAKE_LIBS_QT_ENTRY = -lmingwthrd $$QMAKE_LIBS_QT_ENTRY
 }
 
-macx:TARGET = "BitBay-Wallet-Qt"
-macx:QMAKE_INFO_PLIST = share/qt/Info.plist
-
 # Set libraries and includes at end, to use platform-defined defaults if not overridden
-INCLUDEPATH += $$BOOST_INCLUDE_PATH $$BDB_INCLUDE_PATH $$OPENSSL_INCLUDE_PATH $$QRENCODE_INCLUDE_PATH
-LIBS += $$join(BOOST_LIB_PATH,,-L,) $$join(BDB_LIB_PATH,,-L,) $$join(OPENSSL_LIB_PATH,,-L,) $$join(QRENCODE_LIB_PATH,,-L,)
-LIBS += $$join(OPENSSL_LIB_PATH,,-L,) -lssl -lcrypto -ldb$$BDB_LIB_SUFFIX -ldb_cxx$$BDB_LIB_SUFFIX
+INCLUDEPATH += $$BOOST_INCLUDE_PATH
+INCLUDEPATH += $$BDB_INCLUDE_PATH
+INCLUDEPATH += $$OPENSSL_INCLUDE_PATH
+INCLUDEPATH += $$QRENCODE_INCLUDE_PATH
+
+LIBS += $$join(BOOST_LIB_PATH,,-L,)
+LIBS += $$join(BDB_LIB_PATH,,-L,)
+LIBS += $$join(OPENSSL_LIB_PATH,,-L,)
+LIBS += $$join(QRENCODE_LIB_PATH,,-L,)
+LIBS += $$join(OPENSSL_LIB_PATH,,-L,)
+LIBS += -lssl -lcrypto
+LIBS += -ldb$$BDB_LIB_SUFFIX -ldb_cxx$$BDB_LIB_SUFFIX
+
 # -lgdi32 has to happen after -lcrypto (see  #681)
 windows:LIBS += -lws2_32 -lshlwapi -lmswsock -lole32 -loleaut32 -luuid -lgdi32
-LIBS += -lboost_system$$BOOST_LIB_SUFFIX -lboost_filesystem$$BOOST_LIB_SUFFIX -lboost_program_options$$BOOST_LIB_SUFFIX -lboost_thread$$BOOST_THREAD_LIB_SUFFIX
+
+LIBS += -lboost_system$$BOOST_LIB_SUFFIX
+LIBS += -lboost_filesystem$$BOOST_LIB_SUFFIX
+LIBS += -lboost_program_options$$BOOST_LIB_SUFFIX
+LIBS += -lboost_thread$$BOOST_THREAD_LIB_SUFFIX
+LIBS += -lboost_chrono$$BOOST_LIB_SUFFIX
+
+unix:LIBS += -lz
 windows:LIBS += -lboost_chrono$$BOOST_LIB_SUFFIX
-#message($$LIBS)
 
 system($$QMAKE_LRELEASE -silent $$_PRO_FILE_)
 

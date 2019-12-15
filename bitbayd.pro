@@ -195,6 +195,7 @@ LIBS += $$join(OPENSSL_LIB_PATH,,-L,)
 LIBS += -lssl -lcrypto 
 LIBS += -ldb$$BDB_LIB_SUFFIX 
 LIBS += -ldb_cxx$$BDB_LIB_SUFFIX
+LIBS += -lz
 
 # -lgdi32 has to happen after -lcrypto (see  #681)
 windows:LIBS += -lws2_32 -lshlwapi -lmswsock -lole32 -loleaut32 -luuid -lgdi32
@@ -203,7 +204,7 @@ LIBS += -lboost_system$$BOOST_LIB_SUFFIX
 LIBS += -lboost_filesystem$$BOOST_LIB_SUFFIX 
 LIBS += -lboost_program_options$$BOOST_LIB_SUFFIX 
 LIBS += -lboost_thread$$BOOST_THREAD_LIB_SUFFIX
-windows:LIBS += -lboost_chrono$$BOOST_LIB_SUFFIX
+LIBS += -lboost_chrono$$BOOST_LIB_SUFFIX
 
 DISTFILES += \
     src/makefile.osx \

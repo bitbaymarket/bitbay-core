@@ -266,8 +266,14 @@ Value registerdeposit(const Array& params, bool fHelp)
     }
     
     frDeposit = frDeposit.Std();
+    CPegData pdTxout;
+    pdTxout.fractions += frDeposit;
     pdBalance.fractions += frDeposit;
     pdExchange.fractions += frDeposit;
+
+    pdTxout.peglevel = peglevel;
+    pdTxout.nLiquid = pdTxout.fractions.High(peglevel);
+    pdTxout.nReserve = pdTxout.fractions.Low(peglevel);
     
     pdBalance.peglevel = peglevel;
     pdBalance.nLiquid = pdBalance.fractions.High(peglevel);
@@ -284,6 +290,7 @@ Value registerdeposit(const Array& params, bool fHelp)
     result.push_back(Pair("cycle", peglevel.nCycle));
     
     printpeglevel(peglevel, result);
+    printpegbalance(pdTxout, result, "txout_");
     printpegbalance(pdBalance, result, "balance_");
     printpegbalance(pdExchange, result, "exchange_");
     

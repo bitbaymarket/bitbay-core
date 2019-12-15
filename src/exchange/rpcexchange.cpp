@@ -96,9 +96,10 @@ Value getpeglevel(const Array& params, bool fHelp)
     bool ok = pegops::getpeglevel(
                 nCycleNow,
                 nCyclePrev,
-                nSupplyNow + nBuffer,
-                nSupplyNext + nBuffer,
-                nSupplyNextNext + nBuffer,
+                nBuffer,
+                nSupplyNow,
+                nSupplyNext,
+                nSupplyNextNext,
                 pdExchange,
                 pdPegShift,
                 
@@ -128,11 +129,12 @@ Value getpeglevel(const Array& params, bool fHelp)
 
 Value makepeglevel(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 7)
+    if (fHelp || params.size() != 8)
         throw runtime_error(
             "makepeglevel "
                 "<current_cycle> "
                 "<previous_cycle> "
+                "<pegbuffer> "
                 "<pegsupplyindex> "
                 "<pegsupplyindex_next> "
                 "<pegsupplyindex_nextnext> "
@@ -142,11 +144,12 @@ Value makepeglevel(const Array& params, bool fHelp)
     
     int cycle_now = params[0].get_int();
     int cycle_prev = params[1].get_int();
-    int supply_now = params[2].get_int();
-    int supply_next = params[3].get_int();
-    int supply_next_next = params[4].get_int();
-    string exchange_pegdata64 = params[5].get_str();
-    string pegshift_pegdata64 = params[6].get_str();
+    int buffer = params[2].get_int();
+    int supply_now = params[3].get_int();
+    int supply_next = params[4].get_int();
+    int supply_next_next = params[5].get_int();
+    string exchange_pegdata64 = params[6].get_str();
+    string pegshift_pegdata64 = params[7].get_str();
     
     CPegData pdExchange(exchange_pegdata64);
     if (!pdExchange.IsValid()) {
@@ -167,6 +170,7 @@ Value makepeglevel(const Array& params, bool fHelp)
     bool ok = pegops::getpeglevel(
                 cycle_now,
                 cycle_prev,
+                buffer,
                 supply_now,
                 supply_next,
                 supply_next_next,

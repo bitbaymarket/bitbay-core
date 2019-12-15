@@ -21,6 +21,7 @@ namespace pegops {
 extern bool getpeglevel(
         int                 nCycleNow,
         int                 nCyclePrev,
+        int                 nBuffer,
         int                 nPegNow,
         int                 nPegNext,
         int                 nPegNextNext,

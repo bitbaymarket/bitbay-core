@@ -18,6 +18,7 @@ namespace pegops {
 extern bool getpeglevel(
         int                 inp_cycle_now,
         int                 inp_cycle_prev,
+        int                 inp_buffer,
         int                 inp_peg_now,
         int                 inp_peg_next,
         int                 inp_peg_next_next,

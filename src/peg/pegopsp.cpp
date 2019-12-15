@@ -29,6 +29,7 @@ namespace pegops {
 bool getpeglevel(
         int                 nCycleNow,
         int                 nCyclePrev,
+        int                 nBuffer,
         int                 nPegNow,
         int                 nPegNext,
         int                 nPegNextNext,
@@ -45,6 +46,7 @@ bool getpeglevel(
     // exchange peglevel, should have +buffer values
     pdPegPool.peglevel = CPegLevel(nCycleNow,
                                    nCyclePrev,
+                                   nBuffer,
                                    nPegNow,
                                    nPegNext,
                                    nPegNextNext,

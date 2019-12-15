@@ -81,9 +81,16 @@ void printpegbalance(const CPegData & pegdata,
     int64_t nValue      = pegdata.fractions.Total();
     int64_t nNChange    = pegdata.fractions.NChange(pegdata.peglevel);
 
+    int16_t nValueHli   = pegdata.fractions.HLI();
+    int16_t nLiquidHli  = pegdata.fractions.HighPart(pegdata.peglevel, nullptr).HLI();
+    int16_t nReserveHli = pegdata.fractions.LowPart(pegdata.peglevel, nullptr).HLI();
+
     result.push_back(Pair(prefix+"value", nValue));
+    result.push_back(Pair(prefix+"value_hli", nValueHli));
     result.push_back(Pair(prefix+"liquid", pegdata.nLiquid));
+    result.push_back(Pair(prefix+"liquid_hli", nLiquidHli));
     result.push_back(Pair(prefix+"reserve", pegdata.nReserve));
+    result.push_back(Pair(prefix+"reserve_hli", nReserveHli));
     result.push_back(Pair(prefix+"nchange", nNChange));
     result.push_back(Pair(prefix+"pegdata", pegdata.ToString()));
 }

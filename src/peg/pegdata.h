@@ -33,9 +33,10 @@ int64_t RatioPart(int64_t nValue,
 
 class CPegLevel {
 public:
-    uint8_t nVersion        = 1;
+    uint8_t nVersion        = 2;
     int64_t nCycle          = 0;
     int64_t nCyclePrev      = 0;
+    int16_t nBuffer         = 3;
     int16_t nSupply         = 0;
     int16_t nSupplyNext     = 0;
     int16_t nSupplyNextNext = 0;
@@ -45,11 +46,13 @@ public:
 
     CPegLevel(int cycle,
               int cycle_prev,
+              int buffer,
               int supply,
               int supply_next,
               int supply_next_next);
     CPegLevel(int cycle,
               int cycle_prev,
+              int buffer,
               int supply,
               int supply_next,
               int supply_next_next,
@@ -138,6 +141,7 @@ public:
     int64_t High(const CPegLevel &) const;
     int64_t NChange(const CPegLevel &) const;
     int64_t NChange(int src_supply, int dst_supply) const;
+    int16_t HLI() const;
     int64_t Total() const;
     double Distortion(const CFractions& b) const;
     bool IsPositive() const;

@@ -48,14 +48,16 @@ CPegLevel::CPegLevel(std::string str) {
 
 CPegLevel::CPegLevel(int cycle,
                      int cycle_prev,
+                     int buffer,
                      int supply,
                      int supply_next,
                      int supply_next_next) {
     nCycle          = cycle;
     nCyclePrev      = cycle_prev;
-    nSupply         = std::min(supply, PEG_SIZE-1);
-    nSupplyNext     = std::min(supply_next, PEG_SIZE-1);
-    nSupplyNextNext = std::min(supply_next_next, PEG_SIZE-1);
+    nBuffer         = buffer;
+    nSupply         = std::min(supply+buffer, PEG_SIZE-1);
+    nSupplyNext     = std::min(supply_next+buffer, PEG_SIZE-1);
+    nSupplyNextNext = std::min(supply_next_next+buffer, PEG_SIZE-1);
     nShift          = 0;
     nShiftLastPart  = 0;
     nShiftLastTotal = 0;
@@ -63,6 +65,7 @@ CPegLevel::CPegLevel(int cycle,
 
 CPegLevel::CPegLevel(int cycle,
                      int cycle_prev,
+                     int buffer,
                      int supply,
                      int supply_next,
                      int supply_next_next,
@@ -70,9 +73,10 @@ CPegLevel::CPegLevel(int cycle,
                      const CFractions & frDistortion) {
     nCycle          = cycle;
     nCyclePrev      = cycle_prev;
-    nSupply         = std::min(supply, PEG_SIZE-1);
-    nSupplyNext     = std::min(supply_next, PEG_SIZE-1);
-    nSupplyNextNext = std::min(supply_next_next, PEG_SIZE-1);
+    nBuffer         = buffer;
+    nSupply         = std::min(supply+buffer, PEG_SIZE-1);
+    nSupplyNext     = std::min(supply_next+buffer, PEG_SIZE-1);
+    nSupplyNextNext = std::min(supply_next_next+buffer, PEG_SIZE-1);
     nShift          = 0;
     nShiftLastPart  = 0;
     nShiftLastTotal = 0;
@@ -106,7 +110,8 @@ CPegLevel::CPegLevel(int cycle,
 }
 
 bool CPegLevel::IsValid() const { 
-    return  nSupply             >=0 && 
+    return  nBuffer             >=0 &&
+            nSupply             >=0 && 
             nSupply             < PEG_SIZE &&
             nSupplyNext         >=0 && 
             nSupplyNext         < PEG_SIZE &&
@@ -122,6 +127,7 @@ bool CPegLevel::Pack(CDataStream & fout) const {
     fout << nVersion;
     fout << nCycle;
     fout << nCyclePrev;
+    fout << nBuffer;
     fout << nSupply;
     fout << nSupplyNext;
     fout << nSupplyNextNext;
@@ -134,14 +140,26 @@ bool CPegLevel::Pack(CDataStream & fout) const {
 bool CPegLevel::Unpack(CDataStream & finp) {
     try {
         finp >> nVersion;
-        finp >> nCycle;
-        finp >> nCyclePrev;
-        finp >> nSupply;
-        finp >> nSupplyNext;
-        finp >> nSupplyNextNext;
-        finp >> nShift;
-        finp >> nShiftLastPart;     // to distribute (part)
-        finp >> nShiftLastTotal;    // to distribute (total)
+        if (nVersion == 1) {
+            finp >> nCycle;
+            finp >> nCyclePrev;
+            finp >> nSupply;
+            finp >> nSupplyNext;
+            finp >> nSupplyNextNext;
+            finp >> nShift;
+            finp >> nShiftLastPart;     // to distribute (part)
+            finp >> nShiftLastTotal;    // to distribute (total)
+        } else if (nVersion >1) {
+            finp >> nCycle;
+            finp >> nCyclePrev;
+            finp >> nBuffer;
+            finp >> nSupply;
+            finp >> nSupplyNext;
+            finp >> nSupplyNextNext;
+            finp >> nShift;
+            finp >> nShiftLastPart;     // to distribute (part)
+            finp >> nShiftLastTotal;    // to distribute (total)
+        }
     }
     catch (std::exception &) {
         return false;

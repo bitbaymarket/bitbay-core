@@ -442,6 +442,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp)
     // network peglevel
     CPegLevel peglevel_net(nCycleNow,
                            nCycleNow-1,
+                           0 /*buffer=0, network level*/,
                            nSupplyNow,
                            nSupplyNext,
                            nSupplyNextNext);
@@ -948,6 +949,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp)
     // network peglevel
     CPegLevel peglevel_net(nCycleNow,
                            nCycleNow-1,
+                           0 /*buffer=0, network level*/,
                            nSupplyNow,
                            nSupplyNext,
                            nSupplyNextNext);

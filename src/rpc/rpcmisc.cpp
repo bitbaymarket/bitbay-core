@@ -220,7 +220,7 @@ Value getfractionsbase64(const Array& params, bool fHelp)
     }
     
     CPegData pd;
-    pd.peglevel = CPegLevel(1,0,0,0,0); // can get block of
+    pd.peglevel = CPegLevel(1,0,0,0,0,0); // can get block of
     {
         CTxDB txdb("r");
         CTxIndex txindex;

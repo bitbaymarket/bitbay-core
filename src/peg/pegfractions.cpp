@@ -340,6 +340,22 @@ int64_t CFractions::NChange(int src_supply, int dst_supply) const
     return nValueDst - nValueSrc;
 }
 
+int16_t CFractions::HLI() const
+{
+    if (nFlags & VALUE)
+        return Std().HLI();
+        
+    int64_t half = 0;
+    int64_t total = Total();
+    for(int16_t i=0;i<PEG_SIZE;i++) {
+        half += f[i];
+        if (half > total/2) {
+            return i;
+        }
+    }
+    return 0;
+}
+
 void CFractions::ToStd()
 {
     if ((nFlags & VALUE) == 0)

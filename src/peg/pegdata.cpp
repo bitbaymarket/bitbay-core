@@ -51,7 +51,7 @@ int64_t RatioPart(int64_t nValue,
 CPegData::CPegData(std::string pegdata64)
 {
     if (pegdata64.empty()) {
-        peglevel = CPegLevel(0,0,0,0,0);
+        peglevel = CPegLevel(0,0,0,0,0,0);
         return; // defaults, zeros
     }
     

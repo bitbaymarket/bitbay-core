@@ -169,6 +169,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "makepeglevel", 2 },
     { "makepeglevel", 3 },
     { "makepeglevel", 4 },
+    { "makepeglevel", 5 },
     { "movecoins", 0 },
     { "moveliquid", 0 },
     { "movereserve", 0 },

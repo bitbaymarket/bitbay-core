@@ -30,6 +30,20 @@ CPegLevel::CPegLevel() {
 
 CPegLevel::CPegLevel(std::string str) {
     vector<unsigned char> data(ParseHex(str));
+    if (str.length() == 80) {
+        // previous version
+        CDataStream finp(data, SER_DISK, CLIENT_VERSION);
+        if (!Unpack1(finp)) {
+            // invalid
+            nSupply         = -1;
+            nSupplyNext     = -1;
+            nSupplyNextNext = -1;
+            nShift          = 0;
+            nShiftLastPart  = 0;
+            nShiftLastTotal = 0;
+        }
+        return;
+    }
     CDataStream finp(data, SER_NETWORK, CLIENT_VERSION);
     if (!Unpack(finp)) {
         // previous version

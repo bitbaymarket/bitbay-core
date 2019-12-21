@@ -848,7 +848,7 @@ bool AppInit2(boost::thread_group& threadGroup)
         // at least 1MB for mining (musl 80KB)
         boost::thread::attributes miner_thread_attrs;
         miner_thread_attrs.set_stack_size(1096*1096); 
-        auto miner_thread = new thread(miner_thread_attrs,
+        auto miner_thread = new boost::thread(miner_thread_attrs,
                                        boost::bind(&ThreadStakeMiner, pwalletMain));
         threadGroup.add_thread(miner_thread);
     }

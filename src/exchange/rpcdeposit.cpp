@@ -271,6 +271,10 @@ Value registerdeposit(const Array& params, bool fHelp)
     
     frDeposit = frDeposit.Std();
     CPegData pdTxout;
+    pdTxout.fractions.sReturnAddr = HexStr(
+        tx.vout[nout].scriptPubKey.begin(), 
+        tx.vout[nout].scriptPubKey.end()
+    );
     pdTxout.fractions += frDeposit;
     pdBalance.fractions += frDeposit;
     pdExchange.fractions += frDeposit;

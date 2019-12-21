@@ -138,7 +138,7 @@ bool CPegLevel::IsValid() const {
 }
 
 bool CPegLevel::Pack(CDataStream & fout) const {
-    fout << nVersion;
+    fout << uint8_t(2);
     fout << nCycle;
     fout << nCyclePrev;
     fout << nBuffer;

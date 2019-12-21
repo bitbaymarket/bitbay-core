@@ -79,6 +79,9 @@ TestVector test2 =
      0);
 
 void RunTest(const TestVector &test) {
+    
+    SelectParams(CChainParams::MAIN);
+    
     std::vector<unsigned char> seed = ParseHex(test.strHexMaster);
     CExtKey key;
     CExtPubKey pubkey;
@@ -134,6 +137,20 @@ void RunTest(const TestVector &test) {
         BOOST_CHECK(pubCheck == pubkeyNew);
         BOOST_CHECK(privCheck == keyNew);
     }
+    
+    SelectParams(CChainParams::TESTNET);
+    
+    string prv1 = "tprv8ezDmewmXkNvKU8dZbpfRigkWSPLaATumcZwMZ4vufnthHo7LmZGuTBtMUL28iynLqVfQH3EkbMz4KxD3Bv7zYRtxgedbp2YdwtNPeVqjBj";
+    string pub1 = "tpubDBgFv4z1g84bCwARTFVFq8Ls5TuGjVepLvAie57EKwbHXn3syANs5wokXabsoZKyk3JpeLgN5zpTodzTFBXb4hXvo7KemG4tAC2nG9BKhuW";
+    
+    CBitcoinExtKey b58keyDecodeCheck(prv1);
+    CExtKey checkKey1 = b58keyDecodeCheck.GetKey();
+    CExtPubKey checkPubKey1 = checkKey1.Neuter();
+    CBitcoinExtPubKey b58pubkey; b58pubkey.SetKey(checkPubKey1);
+    BOOST_CHECK(b58pubkey.ToString() == pub1);
+    std::cout << "addr:" << CBitcoinAddress(checkPubKey1.pubkey.GetID()).ToString() << endl;
+    
+    SelectParams(CChainParams::MAIN);
 }
 
 //BOOST_FIXTURE_TEST_SUITE(bip32_tests, BasicTestingSetup)

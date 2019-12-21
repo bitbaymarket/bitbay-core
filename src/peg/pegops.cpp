@@ -363,8 +363,44 @@ bool removecoins(
     return true;
 }
 
-bool test() {
-    return test2();
+bool updatetxout(
+        const std::string       inp_txout_pegdata64,
+        const std::string &     inp_peglevel_hex,
+        
+        int64_t     &   out_txout_value,
+        int64_t     &   out_txout_next_cycle_available_liquid,
+        int64_t     &   out_txout_next_cycle_available_reserve,
+        int16_t     &   out_txout_value_hli,
+        int16_t     &   out_txout_next_cycle_available_liquid_hli,
+        int16_t     &   out_txout_next_cycle_available_reserve_hli,
+        std::string &   out_err)
+{
+    CPegLevel peglevel(inp_peglevel_hex);
+    if (!peglevel.IsValid()) {
+        out_err = "Can not unpack peglevel";
+        return false;
+    }
+    
+    CPegData pdTxout(inp_txout_pegdata64);
+    if (!pdTxout.IsValid()) {
+        out_err = "Can not unpack 'from' pegdata";
+        return false;
+    }
+    
+    out_txout_value = pdTxout.fractions.Total();
+
+    // network peg in next cycle (without buffer)
+    int pegn_liquid = pdTxout.peglevel.nSupplyNext - pdTxout.peglevel.nBuffer;
+    int pegn_reserve = pdTxout.peglevel.nSupplyNext;
+    
+    out_txout_next_cycle_available_liquid = pdTxout.fractions.High(pegn_liquid);
+    out_txout_next_cycle_available_reserve = pdTxout.fractions.Low(pegn_reserve);
+    
+    out_txout_value_hli = pdTxout.fractions.HLI();
+    out_txout_next_cycle_available_liquid_hli = pdTxout.fractions.HighPart(pegn_liquid, nullptr).HLI();
+    out_txout_next_cycle_available_reserve_hli = pdTxout.fractions.LowPart(pegn_reserve, nullptr).HLI();
+    
+    return true;
 }
 
 bool prepareliquidwithdraw(

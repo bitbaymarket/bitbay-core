@@ -110,7 +110,17 @@ extern bool removecoins(
         int64_t     &   out_from_reserve,
         std::string &   out_err);
 
-extern bool test();
+extern bool updatetxout(
+        const std::string       inp_txout_pegdata64,
+        const std::string &     inp_peglevel_hex,
+        
+        int64_t     &   out_txout_value,
+        int64_t     &   out_txout_next_cycle_available_liquid,
+        int64_t     &   out_txout_next_cycle_available_reserve,
+        int16_t     &   out_txout_value_hli,
+        int16_t     &   out_txout_next_cycle_available_liquid_hli,
+        int16_t     &   out_txout_next_cycle_available_reserve_hli,
+        std::string &   out_err);
 
 typedef std::vector<std::tuple<std::string,std::string,std::string>> txinps;
 typedef std::vector<std::tuple<std::string,std::string>> txouts;

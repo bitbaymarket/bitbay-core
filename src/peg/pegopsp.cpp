@@ -658,21 +658,6 @@ public:
     )
 };
 
-bool test2() {
-    
-    
-    int nIn = 0;
-    CBasicKeyStore keystore;
-    vector<CCoinToUse> vCoins;
-    CTransaction rawTx;
-    for(const CCoinToUse& coin : vCoins) {
-        if (!SignSignature(keystore, coin.scriptPubKey, rawTx, nIn++)) {
-            return false;
-        }
-    }
-    return true;
-}
-
 static bool sortByAddress(const CCoinToUse &lhs, const CCoinToUse &rhs) { 
     CScript lhs_script = lhs.scriptPubKey;
     CScript rhs_script = rhs.scriptPubKey;
@@ -700,105 +685,54 @@ static bool sortByDestination(const CTxDestination &lhs, const CTxDestination &r
     return lhs_addr < rhs_addr;
 }
 
-static const char* pszBase58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-
-// Decode a base58-encoded string psz into byte vector vchRet
-// returns true if decoding is successful
-inline bool DecodeBase58(const char* psz, std::vector<unsigned char>& vchRet)
-{
-    CAutoBN_CTX pctx;
-    vchRet.clear();
-    CBigNum bn58 = 58;
-    CBigNum bn = 0;
-    CBigNum bnChar;
-    while (isspace(*psz))
-        psz++;
-
-    // Convert big endian string to bignum
-    for (const char* p = psz; *p; p++)
-    {
-        const char* p1 = strchr(pszBase58, *p);
-        if (p1 == NULL)
-        {
-            while (isspace(*p))
-                p++;
-            if (*p != '\0')
-                return false;
-            break;
+static string toAddress(const CScript& scriptPubKey,
+                        bool* ptrIsNotary = nullptr,
+                        string* ptrNotary = nullptr) {
+    int nRequired;
+    txnouttype type;
+    vector<CTxDestination> addresses;
+    if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
+        std::string str_addr_all;
+        bool fNone = true;
+        for(const CTxDestination& addr : addresses) {
+            std::string str_addr = CBitcoinAddress(addr).ToString();
+            if (!str_addr_all.empty())
+                str_addr_all += "\n";
+            str_addr_all += str_addr;
+            fNone = false;
         }
-        bnChar.setulong(p1 - pszBase58);
-        if (!BN_mul(&bn, &bn, &bn58, pctx))
-            throw bignum_error("DecodeBase58 : BN_mul failed");
-        bn += bnChar;
+        if (!fNone)
+            return str_addr_all;
     }
 
-    // Get bignum as little endian data
-    std::vector<unsigned char> vchTmp = bn.getvch();
+    if (ptrNotary || ptrIsNotary) {
+        if (ptrIsNotary) *ptrIsNotary = false;
+        if (ptrNotary) *ptrNotary = "";
 
-    // Trim off sign byte if present
-    if (vchTmp.size() >= 2 && vchTmp.end()[-1] == 0 && vchTmp.end()[-2] >= 0x80)
-        vchTmp.erase(vchTmp.end()-1);
-
-    // Restore leading zeros
-    int nLeadingZeros = 0;
-    for (const char* p = psz; *p == pszBase58[0]; p++)
-        nLeadingZeros++;
-    vchRet.assign(nLeadingZeros + vchTmp.size(), 0);
-
-    // Convert little endian data to big endian
-    reverse_copy(vchTmp.begin(), vchTmp.end(), vchRet.end() - vchTmp.size());
-    return true;
-}
-
-// Decode a base58-encoded string str into byte vector vchRet
-// returns true if decoding is successful
-inline bool DecodeBase58(const std::string& str, std::vector<unsigned char>& vchRet)
-{
-    return DecodeBase58(str.c_str(), vchRet);
-}
-
-// Decode a base58-encoded string psz that includes a checksum, into byte vector vchRet
-// returns true if decoding is successful
-static inline bool DecodeBase58Check(const char* psz, std::vector<unsigned char>& vchRet)
-{
-    if (!DecodeBase58(psz, vchRet))
-        return false;
-    if (vchRet.size() < 4)
-    {
-        vchRet.clear();
-        return false;
+        opcodetype opcode1;
+        vector<unsigned char> vch1;
+        CScript::const_iterator pc1 = scriptPubKey.begin();
+        if (scriptPubKey.GetOp(pc1, opcode1, vch1)) {
+            if (opcode1 == OP_RETURN && scriptPubKey.size()>1) {
+                if (ptrIsNotary) *ptrIsNotary = true;
+                if (ptrNotary) {
+                    unsigned long len_bytes = scriptPubKey[1];
+                    if (len_bytes > scriptPubKey.size()-2)
+                        len_bytes = scriptPubKey.size()-2;
+                    for (uint32_t i=0; i< len_bytes; i++) {
+                        ptrNotary->push_back(char(scriptPubKey[i+2]));
+                    }
+                }
+            }
+        }
     }
-    uint256 hash = Hash(vchRet.begin(), vchRet.end()-4);
-    if (memcmp(&hash, &vchRet.end()[-4], 4) != 0)
-    {
-        vchRet.clear();
-        return false;
-    }
-    vchRet.resize(vchRet.size()-4);
-    return true;
-}
 
-typedef std::vector<unsigned char, zero_after_free_allocator<unsigned char> > vector_uchar;
-
-static bool SetAddressString(const char* psz, 
-                             std::vector<unsigned char> & vchVersion, 
-                             vector_uchar & vchData, 
-                             unsigned int nVersionBytes = 1)
-{
-    std::vector<unsigned char> vchTemp;
-    DecodeBase58Check(psz, vchTemp);
-    if (vchTemp.size() < nVersionBytes)
-    {
-        vchData.clear();
-        vchVersion.clear();
-        return false;
+    string as_bytes;
+    unsigned long len_bytes = scriptPubKey.size();
+    for(unsigned int i=0; i< len_bytes; i++) {
+        as_bytes += char(scriptPubKey[i]);
     }
-    vchVersion.assign(vchTemp.begin(), vchTemp.begin() + nVersionBytes);
-    vchData.resize(vchTemp.size() - nVersionBytes);
-    if (!vchData.empty())
-        memcpy(&vchData[0], &vchTemp[nVersionBytes], vchData.size());
-    OPENSSL_cleanse(&vchTemp[0], vchData.size());
-    return true;
+    return as_bytes;
 }
 
 typedef std::map<uint320, CTxOut> MapPrevOut;
@@ -833,7 +767,7 @@ static bool computeTxPegForNextCycle(const CTransaction & rawTx,
 
     bool peg_ok = CalculateStandardFractions(rawTx,
                                              peglevel_net.nSupplyNext,
-                                             peglevel_net.nCycle,
+                                             rawTx.nTime,
                                              mapInputs,
                                              mapInputsFractions,
                                              mapOutputFractions,
@@ -1020,6 +954,8 @@ bool prepareliquidwithdraw(
 
     map<uint320,CCoinToUse> mapAllOutputs;
     
+    CBasicKeyStore keyStore;
+    
     int i =0;
     for(const std::tuple<string,CPegData,string> & txin : txins) {
         string txhash_nout = std::get<0>(txin);
@@ -1062,6 +998,32 @@ bool prepareliquidwithdraw(
         mapAllOutputs[fkey] = coin;
         
         nLeftAmount -= nAvailableLiquid;
+        
+        string privkeybip32 = std::get<2>(txin);
+        
+        CBitcoinExtKey b58keyDecodeCheck(privkeybip32);
+        CExtKey privKey = b58keyDecodeCheck.GetKey();
+        if (!privKey.key.IsValid()) {
+            std::stringstream ss;
+            ss << "Failed to add key/pubkey, private key is invalid, idx=" << i;
+            sErr = ss.str();
+            return false;
+        }
+        CExtPubKey pubKey = privKey.Neuter();
+        if (!pubKey.pubkey.IsValid()) {
+            std::stringstream ss;
+            ss << "Failed to add key/pubkey, public key is invalid, idx=" << i;
+            sErr = ss.str();
+            return false;
+        }
+        
+        if (!keyStore.AddKeyPubKey(privKey.key, pubKey.pubkey)) {
+            std::stringstream ss;
+            ss << "Failed to add key/pubkey, idx=" << i;
+            sErr = ss.str();
+            return false;
+        }
+        
         i++;
     }
     
@@ -1110,6 +1072,7 @@ bool prepareliquidwithdraw(
         CTxDestination address;
         if(!ExtractDestination(coin.scriptPubKey, address))
             continue;
+        
         setInputAddresses.insert(address); // sorted due to vCoins
         mapAvailableValuesAt[address] = 0;
         mapInputValuesAt[address] = 0;
@@ -1282,15 +1245,15 @@ bool prepareliquidwithdraw(
     }
     
     // signing the transaction to get it ready for broadcast
-//    int nIn = 0;
-//    for(const CCoinToUse& coin : vCoins) {
-//        if (!SignSignature(*pwalletMain, coin.scriptPubKey, rawTx, nIn++)) {
-//            std::stringstream ss;
-//            ss << "Fail on signing input " << nIn-1;
-//            sErr = ss.str();
-//            return false;
-//        }
-//    }
+    int nIn = 0;
+    for(const CCoinToUse& coin : vCoins) {
+        if (!SignSignature(keyStore, coin.scriptPubKey, rawTx, nIn++)) {
+            std::stringstream ss;
+            ss << "Fail on signing input " << nIn-1;
+            sErr = ss.str();
+            return false;
+        }
+    }
     // for liquid just first output
     CFractions frProcessed = mapTxOutputFractions[0] + feesFractionsCommon;
 
@@ -1309,10 +1272,10 @@ bool prepareliquidwithdraw(
         return false;
     }
     
-    // save fractions
+    // save txouts
     string sTxhash = rawTx.GetHash().GetHex();
-
-    for (size_t i=1; i< rawTx.vout.size(); i++) { // skip 0 (withdraw)
+    // skip 0 (withdraw) and last (xch id)
+    for (size_t i=1; i< rawTx.vout.size()-1; i++) { 
         string txout = sTxhash+":"+std::to_string(i);
         CPegData pdTxout;
         pdTxout.fractions = mapTxOutputFractions[i];

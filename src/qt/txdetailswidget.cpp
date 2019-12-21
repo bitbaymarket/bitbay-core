@@ -1723,7 +1723,21 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
             row_cols_return << tr("Back") << QString::fromStdString(fractions.sReturnAddr);
             auto row_return = new QTreeWidgetItem(row_cols_return);
             table->addTopLevelItem(row_return);
+        } else if (!fractions.sReturnAddr.empty()) {
+            QStringList row_cols_note;
+            row_cols_note << tr("Note") << QString::fromStdString(fractions.sReturnAddr);
+            auto row_return = new QTreeWidgetItem(row_cols_note);
+            table->addTopLevelItem(row_return);
         }
+        
+        auto row_item_space = new QTreeWidgetItem(row_space);
+        table->addTopLevelItem(row_item_space);
+    } 
+    else if (!fractions.sReturnAddr.empty()) {
+        QStringList row_cols_note;
+        row_cols_note << tr("Note") << QString::fromStdString(fractions.sReturnAddr);
+        auto row_return = new QTreeWidgetItem(row_cols_note);
+        table->addTopLevelItem(row_return);
         
         auto row_item_space = new QTreeWidgetItem(row_space);
         table->addTopLevelItem(row_item_space);

@@ -22,6 +22,7 @@ bool CPegLevel::Unpack1(CDataStream & finp) {
         finp >> nShift;
         finp >> nShiftLastPart;     // to distribute (part)
         finp >> nShiftLastTotal;    // to distribute (total)
+        nBuffer = 3;
     }
     catch (std::exception &) {
         return false;

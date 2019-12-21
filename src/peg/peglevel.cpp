@@ -163,6 +163,7 @@ bool CPegLevel::Unpack(CDataStream & finp) {
             finp >> nShift;
             finp >> nShiftLastPart;     // to distribute (part)
             finp >> nShiftLastTotal;    // to distribute (total)
+            nBuffer = 3;
         } else if (nVersion >1) {
             finp >> nCycle;
             finp >> nCyclePrev;

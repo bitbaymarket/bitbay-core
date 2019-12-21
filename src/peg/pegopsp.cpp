@@ -4,7 +4,7 @@
 
 #include "pegopsp.h"
 #include "pegdata.h"
-#include "pegutil.h"
+#include "pegstd.h"
 
 #include <map>
 #include <set>
@@ -12,15 +12,22 @@
 #include <utility>
 #include <algorithm> 
 #include <type_traits>
+#include <iostream>
 
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/split.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include <zconf.h>
 #include <zlib.h>
 
+#include <base58.h>
+#include <script.h>
+#include <keystore.h>
+#include <main.h>
+
 using namespace std;
 using namespace boost;
-using namespace pegutil;
 
 namespace pegops {
 
@@ -88,7 +95,10 @@ bool updatepegbalances(
         return false;
     }
 
-    if (pdBalance.peglevel.nCycle != 0 && /*new users with empty*/
+    int64_t nValue = pdBalance.fractions.Total();
+
+    if (nValue != 0 && /*allow cross-cycle update as zero to take from pool*/
+        pdBalance.peglevel.nCycle != 0 && /*new users with empty*/
         pdBalance.peglevel.nCycle != peglevelNew.nCyclePrev) {
         std::stringstream ss;
         ss << "Mismatch for peglevel_new.nCyclePrev "
@@ -98,8 +108,6 @@ bool updatepegbalances(
         sErr = ss.str();
         return false;
     }
-
-    int64_t nValue = pdBalance.fractions.Total();
 
     CFractions frLiquid(0, CFractions::STD);
     CFractions frReserve(0, CFractions::STD);
@@ -614,5 +622,751 @@ bool movereserve(
     
     return true;
 }
+
+
+
+class CCoinToUse
+{
+public:
+    uint256     txhash;
+    uint64_t    i;
+    int64_t     nValue;
+    int64_t     nAvailableValue;
+    CScript     scriptPubKey;
+    int         nCycle;
+    CFractions  fractions;
+
+    CCoinToUse() : i(0),nValue(0),nAvailableValue(0),nCycle(0) {}
+    
+    friend bool operator<(const CCoinToUse &a, const CCoinToUse &b) { 
+        if (a.txhash < b.txhash) return true;
+        if (a.txhash == b.txhash && a.i < b.i) return true;
+        if (a.txhash == b.txhash && a.i == b.i && a.nValue < b.nValue) return true;
+        if (a.txhash == b.txhash && a.i == b.i && a.nValue == b.nValue && a.nAvailableValue < b.nAvailableValue) return true;
+        if (a.txhash == b.txhash && a.i == b.i && a.nValue == b.nValue && a.nAvailableValue == b.nAvailableValue && a.scriptPubKey < b.scriptPubKey) return true;
+        if (a.txhash == b.txhash && a.i == b.i && a.nValue == b.nValue && a.nAvailableValue == b.nAvailableValue && a.scriptPubKey == b.scriptPubKey && a.nCycle < b.nCycle) return true;
+        return false;
+    }
+    
+    IMPLEMENT_SERIALIZE
+    (
+        READWRITE(txhash);
+        READWRITE(i);
+        READWRITE(nValue);
+        READWRITE(scriptPubKey);
+        READWRITE(nCycle);
+    )
+};
+
+bool test2() {
+    
+    
+    int nIn = 0;
+    CBasicKeyStore keystore;
+    vector<CCoinToUse> vCoins;
+    CTransaction rawTx;
+    for(const CCoinToUse& coin : vCoins) {
+        if (!SignSignature(keystore, coin.scriptPubKey, rawTx, nIn++)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool sortByAddress(const CCoinToUse &lhs, const CCoinToUse &rhs) { 
+    CScript lhs_script = lhs.scriptPubKey;
+    CScript rhs_script = rhs.scriptPubKey;
+    
+    CTxDestination lhs_dst;
+    CTxDestination rhs_dst;
+    bool lhs_ok1 = ExtractDestination(lhs_script, lhs_dst);
+    bool rhs_ok1 = ExtractDestination(rhs_script, rhs_dst);
+    
+    if (!lhs_ok1 || !rhs_ok1) {
+        if (lhs_ok1 == rhs_ok1) 
+            return lhs_script < rhs_script;
+        return lhs_ok1 < rhs_ok1;
+    }
+    
+    string lhs_addr = CBitcoinAddress(lhs_dst).ToString();
+    string rhs_addr = CBitcoinAddress(rhs_dst).ToString();
+    
+    return lhs_addr < rhs_addr;
+}
+
+static bool sortByDestination(const CTxDestination &lhs, const CTxDestination &rhs) { 
+    string lhs_addr = CBitcoinAddress(lhs).ToString();
+    string rhs_addr = CBitcoinAddress(rhs).ToString();
+    return lhs_addr < rhs_addr;
+}
+
+static const char* pszBase58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+// Decode a base58-encoded string psz into byte vector vchRet
+// returns true if decoding is successful
+inline bool DecodeBase58(const char* psz, std::vector<unsigned char>& vchRet)
+{
+    CAutoBN_CTX pctx;
+    vchRet.clear();
+    CBigNum bn58 = 58;
+    CBigNum bn = 0;
+    CBigNum bnChar;
+    while (isspace(*psz))
+        psz++;
+
+    // Convert big endian string to bignum
+    for (const char* p = psz; *p; p++)
+    {
+        const char* p1 = strchr(pszBase58, *p);
+        if (p1 == NULL)
+        {
+            while (isspace(*p))
+                p++;
+            if (*p != '\0')
+                return false;
+            break;
+        }
+        bnChar.setulong(p1 - pszBase58);
+        if (!BN_mul(&bn, &bn, &bn58, pctx))
+            throw bignum_error("DecodeBase58 : BN_mul failed");
+        bn += bnChar;
+    }
+
+    // Get bignum as little endian data
+    std::vector<unsigned char> vchTmp = bn.getvch();
+
+    // Trim off sign byte if present
+    if (vchTmp.size() >= 2 && vchTmp.end()[-1] == 0 && vchTmp.end()[-2] >= 0x80)
+        vchTmp.erase(vchTmp.end()-1);
+
+    // Restore leading zeros
+    int nLeadingZeros = 0;
+    for (const char* p = psz; *p == pszBase58[0]; p++)
+        nLeadingZeros++;
+    vchRet.assign(nLeadingZeros + vchTmp.size(), 0);
+
+    // Convert little endian data to big endian
+    reverse_copy(vchTmp.begin(), vchTmp.end(), vchRet.end() - vchTmp.size());
+    return true;
+}
+
+// Decode a base58-encoded string str into byte vector vchRet
+// returns true if decoding is successful
+inline bool DecodeBase58(const std::string& str, std::vector<unsigned char>& vchRet)
+{
+    return DecodeBase58(str.c_str(), vchRet);
+}
+
+// Decode a base58-encoded string psz that includes a checksum, into byte vector vchRet
+// returns true if decoding is successful
+static inline bool DecodeBase58Check(const char* psz, std::vector<unsigned char>& vchRet)
+{
+    if (!DecodeBase58(psz, vchRet))
+        return false;
+    if (vchRet.size() < 4)
+    {
+        vchRet.clear();
+        return false;
+    }
+    uint256 hash = Hash(vchRet.begin(), vchRet.end()-4);
+    if (memcmp(&hash, &vchRet.end()[-4], 4) != 0)
+    {
+        vchRet.clear();
+        return false;
+    }
+    vchRet.resize(vchRet.size()-4);
+    return true;
+}
+
+typedef std::vector<unsigned char, zero_after_free_allocator<unsigned char> > vector_uchar;
+
+static bool SetAddressString(const char* psz, 
+                             std::vector<unsigned char> & vchVersion, 
+                             vector_uchar & vchData, 
+                             unsigned int nVersionBytes = 1)
+{
+    std::vector<unsigned char> vchTemp;
+    DecodeBase58Check(psz, vchTemp);
+    if (vchTemp.size() < nVersionBytes)
+    {
+        vchData.clear();
+        vchVersion.clear();
+        return false;
+    }
+    vchVersion.assign(vchTemp.begin(), vchTemp.begin() + nVersionBytes);
+    vchData.resize(vchTemp.size() - nVersionBytes);
+    if (!vchData.empty())
+        memcpy(&vchData[0], &vchTemp[nVersionBytes], vchData.size());
+    OPENSSL_cleanse(&vchTemp[0], vchData.size());
+    return true;
+}
+
+typedef std::map<uint320, CTxOut> MapPrevOut;
+
+static bool computeTxPegForNextCycle(const CTransaction & rawTx,
+                                     const CPegLevel & peglevel_net,
+                                     map<uint320,CCoinToUse> & mapAllOutputs,
+                                     map<int, CFractions> & mapTxOutputFractions,
+                                     CFractions & feesFractions,
+                                     std::string& sFailCause)
+{
+    MapPrevOut mapInputs;
+    MapFractions mapInputsFractions;
+    MapFractions mapOutputFractions;
+
+    size_t n_vin = rawTx.vin.size();
+
+    for (unsigned int i = 0; i < n_vin; i++)
+    {
+        const COutPoint & prevout = rawTx.vin[i].prevout;
+        auto fkey = uint320(prevout.hash, prevout.n);
+
+        if (!mapAllOutputs.count(fkey)) {
+            return false;
+        }
+        
+        const CCoinToUse& coin = mapAllOutputs[fkey];
+        CTxOut out(coin.nValue, coin.scriptPubKey);
+        mapInputs[fkey] = out;
+        mapInputsFractions[fkey] = coin.fractions;
+    }
+
+    bool peg_ok = CalculateStandardFractions(rawTx,
+                                             peglevel_net.nSupplyNext,
+                                             peglevel_net.nCycle,
+                                             mapInputs,
+                                             mapInputsFractions,
+                                             mapOutputFractions,
+                                             feesFractions,
+                                             sFailCause);
+    if (!peg_ok) {
+        return false;
+    }
+
+    size_t n_out = rawTx.vout.size();
+    for(size_t i=0; i< n_out; i++) {
+        auto fkey = uint320(rawTx.GetHash(), i);
+        mapTxOutputFractions[i] = mapOutputFractions[fkey];
+    }
+    return true;
+}
+
+static void loadMaintenance(const string & data, CFractions & frMaintenance) {
+    vector<string> vArgs;
+    vector<string> vAMArgs;
+    boost::split(vArgs, data, boost::is_any_of(","));
+    for(string sArg : vArgs) {
+        string sAMPrefix = "AM:";
+        if (boost::starts_with(sArg, sAMPrefix)) {
+            boost::split(vAMArgs, sArg, boost::is_any_of(":"));
+            if (vAMArgs.size() <2) continue;
+            CPegData pd(vAMArgs[1]);
+            if (pd.IsValid()) {
+                frMaintenance = pd.fractions;
+            }
+        }
+    }
+}
+
+static void saveMaintenance(string & data, 
+                            const CFractions & fractions,
+                            const CPegLevel & peglevel) {
+    CPegData pd;
+    pd.peglevel = peglevel;
+    pd.fractions = fractions;
+    pd.nLiquid = pd.fractions.High(peglevel);
+    pd.nReserve = pd.fractions.Low(peglevel);
+
+    vector<string> vArgs;
+    vector<string> vAMArgs;
+    boost::split(vArgs, data, boost::is_any_of(","));
+    for(int i=0; i< vArgs.size(); i++) {
+        string sAMPrefix = "AM:";
+        if (boost::starts_with(vArgs[i], sAMPrefix)) {
+            boost::split(vAMArgs, vArgs[i], boost::is_any_of(":"));
+            if (vAMArgs.size() <2) continue;
+            vAMArgs[1] = pd.ToString();
+            vArgs[i] = boost::algorithm::join(vAMArgs, ":");
+            data = boost::algorithm::join(vArgs, ",");
+            return;
+        }
+    }
+    
+    if (!data.empty()) {
+        data += ",";
+    }
+    data += "AM:"+pd.ToString();
+}
+
+bool prepareliquidwithdraw(
+        const std::vector<
+            std::tuple<
+                std::string,
+                CPegData,
+                std::string>> & txins,
+        CPegData &              pdBalance,
+        CPegData &              pdExchange,
+        CPegData &              pdPegShift,
+        int64_t                 nAmountWithFee,
+        std::string             sAddress,
+        const CPegLevel &       peglevel_exchange,
+
+        CPegData &              pdRequested,
+        CPegData &              pdProcessed,
+        std::string &           rawtxstr,
+        std::vector<
+            std::tuple<
+                std::string,
+                CPegData>> &    txouts,
+        
+        std::string &   sErr) {
+
+    CBitcoinAddress address(sAddress);
+    if (!address.IsValid()) {
+        std::stringstream ss;
+        ss << "Invalid BitBay address " << sAddress;
+        sErr = ss.str();
+        return false;
+    }
+    
+    CFractions frMaintenance(0, CFractions::STD);
+    loadMaintenance(pdPegShift.fractions.sReturnAddr, frMaintenance);
+    
+    if (nAmountWithFee <0) {
+        std::stringstream ss;
+        ss << "Requested to withdraw negative " << nAmountWithFee;
+        sErr = ss.str();
+        return false;
+    }
+    if (nAmountWithFee <1000000+2) {
+        std::stringstream ss;
+        ss << "Requested to withdraw less than 1M fee " << nAmountWithFee;
+        sErr = ss.str();
+        return false;
+    }
+    
+    if (!peglevel_exchange.IsValid()) {
+        sErr = "Not valid peglevel";
+        return false;
+    }
+
+    // network peglevel (exchange minus buffer)
+    CPegLevel peglevel_net(peglevel_exchange.nCycle,
+                           peglevel_exchange.nCyclePrev,
+                           0 /*buffer=0, network level*/,
+                           peglevel_exchange.nSupply - peglevel_exchange.nBuffer,
+                           peglevel_exchange.nSupplyNext - peglevel_exchange.nBuffer,
+                           peglevel_exchange.nSupplyNextNext - peglevel_exchange.nBuffer);
+    
+    if (!pdBalance.IsValid()) {
+        sErr = "Not valid 'balance' pegdata";
+        return false;
+    }
+    if (!pdExchange.IsValid()) {
+        sErr = "Not valid 'exchange' pegdata";
+        return false;
+    }
+    if (!pdPegShift.IsValid()) {
+        sErr = "Not valid 'pegshift' pegdata";
+        return false;
+    }
+    
+    if (pdBalance.peglevel.nCycle != peglevel_exchange.nCycle) {
+        sErr = "Balance has other cycle than peglevel";
+        return false;
+    }
+
+    if (nAmountWithFee > pdBalance.nLiquid) {
+        std::stringstream ss;
+        ss << "Not enough liquid " << pdBalance.nLiquid 
+           << " on 'balance' to withdraw " << nAmountWithFee;
+        sErr = ss.str();
+        return false;
+    }
+    
+    int nSupplyEffective = peglevel_exchange.nSupply + peglevel_exchange.nShift;
+    bool fPartial = peglevel_exchange.nShiftLastPart >0 && peglevel_exchange.nShiftLastTotal >0;
+    if (fPartial) {
+        nSupplyEffective++;
+    }
+    
+    CFractions frBalanceLiquid = pdBalance.fractions.HighPart(nSupplyEffective, nullptr);
+    
+    if (fPartial) {
+        int64_t nPartialLiquid = pdBalance.nLiquid - frBalanceLiquid.Total();
+        if (nPartialLiquid < 0) {
+            std::stringstream ss;
+            ss << "Mismatch on nPartialLiquid " << nPartialLiquid;
+            sErr = ss.str();
+            return false;
+        }
+        
+        frBalanceLiquid.f[nSupplyEffective-1] = nPartialLiquid;
+    }
+    
+    if (frBalanceLiquid.Total() < nAmountWithFee) {
+        std::stringstream ss;
+        ss << "Not enough liquid(1) " << frBalanceLiquid.Total()
+           << "  on 'src' to move " << nAmountWithFee;
+        sErr = ss.str();
+        return false;
+    }
+    
+    CFractions frAmount = frBalanceLiquid.RatioPart(nAmountWithFee);
+    CFractions frRequested = frAmount;
+
+    vector<CCoinToUse> vCoins;
+    int64_t nLeftAmount = nAmountWithFee;
+
+    map<uint320,CCoinToUse> mapAllOutputs;
+    
+    int i =0;
+    for(const std::tuple<string,CPegData,string> & txin : txins) {
+        string txhash_nout = std::get<0>(txin);
+        const CPegData & pdTxin = std::get<1>(txin);
+        
+        vector<string> vTxoutArgs;
+        boost::split(vTxoutArgs, txhash_nout, boost::is_any_of(":"));
+        
+        if (vTxoutArgs.size() != 2) {
+            std::stringstream ss;
+            ss << "Txout is not recognized, format txhash:nout, idx=" << i;
+            sErr = ss.str();
+            return false;
+        }
+        string sTxid = vTxoutArgs[0];
+        char * pEnd = nullptr;
+        long nout = strtol(vTxoutArgs[1].c_str(), &pEnd, 0);
+        if (pEnd == vTxoutArgs[1].c_str()) {
+            std::stringstream ss;
+            ss << "Txout is not recognized, format txhash:nout, idx=" << i;
+            sErr = ss.str();
+            return false;
+        }
+        uint256 txhash;
+        txhash.SetHex(sTxid);
+        
+        auto fkey = uint320(txhash, nout);
+        int64_t nAvailableLiquid = pdTxin.fractions.High(peglevel_net.nSupplyNext);
+        
+        CCoinToUse coin;
+        coin.i = nout;
+        coin.txhash = txhash;
+        coin.nValue = pdTxin.fractions.Total();
+        coin.nAvailableValue = nAvailableLiquid;
+        vector<unsigned char> pkData(ParseHex(pdTxin.fractions.sReturnAddr));
+        coin.scriptPubKey = CScript(pkData.begin(), pkData.end());
+        coin.nCycle = peglevel_exchange.nCycle;
+        coin.fractions = pdTxin.fractions;
+        vCoins.push_back(coin);
+        mapAllOutputs[fkey] = coin;
+        
+        nLeftAmount -= nAvailableLiquid;
+        i++;
+    }
+    
+    // check enough coins in inputs
+    if (nLeftAmount > 0) {
+        std::stringstream ss;
+        ss << "Not enough liquid or coins are too fragmented  on 'exchange' to withdraw " 
+           << nAmountWithFee;
+        sErr = ss.str();
+        return false;
+    }
+
+    int64_t nFeeRet = 1000000 /*common fee deducted from user amount, 1M*/;
+    int64_t nAmount = nAmountWithFee - nFeeRet;
+    
+    vector<pair<CScript, int64_t> > vecSend;
+    CScript scriptPubKey;
+    scriptPubKey.SetDestination(address.Get());
+    vecSend.push_back(make_pair(scriptPubKey, nAmount));
+    
+    int64_t nValue = 0;
+    for(const pair<CScript, int64_t>& s : vecSend) {
+        if (nValue < 0)
+            return false;
+        nValue += s.second;
+    }
+
+    size_t nNumInputs = 1;
+
+    CTransaction rawTx;
+    
+    nNumInputs = vCoins.size();
+    if (!nNumInputs) return false;
+    
+    // Inputs to be sorted by address
+    sort(vCoins.begin(), vCoins.end(), sortByAddress);
+    
+    // Collect input addresses
+    // Prepare maps for input,available,take
+    set<CTxDestination> setInputAddresses;
+    vector<CTxDestination> vInputAddresses;
+    map<CTxDestination, int64_t> mapAvailableValuesAt;
+    map<CTxDestination, int64_t> mapInputValuesAt;
+    map<CTxDestination, int64_t> mapTakeValuesAt;
+    for(const CCoinToUse& coin : vCoins) {
+        CTxDestination address;
+        if(!ExtractDestination(coin.scriptPubKey, address))
+            continue;
+        setInputAddresses.insert(address); // sorted due to vCoins
+        mapAvailableValuesAt[address] = 0;
+        mapInputValuesAt[address] = 0;
+        mapTakeValuesAt[address] = 0;
+    }
+    // Get sorted list of input addresses
+    for(const CTxDestination& address : setInputAddresses) {
+        vInputAddresses.push_back(address);
+    }
+    sort(vInputAddresses.begin(), vInputAddresses.end(), sortByDestination);
+    // Input and available values can be filled in
+    for(const CCoinToUse& coin : vCoins) {
+        CTxDestination address;
+        if(!ExtractDestination(coin.scriptPubKey, address))
+            continue;
+        int64_t& nValueAvailableAt = mapAvailableValuesAt[address];
+        nValueAvailableAt += coin.nAvailableValue;
+        int64_t& nValueInputAt = mapInputValuesAt[address];
+        nValueInputAt += coin.nValue;
+    }
+            
+    // vouts to the payees
+    for(const pair<CScript, int64_t>& s : vecSend) {
+        rawTx.vout.push_back(CTxOut(s.second, s.first));
+    }
+    
+    // Available values - liquidity
+    // Compute values to take from each address (liquidity is common)
+    int64_t nValueLeft = nValue;
+    for(const CCoinToUse& coin : vCoins) {
+        CTxDestination address;
+        if(!ExtractDestination(coin.scriptPubKey, address))
+            continue;
+        int64_t nValueAvailable = coin.nAvailableValue;
+        int64_t nValueTake = nValueAvailable;
+        if (nValueTake > nValueLeft) {
+            nValueTake = nValueLeft;
+        }
+        int64_t& nValueTakeAt = mapTakeValuesAt[address];
+        nValueTakeAt += nValueTake;
+        nValueLeft -= nValueTake;
+    }
+    
+    // Calculate change (minus fee, notary and part taken from change)
+    int64_t nTakeFromChangeLeft = nFeeRet+1;
+    map<CTxDestination, int> mapChangeOutputs;
+    for (const CTxDestination& address : vInputAddresses) {
+        CScript scriptPubKey;
+        scriptPubKey.SetDestination(address);
+        int64_t& nValueTakeAt = mapTakeValuesAt[address];
+        int64_t nValueInput = mapInputValuesAt[address];
+        int64_t nValueChange = nValueInput - nValueTakeAt;
+        if (nValueChange > nTakeFromChangeLeft) {
+            nValueChange -= nTakeFromChangeLeft;
+            nTakeFromChangeLeft = 0;
+        }
+        if (nValueChange <= nTakeFromChangeLeft) {
+            nTakeFromChangeLeft -= nValueChange;
+            nValueChange = 0;
+        }
+        if (nValueChange == 0) continue;
+        nValueTakeAt += nValueChange;
+        mapChangeOutputs[address] = rawTx.vout.size();
+        rawTx.vout.push_back(CTxOut(nValueChange, scriptPubKey));
+    }
+    
+    // Fill vin
+    for(const CCoinToUse& coin : vCoins) {
+        rawTx.vin.push_back(CTxIn(coin.txhash,coin.i));
+    }
+
+    // notation for exchange control
+    string sTxid;
+    {
+        string sNotary = "XCH:0:";
+        CDataStream ss(SER_GETHASH, 0);
+        size_t n_inp = rawTx.vin.size();
+        for(size_t j=0; j< n_inp; j++) {
+            ss << rawTx.vin[j].prevout.hash;
+            ss << rawTx.vin[j].prevout.n;
+        }
+        ss << string("L");
+        ss << sAddress;
+        ss << nAmount;
+        sTxid = Hash(ss.begin(), ss.end()).GetHex();
+        sNotary += sTxid;
+        CScript scriptPubKey;
+        scriptPubKey.push_back(OP_RETURN);
+        unsigned char len_bytes = sNotary.size();
+        scriptPubKey.push_back(len_bytes);
+        for (size_t j=0; j< sNotary.size(); j++) {
+            scriptPubKey.push_back(sNotary[j]);
+        }
+        rawTx.vout.push_back(CTxOut(1, scriptPubKey));
+    }
+
+    // Calculate peg to know 'user' fee
+    CFractions feesFractionsCommon(0, CFractions::STD);
+    map<int, CFractions> mapTxOutputFractionsSkip;
+    if (!computeTxPegForNextCycle(rawTx, peglevel_net, mapAllOutputs,
+                                  mapTxOutputFractionsSkip, feesFractionsCommon,
+                                  sErr)) {
+        return false;
+    }
+    
+    // for liquid just first output
+    if (!mapTxOutputFractionsSkip.count(0)) {
+        sErr = "No withdraw fractions";
+        return false;
+    }
+    
+    // Now all inputs and outputs are know, calculate network fee
+    int64_t nFeeNetwork = 200000 + 10000 * (rawTx.vin.size() + rawTx.vout.size());
+    int64_t nFeeMaintenance = nFeeRet - nFeeNetwork;
+    int64_t nFeeMaintenanceLeft = nFeeMaintenance;
+    // Maintenance fee recorded in provided_outputs 
+    // It is returned - distributed over 'change' outputs
+    // First if we can use existing change
+    for (const CTxDestination& address : vInputAddresses) {
+        if (!mapChangeOutputs.count(address)) continue;
+        int nOut = mapChangeOutputs[address];
+        int64_t& nValueTakeAt = mapTakeValuesAt[address];
+        int64_t nValueInput = mapInputValuesAt[address];
+        int64_t nValueForFee = nValueInput - nValueTakeAt;
+        if (nValueForFee > nFeeMaintenanceLeft) {
+            rawTx.vout[nOut].nValue += nFeeMaintenanceLeft;
+            nFeeMaintenanceLeft = 0;
+        }
+        if (nValueForFee <= nFeeMaintenanceLeft) {
+            nFeeMaintenanceLeft -= nValueForFee;
+            rawTx.vout[nOut].nValue += nValueForFee;
+        }
+    }
+    // Second if it is still left we need to add change outputs for maintenance fee
+    for (const CTxDestination& address : vInputAddresses) {
+        if (mapChangeOutputs.count(address)) continue;
+        int64_t nValueTakeAt = mapTakeValuesAt[address];
+        int64_t nValueInput = mapInputValuesAt[address];
+        int64_t nValueForFee = nValueInput - nValueTakeAt;
+        if (nValueForFee > nFeeMaintenanceLeft) {
+            nValueForFee = nFeeMaintenanceLeft;
+            nFeeMaintenanceLeft = 0;
+        }
+        if (nValueForFee <= nFeeMaintenanceLeft) {
+            nFeeMaintenanceLeft -= nValueForFee;
+        }
+        if (nValueForFee == 0) continue;
+        CScript scriptPubKey;
+        scriptPubKey.SetDestination(address);
+        rawTx.vout.push_back(CTxOut(nValueForFee, scriptPubKey));
+    }
+    // Can you for maintenance (is not all nFeeMaintenanceLeft consumed):
+    nFeeMaintenance -= nFeeMaintenanceLeft;
+    
+    // Recalculate peg to update mapTxOutputFractions
+    CFractions feesFractionsNet(0, CFractions::STD);
+    map<int, CFractions> mapTxOutputFractions;
+    if (!computeTxPegForNextCycle(rawTx, peglevel_net, mapAllOutputs,
+                                  mapTxOutputFractions, feesFractionsNet,
+                                  sErr)) {
+        return false;
+    }
+    CFractions frFeesMaintenance = feesFractionsCommon - feesFractionsNet;
+    frMaintenance += frFeesMaintenance;
+    
+    // for liquid just first output
+    if (!mapTxOutputFractions.count(0)) {
+        sErr = "No withdraw fractions (2)";
+        return false;
+    }
+    
+    // signing the transaction to get it ready for broadcast
+//    int nIn = 0;
+//    for(const CCoinToUse& coin : vCoins) {
+//        if (!SignSignature(*pwalletMain, coin.scriptPubKey, rawTx, nIn++)) {
+//            std::stringstream ss;
+//            ss << "Fail on signing input " << nIn-1;
+//            sErr = ss.str();
+//            return false;
+//        }
+//    }
+    // for liquid just first output
+    CFractions frProcessed = mapTxOutputFractions[0] + feesFractionsCommon;
+
+    if (frRequested.Total() != nAmountWithFee) {
+        std::stringstream ss;
+        ss << "Mismatch requested and amount_with_fee " << frRequested.Total()
+           << " " << nAmountWithFee;
+        sErr = ss.str();
+        return false;
+    }
+    if (frProcessed.Total() != nAmountWithFee) {
+        std::stringstream ss;
+        ss << "Mismatch processed and amount_with_fee " << frProcessed.Total()
+           << " " << nAmountWithFee;
+        sErr = ss.str();
+        return false;
+    }
+    
+    // save fractions
+    string sTxhash = rawTx.GetHash().GetHex();
+
+    for (size_t i=1; i< rawTx.vout.size(); i++) { // skip 0 (withdraw)
+        string txout = sTxhash+":"+std::to_string(i);
+        CPegData pdTxout;
+        pdTxout.fractions = mapTxOutputFractions[i];
+        pdTxout.fractions.sReturnAddr = HexStr(
+            rawTx.vout[i].scriptPubKey.begin(), 
+            rawTx.vout[i].scriptPubKey.end()
+        );
+        pdTxout.peglevel = peglevel_exchange;
+        pdTxout.nLiquid = pdTxout.fractions.High(peglevel_exchange);
+        pdTxout.nReserve = pdTxout.fractions.Low(peglevel_exchange);
+        
+        txouts.push_back(std::make_tuple(txout, pdTxout));
+    }
+    
+    pdBalance.fractions -= frRequested;
+    pdExchange.fractions -= frRequested;
+    pdPegShift.fractions += (frRequested - frProcessed);
+    saveMaintenance(pdPegShift.fractions.sReturnAddr,
+                    frMaintenance, 
+                    peglevel_net);
+    
+    pdBalance.nLiquid -= nAmountWithFee;
+    
+    // consume liquid part of pegshift by balance
+    // as computation were completed by pegnext it may use fractions
+    // of current reserves - at current supply not to consume these fractions
+//    consumeliquidpegshift(pdBalance.fractions, 
+//                          pdExchange.fractions, 
+//                          pdPegShift.fractions, 
+//                          peglevel_exchange);
+
+    pdExchange.peglevel = peglevel_exchange;
+    pdExchange.nLiquid = pdExchange.fractions.High(peglevel_exchange);
+    pdExchange.nReserve = pdExchange.fractions.Low(peglevel_exchange);
+
+    pdProcessed = CPegData();
+    pdProcessed.fractions = frProcessed;
+    pdProcessed.peglevel = peglevel_exchange;
+    pdProcessed.nLiquid = pdProcessed.fractions.High(peglevel_exchange);
+    pdProcessed.nReserve = pdProcessed.fractions.Low(peglevel_exchange);
+
+    pdRequested = CPegData();
+    pdRequested.fractions = frRequested;
+    pdRequested.peglevel = peglevel_exchange;
+    pdRequested.nLiquid = pdRequested.fractions.High(peglevel_exchange);
+    pdRequested.nReserve = pdRequested.fractions.Low(peglevel_exchange);
+    
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << rawTx;
+    
+    rawtxstr = HexStr(ss.begin(), ss.end());
+    
+    return true;
+}
+
 
 } // namespace

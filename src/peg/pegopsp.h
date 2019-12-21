@@ -12,6 +12,8 @@
   */
 
 #include <string>
+#include <tuple>
+#include <vector>
 
 class CPegData;
 class CPegLevel;
@@ -61,6 +63,31 @@ extern bool movereserve(
         CPegData &          pdSrc,
         CPegData &          pdDst,
         const CPegLevel &   peglevel,
+
+        std::string &   sErr);
+
+extern bool test2();
+
+extern bool prepareliquidwithdraw(
+        const std::vector<
+            std::tuple<
+                std::string,
+                CPegData,
+                std::string>> & txins,
+        CPegData &              pdBalance,
+        CPegData &              pdExchange,
+        CPegData &              pdPegShift,
+        int64_t                 nAmountWithFee,
+        std::string             sAddress,
+        const CPegLevel &       peglevel,
+        
+        CPegData &              pdRequested,
+        CPegData &              pdProcessed,
+        std::string &           rawtx,
+        std::vector<
+            std::tuple<
+                std::string,
+                CPegData>> &    txouts,
 
         std::string &   sErr);
 

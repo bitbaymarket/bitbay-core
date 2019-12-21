@@ -3,7 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "pegdata.h"
-#include "pegutil.h"
 
 #include <map>
 #include <set>

@@ -5,27 +5,12 @@
 #include <map>
 #include <set>
 #include <cstdint>
-#include <type_traits>
-#include <fstream>
-#include <utility>
-#include <algorithm> 
 
-#include <boost/version.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/fstream.hpp>
-#include <boost/foreach.hpp>
-#include <boost/multiprecision/cpp_int.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/algorithm/string/split.hpp>
-
-#include "peg.h"
-#include "util.h"
+#include "pegdata.h"
 #include "main.h"
 #include "base58.h"
 
 using namespace std;
-using namespace boost;
 
 static string sBurnAddress =
     "bJnV8J5v74MGctMyVSVPfGu1mGQ9nMTiB3";

@@ -3,7 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "pegdata.h"
-#include "pegutil.h"
+#include "utilstrencodings.h"
 
 #include <map>
 #include <set>
@@ -19,7 +19,6 @@
 
 using namespace std;
 using namespace boost;
-using namespace pegutil;
 
 int64_t RatioPart(int64_t nValue,
                   int64_t nPartValue,

@@ -12,6 +12,8 @@
   */
 
 #include <string>
+#include <vector>
+#include <tuple>
 
 namespace pegops {
 
@@ -26,7 +28,10 @@ extern bool getpeglevel(
         const std::string & inp_pegshift_pegdata64,
         
         std::string &   out_peglevel_hex,
+        int64_t     &   out_exchange_liquid,
+        int64_t     &   out_exchange_reserve,
         std::string &   out_pegpool_pegdata64,
+        int64_t     &   out_pegpool_amount,
         std::string &   out_err);
 
 extern bool getpeglevelinfo(
@@ -50,6 +55,7 @@ extern bool updatepegbalances(
         int64_t     &   out_balance_liquid,
         int64_t     &   out_balance_reserve,
         std::string &   out_pegpool_pegdata64,
+        int64_t     &   out_pegpool_amount,
         std::string &   out_err);
 
 extern bool movecoins(
@@ -102,6 +108,33 @@ extern bool removecoins(
         std::string &   out_from_pegdata64,
         int64_t     &   out_from_liquid,
         int64_t     &   out_from_reserve,
+        std::string &   out_err);
+
+extern bool test();
+
+typedef std::vector<std::tuple<std::string,std::string,std::string>> txinps;
+typedef std::vector<std::tuple<std::string,std::string>> txouts;
+
+extern bool prepareliquidwithdraw(
+        const txinps &          inp_txinps,
+        const std::string       inp_balance_pegdata64,
+        const std::string       inp_exchange_pegdata64,
+        const std::string       inp_pegshift_pegdata64,
+        int64_t                 inp_amount_with_fee,
+        std::string             inp_address,
+        const std::string &     inp_peglevel_hex,
+        
+        std::string &   out_balance_pegdata64,
+        int64_t     &   out_balance_liquid,
+        int64_t     &   out_balance_reserve,
+        std::string &   out_exchange_pegdata64,
+        int64_t     &   out_exchange_liquid,
+        int64_t     &   out_exchange_reserve,
+        std::string &   out_pegshift_pegdata64,
+        std::string &   out_requested_pegdata64,
+        std::string &   out_processed_pegdata64,
+        std::string &   out_rawtx,
+        txouts &        out_txouts,
         std::string &   out_err);
 
 }

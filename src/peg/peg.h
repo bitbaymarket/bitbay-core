@@ -11,6 +11,7 @@
 #include "bignum.h"
 #include "tinyformat.h"
 #include "pegdata.h"
+#include "pegstd.h"
 
 class CTxDB;
 class CPegDB;
@@ -34,40 +35,6 @@ extern uint256 pegWhiteListHash;
 // functors for messagings
 typedef std::function<void(const std::string &)> LoadMsg;
 
-enum PegTxType {
-    PEG_MAKETX_SEND_RESERVE     = 0,
-    PEG_MAKETX_SEND_LIQUIDITY   = 1,
-    PEG_MAKETX_FREEZE_RESERVE   = 2,
-    PEG_MAKETX_FREEZE_LIQUIDITY = 3,
-//    PEG_MAKETX_SEND_TOCOLD      = 4,
-//    PEG_MAKETX_SEND_FROMCOLD    = 5
-};
-
-enum PegVoteType {
-    PEG_VOTE_NONE       = 0,
-    PEG_VOTE_AUTO       = 1,
-    PEG_VOTE_INFLATE    = 2,
-    PEG_VOTE_DEFLATE    = 3,
-    PEG_VOTE_NOCHANGE   = 4
-};
-
-enum PegRewardType {
-    PEG_REWARD_5    = 0,
-    PEG_REWARD_10   = 1,
-    PEG_REWARD_20   = 2,
-    PEG_REWARD_40   = 3,
-    PEG_REWARD_LAST
-};
-
-struct FrozenTxOut {
-    int64_t nValue                      = 0;
-    bool fIsColdOutput                  = false;
-    long nFairWithdrawFromEscrowIndex1  = -1;
-    long nFairWithdrawFromEscrowIndex2  = -1;
-    std::string sAddress;
-    CFractions fractions;
-};
-
 bool ReadWhitelistInfo();
 bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb,
                                  LoadMsg load_msg);
@@ -85,15 +52,6 @@ bool CalculateStandardFractions(const CTransaction & tx,
                                 int nSupply,
                                 unsigned int nTime,
                                 MapPrevTx & inputs,
-                                MapFractions& finputs,
-                                MapFractions& mapTestFractionsPool,
-                                CFractions& feesFractions,
-                                std::string& sPegFailCause);
-
-bool CalculateStandardFractions(const CTransaction & tx,
-                                int nSupply,
-                                unsigned int nTime,
-                                MapPrevOut & inputs,
                                 MapFractions& finputs,
                                 MapFractions& mapTestFractionsPool,
                                 CFractions& feesFractions,

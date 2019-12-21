@@ -41,6 +41,7 @@ void TestPegOps::test7()
     QCOMPARE(pegshift1.Total(), 0);
     
     CPegLevel level1(1,0,
+                     0,
                      200+buffer,
                      200+buffer,
                      200+buffer,
@@ -78,7 +79,7 @@ void TestPegOps::test7()
     string exchange1_b64 = pdExchange.ToString();
     string pegshift1_b64 = pdPegShift.ToString();
     
-    CPegLevel level2(2,1,
+    CPegLevel level2(2,1,0,
                      205+buffer,
                      205+buffer,
                      205+buffer,
@@ -87,10 +88,15 @@ void TestPegOps::test7()
     string peglevel2_hex;
     string pegpool2_b64;
     string out_err;
-        
+       
+    int64_t out_exchange_liquid;
+    int64_t out_exchange_reserve;
+    int64_t out_pegpool_value;
+ 
     bool ok1 = getpeglevel(
                 2,
                 1,
+                0,
                 205+buffer,
                 205+buffer,
                 205+buffer,
@@ -98,7 +104,10 @@ void TestPegOps::test7()
                 pegshift1_b64,
                 
                 peglevel2_hex,
+                out_exchange_liquid,
+                out_exchange_reserve,
                 pegpool2_b64,
+                out_pegpool_value,
                 out_err
                 );
     
@@ -124,6 +133,7 @@ void TestPegOps::test7()
                 user1_r2_liquid,
                 user1_r2_reserve,
                 pegpool2_r1_b64,
+                out_pegpool_value,
                 out_err
                 );
     
@@ -190,6 +200,7 @@ void TestPegOps::test7()
                 user2_r2_liquid,
                 user2_r2_reserve,
                 pegpool2_r2_b64,
+                out_pegpool_value,
                 out_err
                 );
     

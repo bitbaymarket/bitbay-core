@@ -100,6 +100,7 @@ void TestPegOps::test3()
     string out_balance_pegdata64;
     int64_t out_balance_liquid;
     int64_t out_balance_reserve;
+    int64_t out_pegpool_value;
     string out_err;
     
     bool ok = updatepegbalances(
@@ -111,9 +112,11 @@ void TestPegOps::test3()
                 out_balance_liquid,
                 out_balance_reserve,
                 out_pegpool_pegdata64,
+                out_pegpool_value,
                 out_err
                 );
     
+    qDebug() << out_err.c_str();
     QVERIFY(ok == true);
     QVERIFY(out_err == "Already up-to-dated");
 }
@@ -128,6 +131,7 @@ void TestPegOps::test4()
     string out_balance_pegdata64;
     int64_t out_balance_liquid;
     int64_t out_balance_reserve;
+    int64_t out_pegpool_value;
     string out_err;
     
     bool ok = updatepegbalances(
@@ -139,13 +143,19 @@ void TestPegOps::test4()
                 out_balance_liquid,
                 out_balance_reserve,
                 out_pegpool_pegdata64,
+                out_pegpool_value,
                 out_err
                 );
     
     qDebug() << out_err.c_str();
     qDebug() << "out_pegpool_pegdata64" << out_pegpool_pegdata64.c_str();
     QVERIFY(ok == true);
-    QVERIFY(out_pegpool_pegdata64 == "AgACAAAAAAABAgACAAAAAAAAAAAAb+1Z93NVRRh9Ly+FF4IhAUKLICDVQYowEFTQgEMACdIkUhxDyQTpMgIBdAREmqgUpQsK0qvUgFJEkNCLotIEISAtlBBKIPfpu/cc5u2Z4Q9wJu+Xk6/s3t1vv7Yblyv/l//L/+X/8n/5v/zf/+VXOSAAAAAAAAAAeNrtwTEBAAAAwqD1T20Hb6AAAAAAAAAAAAB4DCWAAAH3by0AAAAAAABuLQAAAAAAAPcA+gD9AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA3HHzu");
+    QVERIFY(out_pegpool_pegdata64 == "AgACAAAAAAAAAgACAAAAAAAAAAAAb+1Z93NVRRh9Ly+FF4IhAUKLICDVQYowEFTQgEMACdIkUhxDyQTpMgIBdAREmqgUpQsK0qvUgFJEkNCLotIEISAtlBBKIPfpu/cc5u2Z4Q9wJu+Xk6/s3t1vv7Yblyv/l//L/+X/8n/5v/zf/+VXOSAAAAAAAAAAeNrtwTEBAAAAwqD1T20Hb6AAAAAAAAAAAAB4DCWAAAH3by0AAAAAAABuLQAAAAAAAAMA9wD6AP0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHzur3M=");
+    
+//    CPegData pdSrc("AgACAAAAAAABAgACAAAAAAAAAAAAb+1Z93NVRRh9Ly+FF4IhAUKLICDVQYowEFTQgEMACdIkUhxDyQTpMgIBdAREmqgUpQsK0qvUgFJEkNCLotIEISAtlBBKIPfpu/cc5u2Z4Q9wJu+Xk6/s3t1vv7Yblyv/l//L/+X/8n/5v/zf/+VXOSAAAAAAAAAAeNrtwTEBAAAAwqD1T20Hb6AAAAAAAAAAAAB4DCWAAAH3by0AAAAAAABuLQAAAAAAAPcA+gD9AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA3HHzu");
+//    if (!pdSrc.IsValid()) {
+//        QVERIFY(false);
+//    }
 }
 
 void TestPegOps::test4a()
@@ -214,8 +224,8 @@ void TestPegOps::test4a()
     qDebug() << "src_out_b64" << src_out_b64.c_str();
     qDebug() << "dst_out_b64" << dst_out_b64.c_str();
     
-    QVERIFY(src_out_b64 == "AgACAAAAAAABAgACAAAAAAAAAAAAAgAAJQAAAAAAAAB42u3FQREAAAgDoNm/tDXmCR8SAAAAAAAA4Ip5PgBAmwVKDwAhAQIAAAAAAAAAAQAAAAAAAAD3AfcB9wEAALQAAAAAAAAASwEAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAA==");
-    QVERIFY(dst_out_b64 == "AgACAAAAAAABAgACAAAAAAAAAAAAAgAAUAAAAAAAAAB42u3WsQ0AIAgEQGX/oV1AC0OhkLuGWFgYn8AYAAAAwO+m2rqiv3d5yObpdZ7lm0w/ZPuj+/yMou+My/+Lw/n2ftW9wJ6k2h8BAOpYgEIA+QECAAAAAAAAAAEAAAAAAAAA9wH3AfcBAAC0AAAAAAAAAEsBAAAAAAAAAAAAAAAAAAAbAQAAAAAAAAAAAAA=");
+    QVERIFY(src_out_b64 == "AgACAAAAAAAAAgACAAAAAAAAAAAAAgAAJQAAAAAAAAB42u3FQREAAAgDoNm/tDXmCR8SAAAAAAAA4Ip5PgBAmwVKDwAhAgIAAAAAAAAAAQAAAAAAAAADAPcB9wH3AQAAtAAAAAAAAABLAQAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAA");
+    QVERIFY(dst_out_b64 == "AgACAAAAAAAAAgACAAAAAAAAAAAAAgAAUAAAAAAAAAB42u3WsQ0AIAgEQGX/oV1AC0OhkLuGWFgYn8AYAAAAwO+m2rqiv3d5yObpdZ7lm0w/ZPuj+/yMou+My/+Lw/n2ftW9wJ6k2h8BAOpYgEIA+QICAAAAAAAAAAEAAAAAAAAAAwD3AfcB9wEAALQAAAAAAAAASwEAAAAAAAAAAAAAAAAAABsBAAAAAAAAAAAAAA==");
 }
 
 QTEST_MAIN(TestPegOps)

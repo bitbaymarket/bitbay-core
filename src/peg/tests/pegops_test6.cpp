@@ -38,7 +38,7 @@ void TestPegOps::test6()
     
     QCOMPARE(pegshift1.Total(), 0);
     
-    CPegLevel level1(1,0,200,200,200,
+    CPegLevel level1(1,0,0,200,200,200,
                      exchange1, pegshift1);
     
     qDebug() << level1.nSupply << level1.nShift << level1.nShiftLastPart << level1.nShiftLastTotal;
@@ -77,11 +77,16 @@ void TestPegOps::test6()
     string pegpool2_b64;
     string out_err;
     
+    int64_t out_exchange_liquid;
+    int64_t out_exchange_reserve;
+    int64_t out_pegpool_value;
+
     int buffer = 3;
     
     bool ok1 = getpeglevel(
                 2,
                 1,
+                0,
                 205+buffer,
                 205+buffer,
                 205+buffer,
@@ -89,7 +94,10 @@ void TestPegOps::test6()
                 pegshift1_b64,
                 
                 peglevel2_hex,
+                out_exchange_liquid,
+                out_exchange_reserve,
                 pegpool2_b64,
+                out_pegpool_value,
                 out_err
                 );
     
@@ -115,6 +123,7 @@ void TestPegOps::test6()
                 user1_r2_liquid,
                 user1_r2_reserve,
                 pegpool2_r1_b64,
+                out_pegpool_value,
                 out_err
                 );
     
@@ -137,6 +146,7 @@ void TestPegOps::test6()
                 user2_r2_liquid,
                 user2_r2_reserve,
                 pegpool2_r2_b64,
+                out_pegpool_value,
                 out_err
                 );
     

@@ -22,7 +22,7 @@ void TestPegOps::test5()
     
     CPegData pdPegShift;
     
-    CPegLevel level1(1,0,3,3,3);
+    CPegLevel level1(1,0,0,3,3,3);
     
     pdPegShift.peglevel = level1;
     
@@ -45,10 +45,15 @@ void TestPegOps::test5()
     string pegpool1_b64;
     string out_err;
     
+    int64_t out_exchange_liquid;
+    int64_t out_exchange_reserve;
+    int64_t out_pegpool_value;
+
     bool ok1 = getpeglevel(
                 1,
                 0,
                 
+                0,
                 3,
                 3,
                 3,
@@ -56,7 +61,10 @@ void TestPegOps::test5()
                 pegshift1_b64,
                 
                 peglevel1_hex,
+                out_exchange_liquid,
+                out_exchange_reserve,
                 pegpool1_b64,
+                out_pegpool_value,
                 out_err
                 );
     
@@ -65,8 +73,8 @@ void TestPegOps::test5()
     qDebug() << out_err.c_str();
     
     QVERIFY(ok1 == true);
-    QVERIFY(peglevel1_hex == "0101000000000000000000000000000000030003000300000000000000000000000000000000000000");
-    QVERIFY(pegpool1_b64 == "AQAAAAAAAAABAgACAAAAAAAAAAAAACsAAAAAAAAAeNrtxSEBAAAIA7CTgv5NMchH2MySbv+xbdu2bdu2bdu2bdu2bdcP6A4ExAEBAAAAAAAAAAAAAAAAAAAAAwADAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACLawAAAAAAAAAAAAA=");
+    QVERIFY(peglevel1_hex == "02010000000000000000000000000000000000030003000300000000000000000000000000000000000000");
+    QVERIFY(pegpool1_b64 == "AQAAAAAAAAABAgACAAAAAAAAAAAAACsAAAAAAAAAeNrtxSEBAAAIA7CTgv5NMchH2MySbv+xbdu2bdu2bdu2bdu2bdcP6A4ExAIBAAAAAAAAAAAAAAAAAAAAAAADAAMAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAItrAAAAAAAAAAAAAA==");
     
     // only 1 user, calculate balance:
     
@@ -84,6 +92,7 @@ void TestPegOps::test5()
                 user1_r2_liquid,
                 user1_r2_reserve,
                 pegpool1_r2_b64,
+                out_pegpool_value,
                 out_err
                 );
     
@@ -100,6 +109,7 @@ void TestPegOps::test5()
     bool ok3 = getpeglevel(
                 2,
                 1,
+                0,
                 13,
                 13,
                 13,
@@ -107,7 +117,10 @@ void TestPegOps::test5()
                 pegshift1_b64,
                 
                 peglevel2_hex,
+                out_exchange_liquid,
+                out_exchange_reserve,
                 pegpool2_b64,
+                out_pegpool_value,
                 out_err
                 );
     
@@ -131,6 +144,7 @@ void TestPegOps::test5()
                 user1_r3_liquid,
                 user1_r3_reserve,
                 pegpool1_r3_b64,
+                out_pegpool_value,
                 out_err
                 );
     
@@ -139,7 +153,7 @@ void TestPegOps::test5()
     qDebug() << out_err.c_str();
     QVERIFY(ok4 == true);
     // pegpool is zero
-    QVERIFY(pegpool1_r3_b64 == "AQAAAAAAAAABAgACAAAAAAAAAAAAACAAAAAAAAAAeNrtwTEBAAAAwqD1T20Hb6AAAAAAAAAAAAB4DCWAAAEBAgAAAAAAAAABAAAAAAAAAA0ADQANAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    QVERIFY(pegpool1_r3_b64 == "AQAAAAAAAAABAgACAAAAAAAAAAAAACAAAAAAAAAAeNrtwTEBAAAAwqD1T20Hb6AAAAAAAAAAAAB4DCWAAAECAgAAAAAAAAABAAAAAAAAAAAADQANAA0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
     
     // move to cycle3, peg +10
     
@@ -149,6 +163,7 @@ void TestPegOps::test5()
     bool ok5 = getpeglevel(
                 3,
                 2,
+                0,
                 23,
                 23,
                 23,
@@ -156,7 +171,10 @@ void TestPegOps::test5()
                 pegshift1_b64,
                 
                 peglevel3_hex,
+                out_exchange_liquid,
+                out_exchange_reserve,
                 pegpool3_b64,
+                out_pegpool_value,
                 out_err
                 );
     
@@ -180,6 +198,7 @@ void TestPegOps::test5()
                 user1_r4_liquid,
                 user1_r4_reserve,
                 pegpool3_r1_b64,
+                out_pegpool_value,
                 out_err
                 );
     
@@ -188,7 +207,7 @@ void TestPegOps::test5()
     qDebug() << out_err.c_str();
     QVERIFY(ok6 == true);
     
-    QVERIFY(pegpool3_r1_b64 == "AQAAAAAAAAABAgACAAAAAAAAAAAAACAAAAAAAAAAeNrtwTEBAAAAwqD1T20Hb6AAAAAAAAAAAAB4DCWAAAEBAwAAAAAAAAACAAAAAAAAABcAFwAXAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    QVERIFY(pegpool3_r1_b64 == "AQAAAAAAAAABAgACAAAAAAAAAAAAACAAAAAAAAAAeNrtwTEBAAAAwqD1T20Hb6AAAAAAAAAAAAB4DCWAAAECAwAAAAAAAAACAAAAAAAAAAAAFwAXABcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
     
     CFractions user2(0,CFractions::STD);
     for(int i=10;i<PEG_SIZE-100;i++) {
@@ -196,7 +215,7 @@ void TestPegOps::test5()
     }
     
     CFractions exchange2 = pdUser1.fractions + user2;
-    CPegLevel level3(3,0,0,0,0);
+    CPegLevel level3(3,0,0,0,0,0);
     
     CPegData pdUser2;
     pdUser2.fractions = user2;
@@ -223,6 +242,7 @@ void TestPegOps::test5()
     bool ok7 = getpeglevel(
                 4,
                 3,
+                0,
                 33,
                 33,
                 33,
@@ -230,7 +250,10 @@ void TestPegOps::test5()
                 pegshift1_b64,
                 
                 peglevel4_hex,
+                out_exchange_liquid,
+                out_exchange_reserve,
                 pegpool4_b64,
+                out_pegpool_value,
                 out_err
                 );
     
@@ -254,6 +277,7 @@ void TestPegOps::test5()
                 user1_r5_liquid,
                 user1_r5_reserve,
                 pegpool4_r1_b64,
+                out_pegpool_value,
                 out_err
                 );
     
@@ -276,6 +300,7 @@ void TestPegOps::test5()
                 user2_r1_liquid,
                 user2_r1_reserve,
                 pegpool4_r2_b64,
+                out_pegpool_value,
                 out_err
                 );
     
@@ -292,6 +317,7 @@ void TestPegOps::test5()
     bool ok10 = getpeglevel(
                 5,
                 4,
+                0,
                 28,
                 28,
                 28,
@@ -299,7 +325,10 @@ void TestPegOps::test5()
                 pegshift1_b64,
                 
                 peglevel5_hex,
+                out_exchange_liquid,
+                out_exchange_reserve,
                 pegpool5_b64,
+                out_pegpool_value,
                 out_err
                 );
     
@@ -323,6 +352,7 @@ void TestPegOps::test5()
                 user1_r6_liquid,
                 user1_r6_reserve,
                 pegpool5_r1_b64,
+                out_pegpool_value,
                 out_err
                 );
     
@@ -345,6 +375,7 @@ void TestPegOps::test5()
                 user2_r2_liquid,
                 user2_r2_reserve,
                 pegpool5_r2_b64,
+                out_pegpool_value,
                 out_err
                 );
     
@@ -352,5 +383,5 @@ void TestPegOps::test5()
     qDebug() << pegpool5_r2_b64.c_str();
     qDebug() << out_err.c_str();
     QVERIFY(ok12 == true);
-    QVERIFY(pegpool5_r2_b64 == "AQAAAAAAAAABAgACAAAAAAAAAAAAACAAAAAAAAAAeNrtwTEBAAAAwqD1T20Hb6AAAAAAAAAAAAB4DCWAAAEBBQAAAAAAAAAEAAAAAAAAABwAHAAcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    QVERIFY(pegpool5_r2_b64 == "AQAAAAAAAAABAgACAAAAAAAAAAAAACAAAAAAAAAAeNrtwTEBAAAAwqD1T20Hb6AAAAAAAAAAAAB4DCWAAAECBQAAAAAAAAAEAAAAAAAAAAAAHAAcABwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
 }

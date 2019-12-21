@@ -20,7 +20,7 @@ void TestPegOps::test1k()
     std::default_random_engine generator;
     std::uniform_int_distribution<int> distribution(0,1000);
     
-    CPegLevel level1(1,0,500,500,500);
+    CPegLevel level1(1,0,0,500,500,500);
     qDebug() << level1.nSupply << level1.nShift << level1.nShiftLastPart << level1.nShiftLastTotal;
     
     vector<CFractions> users;
@@ -81,6 +81,10 @@ void TestPegOps::test1k()
         string pegpool_b64;
         string out_err;
         
+        int64_t out_exchange_liquid;
+        int64_t out_exchange_reserve;
+        int64_t out_pegpool_value;
+        
         int peg = 0;
         int buffer = 3;
         if (i<500) {
@@ -92,6 +96,7 @@ void TestPegOps::test1k()
         bool ok1 = getpeglevel(
                     i+2,
                     i+1,
+                    0,
                     peg+buffer,
                     peg+buffer,
                     peg+buffer,
@@ -99,7 +104,10 @@ void TestPegOps::test1k()
                     pegshift1_b64,
                     
                     peglevel_hex,
+                    out_exchange_liquid,
+                    out_exchange_reserve,
                     pegpool_b64,
+                    out_pegpool_value,
                     out_err
                     );
         
@@ -128,6 +136,7 @@ void TestPegOps::test1k()
                         user_balance_out_liquid,
                         user_balance_out_reserve,
                         pegpool_out_b64,
+                        out_pegpool_value,
                         out_err
                         );
             

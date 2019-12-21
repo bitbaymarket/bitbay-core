@@ -164,7 +164,7 @@ install:
     tar -zxf db-4.8.30.NC.tar.gz                                &&
     mv db-4.8.30.NC db                                          &&
     cd db                                                       &&
-    patch dbinc/atomic.h < ../doc/mac_db-4.8_atomic.patch       &&
+    patch -p2 < ../doc/mac_db-4.8_atomic.patch                  &&
     cd build_unix                                               &&
     CFLAGS="-mmacosx-version-min=10.9" \
         CXXFLAGS="-mmacosx-version-min=10.9" \
@@ -219,7 +219,7 @@ install:
     tar -zxf db-4.8.30.NC.tar.gz                                &&
     mv db-4.8.30.NC db                                          &&
     cd db                                                       &&
-    patch dbinc/atomic.h < ../doc/mac_db-4.8_atomic.patch       &&
+    patch -p2 < ../doc/mac_db-4.8_atomic.patch                  &&
     cd build_unix                                               &&
     CFLAGS="-mmacosx-version-min=10.9" \
         CXXFLAGS="-mmacosx-version-min=10.9" \
@@ -246,7 +246,7 @@ install:
     tar -zxf db-4.8.30.NC.tar.gz                                &&
     mv db-4.8.30.NC db                                          &&
     cd db                                                       &&
-    patch dbinc/atomic.h < ../doc/mac_db-4.8_atomic.patch       &&
+    patch -p2 < ../doc/mac_db-4.8_atomic.patch                  &&
     cd build_unix                                               &&
     CFLAGS="-mmacosx-version-min=10.9" \
         CXXFLAGS="-mmacosx-version-min=10.9" \

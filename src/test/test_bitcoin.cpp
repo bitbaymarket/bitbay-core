@@ -13,11 +13,13 @@ bool fUseFastIndex = true;
 
 extern bool fPrintToConsole;
 extern void noui_connect();
+extern void InitParamsOnStart();
 
 struct TestingSetup {
     TestingSetup() {
         fPrintToConsole = true; // don't want to write to debug.log file
         noui_connect();
+        InitParamsOnStart();
         pwalletMain = new CWallet();
         RegisterWallet(pwalletMain);
     }

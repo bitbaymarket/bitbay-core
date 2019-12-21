@@ -17,6 +17,7 @@
 #include "key.h"
 #include "bignum.h"
 #include "util.h"
+#include "utilstrencodings.h"
 
 typedef std::vector<unsigned char> valtype;
 

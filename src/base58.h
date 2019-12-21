@@ -24,6 +24,7 @@
 #include "script.h"
 #include "allocators.h"
 #include "util.h"
+#include "utilstrencodings.h"
 
 static const char* pszBase58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 

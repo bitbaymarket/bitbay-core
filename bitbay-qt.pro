@@ -169,8 +169,10 @@ include(src/core.pri)
 
 QWT_CONFIG += QwtPlot
 QWT_CONFIG += QwtWidgets
-#DEFINES += QWT_MOC_INCLUDE
+DEFINES += QWT_MOC_INCLUDE
 include(src/qt/qwt/qwt.pri)
+
+SOURCES += src/init.cpp
 
 CODECFORTR = UTF-8
 

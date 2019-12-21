@@ -13,6 +13,7 @@ HEADERS += \
     $$PWD/coincontrol.h \
     $$PWD/sync.h \
     $$PWD/util.h \
+    $$PWD/utilstrencodings.h \
     $$PWD/hash.h \
     $$PWD/uint256.h \
     $$PWD/kernel.h \
@@ -45,13 +46,13 @@ SOURCES += \
     $$PWD/sync.cpp \
     $$PWD/txmempool.cpp \
     $$PWD/util.cpp \
+    $$PWD/utilstrencodings.cpp \
     $$PWD/hash.cpp \
     $$PWD/netbase.cpp \
     $$PWD/key.cpp \
     $$PWD/script.cpp \
     $$PWD/core.cpp \
     $$PWD/main.cpp \
-    $$PWD/init.cpp \
     $$PWD/net.cpp \
     $$PWD/checkpoints.cpp \
     $$PWD/addrman.cpp \

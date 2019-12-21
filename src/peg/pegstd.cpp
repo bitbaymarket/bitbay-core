@@ -659,3 +659,45 @@ bool CalculateStandardFractions(const CTransaction & tx,
     return true;
 }
 
+// to be in peg.cpp as reference Params()
+
+bool CFractions::SetMark(MarkAction action, uint32_t nMark, uint64_t nTime)
+{
+    uint32_t nNewFlags = nFlags | nMark;
+    
+    int nMarks = 0;
+    if (nNewFlags & CFractions::NOTARY_F) nMarks++;
+    if (nNewFlags & CFractions::NOTARY_V) nMarks++;
+    if (nNewFlags & CFractions::NOTARY_L) nMarks++;
+    if (nNewFlags & CFractions::NOTARY_C) nMarks++;
+    
+    if (nMarks > 1) { /* marks are crossing */
+        return false;
+    }
+    
+    nFlags = nNewFlags;
+    
+    if (action == MARK_SET) {
+        if (nFlags & CFractions::NOTARY_F) {
+            nLockTime = nTime + Params().PegFrozenTime();
+        }
+        else if (nFlags & CFractions::NOTARY_V) {
+            nLockTime = nTime + Params().PegVFrozenTime();
+        }
+        else if (nFlags & CFractions::NOTARY_L) {
+            nLockTime = 0;
+        }
+        else if (nFlags & CFractions::NOTARY_C) {
+            nLockTime = 0;
+        }
+    }
+    else if (action == MARK_TRANSFER) {
+        nLockTime = nTime;
+    }
+    else if (action == MARK_COLD_TO_FROZEN) {
+        nLockTime = nTime + 4 * Params().PegFrozenTime();
+    }
+    
+    return true;
+}
+

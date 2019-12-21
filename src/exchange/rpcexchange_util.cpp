@@ -95,3 +95,29 @@ void printpegbalance(const CPegData & pegdata,
     result.push_back(Pair(prefix+"pegdata", pegdata.ToString()));
 }
 
+void printpegtxout(const CPegData & pegdata,
+                   Object & result,
+                   string prefix)
+{
+    int64_t nValue      = pegdata.fractions.Total();
+
+    // network peg in next cycle
+    int pegn_liquid = pegdata.peglevel.nSupplyNext - pegdata.peglevel.nBuffer;
+    int pegn_reserve = pegdata.peglevel.nSupplyNext;
+    
+    int64_t nLiquid = pegdata.fractions.High(pegn_liquid);
+    int64_t nReserve = pegdata.fractions.Low(pegn_reserve);
+    
+    int16_t nValueHli   = pegdata.fractions.HLI();
+    int16_t nLiquidHli  = pegdata.fractions.HighPart(pegn_liquid, nullptr).HLI();
+    int16_t nReserveHli = pegdata.fractions.LowPart(pegn_reserve, nullptr).HLI();
+
+    result.push_back(Pair(prefix+"value", nValue));
+    result.push_back(Pair(prefix+"value_hli", nValueHli));
+    result.push_back(Pair(prefix+"nliquid", nLiquid));
+    result.push_back(Pair(prefix+"nliquid_hli", nLiquidHli));
+    result.push_back(Pair(prefix+"nreserve", nReserve));
+    result.push_back(Pair(prefix+"nreserve_hli", nReserveHli));
+    result.push_back(Pair(prefix+"pegdata", pegdata.ToString()));
+}
+

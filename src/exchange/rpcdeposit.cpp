@@ -22,6 +22,10 @@ using namespace json_spirit;
 void printpeglevel(const CPegLevel & peglevel,
                    Object & result);
 
+void printpegtxout(const CPegData & pegdata,
+                   Object & result,
+                   string prefix);
+
 void printpegbalance(const CPegData & pegdata,
                      Object & result,
                      string prefix);
@@ -290,7 +294,7 @@ Value registerdeposit(const Array& params, bool fHelp)
     result.push_back(Pair("cycle", peglevel.nCycle));
     
     printpeglevel(peglevel, result);
-    printpegbalance(pdTxout, result, "txout_");
+    printpegtxout(pdTxout, result, "txout_");
     printpegbalance(pdBalance, result, "balance_");
     printpegbalance(pdExchange, result, "exchange_");
     

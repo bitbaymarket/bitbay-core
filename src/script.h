@@ -11,7 +11,6 @@
 
 #include <stdint.h>
 
-#include <boost/foreach.hpp>
 #include <boost/variant.hpp>
 
 #include "key.h"

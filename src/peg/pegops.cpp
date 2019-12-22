@@ -515,4 +515,116 @@ bool prepareliquidwithdraw(
     return true;
 }
 
+bool preparereservewithdraw(
+        const txinps &          inp_txinps,
+        const std::string       inp_balance_pegdata64,
+        const std::string       inp_exchange_pegdata64,
+        const std::string       inp_pegshift_pegdata64,
+        int64_t                 inp_amount_with_fee,
+        std::string             inp_address,
+        const std::string &     inp_peglevel_hex,
+        
+        std::string &   out_balance_pegdata64,
+        int64_t     &   out_balance_liquid,
+        int64_t     &   out_balance_reserve,
+        std::string &   out_exchange_pegdata64,
+        int64_t     &   out_exchange_liquid,
+        int64_t     &   out_exchange_reserve,
+        std::string &   out_pegshift_pegdata64,
+        std::string &   out_requested_pegdata64,
+        std::string &   out_processed_pegdata64,
+        std::string &   out_rawtx,
+        txouts &        out_txouts,
+        std::string &   out_err)
+{
+    out_err.clear();
+
+    CPegLevel peglevel(inp_peglevel_hex);
+    if (!peglevel.IsValid()) {
+        out_err = "Can not unpack peglevel";
+        return false;
+    }
+    
+    CPegData pdBalance(inp_balance_pegdata64);
+    if (!pdBalance.IsValid()) {
+        out_err = "Can not unpack 'exchange' pegdata";
+        return false;
+    }
+    
+    CPegData pdExchange(inp_exchange_pegdata64);
+    if (!pdExchange.IsValid()) {
+        out_err = "Can not unpack 'exchange' pegdata";
+        return false;
+    }
+
+    CPegData pdPegShift(inp_pegshift_pegdata64);
+    if (!pdPegShift.IsValid()) {
+        out_err = "Can not unpack 'pegshift' pegdata";
+        return false;
+    }
+    
+    CPegData pdRequested;
+    CPegData pdProcessed;
+    
+    std::vector<
+        std::tuple<
+            std::string,
+            CPegData,
+            std::string>> txIns;
+    
+    for(const std::tuple<string,string,string> & txinp : inp_txinps) {
+        string txout_id;
+        string txout_pegdata64;
+        string txout_privkey_bip32;
+        std::tie(txout_id,txout_pegdata64,txout_privkey_bip32) = txinp;
+        CPegData pdTxout(txout_pegdata64);
+        if (!pdTxout.IsValid()) {
+            out_err = "Can not unpack 'txout' pegdata";
+            return false;
+        }
+        txIns.push_back(make_tuple(txout_id, pdTxout, txout_privkey_bip32));
+    }
+    
+    std::vector<
+        std::tuple<
+            std::string,
+            CPegData>> txOuts;
+    
+    bool ok = preparereservewithdraw(
+                txIns,
+                pdBalance,
+                pdExchange,
+                pdPegShift,
+                inp_amount_with_fee,
+                inp_address,
+                peglevel,
+                pdRequested,
+                pdProcessed,
+                out_rawtx,
+                txOuts,
+                out_err);
+    
+    if (!ok) {
+        return false;
+    }
+    
+    out_balance_pegdata64   = pdBalance.ToString();
+    out_balance_liquid      = pdBalance.nLiquid;
+    out_balance_reserve     = pdBalance.nReserve;
+    out_exchange_pegdata64  = pdExchange.ToString();
+    out_exchange_liquid     = pdExchange.nLiquid;
+    out_exchange_reserve    = pdExchange.nReserve;
+    out_pegshift_pegdata64  = pdPegShift.ToString();
+    out_requested_pegdata64 = pdRequested.ToString();
+    out_processed_pegdata64 = pdProcessed.ToString();
+    
+    for(const std::tuple<string,CPegData> & txOut : txOuts) {
+        auto txout = make_tuple(std::get<0>(txOut), 
+                                std::get<1>(txOut).ToString());
+        out_txouts.push_back(txout);
+    }
+    
+    return true;
+}
+
 } // namespace

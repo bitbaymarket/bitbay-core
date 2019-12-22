@@ -147,6 +147,28 @@ extern bool prepareliquidwithdraw(
         txouts &        out_txouts,
         std::string &   out_err);
 
+extern bool preparereservewithdraw(
+        const txinps &          inp_txinps,
+        const std::string       inp_balance_pegdata64,
+        const std::string       inp_exchange_pegdata64,
+        const std::string       inp_pegshift_pegdata64,
+        int64_t                 inp_amount_with_fee,
+        std::string             inp_address,
+        const std::string &     inp_peglevel_hex,
+        
+        std::string &   out_balance_pegdata64,
+        int64_t     &   out_balance_liquid,
+        int64_t     &   out_balance_reserve,
+        std::string &   out_exchange_pegdata64,
+        int64_t     &   out_exchange_liquid,
+        int64_t     &   out_exchange_reserve,
+        std::string &   out_pegshift_pegdata64,
+        std::string &   out_requested_pegdata64,
+        std::string &   out_processed_pegdata64,
+        std::string &   out_rawtx,
+        txouts &        out_txouts,
+        std::string &   out_err);
+
 }
 
 #endif // BITBAY_PEGOPS_H

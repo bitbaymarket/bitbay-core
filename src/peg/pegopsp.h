@@ -66,9 +66,30 @@ extern bool movereserve(
 
         std::string &   sErr);
 
-extern bool test2();
-
 extern bool prepareliquidwithdraw(
+        const std::vector<
+            std::tuple<
+                std::string,
+                CPegData,
+                std::string>> & txins,
+        CPegData &              pdBalance,
+        CPegData &              pdExchange,
+        CPegData &              pdPegShift,
+        int64_t                 nAmountWithFee,
+        std::string             sAddress,
+        const CPegLevel &       peglevel,
+        
+        CPegData &              pdRequested,
+        CPegData &              pdProcessed,
+        std::string &           rawtx,
+        std::vector<
+            std::tuple<
+                std::string,
+                CPegData>> &    txouts,
+
+        std::string &   sErr);
+
+extern bool preparereservewithdraw(
         const std::vector<
             std::tuple<
                 std::string,

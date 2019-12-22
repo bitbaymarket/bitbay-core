@@ -1627,7 +1627,7 @@ void static Discover(boost::thread_group& threadGroup)
         vector<CNetAddr> vaddr;
         if (LookupHost(pszHostName, vaddr))
         {
-            BOOST_FOREACH (const CNetAddr &addr, vaddr)
+            for(const CNetAddr &addr : vaddr)
             {
                 AddLocal(addr, LOCAL_IF);
             }

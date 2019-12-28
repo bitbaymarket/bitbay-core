@@ -206,6 +206,12 @@ private slots:
     void gotoStakingPage();
     /** Switch to info page */
     void gotoInfoPage();
+    /** Switch to info page and blocks tab */
+    void gotoInfoPageBlocks();
+    /** Switch to info page and net tab */
+    void gotoInfoPageNet();
+    /** Activated on tab changed */
+    void onTabChanged(int);
 
     /** Show Sign/Verify Message dialog and switch to sign message tab */
     void gotoSignMessageTab(QString addr = "");

@@ -100,11 +100,15 @@ public:
     };
 
     // Send coins to a list of recipients
-    SendCoinsReturn sendCoins(const QList<SendCoinsRecipient> &recipients, PegTxType nTxType, const CCoinControl *coinControl=NULL);
+    SendCoinsReturn sendCoins(const QList<SendCoinsRecipient> &recipients, 
+                              PegTxType nTxType, 
+                              const CCoinControl *coinControl,
+                              std::string & sFailCause);
     SendCoinsReturn sendCoinsTest(CWalletTx& wtx,
                                   const QList<SendCoinsRecipient> &recipients, 
                                   PegTxType nTxType, 
-                                  const CCoinControl *coinControl=NULL);
+                                  const CCoinControl *coinControl,
+                                  std::string & sFailCause);
 
     // Wallet encryption
     bool setWalletEncrypted(bool encrypted, const SecureString &passphrase);

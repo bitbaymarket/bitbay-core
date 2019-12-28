@@ -204,56 +204,67 @@ void SendCoinsDialog::on_sendButton_clicked()
         return;
     }
 
-    WalletModel::SendCoinsReturn sendstatus;
-
     PegTxType nTxType = static_cast<PegTxType>(ui->comboBoxTxType->currentData().toInt());
-    
-    if (!model->getOptionsModel() || !model->getOptionsModel()->getCoinControlFeatures())
-        sendstatus = model->sendCoins(recipients, nTxType);
-    else
-        sendstatus = model->sendCoins(recipients, nTxType, CoinControlDialog::coinControl);
+    WalletModel::SendCoinsReturn sendstatus;
+    CCoinControl *coinControl = nullptr;
+    string sFailCause;
 
+    if (model->getOptionsModel() && model->getOptionsModel()->getCoinControlFeatures()) {
+        coinControl = CoinControlDialog::coinControl;
+    }
+    
+    sendstatus = model->sendCoins(recipients, nTxType, coinControl, sFailCause);
+
+    if (!sFailCause.empty()) {
+        sFailCause = "\n"+sFailCause;
+    }
+    QString errdetails = QString::fromStdString(sFailCause);
+    
     switch(sendstatus.status)
     {
     case WalletModel::InvalidAddress:
         QMessageBox::warning(this, tr("Send Coins"),
-            tr("The recipient address is not valid, please recheck."),
+            tr("The recipient address is not valid, please recheck.")+errdetails,
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::InvalidAmount:
         QMessageBox::warning(this, tr("Send Coins"),
-            tr("The amount to pay must be larger than 0."),
+            tr("The amount to pay must be larger than 0.")+errdetails,
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::InvalidTxType:
         QMessageBox::warning(this, tr("Send Coins"),
-            tr("The selected transaction type is not supported yet."),
+            tr("The selected transaction type is not supported yet.")+errdetails,
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::AmountExceedsBalance:
         QMessageBox::warning(this, tr("Send Coins"),
-            tr("The amount exceeds your balance."),
+            tr("The amount exceeds your balance.")+errdetails,
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::AmountWithFeeExceedsBalance:
         QMessageBox::warning(this, tr("Send Coins"),
             tr("The total exceeds your balance when the %1 transaction fee is included.").
-            arg(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), sendstatus.fee)),
+            arg(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), sendstatus.fee))+errdetails,
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::DuplicateAddress:
         QMessageBox::warning(this, tr("Send Coins"),
-            tr("Duplicate address found, can only send to each address once per send operation."),
+            tr("Duplicate address found, can only send to each address once per send operation.")+errdetails,
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::TransactionCreationFailed:
         QMessageBox::warning(this, tr("Send Coins"),
-            tr("Error: Transaction creation failed!"),
+            tr("Error: Transaction creation failed!")+errdetails,
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::TransactionCommitFailed:
         QMessageBox::warning(this, tr("Send Coins"),
-            tr("Error: The transaction was rejected. This might happen if some of the coins in your wallet were already spent, such as if you used a copy of wallet.dat and coins were spent in the copy but not marked as spent here."),
+            tr("Error: The transaction was rejected. "
+               "This might happen if some of the coins in your "
+               "wallet were already spent, such as if you used "
+               "a copy of wallet.dat and coins were spent in "
+               "the copy but not marked as spent here.")+errdetails,
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::Aborted: // User aborted, nothing to do
@@ -297,52 +308,59 @@ void SendCoinsDialog::txPreviewButtonClicked()
         return;
     }
 
-    WalletModel::SendCoinsReturn sendstatus;
-
     PegTxType nTxType = static_cast<PegTxType>(ui->comboBoxTxType->currentData().toInt());
+    WalletModel::SendCoinsReturn sendstatus;
+    CCoinControl *coinControl = nullptr;
+    string sFailCause;
+    
+    if (model->getOptionsModel() && model->getOptionsModel()->getCoinControlFeatures()) {
+        coinControl = CoinControlDialog::coinControl;
+    }
     
     CWalletTx wtx;
-    if (!model->getOptionsModel() || !model->getOptionsModel()->getCoinControlFeatures())
-        sendstatus = model->sendCoinsTest(wtx, recipients, nTxType, nullptr);
-    else
-        sendstatus = model->sendCoinsTest(wtx, recipients, nTxType, CoinControlDialog::coinControl);
+    sendstatus = model->sendCoinsTest(wtx, recipients, nTxType, coinControl, sFailCause);
 
+    if (!sFailCause.empty()) {
+        sFailCause = "\n"+sFailCause;
+    }
+    QString errdetails = QString::fromStdString(sFailCause);
+    
     switch(sendstatus.status)
     {
     case WalletModel::InvalidAddress:
         QMessageBox::warning(this, tr("Send Coins"),
-            tr("The recipient address is not valid, please recheck."),
+            tr("The recipient address is not valid, please recheck.")+errdetails,
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::InvalidAmount:
         QMessageBox::warning(this, tr("Send Coins"),
-            tr("The amount to pay must be larger than 0."),
+            tr("The amount to pay must be larger than 0.")+errdetails,
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::InvalidTxType:
         QMessageBox::warning(this, tr("Send Coins"),
-            tr("The selected transaction type is not supported yet."),
+            tr("The selected transaction type is not supported yet.")+errdetails,
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::AmountExceedsBalance:
         QMessageBox::warning(this, tr("Send Coins"),
-            tr("The amount exceeds your balance."),
+            tr("The amount exceeds your balance.")+errdetails,
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::AmountWithFeeExceedsBalance:
         QMessageBox::warning(this, tr("Send Coins"),
             tr("The total exceeds your balance when the %1 transaction fee is included.").
-            arg(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), sendstatus.fee)),
+            arg(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), sendstatus.fee))+errdetails,
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::DuplicateAddress:
         QMessageBox::warning(this, tr("Send Coins"),
-            tr("Duplicate address found, can only send to each address once per send operation."),
+            tr("Duplicate address found, can only send to each address once per send operation.")+errdetails,
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::TransactionCreationFailed:
         QMessageBox::warning(this, tr("Send Coins"),
-            tr("Error: Transaction creation failed!"),
+            tr("Error: Transaction creation failed!")+errdetails,
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::TransactionCommitFailed:

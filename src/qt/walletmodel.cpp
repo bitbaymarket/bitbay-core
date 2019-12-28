@@ -284,7 +284,8 @@ bool WalletModel::validateAddress(const QString &address)
 
 WalletModel::SendCoinsReturn WalletModel::sendCoins(const QList<SendCoinsRecipient> &recipients, 
                                                     PegTxType txType, 
-                                                    const CCoinControl *coinControl)
+                                                    const CCoinControl *coinControl,
+                                                    std::string & sFailCause)
 {
     qint64 total = 0;
     QSet<QString> setAddress;
@@ -364,7 +365,14 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(const QList<SendCoinsRecipie
         CWalletTx wtx;
         CReserveKey keyChange(wallet);
         int64_t nFeeRequired = 0;
-        bool fCreated = wallet->CreateTransaction(txType, vecSend, wtx, keyChange, nFeeRequired, coinControl);
+        bool fCreated = wallet->CreateTransaction(txType, 
+                                                  vecSend, 
+                                                  wtx, 
+                                                  keyChange, 
+                                                  nFeeRequired, 
+                                                  coinControl, 
+                                                  false, 
+                                                  sFailCause);
 
         if(!fCreated)
         {
@@ -411,7 +419,8 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(const QList<SendCoinsRecipie
 WalletModel::SendCoinsReturn WalletModel::sendCoinsTest(CWalletTx& wtx,
                                                         const QList<SendCoinsRecipient>& recipients, 
                                                         PegTxType txType, 
-                                                        const CCoinControl *coinControl)
+                                                        const CCoinControl *coinControl,
+                                                        std::string & sFailCause)
 {
     qint64 total = 0;
     QSet<QString> setAddress;
@@ -490,7 +499,14 @@ WalletModel::SendCoinsReturn WalletModel::sendCoinsTest(CWalletTx& wtx,
 
         CReserveKey keyChange(wallet);
         int64_t nFeeRequired = 0;
-        bool fCreated = wallet->CreateTransaction(txType, vecSend, wtx, keyChange, nFeeRequired, coinControl, true /*fTest*/);
+        bool fCreated = wallet->CreateTransaction(txType, 
+                                                  vecSend, 
+                                                  wtx, 
+                                                  keyChange, 
+                                                  nFeeRequired, 
+                                                  coinControl, 
+                                                  true /*fTest*/, 
+                                                  sFailCause);
 
         if(!fCreated)
         {

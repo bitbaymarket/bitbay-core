@@ -30,6 +30,7 @@
 #include <QStyleFactory>
 #include <QFontDatabase>
 #include <QDebug>
+#include <QMouseEvent>
 
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
@@ -715,6 +716,11 @@ void SetBitBayFonts(QWidget * w) {
     for(auto b : w->findChildren<QAbstractButton *>()) {
         b->setFont(font);
     }
+}
+
+void ClickableLabel::mouseReleaseEvent(QMouseEvent *me) {
+    me->accept();
+    emit clicked();
 }
 
 } // namespace GUIUtil

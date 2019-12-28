@@ -1937,17 +1937,27 @@ bool CWallet::CreateTransaction(PegTxType txType,
                                 CReserveKey& reservekey, 
                                 int64_t& nFeeRet, 
                                 const CCoinControl* coinControl,
-                                bool fTest)
+                                bool fTest,
+                                std::string & sFailCause)
 {
     int64_t nValue = 0;
+    
+    if (vecSend.empty()) {
+        sFailCause = "CT-1, no recepients";
+        return false;
+    }
     for(const std::pair<CScript, int64_t> & s : vecSend)
     {
-        if (nValue < 0)
+        if (nValue < 0) {
+            sFailCause = "CT-2, negative value to send";
             return false;
+        }
         nValue += s.second;
     }
-    if (vecSend.empty() || nValue < 0)
+    if (nValue < 0) {
+        sFailCause = "CT-3, negative value to send";
         return false;
+    }
 
     wtxNew.BindWallet(this);
 
@@ -2004,12 +2014,16 @@ bool CWallet::CreateTransaction(PegTxType txType,
                 if (!SelectCoins(txType, nTotalValue, wtxNew.nTime, setCoins, nValueIn, fUseFrozenUnlocked, coinControl)) {
                     fUseFrozenUnlocked = true;
                     if (!SelectCoins(txType, nTotalValue, wtxNew.nTime, setCoins, nValueIn, fUseFrozenUnlocked, coinControl)) {
+                        sFailCause = "CT-4, failed to select coins";
                         return false;
                     }
                 }
                 
                 nNumInputs = setCoins.size();
-                if (!nNumInputs) return false;
+                if (!nNumInputs) {
+                    sFailCause = "CT-5, no selected coins";
+                    return false;
+                }
                 
                 // Inputs to be sorted by address
                 vector<CSelectedCoin> vCoins;
@@ -2294,15 +2308,19 @@ bool CWallet::CreateTransaction(PegTxType txType,
                 if (!fTest) {
                     int nIn = 0;
                     for(const CSelectedCoin& coin : vCoins) {
-                        if (!SignSignature(*this, *coin.tx, wtxNew, nIn++))
+                        if (!SignSignature(*this, *coin.tx, wtxNew, nIn++)) {
+                            sFailCause = "CT-6, failed to sign";
                             return false;
+                        }
                     }
                 }
 
                 // Limit size
                 unsigned int nBytes = ::GetSerializeSize(*(CTransaction*)&wtxNew, SER_NETWORK, PROTOCOL_VERSION);
-                if (nBytes >= MAX_STANDARD_TX_SIZE)
+                if (nBytes >= MAX_STANDARD_TX_SIZE) {
+                    sFailCause = "CT-7, oversize standard tx size";
                     return false;
+                }
                 dPriority /= nBytes;
 
                 // Check that enough fee is included
@@ -2338,8 +2356,10 @@ bool CWallet::CreateTransaction(PegTxType txType,
                                     mapUnused, mapOutputFractions, 
                                     false, false, 
                                     mapInputs, mapInputsFractions, 
-                                    fInvalid))
+                                    fInvalid)) {
+                sFailCause = "CT-8, failed to fetch inputs";
                 return false;
+            }
 
             bool peg_ok = CalculateStandardFractions(wtxNew, 
                                                      GetPegSupplyIndex(),
@@ -2348,8 +2368,10 @@ bool CWallet::CreateTransaction(PegTxType txType,
                                                      mapOutputFractions,
                                                      feesFractions,
                                                      sPegFailCause);
-            if (!peg_ok)
+            if (!peg_ok) {
+                sFailCause = "CT-9, failed peg: "+sPegFailCause;
                 return false;
+            }
             
             auto txhash = wtxNew.GetHash();
             wtxNew.vOutFractions.resize(wtxNew.vout.size());
@@ -2357,6 +2379,7 @@ bool CWallet::CreateTransaction(PegTxType txType,
                 CFractions& fractions = wtxNew.vOutFractions.at(i);
                 auto fkey = uint320(txhash, i);
                 if (mapOutputFractions.find(fkey) == mapOutputFractions.end()) {
+                    sFailCause = "CT-10, no out fractions";
                     return false;
                 } 
                 fractions = mapOutputFractions.at(fkey);
@@ -2368,9 +2391,10 @@ bool CWallet::CreateTransaction(PegTxType txType,
 
 bool CWallet::CreateTransaction(CScript scriptPubKey, int64_t nValue, CWalletTx& wtxNew, CReserveKey& reservekey, int64_t& nFeeRet, const CCoinControl* coinControl)
 {
+    string sFailCause;
     vector< pair<CScript, int64_t> > vecSend;
     vecSend.push_back(make_pair(scriptPubKey, nValue));
-    return CreateTransaction(PEG_MAKETX_SEND_LIQUIDITY, vecSend, wtxNew, reservekey, nFeeRet, coinControl);
+    return CreateTransaction(PEG_MAKETX_SEND_LIQUIDITY, vecSend, wtxNew, reservekey, nFeeRet, coinControl, false /*fTest*/, sFailCause);
 }
 
 uint64_t CWallet::GetStakeWeight() const

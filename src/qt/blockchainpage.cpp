@@ -178,6 +178,15 @@ void BlockchainPage::showMempoolPage()
     ui->tabs->setCurrentWidget(ui->pageMempool);
 }
 
+void BlockchainPage::jumpToTop()
+{
+    auto mi = ui->blockchainView->model()->index(0, 0);
+    ui->blockchainView->setCurrentIndex(QModelIndex());
+    ui->blockchainView->selectionModel()->clearSelection();
+    ui->blockchainView->scrollTo(mi, QAbstractItemView::PositionAtCenter);
+    ui->blockchainView->setFocus();
+}
+
 void BlockchainPage::jumpToBlock()
 {
     bool ok = false;

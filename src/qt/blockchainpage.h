@@ -51,11 +51,14 @@ public:
 
     void setClientModel(ClientModel *clientModel);
     
-private slots:
+public slots:
     void showChainPage();
     void showBlockPage();
     void showTxPage();
     void showNetPage();
+    void jumpToTop();
+    
+private slots:
     void showMempoolPage();
     void openBlock(uint256);
     void openBlock(const QModelIndex &);

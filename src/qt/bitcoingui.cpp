@@ -149,6 +149,9 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     centralStackedWidget->addWidget(stakingPage);
     centralStackedWidget->addWidget(infoPage);
 
+    connect(centralStackedWidget, SIGNAL(currentChanged(int)),
+            this, SLOT(onTabChanged(int)));
+    
     QWidget * leftPanel = new QWidget();
     leftPanel->setFixedWidth(160);
     leftPanel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::MinimumExpanding);
@@ -468,9 +471,17 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     frameBlocksLayout->setSpacing(3);
     frameBlocksLayout->setAlignment(Qt::AlignHCenter);
     labelEncryptionIcon = new QLabel();
-    labelStakingIcon = new QLabel();
-    labelConnectionsIcon = new QLabel();
-    labelBlocksIcon = new QLabel();
+    labelStakingIcon = new GUIUtil::ClickableLabel();
+    labelConnectionsIcon = new GUIUtil::ClickableLabel();
+    labelBlocksIcon = new GUIUtil::ClickableLabel();
+    
+    connect(labelStakingIcon, SIGNAL(clicked()),
+            this, SLOT(gotoStakingPage()));
+    connect(labelConnectionsIcon, SIGNAL(clicked()),
+            this, SLOT(gotoInfoPageNet()));
+    connect(labelBlocksIcon, SIGNAL(clicked()),
+            this, SLOT(gotoInfoPageBlocks()));
+    
     frameBlocksLayout->addStretch();
     frameBlocksLayout->addWidget(labelEncryptionIcon);
     frameBlocksLayout->addStretch();
@@ -1232,6 +1243,7 @@ void BitcoinGUI::gotoVerifyMessagePage()
 
 void BitcoinGUI::gotoStakingPage()
 {
+    tabStaking->setChecked(true);
     centralStackedWidget->setCurrentWidget(stakingPage);
 
     exportAction->setEnabled(false);
@@ -1240,7 +1252,29 @@ void BitcoinGUI::gotoStakingPage()
 
 void BitcoinGUI::gotoInfoPage()
 {
+    tabInfo->setChecked(true);
     centralStackedWidget->setCurrentWidget(infoPage);
+
+    exportAction->setEnabled(false);
+    disconnect(exportAction, SIGNAL(triggered()), 0, 0);
+}
+
+void BitcoinGUI::gotoInfoPageBlocks()
+{
+    tabInfo->setChecked(true);
+    centralStackedWidget->setCurrentWidget(infoPage);
+    infoPage->showChainPage();
+    infoPage->jumpToTop();
+
+    exportAction->setEnabled(false);
+    disconnect(exportAction, SIGNAL(triggered()), 0, 0);
+}
+
+void BitcoinGUI::gotoInfoPageNet()
+{
+    tabInfo->setChecked(true);
+    centralStackedWidget->setCurrentWidget(infoPage);
+    infoPage->showNetPage();
 
     exportAction->setEnabled(false);
     disconnect(exportAction, SIGNAL(triggered()), 0, 0);
@@ -1262,6 +1296,15 @@ void BitcoinGUI::gotoVerifyMessageTab(QString addr)
 
     if(!addr.isEmpty())
         verifyMessagePage->setAddress_VM(addr);
+}
+
+void BitcoinGUI::onTabChanged(int)
+{
+    if (centralStackedWidget->currentWidget() == sendCoinsPage) {
+        fAboutToSendGUI = true;
+    } else {
+        fAboutToSendGUI = false;
+    }
 }
 
 void BitcoinGUI::dragEnterEvent(QDragEnterEvent *event)

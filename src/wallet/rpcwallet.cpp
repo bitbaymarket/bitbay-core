@@ -639,12 +639,13 @@ Value sendmany(const Array& params, bool fHelp)
     // Send
     CReserveKey keyChange(pwalletMain);
     int64_t nFeeRequired = 0;
-    bool fCreated = pwalletMain->CreateTransaction(PEG_MAKETX_SEND_LIQUIDITY, vecSend, wtx, keyChange, nFeeRequired);
+    string sFailCause;
+    bool fCreated = pwalletMain->CreateTransaction(PEG_MAKETX_SEND_LIQUIDITY, vecSend, wtx, keyChange, nFeeRequired, nullptr, false, sFailCause);
     if (!fCreated)
     {
         if (totalAmount + nFeeRequired > pwalletMain->GetBalance())
             throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
-        throw JSONRPCError(RPC_WALLET_ERROR, "Transaction creation failed");
+        throw JSONRPCError(RPC_WALLET_ERROR, "Transaction creation failed" + sFailCause);
     }
     if (!pwalletMain->CommitTransaction(wtx, keyChange))
         throw JSONRPCError(RPC_WALLET_ERROR, "Transaction commit failed");

@@ -259,7 +259,14 @@ public:
     int GetPegSupplyNIndex() const;
     int GetPegSupplyNNIndex() const;
     bool GetRewardInfo(std::vector<RewardInfo> &) const;
-    bool CreateTransaction(PegTxType txType, const std::vector<std::pair<CScript, int64_t> >& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey, int64_t& nFeeRet, const CCoinControl *coinControl=NULL, bool fTest=false);
+    bool CreateTransaction(PegTxType txType, 
+                           const std::vector<std::pair<CScript, int64_t> >& vecSend, 
+                           CWalletTx& wtxNew, 
+                           CReserveKey& reservekey, 
+                           int64_t& nFeeRet, 
+                           const CCoinControl *coinControl, 
+                           bool fTest,
+                           std::string & sFailCause);
     bool CreateTransaction(CScript scriptPubKey, int64_t nValue, CWalletTx& wtxNew, CReserveKey& reservekey, int64_t& nFeeRet, const CCoinControl *coinControl=NULL);
     bool CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);
 

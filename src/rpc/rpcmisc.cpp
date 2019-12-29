@@ -174,6 +174,7 @@ Value getfractions(const Array& params, bool fHelp)
     string flags;
     if (fractions.nFlags & CFractions::NOTARY_F) flags = "F";
     if (fractions.nFlags & CFractions::NOTARY_V) flags = "V";
+    if (fractions.nFlags & CFractions::NOTARY_C) flags = "C";
     if (!flags.empty()) lock = fractions.nLockTime;
     
     obj.push_back(Pair("total", total));

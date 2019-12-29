@@ -159,14 +159,15 @@ Value getrawtransaction(const Array& params, bool fHelp)
 #ifdef ENABLE_WALLET
 Value listunspent(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() > 3)
+    if (fHelp || params.size() > 4)
         throw runtime_error(
-            "listunspent [minconf=1] [maxconf=9999999]  [\"address\",...]\n"
+            "listunspent [minconf=1] [maxconf=9999999] [\"address\",...] [pegsupplyindex]\n"
             "Returns array of unspent transaction outputs\n"
             "with between minconf and maxconf (inclusive) confirmations.\n"
             "Optionally filtered to only include txouts paid to specified addresses.\n"
+            "If peg supply index is provided then liquid and reserve are calculated for specified peg value."
             "Results are an array of Objects, each of which has:\n"
-            "{txid, vout, scriptPubKey, amount, confirmations}");
+            "{txid, vout, scriptPubKey, amount, liquid, reserve, confirmations}");
 
     RPCTypeCheck(params, list_of(int_type)(int_type)(array_type));
 
@@ -191,6 +192,14 @@ Value listunspent(const Array& params, bool fHelp)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+input.get_str());
            setAddress.insert(address);
         }
+    }
+    
+    int nSupply = 0;
+    if (pindexBest) {
+        nSupply = pindexBest->nPegSupplyIndex;
+    }
+    if (params.size() > 3) {
+        nSupply = params[3].get_int();
     }
 
     Array results;
@@ -237,8 +246,7 @@ Value listunspent(const Array& params, bool fHelp)
             }
         }
         entry.push_back(Pair("amount",ValueFromAmount(nValue)));
-        if (pindexBest && out.tx->vOutFractions.size() > size_t(out.i)) {
-            int nSupply = pindexBest->nPegSupplyIndex;
+        if (out.tx->vOutFractions.size() > size_t(out.i)) {
             const CFractions & fractions = out.tx->vOutFractions[out.i];
             if (fractions.Total() == nValue) {
                 entry.push_back(Pair("reserve", ValueFromAmount(fractions.Low(nSupply))));
@@ -255,14 +263,15 @@ Value listunspent(const Array& params, bool fHelp)
 
 Value listfrozen(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() > 3)
+    if (fHelp || params.size() > 4)
         throw runtime_error(
-            "listfrozen [minconf=1] [maxconf=9999999]  [\"address\",...]\n"
+            "listfrozen [minconf=1] [maxconf=9999999] [\"address\",...] [pegsupplyindex]\n"
             "Returns array of frozen transaction outputs\n"
             "with between minconf and maxconf (inclusive) confirmations.\n"
             "Optionally filtered to only include txouts paid to specified addresses.\n"
+            "If peg supply index is provided then liquid and reserve are calculated for specified peg value."
             "Results are an array of Objects, each of which has:\n"
-            "{txid, vout, scriptPubKey, amount, confirmations}");
+            "{txid, vout, scriptPubKey, amount, liquid, reserve, confirmations}");
 
     RPCTypeCheck(params, list_of(int_type)(int_type)(array_type));
 
@@ -289,6 +298,14 @@ Value listfrozen(const Array& params, bool fHelp)
         }
     }
 
+    int nSupply = 0;
+    if (pindexBest) {
+        nSupply = pindexBest->nPegSupplyIndex;
+    }
+    if (params.size() > 3) {
+        nSupply = params[3].get_int();
+    }
+    
     Array results;
     vector<COutput> vecOutputs;
     assert(pwalletMain != NULL);
@@ -333,8 +350,7 @@ Value listfrozen(const Array& params, bool fHelp)
             }
         }
         entry.push_back(Pair("amount",ValueFromAmount(nValue)));
-        if (pindexBest && out.tx->vOutFractions.size() > size_t(out.i)) {
-            int nSupply = pindexBest->nPegSupplyIndex;
+        if (out.tx->vOutFractions.size() > size_t(out.i)) {
             const CFractions & fractions = out.tx->vOutFractions[out.i];
             if (fractions.Total() == nValue) {
                 entry.push_back(Pair("reserve", ValueFromAmount(fractions.Low(nSupply))));

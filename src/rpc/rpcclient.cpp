@@ -144,9 +144,11 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listunspent", 0 },
     { "listunspent", 1 },
     { "listunspent", 2 },
+    { "listunspent", 3 },
     { "listfrozen", 0 },
     { "listfrozen", 1 },
     { "listfrozen", 2 },
+    { "listfrozen", 3 },
     { "listdeposits", 0 },
     { "listdeposits", 1 },
     { "listdeposits", 2 },
@@ -163,6 +165,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "submitblock", 1 },
     { "gettxout", 1 },
     { "gettxout", 2 },
+    { "getliquidityrate", 1 },
     { "getpeglevel", 2 },
     { "makepeglevel", 0 },
     { "makepeglevel", 1 },
@@ -175,6 +178,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "movereserve", 0 },
     { "prepareliquidwithdraw", 3 },
     { "preparereservewithdraw", 3 },
+    { "validaterawtransaction", 1 },
 };
 
 class CRPCConvertTable

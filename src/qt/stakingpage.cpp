@@ -185,6 +185,19 @@ void StakingPage::updateTimer()
         else
             ui->labelText->setText(tr("Not staking"));
     }
+    
+    auto voteType = pwalletMain->GetPegVoteType();
+    if (voteType != lastPegVoteType) {
+        lastPegVoteType = voteType;
+        lastPegVoteTypeChanged = QDateTime::currentDateTime();
+    }
+    
+    if (lastPegVoteType != PEG_VOTE_AUTO && 
+            lastPegVoteType != PEG_VOTE_NONE &&
+            lastPegVoteTypeChanged.secsTo(QDateTime::currentDateTime()) > (50*60*60)) {
+        pwalletMain->SetPegVoteType(PEG_VOTE_AUTO);
+        ui->radioButtonVoteAuto->setChecked(true);
+    }
 }
 
 void StakingPage::updatePegVoteType()

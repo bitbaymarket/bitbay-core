@@ -6,6 +6,7 @@
 #define STAKINGPAGE_H
 
 #include <QDialog>
+#include <QDateTime>
 
 namespace Ui {
     class StakingPage;
@@ -56,6 +57,8 @@ private:
     quint32 current20Stake  =0;
     quint32 current40Stake  =0;
     
+    int lastPegVoteType = 0;
+    QDateTime lastPegVoteTypeChanged;
 };
 
 #endif // STAKINGPAGE_H

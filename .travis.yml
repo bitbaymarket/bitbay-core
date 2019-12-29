@@ -97,6 +97,18 @@ matrix:
       env:
         - DEPLOY_FILE=bitbayd_win64.zip
         - ARCH="bitbayd-win64"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=bitbayd_db6_win32.zip
+        - ARCH="bitbayd-db6-win32"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=bitbayd_db6_win64.zip
+        - ARCH="bitbayd-db6-win64"
     - os: osx
       osx_image: xcode9.4
       compiler: clang
@@ -200,6 +212,14 @@ install:
   fi
 - >
   if [[ $ARCH == "bitbayd-win64" ]]; then
+    export                                                      ;
+  fi
+- >
+  if [[ $ARCH == "bitbayd-db6-win32" ]]; then
+    export                                                      ;
+  fi
+- >
+  if [[ $ARCH == "bitbayd-db6-win64" ]]; then
     export                                                      ;
   fi
 - >
@@ -323,6 +343,14 @@ before_script:
 - >
   if [[ $ARCH == "bitbayd-win64" ]]; then
     docker pull bitbayofficial/builder-windows64:qt;
+  fi
+- >
+  if [[ $ARCH == "bitbayd-db6-win32" ]]; then
+    docker pull bitbayofficial/builder-windows32:qt-db6;
+  fi
+- >
+  if [[ $ARCH == "bitbayd-db6-win64" ]]; then
+    docker pull bitbayofficial/builder-windows64:qt-db6;
   fi
 - >
   if [[ $ARCH == "qtwallet-mac64" ]]; then
@@ -666,7 +694,6 @@ script:
           qmake \
             CICD=travis_x32 \
             QMAKE_LRELEASE=lrelease \
-            \"USE_QRCODE=1\" \
             bitbayd.pro && \
             mv Makefile.Release Makefile.tmp && ( \
               cat Makefile.tmp | \
@@ -685,7 +712,42 @@ script:
           qmake \
             CICD=travis_x64 \
             QMAKE_LRELEASE=lrelease \
-            \"USE_QRCODE=1\" \
+            bitbayd.pro && \
+            mv Makefile.Release Makefile.tmp && ( \
+              cat Makefile.tmp | \
+              sed -e 's/bin.lrelease\.exe/bin\/lrelease/m' | \
+              sed -e 's/boost_thread-mt/boost_thread_win32-mt/m' > Makefile.Release \
+            ) && \
+          make -j2";
+  fi
+- >
+  if [[ $ARCH == "bitbayd-db6-win32" ]]; then
+    docker run --rm \
+        -v $(pwd):/mnt \
+        -u $(stat -c %u:%g .) \
+        bitbayofficial/builder-windows32:qt-db6 \
+        /bin/bash -c "cd /mnt && qmake -v && \
+          qmake \
+            CICD=travis_x32 \
+            QMAKE_LRELEASE=lrelease \
+            bitbayd.pro && \
+            mv Makefile.Release Makefile.tmp && ( \
+              cat Makefile.tmp | \
+              sed -e 's/bin.lrelease\.exe/bin\/lrelease/m' | \
+              sed -e 's/boost_thread-mt/boost_thread_win32-mt/m' > Makefile.Release \
+            ) && \
+          make -j2";
+  fi
+- >
+  if [[ $ARCH == "bitbayd-db6-win64" ]]; then
+    docker run --rm \
+        -v $(pwd):/mnt \
+        -u $(stat -c %u:%g .) \
+        bitbayofficial/builder-windows64:qt-db6 \
+        /bin/bash -c "cd /mnt && qmake -v && \
+          qmake \
+            CICD=travis_x64 \
+            QMAKE_LRELEASE=lrelease \
             bitbayd.pro && \
             mv Makefile.Release Makefile.tmp && ( \
               cat Makefile.tmp | \
@@ -787,6 +849,20 @@ script:
   fi
 - >
   if [[ $ARCH == "bitbayd-win64" ]]; then
+    mv release/bitbayd.exe .           &&
+    file bitbayd.exe                   &&
+    ls -l                              &&
+    zip $DEPLOY_FILE bitbayd.exe       ;
+  fi
+- >
+  if [[ $ARCH == "bitbayd-db6-win32" ]]; then
+    mv release/bitbayd.exe .           &&
+    file bitbayd.exe                   &&
+    ls -l                              &&
+    zip $DEPLOY_FILE bitbayd.exe       ;
+  fi
+- >
+  if [[ $ARCH == "bitbayd-db6-win64" ]]; then
     mv release/bitbayd.exe .           &&
     file bitbayd.exe                   &&
     ls -l                              &&

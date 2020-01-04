@@ -58,6 +58,9 @@ void TxToJSON(const CTransaction& tx,
     entry.push_back(Pair("version", tx.nVersion));
     entry.push_back(Pair("time", (int64_t)tx.nTime));
     entry.push_back(Pair("locktime", (int64_t)tx.nLockTime));
+    if (nSupply >= 0) {
+        entry.push_back(Pair("peg", nSupply));
+    }
     Array vin;
     for(const CTxIn& txin : tx.vin)
     {
@@ -87,9 +90,21 @@ void TxToJSON(const CTransaction& tx,
             auto fkey = uint320(tx.GetHash(), i);
             if (mapFractions.find(fkey) != mapFractions.end()) {
                 const CFractions & fractions = mapFractions.at(fkey);
+                
+                int lock = 0;
+                string flags;
+                if (fractions.nFlags & CFractions::NOTARY_F) flags = "F";
+                if (fractions.nFlags & CFractions::NOTARY_V) flags = "V";
+                if (fractions.nFlags & CFractions::NOTARY_C) flags = "C";
+                if (!flags.empty()) lock = fractions.nLockTime;
+                
                 if (fractions.Total() == txout.nValue) {
                     out.push_back(Pair("reserve", ValueFromAmount(fractions.Low(nSupply))));
                     out.push_back(Pair("liquidity", ValueFromAmount(fractions.High(nSupply))));
+                    if (!flags.empty()) {
+                        out.push_back(Pair("flags", flags));
+                        out.push_back(Pair("lock", lock));
+                    }
                 }
             }
         }
@@ -149,10 +164,31 @@ Value getrawtransaction(const Array& params, bool fHelp)
     if (!fVerbose)
         return strHex;
 
-    Object result;
+    int nSupply = -1;
     MapFractions mapFractions;
+    {
+        LOCK(cs_main);
+        CPegDB pegdb("r");
+        for(size_t i=0; i<tx.vout.size(); i++) {
+            auto fkey = uint320(hash, i);
+            CFractions fractions(0, CFractions::VALUE);
+            if (pegdb.ReadFractions(fkey, fractions)) {
+                if (fractions.Total() == tx.vout[i].nValue) {
+                    mapFractions[fkey] = fractions;
+                }
+            }
+        }
+
+        map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
+        if (mi != mapBlockIndex.end() && (*mi).second) {
+            CBlockIndex* pindex = (*mi).second;
+            nSupply = pindex->nPegSupplyIndex;
+        }
+    }
+    
+    Object result;
     result.push_back(Pair("hex", strHex));
-    TxToJSON(tx, hashBlock, mapFractions, -1, result);
+    TxToJSON(tx, hashBlock, mapFractions, nSupply, result);
     return result;
 }
 

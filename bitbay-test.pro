@@ -195,7 +195,9 @@ LIBS += -lboost_thread$$BOOST_THREAD_LIB_SUFFIX
 LIBS += -lboost_chrono$$BOOST_LIB_SUFFIX
 LIBS += -lboost_unit_test_framework$$BOOST_LIB_SUFFIX
 
-DEFINES += BOOST_TEST_DYN_LINK
+!contains(LIBS, -static) {
+    DEFINES += BOOST_TEST_DYN_LINK
+}
 
 DISTFILES += \
     src/makefile.osx \

@@ -398,7 +398,8 @@ script:
           sed -i 's/\/usr\/lib\/libcrypto.so/-lcrypto/' Makefile &&
           sed -i s:sys/fcntl.h:fcntl.h: src/compat.h &&
           make -j2 &&
-          ./bitbay-test > tests.txt";
+          ./bitbay-test > tests.txt &&
+          cat tests.txt";
   fi
 - >
   if [[ $ARCH == "mainnet-node" ]]; then

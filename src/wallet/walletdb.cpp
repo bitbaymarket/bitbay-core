@@ -192,7 +192,7 @@ bool CWalletDB::ReadSupportAddress(string& addr)
 {
     bool ok = Read(string("supportaddr"), addr);
     if (!ok || addr.empty()) {
-        addr = "B6qyxfR8WPW7Mvrjkomv5Ep1SSNyBbbscB";
+        addr = "bbHoxWZfj16d7xs4hrLfnYxMqLAJby9sr3";
         if (TestNet()) {
             addr = "moQxVBdteKScHgf2wdg7AjV4Lj1SAgwo5j";
         }

@@ -627,6 +627,47 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx,
     return false;
 }
 
+void CWallet::CleanFractionsOfSpentTxouts(const CBlock* pBlockRef)
+{
+    if (!pBlockRef) 
+        return;
+    uint256 hashBlock = pBlockRef->GetHash();
+    LOCK(cs_main);
+    map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
+    if (mi == mapBlockIndex.end())
+        return;
+    CBlockIndex* pblockindex = (*mi).second;
+    if (!pblockindex)
+        return;
+    int nHeightRef = pblockindex->nHeight;
+    int nHeight = nHeightRef - Params().MaxReorganizationDepth();
+    if (nHeight <= 0)
+        return;
+    while(pblockindex->nHeight > nHeight) {
+        pblockindex = pblockindex->pprev;
+        if (!pblockindex) 
+            return;
+    }
+    CBlock block;
+    if (!block.ReadFromDisk(pblockindex, true))
+        return;
+    for(const CTransaction & tx : block.vtx) {
+        LOCK(cs_wallet);
+        // check if this tx spents mine wallet txout
+        for(size_t i=0; i < tx.vin.size(); i++) {
+            const CTxIn & txin = tx.vin[i];
+            std::map<uint256, CWalletTx>::iterator it = mapWallet.find(txin.prevout.hash);
+            if (it == mapWallet.end())
+                continue;
+            CWalletTx* wtx = &((*it).second);
+            unsigned int nout = txin.prevout.n;
+            if (nout >= wtx->vfSpent.size()) continue;
+            if (nout >= wtx->vOutFractions.size()) continue;
+            wtx->vOutFractions[nout].UnRef();
+        }
+    }
+}
+
 void CWallet::SyncTransaction(const CTransaction& tx, 
                               const CBlock* pblock, 
                               bool fConnect,
@@ -643,6 +684,11 @@ void CWallet::SyncTransaction(const CTransaction& tx,
     }
 
     AddToWalletIfInvolvingMe(tx, pblock, true, mapOutputFractions);
+    
+    if (tx.IsCoinStake()) {
+        // as once per block use coin stake tx
+        CleanFractionsOfSpentTxouts(pblock);
+    }
 }
 
 void CWallet::EraseFromWallet(const uint256 &hash)

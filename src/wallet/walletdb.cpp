@@ -10,6 +10,7 @@
 #include "serialize.h"
 #include "sync.h"
 #include "wallet.h"
+#include "txdb-leveldb.h"
 #include "pegdb-leveldb.h"
 
 #include <boost/filesystem.hpp>
@@ -385,7 +386,7 @@ public:
 
 bool
 ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
-             CWalletScanState &wss, string& strType, string& strErr, CPegDB& pegdb)
+             CWalletScanState &wss, string& strType, string& strErr, CTxDB& txdb, CPegDB& pegdb)
 {
     try {
         // Unserialize
@@ -417,6 +418,27 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                     // it is ok if fractions not read:
                     // if pruned then the outputs is spent
                     // if refer prev tx in wallet(mempool) - update later
+                    if (have && wtx.IsSpent(i)) {
+                        CTxIndex txindex;
+                        if (txdb.ReadTxIndex(hash, txindex)) {
+                            if (i < txindex.vSpent.size()) {
+                                CDiskTxPos & txpos = txindex.vSpent[i];
+                                CTransaction txSpend;
+                                if (txSpend.ReadFromDisk(txpos)) {
+                                    uint256 hashSpent = txSpend.GetHash();
+                                    CTxIndex txindexSpent;
+                                    if (txdb.ReadTxIndex(hashSpent, txindexSpent)) {
+                                        uint nTxNum = 0;
+                                        int nHeight = txindexSpent.GetHeightInMainChain(&nTxNum, hashSpent);
+                                        int nDepth = pindexBest->nHeight - nHeight + 1;
+                                        if (nDepth > Params().MaxReorganizationDepth()) {
+                                            wtx.vOutFractions[i].UnRef();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 wtx.BindWallet(pwallet);
             }
@@ -675,6 +697,7 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
             return DB_CORRUPT;
         }
 
+        CTxDB txdb("r");
         CPegDB pegdb("r");
         
         while (true)
@@ -693,7 +716,7 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
 
             // Try to be tolerant of single corrupt records:
             string strType, strErr;
-            if (!ReadKeyValue(pwallet, ssKey, ssValue, wss, strType, strErr, pegdb))
+            if (!ReadKeyValue(pwallet, ssKey, ssValue, wss, strType, strErr, txdb, pegdb))
             {
                 // losing keys is considered a catastrophic error, anything else
                 // we assume the user can live with:
@@ -923,6 +946,7 @@ bool CWalletDB::Recover(CDBEnv& dbenv, std::string filename, bool fOnlyKeys)
     CWallet dummyWallet;
     CWalletScanState wss;
 
+    CTxDB txdb("r");
     CPegDB pegdb("r");
     
     DbTxn* ptxn = dbenv.TxnBegin();
@@ -934,7 +958,7 @@ bool CWalletDB::Recover(CDBEnv& dbenv, std::string filename, bool fOnlyKeys)
             CDataStream ssValue(row.second, SER_DISK, CLIENT_VERSION);
             string strType, strErr;
             bool fReadOK = ReadKeyValue(&dummyWallet, ssKey, ssValue,
-                                        wss, strType, strErr, pegdb);
+                                        wss, strType, strErr, txdb, pegdb);
             if (!IsKeyType(strType))
                 continue;
             if (!fReadOK)

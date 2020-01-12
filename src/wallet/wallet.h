@@ -538,7 +538,7 @@ public:
     mutable bool fAvailableReserveCached    = false;
     mutable bool fAvailableLiquidityCached  = false;
     mutable bool fChangeCached              = false;
-    mutable bool fRewardsInfoChached        = false;
+    mutable bool fRewardsInfoCached         = false;
     mutable int64_t nDebitCached                = 0;
     mutable int64_t nCreditCached               = 0;
     mutable int64_t nAvailableCreditCached      = 0;
@@ -667,7 +667,7 @@ public:
                 nLastTimeAvailableFrozenCached = 0;
                 fAvailableReserveCached = false;
                 fAvailableLiquidityCached = false;
-                fRewardsInfoChached = false;
+                fRewardsInfoCached = false;
             }
         }
         return fReturn;
@@ -683,7 +683,7 @@ public:
         fAvailableLiquidityCached = false;
         fDebitCached = false;
         fChangeCached = false;
-        fRewardsInfoChached = false;
+        fRewardsInfoCached = false;
     }
 
     void BindWallet(CWallet *pwalletIn)
@@ -704,7 +704,7 @@ public:
             nLastTimeAvailableFrozenCached = 0;
             fAvailableReserveCached = false;
             fAvailableLiquidityCached = false;
-            fRewardsInfoChached = false;
+            fRewardsInfoCached = false;
         }
     }
 
@@ -720,7 +720,7 @@ public:
             nLastTimeAvailableFrozenCached = 0;
             fAvailableReserveCached = false;
             fAvailableLiquidityCached = false;
-            fRewardsInfoChached = false;
+            fRewardsInfoCached = false;
         }
     }
 
@@ -898,7 +898,7 @@ public:
         if (vRewardsInfo.size() != PEG_REWARD_LAST)
             return false;
         
-        if (fUseCache && fRewardsInfoChached) {
+        if (fUseCache && fRewardsInfoCached) {
             for(int i=0; i< PEG_REWARD_LAST; i++) {
                 vRewardsInfo[i].count += vRewardsInfoCached[i].count;
                 vRewardsInfo[i].stake += vRewardsInfoCached[i].stake;

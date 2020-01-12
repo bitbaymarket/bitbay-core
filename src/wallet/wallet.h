@@ -496,6 +496,10 @@ public:
         }
         return *ptr;
     }
+    void UnRef() const {
+        if (!ptr) return;
+        ptr.reset();
+    }
     uint32_t nFlags() const {
         if (!ptr) return CFractions::VALUE;
         return ptr->nFlags;

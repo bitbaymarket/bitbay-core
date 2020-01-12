@@ -410,7 +410,10 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                     wtx.vOutFractions[i].Init(wtx.vout[i].nValue);
                     CFractions& fractions = wtx.vOutFractions[i].Ref();
                     auto fkey = uint320(hash, i);
-                    pegdb.ReadFractions(fkey, fractions);
+                    bool have = pegdb.ReadFractions(fkey, fractions, true /*must_have*/);
+                    if (!have) {
+                        wtx.vOutFractions[i].UnRef();
+                    }
                     // it is ok if fractions not read:
                     // if pruned then the outputs is spent
                     // if refer prev tx in wallet(mempool) - update later

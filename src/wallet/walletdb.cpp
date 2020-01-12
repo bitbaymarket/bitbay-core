@@ -428,7 +428,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                                     uint256 hashSpent = txSpend.GetHash();
                                     CTxIndex txindexSpent;
                                     if (txdb.ReadTxIndex(hashSpent, txindexSpent)) {
-                                        uint nTxNum = 0;
+                                        unsigned int nTxNum = 0;
                                         int nHeight = txindexSpent.GetHeightInMainChain(&nTxNum, hashSpent);
                                         int nDepth = pindexBest->nHeight - nHeight + 1;
                                         if (nDepth > Params().MaxReorganizationDepth()) {

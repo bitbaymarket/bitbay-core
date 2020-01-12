@@ -609,11 +609,10 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx,
             uint256 txhash = wtx.GetHash();
             wtx.vOutFractions.resize(wtx.vout.size());
             for(size_t i=0; i < wtx.vout.size(); i++) {
-                CFractions& fractions = wtx.vOutFractions.at(i);
+                wtx.vOutFractions[i].Init(wtx.vout[i].nValue);
                 auto fkey = uint320(txhash, i);
-                if (mapOutputFractions.find(fkey) == mapOutputFractions.end()) {
-                    fractions = CFractions(wtx.vout[i].nValue, CFractions::STD);
-                } else {
+                if (mapOutputFractions.find(fkey) != mapOutputFractions.end()) {
+                    CFractions& fractions = wtx.vOutFractions[i].Ref();
                     fractions = mapOutputFractions.at(fkey);
                 }
             }
@@ -754,18 +753,18 @@ int64_t CWallet::GetFrozen(uint256 txhash, long n, const CTxOut& txout,
         {
             const CWalletTx& wtx = (*mi).second;
             if (0<=n && size_t(n) < wtx.vOutFractions.size()) {
-                bool fF = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_F;
-                bool fV = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_V;
-                fF &= wtx.vOutFractions[n].nLockTime >= nLastBlockTime;
-                fV &= wtx.vOutFractions[n].nLockTime >= nLastBlockTime;
+                bool fF = wtx.vOutFractions[n].nFlags() & CFractions::NOTARY_F;
+                bool fV = wtx.vOutFractions[n].nFlags() & CFractions::NOTARY_V;
+                fF &= wtx.vOutFractions[n].nLockTime() >= nLastBlockTime;
+                fV &= wtx.vOutFractions[n].nLockTime() >= nLastBlockTime;
                 if (fF || fV) {
                     if (pFrozenCoins) {
                         CFrozenCoinInfo fcoin;
                         fcoin.txhash = wtx.GetHash();
                         fcoin.n = n;
                         fcoin.nValue = wtx.vout[n].nValue;
-                        fcoin.nFlags = wtx.vOutFractions[n].nFlags;
-                        fcoin.nLockTime = wtx.vOutFractions[n].nLockTime;
+                        fcoin.nFlags = wtx.vOutFractions[n].nFlags();
+                        fcoin.nLockTime = wtx.vOutFractions[n].nLockTime();
                         pFrozenCoins->push_back(fcoin);
                     }
                     return wtx.vout[n].nValue;
@@ -798,15 +797,15 @@ int64_t CWallet::GetReserve(uint256 txhash, long n, const CTxOut& txout) const
         {
             const CWalletTx& wtx = (*mi).second;
             if (0<=n && size_t(n) < wtx.vOutFractions.size()) {
-                bool fF = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_F;
-                bool fV = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_V;
-                fF &= wtx.vOutFractions[n].nLockTime >= nLastBlockTime;
-                fV &= wtx.vOutFractions[n].nLockTime >= nLastBlockTime;
+                bool fF = wtx.vOutFractions[n].nFlags() & CFractions::NOTARY_F;
+                bool fV = wtx.vOutFractions[n].nFlags() & CFractions::NOTARY_V;
+                fF &= wtx.vOutFractions[n].nLockTime() >= nLastBlockTime;
+                fV &= wtx.vOutFractions[n].nLockTime() >= nLastBlockTime;
                 if (fF || fV)
                     return 0;
                 
                 int64_t nReserve = 0;
-                wtx.vOutFractions[n].LowPart(nLastPegSupplyIndex, &nReserve);
+                wtx.vOutFractions[n].Ref().LowPart(nLastPegSupplyIndex, &nReserve);
                 return nReserve;
             }
         }
@@ -836,15 +835,15 @@ int64_t CWallet::GetLiquidity(uint256 txhash, long n, const CTxOut& txout) const
         {
             const CWalletTx& wtx = (*mi).second;
             if (0<=n && size_t(n) < wtx.vOutFractions.size()) {
-                bool fF = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_F;
-                bool fV = wtx.vOutFractions[n].nFlags & CFractions::NOTARY_V;
-                fF &= wtx.vOutFractions[n].nLockTime >= nLastBlockTime;
-                fV &= wtx.vOutFractions[n].nLockTime >= nLastBlockTime;
+                bool fF = wtx.vOutFractions[n].nFlags() & CFractions::NOTARY_F;
+                bool fV = wtx.vOutFractions[n].nFlags() & CFractions::NOTARY_V;
+                fF &= wtx.vOutFractions[n].nLockTime() >= nLastBlockTime;
+                fV &= wtx.vOutFractions[n].nLockTime() >= nLastBlockTime;
                 if (fF || fV)
                     return 0;
                 
                 int64_t nLiquidity = 0;
-                wtx.vOutFractions[n].HighPart(nLastPegSupplyIndex, &nLiquidity);
+                wtx.vOutFractions[n].Ref().HighPart(nLastPegSupplyIndex, &nLiquidity);
                 return nLiquidity;
             }
         }
@@ -1688,15 +1687,15 @@ bool CWallet::SelectCoinsMinConf(PegTxType txType,
         // Follow the timestamp rules
         if (pcoin->nTime > nSpendTime)
             continue;
-
+        
         // take liquidity or reserves
         int64_t nValue = 0;
         if (txType == PEG_MAKETX_SEND_RESERVE ||
             txType == PEG_MAKETX_FREEZE_RESERVE) {
-            nValue = pcoin->vOutFractions[i].Low(GetPegSupplyIndex());
+            nValue = pcoin->vOutFractions[i].Ref().Low(GetPegSupplyIndex());
         } else if (txType == PEG_MAKETX_SEND_LIQUIDITY ||
                    txType == PEG_MAKETX_FREEZE_LIQUIDITY) {
-            nValue = pcoin->vOutFractions[i].High(GetPegSupplyIndex());
+            nValue = pcoin->vOutFractions[i].Ref().High(GetPegSupplyIndex());
         }
         if (nValue == 0) continue;
         
@@ -1780,29 +1779,29 @@ bool CWallet::SelectCoinsMinConf(PegTxType txType,
 
 bool COutput::IsFrozen(unsigned int nLastBlockTime) const
 {
-    bool fF = tx->vOutFractions[i].nFlags & CFractions::NOTARY_F;
-    bool fV = tx->vOutFractions[i].nFlags & CFractions::NOTARY_V;
-    bool fC = tx->vOutFractions[i].nFlags & CFractions::NOTARY_C;
-    fF &= tx->vOutFractions[i].nLockTime >= nLastBlockTime;
-    fV &= tx->vOutFractions[i].nLockTime >= nLastBlockTime;
+    bool fF = tx->vOutFractions[i].nFlags() & CFractions::NOTARY_F;
+    bool fV = tx->vOutFractions[i].nFlags() & CFractions::NOTARY_V;
+    bool fC = tx->vOutFractions[i].nFlags() & CFractions::NOTARY_C;
+    fF &= tx->vOutFractions[i].nLockTime() >= nLastBlockTime;
+    fV &= tx->vOutFractions[i].nLockTime() >= nLastBlockTime;
     return fF || fV || fC;
 }
 
 bool COutput::IsFrozenMark() const
 {
-    bool fF = tx->vOutFractions[i].nFlags & CFractions::NOTARY_F;
-    bool fV = tx->vOutFractions[i].nFlags & CFractions::NOTARY_V;
+    bool fF = tx->vOutFractions[i].nFlags() & CFractions::NOTARY_F;
+    bool fV = tx->vOutFractions[i].nFlags() & CFractions::NOTARY_V;
     return fF || fV;
 }
 
 bool COutput::IsColdMark() const
 {
-    return tx->vOutFractions[i].nFlags & CFractions::NOTARY_C;
+    return tx->vOutFractions[i].nFlags() & CFractions::NOTARY_C;
 }
 
 uint64_t COutput::FrozenUnlockTime() const
 {
-    return tx->vOutFractions[i].nLockTime;
+    return tx->vOutFractions[i].nLockTime();
 }
 
 bool CWallet::SelectCoins(PegTxType txType,
@@ -1833,10 +1832,10 @@ bool CWallet::SelectCoins(PegTxType txType,
             int64_t nValue = 0;
             if (txType == PEG_MAKETX_SEND_RESERVE ||
                 txType == PEG_MAKETX_FREEZE_RESERVE) {
-                nValue = out.tx->vOutFractions[out.i].Low(GetPegSupplyIndex());
+                nValue = out.tx->vOutFractions[out.i].Ref().Low(GetPegSupplyIndex());
             } else if (txType == PEG_MAKETX_SEND_LIQUIDITY ||
                        txType == PEG_MAKETX_FREEZE_LIQUIDITY) {
-                nValue = out.tx->vOutFractions[out.i].High(GetPegSupplyIndex());
+                nValue = out.tx->vOutFractions[out.i].Ref().High(GetPegSupplyIndex());
             }
             nValueRet += nValue;
             
@@ -2376,12 +2375,13 @@ bool CWallet::CreateTransaction(PegTxType txType,
             auto txhash = wtxNew.GetHash();
             wtxNew.vOutFractions.resize(wtxNew.vout.size());
             for(size_t i=0; i < wtxNew.vout.size(); i++) {
-                CFractions& fractions = wtxNew.vOutFractions.at(i);
+                wtxNew.vOutFractions[i].Init(wtxNew.vout[i].nValue);
                 auto fkey = uint320(txhash, i);
                 if (mapOutputFractions.find(fkey) == mapOutputFractions.end()) {
                     sFailCause = "CT-10, no out fractions";
                     return false;
                 } 
+                CFractions& fractions = wtxNew.vOutFractions[i].Ref();
                 fractions = mapOutputFractions.at(fkey);
             }
         }

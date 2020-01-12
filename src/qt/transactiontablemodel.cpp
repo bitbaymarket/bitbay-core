@@ -292,7 +292,11 @@ QString TransactionTableModel::formatTxStatus(const TransactionRecord *wtx) cons
         status = tr("Confirming (%1 of %2 recommended confirmations)").arg(wtx->status.depth).arg(TransactionRecord::RecommendedNumConfirmations);
         break;
     case TransactionStatus::Confirmed:
-        status = tr("Confirmed (%1 confirmations)").arg(wtx->status.depth);
+        if (wtx->status.depth > Params().MaxReorganizationDepth()) {
+            status = tr("Confirmed (more than %1 confirmations)").arg(Params().MaxReorganizationDepth());
+        } else {
+            status = tr("Confirmed (%1 confirmations)").arg(wtx->status.depth);
+        }
         break;
     case TransactionStatus::Conflicted:
         status = tr("Conflicted");

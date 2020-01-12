@@ -128,7 +128,7 @@ Value listdeposits(const Array& params, bool fHelp)
         entry.push_back(Pair("amount", ValueFromAmount(nValue)));
         if (pindexBest && out.tx->vOutFractions.size() > size_t(out.i)) {
             int nSupply = pindexBest->nPegSupplyIndex;
-            const CFractions & fractions = out.tx->vOutFractions[out.i];
+            const CFractions & fractions = out.tx->vOutFractions[out.i].Ref();
             if (fractions.Total() == nValue) {
                 entry.push_back(Pair("reserve", ValueFromAmount(fractions.Low(nSupply))));
                 entry.push_back(Pair("liquidity", ValueFromAmount(fractions.High(nSupply))));

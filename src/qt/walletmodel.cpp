@@ -79,7 +79,7 @@ qint64 WalletModel::getReserve(const CCoinControl *coinControl) const
         wallet->AvailableCoins(vCoins, true, true, coinControl);
         for(const COutput& out : vCoins) {
             if(out.fSpendable && !out.IsFrozen(wallet->nLastBlockTime)) {
-                nReserve += out.tx->vOutFractions[out.i].Low(getPegSupplyIndex());
+                nReserve += out.tx->vOutFractions[out.i].Ref().Low(getPegSupplyIndex());
             }
         }
 
@@ -98,7 +98,7 @@ qint64 WalletModel::getLiquidity(const CCoinControl *coinControl) const
         wallet->AvailableCoins(vCoins, true, true, coinControl);
         for(const COutput& out : vCoins) {
             if(out.fSpendable && !out.IsFrozen(wallet->nLastBlockTime)) {
-                nLiquidity += out.tx->vOutFractions[out.i].High(getPegSupplyIndex());
+                nLiquidity += out.tx->vOutFractions[out.i].Ref().High(getPegSupplyIndex());
             }
         }
 
@@ -124,8 +124,8 @@ qint64 WalletModel::getFrozen(const CCoinControl *coinControl,
                     fcoin.txhash = out.tx->GetHash();
                     fcoin.n = out.i;
                     fcoin.nValue = out.tx->vout[out.i].nValue;
-                    fcoin.nFlags = out.tx->vOutFractions[out.i].nFlags;
-                    fcoin.nLockTime = out.tx->vOutFractions[out.i].nLockTime;
+                    fcoin.nFlags = out.tx->vOutFractions[out.i].nFlags();
+                    fcoin.nLockTime = out.tx->vOutFractions[out.i].nLockTime();
                     frozenCoins->push_back(fcoin);
                 }
             }

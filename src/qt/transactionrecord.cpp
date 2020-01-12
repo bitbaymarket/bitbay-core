@@ -251,6 +251,9 @@ void TransactionRecord::updateStatus(const CWalletTx &wtx)
 
 bool TransactionRecord::statusUpdateNeeded()
 {
+    if (status.depth > Params().MaxReorganizationDepth()) {
+        return false;
+    }
     AssertLockHeld(cs_main);
     return status.cur_num_blocks != nBestHeight;
 }

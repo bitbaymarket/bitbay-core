@@ -50,7 +50,8 @@ Value faucet(const Array& params, bool fHelp)
         CWalletTx wtx;
         CReserveKey keyChange(pwalletMain);
         int64_t nFeeRequired = 0;
-        bool fCreated = pwalletMain->CreateTransaction(txType, vecSend, wtx, keyChange, nFeeRequired, nullptr);
+        string sFailCause;
+        bool fCreated = pwalletMain->CreateTransaction(txType, vecSend, wtx, keyChange, nFeeRequired, nullptr, false /*fTest*/, sFailCause);
         if (fCreated) {
             
             bool fCommitted = pwalletMain->CommitTransaction(wtx, keyChange);
@@ -78,7 +79,8 @@ Value faucet(const Array& params, bool fHelp)
         CWalletTx wtx;
         CReserveKey keyChange(pwalletMain);
         int64_t nFeeRequired = 0;
-        bool fCreated = pwalletMain->CreateTransaction(txType, vecSend, wtx, keyChange, nFeeRequired, nullptr);
+        string sFailCause;
+        bool fCreated = pwalletMain->CreateTransaction(txType, vecSend, wtx, keyChange, nFeeRequired, nullptr, false /*fTest*/, sFailCause);
         if (fCreated) {
             
             bool fCommitted = pwalletMain->CommitTransaction(wtx, keyChange);

@@ -586,9 +586,9 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog, PegTxT
         int64_t nValue = 0;
         if (txType == PEG_MAKETX_SEND_RESERVE ||
             txType == PEG_MAKETX_FREEZE_RESERVE) {
-            nValue = out.tx->vOutFractions[out.i].Low(model->getPegSupplyIndex());
+            nValue = out.tx->vOutFractions[out.i].Ref().Low(model->getPegSupplyIndex());
         } else {
-            nValue = out.tx->vOutFractions[out.i].High(model->getPegSupplyIndex());
+            nValue = out.tx->vOutFractions[out.i].Ref().High(model->getPegSupplyIndex());
         }
         nAmount += nValue;
 
@@ -794,15 +794,15 @@ void CoinControlDialog::updateView()
             }
 
             // amount
-            sumFractions += out.tx->vOutFractions[out.i];
-            int64_t nReserve = out.tx->vOutFractions[out.i].Low(model->getPegSupplyIndex());
-            int64_t nLiquidity = out.tx->vOutFractions[out.i].High(model->getPegSupplyIndex());
-            uint32_t nFlags = out.tx->vOutFractions[out.i].nFlags;
+            sumFractions += out.tx->vOutFractions[out.i].Ref();
+            int64_t nReserve = out.tx->vOutFractions[out.i].Ref().Low(model->getPegSupplyIndex());
+            int64_t nLiquidity = out.tx->vOutFractions[out.i].Ref().High(model->getPegSupplyIndex());
+            uint32_t nFlags = out.tx->vOutFractions[out.i].nFlags();
             nSumReserve += nReserve;
             nSumLiquidity += nLiquidity;
             
             QVariant vfractions;
-            vfractions.setValue(out.tx->vOutFractions[out.i]);
+            vfractions.setValue(CFractions(out.tx->vOutFractions[out.i].Ref()));
             itemOutput->setData(COLUMN_FRACTIONS, BlockchainModel::FractionsRole, vfractions);
             itemOutput->setData(COLUMN_FRACTIONS, BlockchainModel::PegSupplyRole, model->getPegSupplyIndex());
             itemOutput->setData(COLUMN_FRACTIONS, BlockchainModel::PegSupplyNRole, model->getPegSupplyNIndex());

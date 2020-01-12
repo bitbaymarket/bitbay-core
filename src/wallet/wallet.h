@@ -478,6 +478,36 @@ static void WriteOrderPos(const int64_t& nOrderPos, mapValue_t& mapValue)
     mapValue["n"] = i64tostr(nOrderPos);
 }
 
+class CFractionsRef {
+public:
+    CFractionsRef() {}
+    CFractionsRef(const CFractionsRef & cp) {
+        if (cp.ptr) {
+            ptr = std::unique_ptr<CFractions>(new CFractions(*cp.ptr));
+        }
+    }
+    void Init(int64_t value) {
+         nValue = value;
+         ptr.reset();
+    }
+    CFractions & Ref() const {
+        if (!ptr) {
+            ptr = std::unique_ptr<CFractions>(new CFractions(nValue, CFractions::STD));
+        }
+        return *ptr;
+    }
+    uint32_t nFlags() const {
+        if (!ptr) return CFractions::VALUE;
+        return ptr->nFlags;
+    }
+    uint64_t nLockTime() const {
+        if (!ptr) return 0;
+        return ptr->nLockTime;
+    }
+    
+    int64_t nValue = 0;
+    mutable std::unique_ptr<CFractions> ptr;
+};
 
 /** A transaction with a bunch of additional info that only the owner cares about.
  * It includes any unrecorded transactions needed to link it back to the block chain.
@@ -497,7 +527,7 @@ public:
     char fFromMe;
     std::string strFromAccount;
     std::vector<char> vfSpent; // which outputs are already spent
-    std::vector<CFractions> vOutFractions;
+    std::vector<CFractionsRef> vOutFractions;
     int64_t nOrderPos;  // position in ordered transaction list
 
     // memory only
@@ -886,14 +916,14 @@ public:
         int nSupply = pwallet->nLastPegSupplyIndex;
         for (unsigned int i = 0; i < vout.size(); i++)
         {
-            if (!IsSpent(i))
+            if (!IsSpent(i) && vOutFractions[i].ptr)
             {
                 const CTxOut &txout = vout[i];
                 if (pwallet->IsMine(txout)) {
                     bool fConfirmed = GetDepthInMainChain() >= nStakeMinConfirmations;
                     bool fStake = IsCoinStake() && GetBlocksToMaturity() > 0 && GetDepthInMainChain() > 0;
                         
-                    if (vOutFractions[i].nFlags & CFractions::NOTARY_V) {
+                    if (vOutFractions[i].ptr->nFlags & CFractions::NOTARY_V) {
                         if (fStake) {
                             vRewardsInfoCached[PEG_REWARD_40].count++;
                             vRewardsInfoCached[PEG_REWARD_40].amount += txout.nValue;
@@ -903,7 +933,7 @@ public:
                             vRewardsInfoCached[PEG_REWARD_40].amount += txout.nValue;
                         }
                     }
-                    else if (vOutFractions[i].nFlags & CFractions::NOTARY_F) {
+                    else if (vOutFractions[i].ptr->nFlags & CFractions::NOTARY_F) {
                         if (fStake) {
                             vRewardsInfoCached[PEG_REWARD_20].count++;
                             vRewardsInfoCached[PEG_REWARD_20].amount += txout.nValue;
@@ -914,8 +944,8 @@ public:
                         }
                     }
                     else {
-                        int64_t reserve = vOutFractions[i].Low(nSupply);
-                        int64_t liquidity = vOutFractions[i].High(nSupply);
+                        int64_t reserve = vOutFractions[i].ptr->Low(nSupply);
+                        int64_t liquidity = vOutFractions[i].ptr->High(nSupply);
                         if (liquidity < reserve) {
                             if (fStake) {
                                 vRewardsInfoCached[PEG_REWARD_10].count++;

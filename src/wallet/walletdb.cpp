@@ -407,10 +407,9 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             if (wtx.CheckTransaction() && (wtx.GetHash() == hash)) {
                 wtx.vOutFractions.resize(wtx.vout.size());
                 for(size_t i=0; i < wtx.vout.size(); i++) {
+                    wtx.vOutFractions[i].Init(wtx.vout[i].nValue);
+                    CFractions& fractions = wtx.vOutFractions[i].Ref();
                     auto fkey = uint320(hash, i);
-                    CFractions& fractions = wtx.vOutFractions.at(i);
-                    fractions = CFractions(wtx.vout[i].nValue, CFractions::STD);
-                    //peg:todo: if a case when previous tx is in wallet only (in mempool?)
                     pegdb.ReadFractions(fkey, fractions);
                     // it is ok if fractions not read:
                     // if pruned then the outputs is spent

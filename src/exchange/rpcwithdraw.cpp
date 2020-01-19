@@ -1509,6 +1509,7 @@ Value checkwithdrawstate(const Array& params, bool fHelp)
     return result;
 }
 
+
 Value accountmaintenance(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 3)
@@ -1519,10 +1520,362 @@ Value accountmaintenance(const Array& params, bool fHelp)
                 "<provided_outputs>\n"
             );
     
+    string pegshift_pegdata64 = params[0].get_str();
+
+    int nSupplyNow = pindexBest ? pindexBest->nPegSupplyIndex : 0;
+    int nSupplyNext = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
+    int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
+    
+    int nPegInterval = Params().PegInterval(nBestHeight);
+    int nCycleNow = nBestHeight / nPegInterval;
+    
+    // network peglevel
+    CPegLevel peglevel_net(nCycleNow,
+                           nCycleNow-1,
+                           nSupplyNow,
+                           nSupplyNext,
+                           nSupplyNextNext);
+    
+    CFractions frPegShift(0, CFractions::VALUE);
+    unpackpegdata(frPegShift, pegshift_pegdata64, "pegshift");
+    frPegShift = frPegShift.Std();
+    
+    // inputs, outputs
+    string sConsumedInputs = params[1].get_str();
+    string sProvidedOutputs = params[2].get_str();
+
+    int64_t nMaintenance = 0;
+    CFractions frMaintenance(0, CFractions::VALUE);
+    set<uint320> setAllOutputs;
+    set<uint320> setConsumedInputs;
+    map<uint320,CCoinToUse> mapProvidedOutputs;
+    parseConsumedAndProvided(sConsumedInputs, sProvidedOutputs, nCycleNow,
+                             nMaintenance, frMaintenance,
+                             setAllOutputs, setConsumedInputs, mapProvidedOutputs);
+    
+    if (!pindexBest) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Blockchain is not in sync");
+    }
+    
+    assert(pwalletMain != NULL);
+   
+    CTxDB txdb("r");
+    CPegDB pegdb("r");
+    
+    // make list of 'rated' outputs, multimap with key 'distortion'
+    // they are rated to be less distorted towards coins to withdraw
+    
+    map<uint320,CCoinToUse> mapAllOutputs = mapProvidedOutputs;
+    set<uint320> setWalletOutputs;
+        
+    // get available coins
+    getAvailableCoins(setConsumedInputs, nCycleNow,
+                      setAllOutputs, setWalletOutputs, mapAllOutputs);
+    // clean-up consumed, intersect with (wallet+provided)
+    cleanupConsumed(setConsumedInputs, setAllOutputs, sConsumedInputs);
+    // clean-up provided, remove what is already in wallet
+    cleanupProvided(setWalletOutputs, mapProvidedOutputs);
+    
+    // do not consider outputs less than 1M baytoshi
+    map<uint320,CCoinToUse> mapAllOutputsFiltered;
+    for(const pair<uint320,CCoinToUse>& item : mapAllOutputs) {
+        if (item.second.nValue < 1000000) continue;
+        mapAllOutputsFiltered[item.first] = item.second;
+    }
+    mapAllOutputs = mapAllOutputsFiltered;
+    
+    if (mapAllOutputs.size() < 5) { /*4 first lest distored +1 to join*/
+        Object result;
+        result.push_back(Pair("completed", true));
+        result.push_back(Pair("processed", false));
+        result.push_back(Pair("status", "Nothing todo"));
+    
+        result.push_back(Pair("consumed_inputs", sConsumedInputs));
+        result.push_back(Pair("provided_outputs", sProvidedOutputs));
+    
+        printpegshift(frPegShift, peglevel_net, result, true);
+        
+        return result;
+    }
+    
+    // read available coin fractions to sum up
+    CFractions frAllLiquid(0, CFractions::STD);
+    map<uint320, CFractions> mapAvailableCoins;
+    for(const pair<uint320,CCoinToUse>& item : mapAllOutputs) {
+        uint320 fkey = item.first;
+        CFractions frOut(0, CFractions::VALUE);
+        if (!pegdb.ReadFractions(fkey, frOut, true)) {
+            continue;
+        }
+        
+        mapAvailableCoins[fkey] = frOut;
+        frAllLiquid += frOut.HighPart(peglevel_net.nSupply, nullptr);
+    }
+    
+    // rate available coin fractions
+    map<uint320,int64_t> mapAvailableLiquid;
+    multimap<double,CCoinToUse> ratedOutputs;
+    for(const pair<uint320,CCoinToUse>& item : mapAllOutputs) {
+        uint320 fkey = item.first;
+        if (!mapAvailableCoins.count(fkey)) {
+            continue;
+        }
+        
+        int64_t nAvailableLiquid = 0;
+        CFractions frOut = mapAvailableCoins[fkey];
+        frOut = frOut.HighPart(peglevel_net.nSupply, &nAvailableLiquid);
+        
+        /*less distorted are first*/
+        double distortion = frOut.Distortion(frAllLiquid); 
+        ratedOutputs.insert(pair<double,CCoinToUse>(distortion, item.second));
+        mapAvailableLiquid[fkey] = nAvailableLiquid;
+    }
+
+    // use first 50 most distorted coins
+    // get available value for selected coins
+    int nCountInputs = std::min(50, int(ratedOutputs.size()-4));
+    set<CCoinToUse> setCoins;
+    
+    int64_t nLiquidToJoin = 0;
+    auto rit = ratedOutputs.rbegin();
+    while (rit != ratedOutputs.rend()) {
+        CCoinToUse out = (*rit).second;
+        auto txhash = out.txhash;
+        auto fkey = uint320(txhash, out.i);
+        
+        out.nAvailableValue = mapAvailableLiquid[fkey];
+        nLiquidToJoin += out.nAvailableValue;
+        
+        setCoins.insert(out);
+        nCountInputs--;
+        
+        if (!nCountInputs) {
+            break;
+        }
+        rit++;
+    }
+    
+    // first 4 less distorted to join with
+    set<CCoinToUse> setBaseCoins;
+    int nCountOutputs = 4;
+    auto it = ratedOutputs.begin();
+    for (; it != ratedOutputs.end(); ++it) {
+        CCoinToUse out = (*it).second;
+        auto txhash = out.txhash;
+        auto fkey = uint320(txhash, out.i);
+        
+        out.nAvailableValue = mapAvailableLiquid[fkey];
+        setBaseCoins.insert(out);
+        nCountInputs--;
+        
+        if (!nCountOutputs) {
+            break;
+        }
+    }
+    
+    CTransaction rawTx;
+    
+    size_t nNumInputs = setCoins.size();
+    if (!nNumInputs) return false;
+
+    // Base inputs to be sorted by address
+    vector<CCoinToUse> vBaseCoins;
+    for(const CCoinToUse& baseCoin : setBaseCoins) {
+        vBaseCoins.push_back(baseCoin);
+    }
+    sort(vBaseCoins.begin(), vBaseCoins.end(), sortByAddress);
+    // Inputs to be sorted by address
+    vector<CCoinToUse> vCoins;
+    for(const CCoinToUse& coin : setCoins) {
+        vCoins.push_back(coin);
+    }
+    sort(vCoins.begin(), vCoins.end(), sortByAddress);
+    
+    // Collect input addresses
+    // Prepare maps for input,available,take
+    set<CTxDestination> setInputAddresses;
+    vector<CTxDestination> vInputAddresses;
+    map<CTxDestination, int64_t> mapAvailableValuesAt;
+    map<CTxDestination, int64_t> mapInputValuesAt;
+    map<CTxDestination, int64_t> mapTakeValuesAt;
+    for(const CCoinToUse& coin : vCoins) {
+        CTxDestination address;
+        if(!ExtractDestination(coin.scriptPubKey, address))
+            continue;
+        setInputAddresses.insert(address); // sorted due to vCoins
+        mapAvailableValuesAt[address] = 0;
+        mapInputValuesAt[address] = 0;
+        mapTakeValuesAt[address] = 0;
+    }
+    // Get sorted list of input addresses
+    for(const CTxDestination& address : setInputAddresses) {
+        vInputAddresses.push_back(address);
+    }
+    sort(vInputAddresses.begin(), vInputAddresses.end(), sortByDestination);
+    // Input and available values can be filled in
+    for(const CCoinToUse& coin : vCoins) {
+        CTxDestination address;
+        if(!ExtractDestination(coin.scriptPubKey, address))
+            continue;
+        int64_t& nValueAvailableAt = mapAvailableValuesAt[address];
+        nValueAvailableAt += coin.nAvailableValue;
+        int64_t& nValueInputAt = mapInputValuesAt[address];
+        nValueInputAt += coin.nValue;
+    }
+        
+    // vouts to the payees
+    for(const CCoinToUse& baseCoin : vBaseCoins) {
+        rawTx.vout.push_back(CTxOut(baseCoin.nValue
+                                    +nLiquidToJoin/vBaseCoins.size(), 
+                                    baseCoin.scriptPubKey));
+    }
+    
+    CReserveKey reservekey(pwalletMain);
+    reservekey.ReturnKey();
+    
+    // Available values - liquidity
+    // Compute values to take from each address (liquidity is common)
+    int64_t nValueLeft = nLiquidToJoin;
+    for(const CCoinToUse& coin : vCoins) {
+        CTxDestination address;
+        if(!ExtractDestination(coin.scriptPubKey, address))
+            continue;
+        int64_t nValueAvailable = coin.nAvailableValue;
+        int64_t nValueTake = nValueAvailable;
+        if (nValueTake > nValueLeft) {
+            nValueTake = nValueLeft;
+        }
+        int64_t& nValueTakeAt = mapTakeValuesAt[address];
+        nValueTakeAt += nValueTake;
+        nValueLeft -= nValueTake;
+    }
+    
+    // Calculate change (minus fee and part taken from change)
+    map<CTxDestination, int> mapChangeOutputs;
+    for (const CTxDestination& address : vInputAddresses) {
+        CScript scriptPubKey;
+        scriptPubKey.SetDestination(address);
+        int64_t& nValueTakeAt = mapTakeValuesAt[address];
+        int64_t nValueInput = mapInputValuesAt[address];
+        int64_t nValueChange = nValueInput - nValueTakeAt;
+        if (nValueChange == 0) continue;
+        nValueTakeAt += nValueChange;
+        mapChangeOutputs[address] = rawTx.vout.size();
+        rawTx.vout.push_back(CTxOut(nValueChange, scriptPubKey));
+    }
+
+    // notation for exchange control
+    string sTxid;
+    {
+        string sNotary = "XCH:M:";
+        CDataStream ss(SER_GETHASH, 0);
+        size_t n_inp = rawTx.vin.size();
+        for(size_t j=0; j< n_inp; j++) {
+            ss << rawTx.vin[j].prevout.hash;
+            ss << rawTx.vin[j].prevout.n;
+        }
+        ss << string("M");
+        sTxid = Hash(ss.begin(), ss.end()).GetHex();
+        sNotary += sTxid;
+        CScript scriptPubKey;
+        scriptPubKey.push_back(OP_RETURN);
+        unsigned char len_bytes = sNotary.size();
+        scriptPubKey.push_back(len_bytes);
+        for (size_t j=0; j< sNotary.size(); j++) {
+            scriptPubKey.push_back(sNotary[j]);
+        }
+        rawTx.vout.push_back(CTxOut(1, scriptPubKey));
+    }
+    
+    // Fill vin
+    for(const CCoinToUse& coin : vBaseCoins) {
+        rawTx.vin.push_back(CTxIn(coin.txhash,coin.i));
+    }
+    for(const CCoinToUse& coin : vCoins) {
+        rawTx.vin.push_back(CTxIn(coin.txhash,coin.i));
+    }
+    
+    // Fee to be simple taken from first output
+    int64_t nFeeNetwork = 10000 * (rawTx.vin.size() + rawTx.vout.size());
+    rawTx.vout[0].nValue -= nFeeNetwork;
+    
+    // Calculate peg to know fee fractions
+    CFractions feesFractions(0, CFractions::STD);
+    map<int, CFractions> mapTxOutputFractionsSkip;
+    computeTxPegForNextCycle(rawTx, peglevel_net, txdb, pegdb, mapAllOutputs,
+                             mapTxOutputFractionsSkip, feesFractions);
+    
+    // signing the transaction to get it ready for broadcast
+//    int nIn = 0;
+//    for(const CCoinToUse& coin : vCoins) {
+//        if (!SignSignature(*pwalletMain, coin.scriptPubKey, rawTx, nIn++)) {
+//            throw JSONRPCError(RPC_MISC_ERROR, 
+//                               strprintf("Fail on signing input (%d)", nIn-1));
+//        }
+//    }
+        
+//    // first out after F notations (same num as size inputs)
+//    CFractions frProcessed = mapTxOutputFractions[rawTx.vin.size()] + feesFractionsCommon;
+//    CFractions frRequested = frAmount;
+
+//    if (frRequested.Total() != nAmountWithFee) {
+//        throw JSONRPCError(RPC_MISC_ERROR, 
+//                           strprintf("Mismatch requested and amount_with_fee (%d - %d)",
+//                                     frRequested.Total(), nAmountWithFee));
+//    }
+//    if (frProcessed.Total() != nAmountWithFee) {
+//        throw JSONRPCError(RPC_MISC_ERROR, 
+//                           strprintf("Mismatch processed and amount_with_fee (%d - %d)",
+//                                     frProcessed.Total(), nAmountWithFee));
+//    }
+    
+    // save fractions
+    string sTxhash = rawTx.GetHash().GetHex();
+
+    // get list of changes and add to current provided outputs
+//    map<string, int64_t> mapTxChanges;
+//    {
+//        CPegDB pegdbrw;
+//        for (size_t i=rawTx.vin.size()+1; i< rawTx.vout.size(); i++) { // skip notations and withdraw
+//            // make map of change outputs
+//            string txout = rawTx.GetHash().GetHex()+":"+itostr(i);
+//            mapTxChanges[txout] = rawTx.vout[i].nValue;
+//            // save these outputs in pegdb, so they can be used in next withdraws
+//            auto fkey = uint320(rawTx.GetHash(), i);
+//            pegdbrw.WriteFractions(fkey, mapTxOutputFractions[i]);
+//        }
+//    }
+    // get list of consumed and provided outputs
+//    nMaintenance += nFeeMaintenance;
+//    prepareConsumedProvided(mapProvidedOutputs, rawTx, sAddress, nCycleNow, 
+//                            nMaintenance, frMaintenance, peglevel_exchange,
+//                            sConsumedInputs, sProvidedOutputs);
+    
+//    frBalance -= frRequested;
+//    frExchange -= frRequested;
+//    frPegShift += (frRequested - frProcessed);
+    
+    // consume reserve part of pegshift by balance
+    // as computation were completed by pegnext it may use fractions
+    // of current liquid - at current supply not to consume these fractions
+//    consumereservepegshift(frBalance, frExchange, frPegShift, peglevel_exchange);
+    
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << rawTx;
+    
+    string txstr = HexStr(ss.begin(), ss.end());
+    
     Object result;
     result.push_back(Pair("completed", true));
-    result.push_back(Pair("processed", false));
-    result.push_back(Pair("status", "Temp off"));
+    result.push_back(Pair("processed", true));
+    result.push_back(Pair("txhash", sTxhash));
+    result.push_back(Pair("rawtx", txstr));
+    result.push_back(Pair("fee", feesFractions.Total()));
+
+    result.push_back(Pair("consumed_inputs", sConsumedInputs));
+    result.push_back(Pair("provided_outputs", sProvidedOutputs));
+
+    printpegshift(pdPegShift.fractions, peglevel_net, result);
+    
     return result;
 }
-

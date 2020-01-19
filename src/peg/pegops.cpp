@@ -421,6 +421,8 @@ bool prepareliquidwithdraw(
         std::string &   out_pegshift_pegdata64,
         std::string &   out_requested_pegdata64,
         std::string &   out_processed_pegdata64,
+        std::string &   out_withdraw_idxch,
+        std::string &   out_withdraw_txout,
         std::string &   out_rawtx,
         txouts &        out_txouts,
         std::string &   out_err)
@@ -476,7 +478,8 @@ bool prepareliquidwithdraw(
     std::vector<
         std::tuple<
             std::string,
-            CPegData>> txOuts;
+            CPegData,
+            std::string>> txOuts;
     
     bool ok = prepareliquidwithdraw(
                 txIns,
@@ -488,6 +491,8 @@ bool prepareliquidwithdraw(
                 peglevel,
                 pdRequested,
                 pdProcessed,
+                out_withdraw_idxch,
+                out_withdraw_txout,
                 out_rawtx,
                 txOuts,
                 out_err);
@@ -506,9 +511,10 @@ bool prepareliquidwithdraw(
     out_requested_pegdata64 = pdRequested.ToString();
     out_processed_pegdata64 = pdProcessed.ToString();
     
-    for(const std::tuple<string,CPegData> & txOut : txOuts) {
+    for(const std::tuple<string,CPegData,string> & txOut : txOuts) {
         auto txout = make_tuple(std::get<0>(txOut), 
-                                std::get<1>(txOut).ToString());
+                                std::get<1>(txOut).ToString(),
+                                std::get<2>(txOut));
         out_txouts.push_back(txout);
     }
     
@@ -533,6 +539,8 @@ bool preparereservewithdraw(
         std::string &   out_pegshift_pegdata64,
         std::string &   out_requested_pegdata64,
         std::string &   out_processed_pegdata64,
+        std::string &   out_withdraw_idxch,
+        std::string &   out_withdraw_txout,
         std::string &   out_rawtx,
         txouts &        out_txouts,
         std::string &   out_err)
@@ -588,7 +596,8 @@ bool preparereservewithdraw(
     std::vector<
         std::tuple<
             std::string,
-            CPegData>> txOuts;
+            CPegData,
+            std::string>> txOuts;
     
     bool ok = preparereservewithdraw(
                 txIns,
@@ -600,6 +609,8 @@ bool preparereservewithdraw(
                 peglevel,
                 pdRequested,
                 pdProcessed,
+                out_withdraw_idxch,
+                out_withdraw_txout,
                 out_rawtx,
                 txOuts,
                 out_err);
@@ -618,9 +629,10 @@ bool preparereservewithdraw(
     out_requested_pegdata64 = pdRequested.ToString();
     out_processed_pegdata64 = pdProcessed.ToString();
     
-    for(const std::tuple<string,CPegData> & txOut : txOuts) {
+    for(const std::tuple<string,CPegData,string> & txOut : txOuts) {
         auto txout = make_tuple(std::get<0>(txOut), 
-                                std::get<1>(txOut).ToString());
+                                std::get<1>(txOut).ToString(),
+                                std::get<2>(txOut));
         out_txouts.push_back(txout);
     }
     

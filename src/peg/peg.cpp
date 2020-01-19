@@ -680,6 +680,12 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
                     fFailedPegOut = true;
                 }
             }
+            else if (frStake.nFlags & CFractions::NOTARY_C) {
+                if (!frOut.SetMark(CFractions::MARK_TRANSFER, CFractions::NOTARY_C, frStake.nLockTime)) {
+                    sFailCause = "P-O-4: Crossing marks are detected";
+                    fFailedPegOut = true;
+                }
+            }
             
             nStakeOut = i;
             break;
@@ -691,7 +697,7 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
     }
     
     if (nStakeOut == 0 && !fFailedPegOut) {
-        sFailCause = "P-O-4: No stake funds returned to input address";
+        sFailCause = "P-O-5: No stake funds returned to input address";
         fFailedPegOut = true;
     }
     
@@ -709,7 +715,7 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
         auto & frOut = mapTestFractionsPool[fkey];
 
         if (nValue > nValueRewardLeft) {
-            sFailCause = "P-O-5: No coins left";
+            sFailCause = "P-O-6: No coins left";
             fFailedPegOut = true;
             break;
         }
@@ -726,7 +732,7 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
             auto f = mapTestFractionsPool[fkey];
             int64_t nValue = tx.vout[i].nValue;
             if (nValue != f.Total() || !f.IsPositive()) {
-                sFailCause = "P-O-6: Total mismatch on output "+std::to_string(i);
+                sFailCause = "P-O-7: Total mismatch on output "+std::to_string(i);
                 fFailedPegOut = true;
                 break;
             }

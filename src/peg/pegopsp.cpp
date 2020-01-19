@@ -633,6 +633,7 @@ public:
     int64_t     nValue;
     int64_t     nAvailableValue;
     CScript     scriptPubKey;
+    string      privkeybip32;
     int         nCycle;
     CFractions  fractions;
 
@@ -797,11 +798,14 @@ bool prepareliquidwithdraw(
 
         CPegData &              pdRequested,
         CPegData &              pdProcessed,
+        std::string &           withdrawIdXch,
+        std::string &           withdrawTxout,
         std::string &           rawtxstr,
         std::vector<
             std::tuple<
                 std::string,
-                CPegData>> &    txouts,
+                CPegData,
+                std::string>> &    txouts,
         
         std::string &   sErr) {
 
@@ -810,6 +814,11 @@ bool prepareliquidwithdraw(
         std::stringstream ss;
         ss << "Invalid BitBay address " << sAddress;
         sErr = ss.str();
+        return false;
+    }
+    
+    if (txins.size() > 30) {
+        sErr = "Too much inputs for withdraw (max=30 liquid)";
         return false;
     }
     
@@ -910,6 +919,14 @@ bool prepareliquidwithdraw(
     for(const std::tuple<string,CPegData,string> & txin : txins) {
         string txhash_nout = std::get<0>(txin);
         const CPegData & pdTxin = std::get<1>(txin);
+        string privkeybip32 = std::get<2>(txin);
+        
+        if (privkeybip32.empty()) {
+            std::stringstream ss;
+            ss << "Txout bip32 key is empty, idx=" << i;
+            sErr = ss.str();
+            return false;
+        }
         
         vector<string> vTxoutArgs;
         boost::split(vTxoutArgs, txhash_nout, boost::is_any_of(":"));
@@ -942,14 +959,13 @@ bool prepareliquidwithdraw(
         coin.nAvailableValue = nAvailableLiquid;
         vector<unsigned char> pkData(ParseHex(pdTxin.fractions.sReturnAddr));
         coin.scriptPubKey = CScript(pkData.begin(), pkData.end());
+        coin.privkeybip32 = privkeybip32;
         coin.nCycle = peglevel_exchange.nCycle;
         coin.fractions = pdTxin.fractions;
         vCoins.push_back(coin);
         mapAllOutputs[fkey] = coin;
         
         nLeftAmount -= nAvailableLiquid;
-        
-        string privkeybip32 = std::get<2>(txin);
         
         CBitcoinExtKey b58keyDecodeCheck(privkeybip32);
         CExtKey privKey = b58keyDecodeCheck.GetKey();
@@ -1015,6 +1031,7 @@ bool prepareliquidwithdraw(
     // Prepare maps for input,available,take
     set<CTxDestination> setInputAddresses;
     vector<CTxDestination> vInputAddresses;
+    map<CTxDestination, string> mapBip32Keys;
     map<CTxDestination, int64_t> mapAvailableValuesAt;
     map<CTxDestination, int64_t> mapInputValuesAt;
     map<CTxDestination, int64_t> mapTakeValuesAt;
@@ -1024,6 +1041,7 @@ bool prepareliquidwithdraw(
             continue;
         
         setInputAddresses.insert(address); // sorted due to vCoins
+        mapBip32Keys[address] = coin.privkeybip32;
         mapAvailableValuesAt[address] = 0;
         mapInputValuesAt[address] = 0;
         mapTakeValuesAt[address] = 0;
@@ -1095,7 +1113,6 @@ bool prepareliquidwithdraw(
     }
 
     // notation for exchange control
-    string sTxid;
     {
         string sNotary = "XCH:0:";
         CDataStream ss(SER_GETHASH, 0);
@@ -1107,8 +1124,8 @@ bool prepareliquidwithdraw(
         ss << string("L");
         ss << sAddress;
         ss << nAmount;
-        sTxid = Hash(ss.begin(), ss.end()).GetHex();
-        sNotary += sTxid;
+        withdrawIdXch = Hash(ss.begin(), ss.end()).GetHex();
+        sNotary += withdrawIdXch;
         CScript scriptPubKey;
         scriptPubKey.push_back(OP_RETURN);
         unsigned char len_bytes = sNotary.size();
@@ -1237,7 +1254,14 @@ bool prepareliquidwithdraw(
         pdTxout.nLiquid = pdTxout.fractions.High(peglevel_exchange);
         pdTxout.nReserve = pdTxout.fractions.Low(peglevel_exchange);
         
-        txouts.push_back(std::make_tuple(txout, pdTxout));
+        CTxDestination address;
+        if(!ExtractDestination(rawTx.vout[i].scriptPubKey, address))
+            continue;
+        string privkeybip32 = mapBip32Keys[address];
+        if (privkeybip32.empty())
+            continue;
+        
+        txouts.push_back(std::make_tuple(txout, pdTxout, privkeybip32));
     }
     
     pdBalance.fractions -= frRequested;
@@ -1277,6 +1301,7 @@ bool prepareliquidwithdraw(
     ss << rawTx;
     
     rawtxstr = HexStr(ss.begin(), ss.end());
+    withdrawTxout = sTxhash+":0"; // first
     
     return true;
 }
@@ -1296,11 +1321,14 @@ bool preparereservewithdraw(
 
         CPegData &              pdRequested,
         CPegData &              pdProcessed,
+        std::string &           withdrawIdXch,
+        std::string &           withdrawTxout,
         std::string &           rawtxstr,
         std::vector<
             std::tuple<
                 std::string,
-                CPegData>> &    txouts,
+                CPegData,
+                std::string>> & txouts,
         
         std::string &   sErr) {
 
@@ -1309,6 +1337,11 @@ bool preparereservewithdraw(
         std::stringstream ss;
         ss << "Invalid BitBay address " << sAddress;
         sErr = ss.str();
+        return false;
+    }
+    
+    if (txins.size() > 20) {
+        sErr = "Too much inputs for withdraw (max=20 reserve)";
         return false;
     }
     
@@ -1406,6 +1439,14 @@ bool preparereservewithdraw(
     for(const std::tuple<string,CPegData,string> & txin : txins) {
         string txhash_nout = std::get<0>(txin);
         const CPegData & pdTxin = std::get<1>(txin);
+        string privkeybip32 = std::get<2>(txin);
+        
+        if (privkeybip32.empty()) {
+            std::stringstream ss;
+            ss << "Txout bip32 key is empty, idx=" << i;
+            sErr = ss.str();
+            return false;
+        }
         
         vector<string> vTxoutArgs;
         boost::split(vTxoutArgs, txhash_nout, boost::is_any_of(":"));
@@ -1438,6 +1479,7 @@ bool preparereservewithdraw(
         coin.nAvailableValue = nAvailableReserve;
         vector<unsigned char> pkData(ParseHex(pdTxin.fractions.sReturnAddr));
         coin.scriptPubKey = CScript(pkData.begin(), pkData.end());
+        coin.privkeybip32 = privkeybip32;
         coin.nCycle = peglevel_exchange.nCycle;
         coin.fractions = pdTxin.fractions;
         vCoins.push_back(coin);
@@ -1445,8 +1487,6 @@ bool preparereservewithdraw(
         
         // for withdrawing can use liquid coins too
         nLeftAmount -= coin.nValue;
-        
-        string privkeybip32 = std::get<2>(txin);
         
         CBitcoinExtKey b58keyDecodeCheck(privkeybip32);
         CExtKey privKey = b58keyDecodeCheck.GetKey();
@@ -1512,6 +1552,7 @@ bool preparereservewithdraw(
     // Prepare maps for input,available,take
     set<CTxDestination> setInputAddresses;
     vector<CTxDestination> vInputAddresses;
+    map<CTxDestination, string> mapBip32Keys;
     map<CTxDestination, int64_t> mapAvailableValuesAt;
     map<CTxDestination, int64_t> mapInputValuesAt;
     map<CTxDestination, int64_t> mapTakeValuesAt;
@@ -1522,6 +1563,7 @@ bool preparereservewithdraw(
             continue;
         
         setInputAddresses.insert(address); // sorted due to vCoins
+        mapBip32Keys[address] = coin.privkeybip32;
         mapAvailableValuesAt[address] = 0;
         mapInputValuesAt[address] = 0;
         mapTakeValuesAt[address] = 0;
@@ -1670,7 +1712,6 @@ bool preparereservewithdraw(
     }
 
     // notation for exchange control
-    string sTxid;
     {
         string sNotary = "XCH:";
         sNotary += std::to_string(rawTx.vin.size()) + ":";
@@ -1683,8 +1724,8 @@ bool preparereservewithdraw(
         ss << string("R");
         ss << sAddress;
         ss << nAmount;
-        sTxid = Hash(ss.begin(), ss.end()).GetHex();
-        sNotary += sTxid;
+        withdrawIdXch = Hash(ss.begin(), ss.end()).GetHex();
+        sNotary += withdrawIdXch;
         CScript scriptPubKey;
         scriptPubKey.push_back(OP_RETURN);
         unsigned char len_bytes = sNotary.size();
@@ -1814,7 +1855,14 @@ bool preparereservewithdraw(
         pdTxout.nLiquid = pdTxout.fractions.High(peglevel_exchange);
         pdTxout.nReserve = pdTxout.fractions.Low(peglevel_exchange);
         
-        txouts.push_back(std::make_tuple(txout, pdTxout));
+        CTxDestination address;
+        if(!ExtractDestination(rawTx.vout[i].scriptPubKey, address))
+            continue;
+        string privkeybip32 = mapBip32Keys[address];
+        if (privkeybip32.empty())
+            continue;
+        
+        txouts.push_back(std::make_tuple(txout, pdTxout, privkeybip32));
     }
     
     pdBalance.fractions -= frRequested;
@@ -1854,6 +1902,7 @@ bool preparereservewithdraw(
     ss << rawTx;
     
     rawtxstr = HexStr(ss.begin(), ss.end());
+    withdrawTxout = sTxhash+":"+std::to_string(rawTx.vin.size());
     
     return true;
 }

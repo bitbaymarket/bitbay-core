@@ -81,11 +81,14 @@ extern bool prepareliquidwithdraw(
         
         CPegData &              pdRequested,
         CPegData &              pdProcessed,
+        std::string &           withdrawIdXch,
+        std::string &           withdrawTxout,
         std::string &           rawtx,
         std::vector<
             std::tuple<
                 std::string,
-                CPegData>> &    txouts,
+                CPegData,
+                std::string>> & txouts,
 
         std::string &   sErr);
 
@@ -104,11 +107,14 @@ extern bool preparereservewithdraw(
         
         CPegData &              pdRequested,
         CPegData &              pdProcessed,
+        std::string &           withdrawIdXch,
+        std::string &           withdrawTxout,
         std::string &           rawtx,
         std::vector<
             std::tuple<
                 std::string,
-                CPegData>> &    txouts,
+                CPegData,
+                std::string>> & txouts,
 
         std::string &   sErr);
 

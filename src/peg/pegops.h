@@ -123,7 +123,7 @@ extern bool updatetxout(
         std::string &   out_err);
 
 typedef std::vector<std::tuple<std::string,std::string,std::string>> txinps;
-typedef std::vector<std::tuple<std::string,std::string>> txouts;
+typedef std::vector<std::tuple<std::string,std::string,std::string>> txouts;
 
 extern bool prepareliquidwithdraw(
         const txinps &          inp_txinps,
@@ -143,6 +143,8 @@ extern bool prepareliquidwithdraw(
         std::string &   out_pegshift_pegdata64,
         std::string &   out_requested_pegdata64,
         std::string &   out_processed_pegdata64,
+        std::string &   out_withdraw_idxch,
+        std::string &   out_withdraw_txout,
         std::string &   out_rawtx,
         txouts &        out_txouts,
         std::string &   out_err);
@@ -165,6 +167,8 @@ extern bool preparereservewithdraw(
         std::string &   out_pegshift_pegdata64,
         std::string &   out_requested_pegdata64,
         std::string &   out_processed_pegdata64,
+        std::string &   out_withdraw_idxch,
+        std::string &   out_withdraw_txout,
         std::string &   out_rawtx,
         txouts &        out_txouts,
         std::string &   out_err);

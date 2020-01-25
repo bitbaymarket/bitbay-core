@@ -254,12 +254,16 @@ public:
         r = BN_secure_new();
         s = BN_secure_new();
         ECDSA_SIG_get0(sig, &r, &s);
-        BIGNUM *s1;
-        s1 = BN_secure_new();
-        BN_copy(s1,s);
         if (BN_cmp(s, halforder) > 0) {
             // enforce low S values, by negating the value (modulo the order) if above order/2.
+            BIGNUM *r1;
+            BIGNUM *s1;
+            r1 = BN_secure_new();
+            s1 = BN_secure_new();
+            BN_copy(r1,r);
+            BN_copy(s1,s);
             BN_sub(s1, order, s1);
+            ECDSA_SIG_set0(sig, r1, s1);
         }
 #endif
         BN_CTX_end(ctx);

@@ -22,9 +22,11 @@ SOURCES += \
     $$PWD/tests/pegops_test7.cpp \
     $$PWD/tests/pegops_test8.cpp \
     $$PWD/tests/pegops_test1k.cpp \
+    $$PWD/tests/pegops_withdraws.cpp \
 
 LIBS += -lz
 LIBS += -lboost_system
+LIBS += -lboost_thread
 LIBS += -lssl -lcrypto 
 
 DEFINES += BOOST_ALL_NO_LIB

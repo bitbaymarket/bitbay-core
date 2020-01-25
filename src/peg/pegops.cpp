@@ -73,6 +73,11 @@ bool getpeglevel(
                 pdPegPool,
                 out_err);
 
+    if (!pdPegPool.IsValid()) {
+        out_err = "Returned invalid 'pegpool' pegdata";
+        return false;
+    }
+    
     out_peglevel_hex = peglevel.ToString();
     out_pegpool_pegdata64 = pdPegPool.ToString();
     out_pegpool_amount    = pdPegPool.nLiquid+pdPegPool.nReserve;
@@ -161,7 +166,16 @@ bool updatepegbalances(
     if (!ok) {
         return false;
     }
-   
+    
+    if (!pdPegPool.IsValid()) {
+        out_err = "Returned invalid 'pegpool' pegdata";
+        return false;
+    }
+    if (!pdBalance.IsValid()) {
+        out_err = "Returned invalid 'balance' pegdata";
+        return false;
+    }
+    
     out_pegpool_pegdata64   = pdPegPool.ToString();
     out_pegpool_amount      = pdPegPool.nLiquid+pdPegPool.nReserve;
     out_balance_pegdata64   = pdBalance.ToString();
@@ -216,6 +230,15 @@ bool movecoins(
         return false;
     }
     
+    if (!pdSrc.IsValid()) {
+        out_err = "Returned invalid 'src' pegdata";
+        return false;
+    }
+    if (!pdDst.IsValid()) {
+        out_err = "Returned invalid 'dst' pegdata";
+        return false;
+    }
+    
     out_src_pegdata64   = pdSrc.ToString();
     out_src_liquid      = pdSrc.nLiquid;
     out_src_reserve     = pdSrc.nReserve;
@@ -265,6 +288,15 @@ bool moveliquid(
                          peglevel,
                          out_err);
     if (!ok) {
+        return false;
+    }
+    
+    if (!pdSrc.IsValid()) {
+        out_err = "Returned invalid 'src' pegdata";
+        return false;
+    }
+    if (!pdDst.IsValid()) {
+        out_err = "Returned invalid 'dst' pegdata";
         return false;
     }
 
@@ -319,6 +351,15 @@ bool movereserve(
     if (!ok) {
         return false;
     }
+    
+    if (!pdSrc.IsValid()) {
+        out_err = "Returned invalid 'src' pegdata";
+        return false;
+    }
+    if (!pdDst.IsValid()) {
+        out_err = "Returned invalid 'dst' pegdata";
+        return false;
+    }
 
     out_src_pegdata64   = pdSrc.ToString();
     out_src_liquid      = pdSrc.nLiquid;
@@ -356,6 +397,11 @@ bool removecoins(
     pdFrom.nLiquid      -= pdRemove.nLiquid;
     pdFrom.nReserve     -= pdRemove.nReserve;
 
+    if (!pdFrom.IsValid()) {
+        out_err = "Returned invalid 'from' pegdata";
+        return false;
+    }
+    
     out_from_pegdata64  = pdFrom.ToString();
     out_from_liquid     = pdFrom.nLiquid;
     out_from_reserve    = pdFrom.nReserve;
@@ -501,6 +547,27 @@ bool prepareliquidwithdraw(
         return false;
     }
     
+    if (!pdBalance.IsValid()) {
+        out_err = "Returned invalid 'balance' pegdata";
+        return false;
+    }
+    if (!pdExchange.IsValid()) {
+        out_err = "Returned invalid 'exchange' pegdata";
+        return false;
+    }
+    if (!pdPegShift.IsValid()) {
+        out_err = "Returned invalid 'pegshift' pegdata";
+        return false;
+    }
+    if (!pdRequested.IsValid()) {
+        out_err = "Returned invalid 'requested' pegdata";
+        return false;
+    }
+    if (!pdProcessed.IsValid()) {
+        out_err = "Returned invalid 'processed' pegdata";
+        return false;
+    }
+    
     out_balance_pegdata64   = pdBalance.ToString();
     out_balance_liquid      = pdBalance.nLiquid;
     out_balance_reserve     = pdBalance.nReserve;
@@ -512,8 +579,13 @@ bool prepareliquidwithdraw(
     out_processed_pegdata64 = pdProcessed.ToString();
     
     for(const std::tuple<string,CPegData,string> & txOut : txOuts) {
+        CPegData pdTxout = std::get<1>(txOut);
+        if (!pdTxout.IsValid()) {
+            out_err = "Returned invalid 'txout' pegdata";
+            return false;
+        }
         auto txout = make_tuple(std::get<0>(txOut), 
-                                std::get<1>(txOut).ToString(),
+                                pdTxout.ToString(),
                                 std::get<2>(txOut));
         out_txouts.push_back(txout);
     }
@@ -619,6 +691,27 @@ bool preparereservewithdraw(
         return false;
     }
     
+    if (!pdBalance.IsValid()) {
+        out_err = "Returned invalid 'balance' pegdata";
+        return false;
+    }
+    if (!pdExchange.IsValid()) {
+        out_err = "Returned invalid 'exchange' pegdata";
+        return false;
+    }
+    if (!pdPegShift.IsValid()) {
+        out_err = "Returned invalid 'pegshift' pegdata";
+        return false;
+    }
+    if (!pdRequested.IsValid()) {
+        out_err = "Returned invalid 'requested' pegdata";
+        return false;
+    }
+    if (!pdProcessed.IsValid()) {
+        out_err = "Returned invalid 'processed' pegdata";
+        return false;
+    }
+    
     out_balance_pegdata64   = pdBalance.ToString();
     out_balance_liquid      = pdBalance.nLiquid;
     out_balance_reserve     = pdBalance.nReserve;
@@ -630,8 +723,13 @@ bool preparereservewithdraw(
     out_processed_pegdata64 = pdProcessed.ToString();
     
     for(const std::tuple<string,CPegData,string> & txOut : txOuts) {
+        CPegData pdTxout = std::get<1>(txOut);
+        if (!pdTxout.IsValid()) {
+            out_err = "Returned invalid 'txout' pegdata";
+            return false;
+        }
         auto txout = make_tuple(std::get<0>(txOut), 
-                                std::get<1>(txOut).ToString(),
+                                pdTxout.ToString(),
                                 std::get<2>(txOut));
         out_txouts.push_back(txout);
     }

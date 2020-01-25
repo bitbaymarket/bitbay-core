@@ -1532,13 +1532,16 @@ Value accountmaintenance(const Array& params, bool fHelp)
     // network peglevel
     CPegLevel peglevel_net(nCycleNow,
                            nCycleNow-1,
+                           0,
                            nSupplyNow,
                            nSupplyNext,
                            nSupplyNextNext);
     
-    CFractions frPegShift(0, CFractions::VALUE);
-    unpackpegdata(frPegShift, pegshift_pegdata64, "pegshift");
-    frPegShift = frPegShift.Std();
+    CPegData pdPegShift(pegshift_pegdata64);
+    if (!pdPegShift.IsValid()) {
+        string err = "Can not unpack 'pegshift' pegdata";
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+    }
     
     // inputs, outputs
     string sConsumedInputs = params[1].get_str();
@@ -1593,7 +1596,7 @@ Value accountmaintenance(const Array& params, bool fHelp)
         result.push_back(Pair("consumed_inputs", sConsumedInputs));
         result.push_back(Pair("provided_outputs", sProvidedOutputs));
     
-        printpegshift(frPegShift, peglevel_net, result, true);
+        printpegshift(pdPegShift.fractions, peglevel_net, result);
         
         return result;
     }

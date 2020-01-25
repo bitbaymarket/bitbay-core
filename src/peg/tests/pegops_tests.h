@@ -22,6 +22,7 @@ private slots:
     void test7();
     void test8();
     void test1k();
+    void test1w();
 };
 
 #endif // BITBAY_PEGOPS_TESTS_H

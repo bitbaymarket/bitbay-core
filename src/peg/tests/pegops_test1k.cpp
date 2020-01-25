@@ -16,7 +16,6 @@ using namespace pegops;
 
 void TestPegOps::test1k()
 {
-    //return;
     std::default_random_engine generator;
     std::uniform_int_distribution<int> distribution(0,1000);
     

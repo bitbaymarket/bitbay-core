@@ -37,14 +37,38 @@ extern bool getpeglevel(
 extern bool getpeglevelinfo(
         const std::string & inp_peglevel_hex,
         
-        int &       out_cycle_now,
-        int &       out_cycle_prev,
-        int &       out_peg_now,
-        int &       out_peg_next,
-        int &       out_peg_next_next,
-        int &       out_shift,
-        int64_t &   out_shiftlastpart,
-        int64_t &   out_shiftlasttotal);
+        int &           out_version,
+        int &           out_cycle_now,
+        int &           out_cycle_prev,
+        int &           out_buffer,
+        int &           out_peg_now,
+        int &           out_peg_next,
+        int &           out_peg_next_next,
+        int &           out_shift,
+        int64_t &       out_shiftlastpart,
+        int64_t &       out_shiftlasttotal,
+        std::string &   out_err);
+
+extern bool getpegdatainfo(
+        const std::string & inp_pegdata64,
+        
+        int &           out_version,
+        int64_t &       out_value,
+        int64_t &       out_liquid,
+        int64_t &       out_reserve,
+        int32_t &       out_id,
+        // peglevel
+        int &           out_level_version,
+        int &           out_cycle_now,
+        int &           out_cycle_prev,
+        int &           out_buffer,
+        int &           out_peg_now,
+        int &           out_peg_next,
+        int &           out_peg_next_next,
+        int &           out_shift,
+        int64_t &       out_shiftlastpart,
+        int64_t &       out_shiftlasttotal,
+        std::string &   out_err);
 
 extern bool updatepegbalances(
         const std::string & inp_balance_pegdata64,

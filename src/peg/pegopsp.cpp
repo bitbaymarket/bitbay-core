@@ -996,7 +996,7 @@ bool prepareliquidwithdraw(
     // check enough coins in inputs
     if (nLeftAmount > 0) {
         std::stringstream ss;
-        ss << "Not enough liquid or coins are too fragmented  on 'exchange' to withdraw " 
+        ss << "Not enough liquid in inputs to next cycle withdraw " 
            << nAmountWithFee;
         sErr = ss.str();
         return false;
@@ -1517,7 +1517,7 @@ bool preparereservewithdraw(
     // check enough coins in inputs
     if (nLeftAmount > 0) {
         std::stringstream ss;
-        ss << "Not enough reserve or coins are too fragmented  on 'exchange' to withdraw " 
+        ss << "Not enough reserve in inputs to next cycle withdraw " 
            << nAmountWithFee;
         sErr = ss.str();
         return false;

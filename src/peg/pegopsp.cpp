@@ -996,7 +996,7 @@ bool prepareliquidwithdraw(
     // check enough coins in inputs
     if (nLeftAmount > 0) {
         std::stringstream ss;
-        ss << "Not enough liquid in inputs to next cycle withdraw " 
+        ss << "Not enough liquid in inputs to next cycle withdraw "
            << nAmountWithFee;
         sErr = ss.str();
         return false;
@@ -1517,7 +1517,7 @@ bool preparereservewithdraw(
     // check enough coins in inputs
     if (nLeftAmount > 0) {
         std::stringstream ss;
-        ss << "Not enough reserve in inputs to next cycle withdraw " 
+        ss << "Not enough reserve in inputs to next cycle withdraw "
            << nAmountWithFee;
         sErr = ss.str();
         return false;
@@ -1872,7 +1872,7 @@ bool preparereservewithdraw(
                     frMaintenance, 
                     peglevel_net);
     
-    pdBalance.nLiquid -= nAmountWithFee;
+    pdBalance.nReserve -= nAmountWithFee;
     
     // consume reserve part of pegshift by balance
     // as computation were completed by pegnext it may use fractions

@@ -3474,6 +3474,12 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         if (!vRecv.empty())
             vRecv >> pfrom->nStartingHeight;
 
+        if (boost::starts_with(pfrom->strSubVer, "/BitBay:2.")) {
+            LogPrintf("partner %s using obsolete version %s; disconnecting\n", pfrom->addr.ToString(), pfrom->strSubVer);
+            pfrom->fDisconnect = true;
+            return false;
+        }
+        
         // Disconnect if we connected to ourself
         if (nNonce == nLocalHostNonce && nNonce > 1)
         {

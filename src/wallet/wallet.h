@@ -835,7 +835,7 @@ public:
                 if (pwallet->IsMine(txout)) {
                     nLiquidity += pwallet->GetLiquidity(GetHash(), i, txout);
                     if (!MoneyRange(nLiquidity))
-                        throw std::runtime_error("CWalletTx::GetAvailableReserve() : value out of range");
+                        throw std::runtime_error("CWalletTx::GetAvailableLiquidity() : value out of range");
                 }
             }
         }
@@ -873,7 +873,7 @@ public:
                 if (pwallet->IsMine(txout)) {
                     nFrozen += pwallet->GetFrozen(GetHash(), i, txout, &vFrozenCoinInfo);
                     if (!MoneyRange(nFrozen))
-                        throw std::runtime_error("CWalletTx::GetAvailableReserve() : value out of range");
+                        throw std::runtime_error("CWalletTx::GetAvailableFrozen() : value out of range");
                 }
             }
         }

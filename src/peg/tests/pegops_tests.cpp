@@ -21,26 +21,32 @@ void TestPegOps::test1()
 {
     string inp_peglevel_hex = "202d0000000000001f2d0000000000000d0010001300000008adf56d0000000095c564c1890a0000";
     
+    int out_version;
     int out_cycle_now;
     int out_cycle_prev;
+    int out_buffer;
     int out_peg_now;
     int out_peg_next;
     int out_peg_next_next;
     int out_shift;
     int64_t out_shiftlastpart;
     int64_t out_shiftlasttotal;
+    string out_err;
     
     bool ok = getpeglevelinfo(
                 inp_peglevel_hex,
                     
+                out_version,
                 out_cycle_now,    
                 out_cycle_prev,   
+                out_buffer,
                 out_peg_now,      
                 out_peg_next,     
                 out_peg_next_next,
                 out_shift,        
                 out_shiftlastpart,
-                out_shiftlasttotal);
+                out_shiftlasttotal,
+                out_err);
     
     QVERIFY(ok                  == true);
     QVERIFY(out_cycle_now       == 11552);
@@ -66,26 +72,32 @@ void TestPegOps::test2()
 {
     string inp_peglevel_hex = "202d000snhgajhg0000d0010001304c1890a0000";
     
+    int out_version;
     int out_cycle_now;
     int out_cycle_prev;
+    int out_buffer;
     int out_peg_now;
     int out_peg_next;
     int out_peg_next_next;
     int out_shift;
     int64_t out_shiftlastpart;
     int64_t out_shiftlasttotal;
+    string out_err;
     
     bool ok = getpeglevelinfo(
                 inp_peglevel_hex,
                     
+                out_version,
                 out_cycle_now,    
                 out_cycle_prev,   
+                out_buffer,
                 out_peg_now,      
                 out_peg_next,     
                 out_peg_next_next,
                 out_shift,        
                 out_shiftlastpart,
-                out_shiftlasttotal);
+                out_shiftlasttotal,
+                out_err);
     
     QVERIFY(ok == false);
 }

@@ -2732,7 +2732,9 @@ bool ProcessBlock(CNode* pfrom, CBlock* pblock)
         {
             if (pfrom)
                 pfrom->Misbehaving(1);
-            return error("ProcessBlock() : block with timestamp before last checkpoint");
+            return error("ProcessBlock() : block with timestamp before last checkpoint "
+                         "(delta: %d, blocktime: %d, checkpointtime: %d)",
+                         deltaTime, pblock->GetBlockTime(), pcheckpoint->nTime);
         }
     }
 

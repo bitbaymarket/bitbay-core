@@ -1580,6 +1580,8 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
     } else {
         supply = level.nSupply + level.nShift;
     }
+    
+    bool simple = nLiquidSave < 0;
 
     QStringList row_cycle;
     row_cycle << tr("Cycle") << QString::number(level.nCycle);
@@ -1589,13 +1591,15 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
     row_item_cycle->setFlags(row_item_cycle->flags() | Qt::ItemIsEditable );
     table->addTopLevelItem(row_item_cycle);
 
-    QStringList row_cyclep;
-    row_cyclep << tr("Prev") << QString::number(level.nCyclePrev);
-    auto row_item_cyclep = new QTreeWidgetItem(row_cyclep);
-    row_item_cyclep->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-    row_item_cyclep->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-    row_item_cyclep->setFlags(row_item_cycle->flags() | Qt::ItemIsEditable );
-    table->addTopLevelItem(row_item_cyclep);
+    if (!simple) {
+        QStringList row_cyclep;
+        row_cyclep << tr("Prev") << QString::number(level.nCyclePrev);
+        auto row_item_cyclep = new QTreeWidgetItem(row_cyclep);
+        row_item_cyclep->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_cyclep->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_cyclep->setFlags(row_item_cycle->flags() | Qt::ItemIsEditable );
+        table->addTopLevelItem(row_item_cyclep);
+    }
     
     QStringList row_peg;
     row_peg << tr("Peg") << QString::number(level.nSupply);
@@ -1604,42 +1608,51 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
     row_item_peg->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
     table->addTopLevelItem(row_item_peg);
     
-    QStringList row_pegn;
-    row_pegn << tr("PegN") << QString::number(level.nSupplyNext);
-    auto row_item_pegn = new QTreeWidgetItem(row_pegn);
-    row_item_pegn->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-    row_item_pegn->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-    table->addTopLevelItem(row_item_pegn);
-
-    QStringList row_pegnn;
-    row_pegnn << tr("PegNN") << QString::number(level.nSupplyNextNext);
-    auto row_item_pegnn = new QTreeWidgetItem(row_pegnn);
-    row_item_pegnn->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-    row_item_pegnn->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-    table->addTopLevelItem(row_item_pegnn);
+    if (!simple) {
+        QStringList row_pegn;
+        row_pegn << tr("PegN") << QString::number(level.nSupplyNext);
+        auto row_item_pegn = new QTreeWidgetItem(row_pegn);
+        row_item_pegn->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_pegn->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        table->addTopLevelItem(row_item_pegn);
     
-    QStringList row_shift;
-    row_shift << tr("Shift") << QString::number(level.nShift);
-    auto row_item_shift = new QTreeWidgetItem(row_shift);
-    row_item_shift->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-    row_item_shift->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-    table->addTopLevelItem(row_item_shift);
+        QStringList row_pegnn;
+        row_pegnn << tr("PegNN") << QString::number(level.nSupplyNextNext);
+        auto row_item_pegnn = new QTreeWidgetItem(row_pegnn);
+        row_item_pegnn->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_pegnn->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        table->addTopLevelItem(row_item_pegnn);
 
-    QStringList row_part;
-    row_part << tr("Part") << displayValue(level.nShiftLastPart);
-    auto row_item_part = new QTreeWidgetItem(row_part);
-    row_item_part->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-    row_item_part->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-    row_item_part->setData(1, BlockchainModel::ValueForCopy, qlonglong(level.nShiftLastPart));
-    table->addTopLevelItem(row_item_part);
-
-    QStringList row_ptot;
-    row_ptot << tr("PTot") << displayValue(level.nShiftLastTotal);
-    auto row_item_ptot = new QTreeWidgetItem(row_ptot);
-    row_item_ptot->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-    row_item_ptot->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-    row_item_ptot->setData(1, BlockchainModel::ValueForCopy, qlonglong(level.nShiftLastTotal));
-    table->addTopLevelItem(row_item_ptot);
+        QStringList row_buf;
+        row_buf << tr("Buffer") << QString::number(level.nBuffer);
+        auto row_item_buf = new QTreeWidgetItem(row_buf);
+        row_item_buf->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_buf->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        table->addTopLevelItem(row_item_buf);
+    
+        QStringList row_shift;
+        row_shift << tr("Shift") << QString::number(level.nShift);
+        auto row_item_shift = new QTreeWidgetItem(row_shift);
+        row_item_shift->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_shift->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        table->addTopLevelItem(row_item_shift);
+    
+        QStringList row_part;
+        row_part << tr("Part") << displayValue(level.nShiftLastPart);
+        auto row_item_part = new QTreeWidgetItem(row_part);
+        row_item_part->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_part->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_part->setData(1, BlockchainModel::ValueForCopy, qlonglong(level.nShiftLastPart));
+        table->addTopLevelItem(row_item_part);
+    
+        QStringList row_ptot;
+        row_ptot << tr("PTot") << displayValue(level.nShiftLastTotal);
+        auto row_item_ptot = new QTreeWidgetItem(row_ptot);
+        row_item_ptot->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_ptot->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_ptot->setData(1, BlockchainModel::ValueForCopy, qlonglong(level.nShiftLastTotal));
+        table->addTopLevelItem(row_item_ptot);
+    }
     
     QStringList row_value;
     row_value << tr("V") << displayValue(fractions.Total());
@@ -1649,37 +1662,79 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
     row_item_value->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.Total()));
     table->addTopLevelItem(row_item_value);
 
-    QStringList row_liquid_calc;
-    row_liquid_calc << tr("Lcalc") << displayValue(fractions.High(level));
-    auto row_item_liquid_calc = new QTreeWidgetItem(row_liquid_calc);
-    row_item_liquid_calc->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-    row_item_liquid_calc->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-    row_item_liquid_calc->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.High(level)));
-    table->addTopLevelItem(row_item_liquid_calc);
-
-    QStringList row_reserve_calc;
-    row_reserve_calc << tr("Rcalc") << displayValue(fractions.Low(level));
-    auto row_item_reserve_calc = new QTreeWidgetItem(row_reserve_calc);
-    row_item_reserve_calc->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-    row_item_reserve_calc->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-    row_item_reserve_calc->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.Low(level)));
-    table->addTopLevelItem(row_item_reserve_calc);
-
-    QStringList row_liquid_save;
-    row_liquid_save << tr("Lsave") << (nLiquidSave <0 ? "" : displayValue(nLiquidSave));
-    auto row_item_liquid_save = new QTreeWidgetItem(row_liquid_save);
-    row_item_liquid_save->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-    row_item_liquid_save->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-    row_item_liquid_save->setData(1, BlockchainModel::ValueForCopy, qlonglong(nLiquidSave));
-    table->addTopLevelItem(row_item_liquid_save);
-
-    QStringList row_reserve_save;
-    row_reserve_save << tr("Rsave") << (nReserveSave <0 ? "" : displayValue(nReserveSave));
-    auto row_item_reserve_save = new QTreeWidgetItem(row_reserve_save);
-    row_item_reserve_save->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
-    row_item_reserve_save->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-    row_item_reserve_save->setData(1, BlockchainModel::ValueForCopy, qlonglong(nReserveSave));
-    table->addTopLevelItem(row_item_reserve_save);
+    if (!simple) {
+        QStringList row_liquid_calc;
+        row_liquid_calc << tr("Lcalc") << displayValue(fractions.High(level));
+        auto row_item_liquid_calc = new QTreeWidgetItem(row_liquid_calc);
+        row_item_liquid_calc->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_liquid_calc->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_liquid_calc->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.High(level)));
+        table->addTopLevelItem(row_item_liquid_calc);
+    
+        QStringList row_reserve_calc;
+        row_reserve_calc << tr("Rcalc") << displayValue(fractions.Low(level));
+        auto row_item_reserve_calc = new QTreeWidgetItem(row_reserve_calc);
+        row_item_reserve_calc->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_reserve_calc->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_reserve_calc->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.Low(level)));
+        table->addTopLevelItem(row_item_reserve_calc);
+    
+        QStringList row_liquid_save;
+        row_liquid_save << tr("Lsave") << (nLiquidSave <0 ? "" : displayValue(nLiquidSave));
+        auto row_item_liquid_save = new QTreeWidgetItem(row_liquid_save);
+        row_item_liquid_save->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_liquid_save->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_liquid_save->setData(1, BlockchainModel::ValueForCopy, qlonglong(nLiquidSave));
+        table->addTopLevelItem(row_item_liquid_save);
+    
+        QStringList row_reserve_save;
+        row_reserve_save << tr("Rsave") << (nReserveSave <0 ? "" : displayValue(nReserveSave));
+        auto row_item_reserve_save = new QTreeWidgetItem(row_reserve_save);
+        row_item_reserve_save->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_reserve_save->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_reserve_save->setData(1, BlockchainModel::ValueForCopy, qlonglong(nReserveSave));
+        table->addTopLevelItem(row_item_reserve_save);
+    } else {
+        QStringList row_liquid_calc;
+        row_liquid_calc << tr("L") << displayValue(fractions.High(level));
+        auto row_item_liquid_calc = new QTreeWidgetItem(row_liquid_calc);
+        row_item_liquid_calc->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_liquid_calc->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_liquid_calc->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.High(level)));
+        table->addTopLevelItem(row_item_liquid_calc);
+    
+        QStringList row_reserve_calc;
+        row_reserve_calc << tr("R") << displayValue(fractions.Low(level));
+        auto row_item_reserve_calc = new QTreeWidgetItem(row_reserve_calc);
+        row_item_reserve_calc->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_reserve_calc->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_reserve_calc->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.Low(level)));
+        table->addTopLevelItem(row_item_reserve_calc);
+    }
+    
+    QStringList row_vhli;
+    row_vhli << tr("HLI") << QString::number(fractions.HLI());
+    auto row_item_vhli = new QTreeWidgetItem(row_vhli);
+    row_item_vhli->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+    row_item_vhli->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    row_item_vhli->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.Total()));
+    table->addTopLevelItem(row_item_vhli);
+    
+    QStringList row_lhli;
+    row_lhli << tr("LHLI") << QString::number(fractions.HighPart(level, nullptr).HLI());
+    auto row_item_lhli = new QTreeWidgetItem(row_lhli);
+    row_item_lhli->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+    row_item_lhli->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    row_item_lhli->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.Total()));
+    table->addTopLevelItem(row_item_lhli);
+    
+    QStringList row_rhli;
+    row_rhli << tr("RHLI") << QString::number(fractions.LowPart(level, nullptr).HLI());
+    auto row_item_rhli = new QTreeWidgetItem(row_rhli);
+    row_item_rhli->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+    row_item_rhli->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+    row_item_rhli->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.Total()));
+    table->addTopLevelItem(row_item_rhli);
     
     QStringList row_space;
     auto row_item_space = new QTreeWidgetItem(row_space);
@@ -1725,7 +1780,7 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
             table->addTopLevelItem(row_return);
         } else if (!fractions.sReturnAddr.empty()) {
             QStringList row_cols_note;
-            row_cols_note << tr("Note") << QString::fromStdString(fractions.sReturnAddr);
+            row_cols_note << tr("Extra") << QString::fromStdString(fractions.sReturnAddr);
             auto row_return = new QTreeWidgetItem(row_cols_note);
             table->addTopLevelItem(row_return);
         }
@@ -1735,7 +1790,7 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
     } 
     else if (!fractions.sReturnAddr.empty()) {
         QStringList row_cols_note;
-        row_cols_note << tr("Note") << QString::fromStdString(fractions.sReturnAddr);
+        row_cols_note << tr("Extra") << QString::fromStdString(fractions.sReturnAddr);
         auto row_return = new QTreeWidgetItem(row_cols_note);
         table->addTopLevelItem(row_return);
         
@@ -1812,6 +1867,7 @@ void TxDetailsWidget::copyPegData(QTreeWidget * table)
         if (name == tr("Peg")) pegdata.peglevel.nSupply = value.toInt();
         if (name == tr("PegN")) pegdata.peglevel.nSupplyNext = value.toInt();
         if (name == tr("PegNN")) pegdata.peglevel.nSupplyNextNext = value.toInt();
+        if (name == tr("Buffer")) pegdata.peglevel.nBuffer = value.toInt();
         if (name == tr("Shift")) pegdata.peglevel.nShift = value.toInt();
         if (name == tr("Part")) pegdata.peglevel.nShiftLastPart = value.toInt();
         if (name == tr("PTot")) pegdata.peglevel.nShiftLastTotal = value.toInt();

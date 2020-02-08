@@ -80,6 +80,8 @@ public:
         assert(hashGenesisBlock == uint256("0x0000075685d3be1f253ce777174b1594354e79954d2a32a6f77fe9cba00e6467"));
         assert(genesis.hashMerkleRoot == uint256("0xd2b4345a1b1f0df76ab0cadfa1b44ca52270ff551c43e1b229d25873f0adc90d"));
 
+        vSeeds.push_back(CDNSSeedData("seeder1", "dnsseed.bitbay.market"));
+        
         // new nodes, alive 2017-12
         vSeeds.push_back(CDNSSeedData("bbaynode (node12)", "195.181.242.206"));
         vSeeds.push_back(CDNSSeedData("bbaynode (tokio,ys)", "151.236.221.10"));
@@ -106,10 +108,10 @@ public:
         vSeeds.push_back(CDNSSeedData("bbaynode (node6)", "106.187.50.153"));
         vSeeds.push_back(CDNSSeedData("bbaynode (node7)", "158.69.27.82"));
         vSeeds.push_back(CDNSSeedData("bbaynode (node8)", "24.37.11.106"));
-        vSeeds.push_back(CDNSSeedData("bbaynode (node9)", "40.112.149.192"));        
+        vSeeds.push_back(CDNSSeedData("bbaynode (node9)", "40.112.149.192"));
         vSeeds.push_back(CDNSSeedData("bbaynode (node10)", "69.254.222.98"));
         vSeeds.push_back(CDNSSeedData("bbaynode (node11)", "85.25.146.74"));
-        vSeeds.push_back(CDNSSeedData("bbaynode (node12)", "195.181.242.206")); 
+        vSeeds.push_back(CDNSSeedData("bbaynode (node12)", "195.181.242.206"));
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,25);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,85);

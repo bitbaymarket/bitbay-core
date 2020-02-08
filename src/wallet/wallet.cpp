@@ -1259,7 +1259,7 @@ void CWallet::ResendWalletTransactions(bool fForce)
     {
         // Do this infrequently and randomly to avoid giving away
         // that these are our transactions.
-        static int64_t nNextTime;
+        static int64_t nNextTime = 0;
         if (GetTime() < nNextTime)
             return;
         bool fFirst = (nNextTime == 0);
@@ -1268,7 +1268,7 @@ void CWallet::ResendWalletTransactions(bool fForce)
             return;
 
         // Only do it if there's been a new block since last time
-        static int64_t nLastTime;
+        static int64_t nLastTime = 0;
         if (nTimeBestReceived < nLastTime)
             return;
         nLastTime = GetTime();
@@ -1323,6 +1323,11 @@ void CWallet::ResendWalletTransactions(bool fForce)
             {
                 CTxDB txdb("r");
                 CPegDB pegdb("r");
+                
+                uint256 hash = wtx.GetHash();
+                if (txdb.ContainsTx(hash)) {
+                    continue;
+                }
         
                 bool fInvalid = false;
                 if (!wtx.FetchInputs(txdb, pegdb, 
@@ -1344,7 +1349,9 @@ void CWallet::ResendWalletTransactions(bool fForce)
                                                          feesFractions,
                                                          sPegFailCause);
                 if (!peg_ok) {
-                    LogPrintf("ResendWalletTransactions() : CalculateStandardFractions failed for transaction %s\n", wtx.GetHash().ToString());
+                    LogPrintf("ResendWalletTransactions() : CalculateStandardFractions failed for transaction %s, cause: %s\n", 
+                              wtx.GetHash().ToString(),
+                              sPegFailCause);
                     continue;
                 }
             }

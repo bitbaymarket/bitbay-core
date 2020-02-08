@@ -167,6 +167,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "gettxout", 2 },
     { "getliquidityrate", 1 },
     { "getpeglevel", 2 },
+    { "getfractions", 1 },
     { "makepeglevel", 0 },
     { "makepeglevel", 1 },
     { "makepeglevel", 2 },

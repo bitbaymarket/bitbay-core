@@ -113,18 +113,33 @@ Value getpeginfo(const Array& params, bool fHelp)
 
 Value getfractions(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 1)
+    if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
-            "getfractions <txhash:output>\n"
+            "getfractions <txhash:output> [pegsupplyindex]\n"
             "Returns array containing rate info.");
 
+    int supply = -1; 
+    if (params.size() == 2) {
+        supply = params[1].get_int();
+        if (supply <0) {
+            throw runtime_error(
+                        "getfractions <txhash:output> [pegsupplyindex]\n"
+                        "pegsupplyindex below zero");
+        }
+        if (supply > nPegMaxSupplyIndex) {
+            throw runtime_error(
+                        "getfractions <txhash:output> [pegsupplyindex]\n"
+                        "pegsupplyindex above maximum possible");
+        }
+    }
+    
     string txhashnout = params[0].get_str();
     vector<string> txhashnout_args;
     boost::split(txhashnout_args, txhashnout, boost::is_any_of(":"));
     
     if (txhashnout_args.size() != 2) {
         throw runtime_error(
-            "getfractions <txhash:output>\n"
+            "getfractions <txhash:output> [pegsupplyindex]\n"
             "First parameter should refer transaction output txhash:output");
     }
     string txhash_str = txhashnout_args.front();
@@ -133,17 +148,20 @@ Value getfractions(const Array& params, bool fHelp)
     uint256 txhash;
     txhash.SetHex(txhash_str);
     
-    int supply = pindexBest ? pindexBest->nPegSupplyIndex : 0;
-    
-    unsigned int nTxNum = 0;
-    uint256 blockhash;
-    {
-        CTxDB txdb("r");
-        CTxIndex txindex;
-        if (txdb.ReadTxIndex(txhash, txindex)) {
-            txindex.GetHeightInMainChain(&nTxNum, txhash, &blockhash);
-            if (mapBlockIndex.count(blockhash)) {
-                supply = mapBlockIndex[blockhash]->nPegSupplyIndex;
+    if (supply <0) {
+        // current if tx is not on disk
+        supply = pindexBest ? pindexBest->nPegSupplyIndex : 0;
+        // read from block
+        unsigned int nTxNum = 0;
+        uint256 blockhash;
+        {
+            CTxDB txdb("r");
+            CTxIndex txindex;
+            if (txdb.ReadTxIndex(txhash, txindex)) {
+                txindex.GetHeightInMainChain(&nTxNum, txhash, &blockhash);
+                if (mapBlockIndex.count(blockhash)) {
+                    supply = mapBlockIndex[blockhash]->nPegSupplyIndex;
+                }
             }
         }
     }
@@ -233,6 +251,8 @@ Value getfractionsbase64(const Array& params, bool fHelp)
                     CBlockIndex* pindex = (*mi).second;
                     int nPegInterval = Params().PegInterval(pindex->nHeight);
                     pd.peglevel.nCycle = pindex->nHeight / nPegInterval;
+                    pd.peglevel.nCyclePrev = pd.peglevel.nCycle -1;
+                    pd.peglevel.nBuffer = 0;
                     pd.peglevel.nSupply = pindex->nPegSupplyIndex;
                     pd.peglevel.nSupplyNext = pindex->GetNextIntervalPegSupplyIndex();
                     pd.peglevel.nSupplyNextNext = pindex->GetNextNextIntervalPegSupplyIndex();
@@ -514,7 +534,7 @@ Value validaterawtransaction(const Array& params, bool fHelp)
     if (txVariants.empty())
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Missing transaction");
 
-    int supply = std::stoi(params[1].get_str());
+    int supply = params[1].get_int();
     if (supply <0) {
         throw runtime_error(
             "validaterawtransaction <hex string> <pegsupplyindex>\n"

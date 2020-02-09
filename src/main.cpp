@@ -1283,6 +1283,13 @@ bool CTransaction::IsExchangeTx(int & nOut, uint256 & wid, int & nCycle) const
             return true; // no control hash
         }
         
+        if (vOutputArgs.size() >3) {
+            string sCycle = vOutputArgs[3];
+            if (boost::starts_with(sCycle, "C")) {
+                nCycle = std::stoi(sCycle.substr(1, sCycle.length()-1));
+            }
+        }
+        
         string sControlHash = vOutputArgs[2];
         int64_t nAmount = vout[nOut].nValue;
         string sAddress = scripttoaddress(vout[nOut].scriptPubKey, &fNotary, &sNotary);
@@ -1323,13 +1330,6 @@ bool CTransaction::IsExchangeTx(int & nOut, uint256 & wid, int & nCycle) const
             
             // control id does not match, reset output number
             nOut = -1;
-        }
-        
-        if (vOutputArgs.size() >3) {
-            string sCycle = vOutputArgs[3];
-            if (boost::starts_with(sCycle, "C")) {
-                nCycle = std::stoi(sCycle.substr(1, sCycle.length()-1));
-            }
         }
         
         return true;

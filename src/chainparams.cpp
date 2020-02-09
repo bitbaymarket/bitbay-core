@@ -81,6 +81,7 @@ public:
         assert(genesis.hashMerkleRoot == uint256("0xd2b4345a1b1f0df76ab0cadfa1b44ca52270ff551c43e1b229d25873f0adc90d"));
 
         vSeeds.push_back(CDNSSeedData("seeder1", "dnsseed.bitbay.market"));
+        vSeeds.push_back(CDNSSeedData("seeder2", "dnsseed.dynamicpeg.com"));
         
         // new nodes, alive 2017-12
         vSeeds.push_back(CDNSSeedData("bbaynode (node12)", "195.181.242.206"));

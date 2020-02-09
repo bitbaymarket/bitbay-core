@@ -648,6 +648,24 @@ bool CalculateStandardFractions(const CTransaction & tx,
         return false;
     }
 
+    //
+    uint256 wid;
+    int nForCycle = -1;
+    int nExchangeOut = -1;
+    bool fExchangeTx = tx.IsExchangeTx(nExchangeOut, wid, nForCycle);
+    if (fExchangeTx && nExchangeOut >=0) { // check cycle
+        if (nForCycle >0) {
+            if (nForCycle != nCycle) {
+                sFailCause = "P-G-4: The exchange transaction targeting cycle "+
+                        std::to_string(nForCycle)+
+                        " /vs "+
+                        std::to_string(nCycle);
+                return false;
+            }
+        }
+    }
+    
+    
     feesFractions += txFeeFractions;
     
     // now all outputs are ready, place them as inputs for next tx in the list

@@ -82,8 +82,9 @@ Value listdeposits(const Array& params, bool fHelp)
             continue;
 
         uint256 wid;
+        int nForCycle = -1;
         int nExchangeOut = -1;
-        bool fExchangeTx = out.tx->IsExchangeTx(nExchangeOut, wid);
+        bool fExchangeTx = out.tx->IsExchangeTx(nExchangeOut, wid, nForCycle);
         if (fExchangeTx && nExchangeOut <0) {
             continue; // exchange tx, internal tx
         }
@@ -220,8 +221,9 @@ Value registerdeposit(const Array& params, bool fHelp)
     }
     
     uint256 wid;
+    int nForCycle = -1;
     int nExchangeOut = -1;
-    bool fExchangeTx = tx.IsExchangeTx(nExchangeOut, wid);
+    bool fExchangeTx = tx.IsExchangeTx(nExchangeOut, wid, nForCycle);
     if (fExchangeTx && nExchangeOut <0) {
         throw JSONRPCError(RPC_MISC_ERROR, "Can not register output from exchange internal tx");
     }

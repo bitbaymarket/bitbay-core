@@ -1127,7 +1127,7 @@ bool prepareliquidwithdraw(
         ss << nAmount;
         withdrawIdXch = Hash(ss.begin(), ss.end()).GetHex();
         sNotary += withdrawIdXch;
-        sNotary += ":";
+        sNotary += ":C";
         sNotary += std::to_string(peglevel_exchange.nCycle+1);
         CScript scriptPubKey;
         scriptPubKey.push_back(OP_RETURN);
@@ -1732,7 +1732,7 @@ bool preparereservewithdraw(
         ss << nAmount;
         withdrawIdXch = Hash(ss.begin(), ss.end()).GetHex();
         sNotary += withdrawIdXch;
-        sNotary += ":";
+        sNotary += ":C";
         sNotary += std::to_string(peglevel_exchange.nCycle+1);
         CScript scriptPubKey;
         scriptPubKey.push_back(OP_RETURN);

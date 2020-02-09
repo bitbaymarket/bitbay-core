@@ -775,7 +775,8 @@ script:
   fi
 - >
   if [[ $ARCH == "bitbayd-lin32" ]]; then
-    ldd bitbayd                        &&
+    ldd bitbayd                        ;
+    ./bitbayd --help                   ;
     file bitbayd                       &&
     ls -l                              &&
     tar -zcf $DEPLOY_FILE bitbayd      ;

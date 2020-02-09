@@ -506,12 +506,11 @@ Value verifymessage(const Array& params, bool fHelp)
 
 Value validaterawtransaction(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 2 || params.size() > 3)
+    if (fHelp || params.size() != 2)
         throw runtime_error(
-            "validaterawtransaction <hex string> <pegsupplyindex> [cycle]\n"
+            "validaterawtransaction <hex string> <pegsupplyindex>\n"
             "Validate the transaction (serialized, hex-encoded).\n"
             "Second argument is peg supply level for the validation of the transaction with peg system.\n"
-            "Third optional argument (cycle number) is required for validation of exchange transaction.\n"
             "Returns json object with keys:\n"
             "  complete : 1 if transaction bypassed all peg checks\n"
             );
@@ -546,11 +545,6 @@ Value validaterawtransaction(const Array& params, bool fHelp)
             "pegsupplyindex above maximum possible");
     }
 
-    int nCycle = 1;
-    if (params.size() > 2) {
-        nCycle = params[2].get_int();
-    }
-    
     // tx will end up with all the checks; it
     // starts as a clone of the rawtx:
     CTransaction tx(txVariants[0]);
@@ -577,7 +571,6 @@ Value validaterawtransaction(const Array& params, bool fHelp)
 
     string sPegFailCause;
     bool peg_ok = CalculateStandardFractions(tx,
-                                             nCycle,
                                              nSupply,
                                              tx.nTime,
                                              mapInputs, mapInputsFractions,

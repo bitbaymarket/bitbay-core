@@ -169,9 +169,7 @@ void CTxMemPool::reviewOnPegChange(CTransaction& tx,
         }
     
         string sPegFailCause;
-        int nCycle = pindexBest->nHeight / Params().PegInterval(pindexBest->nHeight);
         bool peg_ok = CalculateStandardFractions(tx, 
-                                                 nCycle,
                                                  pindexBest->nPegSupplyIndex,
                                                  pindexBest->nTime,
                                                  mapInputs, mapInputsFractions,

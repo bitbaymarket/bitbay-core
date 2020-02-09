@@ -439,7 +439,7 @@ public:
 
     void GetOutputFor(const CTxIn& input, const MapPrevTx& inputs, CTxOut& txout) const;
     
-    bool IsExchangeTx(int & nOut, uint256 & id, int & nCycle) const;
+    bool IsExchangeTx(int & nOut, uint256 & id) const;
 };
 
 /** wrapper for CTxOut that provides a more compact serialization */

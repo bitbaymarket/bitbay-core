@@ -1362,9 +1362,7 @@ void CWallet::ResendWalletTransactions(bool fForce)
                 }
             
                 string sPegFailCause;
-                int nCycle = pindexBest->nHeight / Params().PegInterval(pindexBest->nHeight);
                 bool peg_ok = CalculateStandardFractions(wtx, 
-                                                         nCycle,
                                                          pindexBest->nPegSupplyIndex,
                                                          pindexBest->nTime,
                                                          mapInputs, mapInputsFractions,
@@ -2437,7 +2435,6 @@ bool CWallet::CreateTransaction(PegTxType txType,
             }
 
             bool peg_ok = CalculateStandardFractions(wtxNew, 
-                                                     GetPegCycle(),
                                                      GetPegSupplyIndex(),
                                                      wtxNew.nTime,
                                                      mapInputs, mapInputsFractions,

@@ -1254,10 +1254,9 @@ string scripttoaddress(const CScript& scriptPubKey,
                        bool* ptrIsNotary = nullptr,
                        string* ptrNotary = nullptr);
 
-bool CTransaction::IsExchangeTx(int & nOut, uint256 & wid, int & nCycle) const
+bool CTransaction::IsExchangeTx(int & nOut, uint256 & wid) const
 {
     nOut = -1;
-    nCycle = -1;
     wid = uint256();
     size_t n_out = vout.size();
     for(size_t i=0; i< n_out; i++) {
@@ -1281,13 +1280,6 @@ bool CTransaction::IsExchangeTx(int & nOut, uint256 & wid, int & nCycle) const
         if (vOutputArgs.size() <3) {
             nOut = -1;
             return true; // no control hash
-        }
-        
-        if (vOutputArgs.size() >3) {
-            string sCycle = vOutputArgs[3];
-            if (boost::starts_with(sCycle, "C")) {
-                nCycle = std::stoi(sCycle.substr(1, sCycle.length()-1));
-            }
         }
         
         string sControlHash = vOutputArgs[2];
@@ -1587,9 +1579,7 @@ bool CTransaction::ConnectInputs(MapPrevTx inputs,
     if (!IsCoinStake()) {
         if (pindexBlock->nHeight >= nPegStartHeight) {
             string sPegFailCause;
-            int nCycle = pindexBlock->nHeight / Params().PegInterval(pindexBlock->nHeight);
             bool peg_ok = CalculateStandardFractions(*this,
-                                                     nCycle,
                                                      pindexBlock->nPegSupplyIndex,
                                                      pindexBlock->nTime,
                                                      inputs, finputs,
@@ -1715,8 +1705,7 @@ bool CBlock::DisconnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex)
     for(const CTransaction& tx : vtx) {
         uint256 wid;
         int nOut = -1;
-        int nForCycle = -1;
-        if (!tx.IsExchangeTx(nOut, wid, nForCycle)) continue;
+        if (!tx.IsExchangeTx(nOut, wid)) continue;
         if (wid == 0) continue;
         pegdb.RemovePegTxId(wid);
     }
@@ -2005,8 +1994,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         uint256 hashTx = tx.GetHash();
         uint256 wid;
         int nOut = -1;
-        int nForCycle = -1;
-        if (!tx.IsExchangeTx(nOut, wid, nForCycle)) continue;
+        if (!tx.IsExchangeTx(nOut, wid)) continue;
         if (wid == 0) continue;
         if (!pegdb.WritePegTxId(wid, hashTx))
             return error("ConnectBlock() : peg txid write failed");

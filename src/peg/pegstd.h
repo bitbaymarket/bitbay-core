@@ -62,7 +62,6 @@ struct FrozenTxOut {
 };
 
 bool CalculateStandardFractions(const CTransaction & tx,
-                                int nCycle,
                                 int nSupply,
                                 unsigned int nTime,
                                 MapPrevOut & inputs,

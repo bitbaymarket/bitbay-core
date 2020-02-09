@@ -128,6 +128,7 @@ extern double GetPoSKernelPS();
 
 void StakingPage::updateTimer()
 {
+    return;
     uint64_t nWeight = 0;
     {
         if (!pwalletMain)

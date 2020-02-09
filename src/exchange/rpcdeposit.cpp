@@ -81,9 +81,9 @@ Value listdeposits(const Array& params, bool fHelp)
         if (out.tx->IsCoinBase() || out.tx->IsCoinStake())
             continue;
 
-        uint256 txid;
+        uint256 wid;
         int nExchangeOut = -1;
-        bool fExchangeTx = out.tx->IsExchangeTx(nExchangeOut, txid);
+        bool fExchangeTx = out.tx->IsExchangeTx(nExchangeOut, wid);
         if (fExchangeTx && nExchangeOut <0) {
             continue; // exchange tx, internal tx
         }
@@ -216,7 +216,17 @@ Value registerdeposit(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_MISC_ERROR, "ReadFromDisk tx failed");
     }
     if (nout <0 || size_t(nout) >= tx.vout.size()) {
-        throw JSONRPCError(RPC_MISC_ERROR, "nout is out of index");
+        throw JSONRPCError(RPC_MISC_ERROR, "Nout is out of index");
+    }
+    
+    uint256 wid;
+    int nExchangeOut = -1;
+    bool fExchangeTx = tx.IsExchangeTx(nExchangeOut, wid);
+    if (fExchangeTx && nExchangeOut <0) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Can not register output from exchange internal tx");
+    }
+    if (fExchangeTx && nExchangeOut != out.i) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Can not register change output from exchange tx");
     }
     
     int nPegInterval = Params().PegInterval(nBestHeight);

@@ -1135,6 +1135,9 @@ bool prepareliquidwithdraw(
         }
         rawTx.vout.push_back(CTxOut(1, scriptPubKey));
     }
+    
+    // locktime to next interval
+    rawTx.nLockTime = (peglevel_net.nCycle+1) * Params().PegInterval(Params().nPegIntervalProbeHeight) -1;
 
     // Calculate peg to know 'user' fee
     CFractions feesFractionsCommon(0, CFractions::STD);
@@ -1735,6 +1738,9 @@ bool preparereservewithdraw(
         }
         rawTx.vout.push_back(CTxOut(1, scriptPubKey));
     }
+    
+    // locktime to next interval
+    rawTx.nLockTime = (peglevel_net.nCycle+1) * Params().PegInterval(Params().nPegIntervalProbeHeight) -1;
 
     // Calculate peg to know 'user' fee
     CFractions feesFractionsCommon(0, CFractions::STD);

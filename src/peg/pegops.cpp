@@ -130,6 +130,9 @@ bool getpegdatainfo(
         int64_t &       out_value,
         int64_t &       out_liquid,
         int64_t &       out_reserve,
+        int16_t &       out_value_hli,
+        int16_t &       out_liquid_hli,
+        int16_t &       out_reserve_hli,
         int32_t &       out_id,
         int &           out_level_version,
         int &           out_cycle_now,
@@ -153,6 +156,9 @@ bool getpegdatainfo(
     out_value       = pd.fractions.Total();
     out_liquid      = pd.nLiquid;
     out_reserve     = pd.nReserve;
+    out_value_hli   = pd.fractions.HLI();
+    out_liquid_hli  = pd.fractions.HighPart(pd.peglevel, nullptr).HLI();
+    out_reserve_hli = pd.fractions.LowPart(pd.peglevel, nullptr).HLI();
     out_id          = pd.nId;
 
     out_level_version   = pd.peglevel.nVersion;

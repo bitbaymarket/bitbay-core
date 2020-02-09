@@ -56,6 +56,9 @@ extern bool getpegdatainfo(
         int64_t &       out_value,
         int64_t &       out_liquid,
         int64_t &       out_reserve,
+        int16_t &       out_value_hli,
+        int16_t &       out_liquid_hli,
+        int16_t &       out_reserve_hli,
         int32_t &       out_id,
         // peglevel
         int &           out_level_version,

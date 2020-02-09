@@ -347,6 +347,9 @@ int16_t CFractions::HLI() const
         
     int64_t half = 0;
     int64_t total = Total();
+    if (total ==0) {
+        return 0;
+    }
     for(int16_t i=0;i<PEG_SIZE;i++) {
         half += f[i];
         if (half > total/2) {

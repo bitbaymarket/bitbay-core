@@ -5,14 +5,134 @@ matrix:
       dist: trusty
       sudo: required
       env:
-        - DEPLOY_FILE=bitbayd_linux64.tgz
-        - ARCH="bitbayd-lin64"
+        - DEPLOY_FILE=tests.txt
+        - ARCH="tests"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=mainnet-node.dockerimage
+        - ARCH="mainnet-node"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=mainnet-seed-node.dockerimage
+        - ARCH="mainnet-seed-node"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=testnet-node.dockerimage
+        - ARCH="testnet-node"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=testnet-seed-node.dockerimage
+        - ARCH="testnet-seed-node"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=testnet-exchange-node.dockerimage
+        - ARCH="testnet-exchange-node"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=testnet-bitbay-wallet-qt_linux64.tgz
+        - ARCH="testnet-qtwallet-lin64"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=testnet-bitbay-wallet-qt_win32.zip
+        - ARCH="testnet-qtwallet-win32"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=testnet-bitbay-wallet-qt_win64.zip
+        - ARCH="testnet-qtwallet-win64"
+    - os: osx
+      osx_image: xcode9.4
+      compiler: clang
+      env:
+        - DEPLOY_FILE=testnet-bitbay-wallet-qt_mac.zip
+        - ARCH="testnet-qtwallet-mac64"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=testnet-bitbayd_linux64.tgz
+        - ARCH="testnet-bitbayd-lin64"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=bitbay-wallet-qt_linux64.tgz
+        - ARCH="qtwallet-lin64"
     - os: linux
       dist: trusty
       sudo: required
       env:
         - DEPLOY_FILE=bitbayd_linux32.tgz
         - ARCH="bitbayd-lin32"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=bitbayd_linux64.tgz
+        - ARCH="bitbayd-lin64"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=bitbay-wallet-qt_win32.zip
+        - ARCH="qtwallet-win32"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=bitbay-wallet-qt_win64.zip
+        - ARCH="qtwallet-win64"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=bitbayd_win32.zip
+        - ARCH="bitbayd-win32"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=bitbayd_win64.zip
+        - ARCH="bitbayd-win64"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=bitbayd_db6_win32.zip
+        - ARCH="bitbayd-db6-win32"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=bitbayd_db6_win64.zip
+        - ARCH="bitbayd-db6-win64"
+    - os: osx
+      osx_image: xcode9.4
+      compiler: clang
+      env:
+        - DEPLOY_FILE=bitbay-wallet-qt_mac.zip
+        - ARCH="qtwallet-mac64"
+    - os: osx
+      osx_image: xcode9.4
+      compiler: clang
+      env:
+        - DEPLOY_FILE=bitbayd_mac.zip
+        - ARCH="bitbayd-mac64"
 services:
   - docker
 

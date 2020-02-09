@@ -56,7 +56,7 @@ StakingPage::StakingPage(QWidget *parent) :
         QWidget {
             background-color: rgb(255,255,255);
             padding-left: 10px;
-            padding-right:10px;
+            padding-right:3px;
         }
     )";
     QString white2 = R"(

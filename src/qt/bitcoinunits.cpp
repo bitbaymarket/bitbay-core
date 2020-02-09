@@ -163,13 +163,20 @@ QString BitcoinUnits::formatWithUnit(int unit, qint64 amount, bool plussign)
     return format(unit, amount, plussign) + QString(" ") + name(unit);
 }
 
-QString BitcoinUnits::formatWithUnitForLabel(int unit, qint64 amount, bool plussign)
+QString BitcoinUnits::formatWithUnitForLabel(int unit, qint64 amount, bool plussign, int hli)
 {
-    return QString("<b>")
+    QString rate = QString::number(hli);
+    if (hli <0) rate.clear();
+    rate = rate.leftJustified(4, 'x');
+    rate = rate.replace('x', "&nbsp;");
+    QString txt = QString("<b>")
             +format(unit, amount, plussign)
-            +QString("</b> <font color='#666666'>")
+            +QString("</b> <font color='#666666' face='Roboto Mono'>")
             +name(unit)
-            +QString("</font>");
+            +QString("<sup>%1</sup>").arg(rate)
+            +QString("</font>")
+            ;
+    return txt;
 }
 
 bool BitcoinUnits::parse(int unit, const QString &value, qint64 *val_out)

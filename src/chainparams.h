@@ -77,6 +77,7 @@ public:
     int PegFrozenTime() const { return nPegFrozenTime; }
     int PegVFrozenTime() const { return nPegVFrozenTime; }
     
+    int nPegIntervalProbeHeight = 100000;
     virtual int PegInterval(int /*nHeight*/) const { return nPegInterval; } 
     uint256 PegActivationTxhash() const { return hashPegActivationTx; }
     

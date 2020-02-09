@@ -1254,10 +1254,10 @@ string scripttoaddress(const CScript& scriptPubKey,
                        bool* ptrIsNotary = nullptr,
                        string* ptrNotary = nullptr);
 
-bool CTransaction::IsExchangeTx(int & nOut, uint256 & txid) const
+bool CTransaction::IsExchangeTx(int & nOut, uint256 & wid) const
 {
     nOut = -1;
-    txid = uint256();
+    wid = uint256();
     size_t n_out = vout.size();
     for(size_t i=0; i< n_out; i++) {
         string sNotary;
@@ -1298,7 +1298,7 @@ bool CTransaction::IsExchangeTx(int & nOut, uint256 & txid) const
                 ss << nAmount;
                 string sHash = Hash(ss.begin(), ss.end()).GetHex();
                 if (sHash == sControlHash) {
-                    txid = uint256(sHash);
+                    wid = uint256(sHash);
                     return true;
                 }
             }
@@ -1315,7 +1315,7 @@ bool CTransaction::IsExchangeTx(int & nOut, uint256 & txid) const
                 ss << nAmount;
                 string sHash = Hash(ss.begin(), ss.end()).GetHex();
                 if (sHash == sControlHash) {
-                    txid = uint256(sHash);
+                    wid = uint256(sHash);
                     return true;
                 }
             }
@@ -1703,11 +1703,11 @@ bool CBlock::DisconnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex)
     
     // Track of exchange txs
     for(const CTransaction& tx : vtx) {
-        uint256 txid;
+        uint256 wid;
         int nOut = -1;
-        if (!tx.IsExchangeTx(nOut, txid)) continue;
-        if (txid == 0) continue;
-        pegdb.RemovePegTxId(txid);
+        if (!tx.IsExchangeTx(nOut, wid)) continue;
+        if (wid == 0) continue;
+        pegdb.RemovePegTxId(wid);
     }
 
     return true;
@@ -1992,11 +1992,11 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     // Track of exchange txs
     for(const CTransaction& tx : vtx) {
         uint256 hashTx = tx.GetHash();
-        uint256 txid;
+        uint256 wid;
         int nOut = -1;
-        if (!tx.IsExchangeTx(nOut, txid)) continue;
-        if (txid == 0) continue;
-        if (!pegdb.WritePegTxId(txid, hashTx))
+        if (!tx.IsExchangeTx(nOut, wid)) continue;
+        if (wid == 0) continue;
+        if (!pegdb.WritePegTxId(wid, hashTx))
             return error("ConnectBlock() : peg txid write failed");
     }
     

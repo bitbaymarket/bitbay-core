@@ -1105,11 +1105,6 @@ int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev,
                         nSubsidy = COIN * 5;
                     }
                 }
-                
-                // in demo mode revert to 20
-                if (fPegDemoMode) {
-                    nSubsidy = COIN * 20;
-                }
             }
             else {
                 nSubsidy = COIN * 20;
@@ -1979,8 +1974,6 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
                         return error("ConnectBlock() : peg start write failed (pegdb)");
                     if (!pegdb.WritePegTxActivated(fPegIsActivatedViaTx))
                         return error("ConnectBlock() : peg txactivated write failed");
-                    if (!pegdb.WritePegWhiteListHash(pegWhiteListHash))
-                        return error("ConnectBlock() : peg whitelist hash write failed");
                     if (nPegStartHeight > nBestHeight) {
                         strMiscWarning = "Warning : Peg system has activation at block: "+std::to_string(nPegStartHeight);
                     }
@@ -2997,8 +2990,6 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
     {
         nStakeMinConfirmations = 10;
         nCoinbaseMaturity = 10; // testnet maturity is 10 blocks
-        fPegDemoMode = false;
-        pegWhiteListHash = 0;
     }
 
     //
@@ -3006,15 +2997,9 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
     //
     CTxDB txdb("cr+");
     {
-        // #NOTE13
-        if (!TestNet() && !ReadWhitelistInfo()) {
-            LogPrintf("LoadBlockIndex() : peg whitelist wasnt read\n");
-        }
-
         // ensure pegdb is created
         bool fPegTxActivated = false;
         int nPegStartHeightStored = 0;
-        uint256 pegWhiteListHashStored = 0;
         {
             CPegDB pegdb("cr+");
             if (!pegdb.TxnBegin())
@@ -3023,13 +3008,11 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
                 return error("LoadBlockIndex() : peg TxnCommit failed");
             pegdb.ReadPegTxActivated(fPegTxActivated);
             pegdb.ReadPegStartHeight(nPegStartHeightStored);
-            pegdb.ReadPegWhiteListHash(pegWhiteListHashStored);
             pegdb.Close();
         }
         // and peg start matches
         if (!fPegTxActivated && (
-                nPegStartHeightStored != nPegStartHeight ||
-                pegWhiteListHashStored != pegWhiteListHash)) {
+                nPegStartHeightStored != nPegStartHeight)) {
             // remove previous db
             {
                 boost::filesystem::remove_all(GetDataDir() / "pegleveldb");

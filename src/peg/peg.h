@@ -28,14 +28,10 @@ typedef std::map<uint320, CTxOut> MapPrevOut;
 extern int nPegStartHeight;
 extern int nPegMaxSupplyIndex;
 extern bool fPegIsActivatedViaTx;
-extern bool fPegDemoMode;
-extern std::set<std::string> vPegWhitelist;
-extern uint256 pegWhiteListHash;
 
 // functors for messagings
 typedef std::function<void(const std::string &)> LoadMsg;
 
-bool ReadWhitelistInfo();
 bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb,
                                  LoadMsg load_msg);
 bool CalculateBlockPegIndex(CBlockIndex* pindex);
@@ -44,9 +40,6 @@ bool CalculateBlockPegVotes(const CBlock & cblock,
                             CPegDB& pegdb);
 int CalculatePegVotes(const CFractions & fractions, 
                       int nPegSupplyIndex);
-
-bool IsPegWhiteListed(const CTransaction & tx, MapPrevTx & inputs);
-bool IsPegWhiteListed(const CTransaction & tx, MapPrevOut & inputs);
 
 bool CalculateStandardFractions(const CTransaction & tx,
                                 int nSupply,

@@ -17,9 +17,6 @@
 using namespace std;
 using namespace boost;
 
-bool fPegDemoMode = false;
-set<std::string> vPegWhitelist;
-
 static string sBurnAddress =
     "bJnV8J5v74MGctMyVSVPfGu1mGQ9nMTiB3";
 
@@ -73,31 +70,6 @@ static string toAddress(const CScript& scriptPubKey,
     return as_bytes;
 }
 
-bool IsPegWhiteListed(const CTransaction & tx,
-                      MapPrevOut & inputs)
-{
-    if (!fPegDemoMode)
-        return true;
-    
-    size_t n_vin = tx.vin.size();
-    if (tx.IsCoinBase()) n_vin = 0;
-    for (unsigned int i = 0; i < n_vin; i++)
-    {
-        const COutPoint & prevout = tx.vin[i].prevout;
-        auto fkey = uint320(prevout.hash, prevout.n);
-        if (!inputs.count(fkey)) {
-            continue;
-        }
-        const CTxOut & prevtxout = inputs[fkey];
-        
-        auto sAddress = toAddress(prevtxout.scriptPubKey);
-        if (vPegWhitelist.count(sAddress)) {
-            return true;
-        }
-    }
-    return false;
-}
-
 bool CalculateStandardFractions(const CTransaction & tx,
                                 int nSupply,
                                 unsigned int nTime,
@@ -109,11 +81,6 @@ bool CalculateStandardFractions(const CTransaction & tx,
 {
     size_t n_vin = tx.vin.size();
     size_t n_vout = tx.vout.size();
-
-    if (!IsPegWhiteListed(tx, mapInputs)) {
-        sFailCause = "P-G-1: Not whitelisted";
-        return true;
-    }
 
     int64_t nValueIn = 0;
     int64_t nReservesTotal =0;

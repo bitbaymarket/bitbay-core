@@ -213,9 +213,6 @@ public:
     bool ReadPegTxActivated(bool& fActivated);
     bool WritePegTxActivated(bool fActivated);
     
-    bool ReadPegWhiteListHash(uint256& hash);
-    bool WritePegWhiteListHash(uint256 hash);
-    
     bool ReadPegBayPeakRate(double& dRate);
     bool WritePegBayPeakRate(double dRate);
     

@@ -20,10 +20,6 @@ class CPegLevel;
 class CFractions;
 typedef std::map<uint320, CTxOut> MapPrevOut;
 
-extern bool fPegDemoMode;
-extern std::set<std::string> vPegWhitelist;
-extern uint256 pegWhiteListHash;
-
 // functors for messagings
 typedef std::function<void(const std::string &)> LoadMsg;
 

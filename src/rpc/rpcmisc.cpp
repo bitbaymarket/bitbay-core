@@ -98,13 +98,6 @@ Value getpeginfo(const Array& params, bool fHelp)
     peg.push_back(Pair("startingblock", nPegStartHeight));
     peg.push_back(Pair("pegfeeperinput", PEG_MAKETX_FEE_INP_OUT));
     peg.push_back(Pair("subpremiumrating", PEG_SUBPREMIUM_RATING));
-    if (!vPegWhitelist.empty()) {
-        Array list;
-        for(string addr : vPegWhitelist) {
-            list.push_back(addr);
-        }
-        peg.push_back(Pair("whitelist", list));
-    }
     peg.push_back(Pair("peg", pindexBest->nPegSupplyIndex));
     peg.push_back(Pair("pegnext", pindexBest->GetNextIntervalPegSupplyIndex()));
     peg.push_back(Pair("pegnextnext", pindexBest->GetNextNextIntervalPegSupplyIndex()));

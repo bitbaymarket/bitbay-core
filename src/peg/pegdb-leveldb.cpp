@@ -231,16 +231,6 @@ bool CPegDB::WritePegTxActivated(bool fActivated)
     return Write(string("pegTxActivated"), fActivated);
 }
 
-bool CPegDB::ReadPegWhiteListHash(uint256& hash)
-{
-    return Read(string("pegWhiteListHash"), hash);
-}
-
-bool CPegDB::WritePegWhiteListHash(uint256 hash)
-{
-    return Write(string("pegWhiteListHash"), hash);
-}
-
 bool CPegDB::ReadPegBayPeakRate(double& dRate)
 {
     return Read(string("pegBayPeakRate"), dRate);
@@ -560,9 +550,6 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
             if (!pegdb.WritePegTxActivated(fPegIsActivatedViaTx))
                 return error("WritePegTxActivated() : peg txactivated write failed");
             
-            if (!pegdb.WritePegWhiteListHash(pegWhiteListHash))
-                return error("WritePegStartHeight() : peg whitelist hash write failed");
-
             if (!pegdb.WritePegPruneEnabled(fPegPruneEnabled))
                 return error("WritePegPruneEnabled() : peg prune flag write failed");
             

@@ -39,52 +39,11 @@ using namespace boost;
 int nPegStartHeight = 1000000000; // 1G blocks as high number
 int nPegMaxSupplyIndex = 1198;
 bool fPegIsActivatedViaTx = false;
-uint256 pegWhiteListHash = 0;
 
 static string sBurnAddress =
     "bJnV8J5v74MGctMyVSVPfGu1mGQ9nMTiB3";
 
 extern leveldb::DB *txdb; // global pointer for LevelDB object instance
-
-bool ReadWhitelistInfo() {
-    filesystem::path whitelistfile = GetDataDir() / "pegwhitelist.dat";
-    ifstream infile(whitelistfile.string());
-    if (!infile.is_open())
-        return false;
-    bool fHasPegStart = false;
-    bool fHasAddresses = false;;
-    string line;
-    string input;
-    while (getline(infile, line)) {
-        boost::trim(line);
-        if (line.length()==34) {
-            vPegWhitelist.insert(line);
-            fHasAddresses = true;
-            input += line;
-        }
-        if (boost::starts_with(line, "#")) {
-            char * pEnd = nullptr;
-            auto sPegStartHeight = line.c_str()+1;
-            nPegStartHeight = int(strtol(sPegStartHeight, &pEnd, 0));
-            bool fValidInt = !(pEnd == sPegStartHeight) && nPegStartHeight > 0;
-            if (!fValidInt) {
-                return false; // not convertible to block number
-            }
-            fHasPegStart = true;
-        }
-    }
-
-    if (!fHasAddresses || !fHasPegStart)
-        return false;
-
-    CDataStream ss(SER_GETHASH, 0);
-    ss << input;
-    pegWhiteListHash = Hash(ss.begin(), ss.end());
-    
-    fPegDemoMode = true;
-    
-    return true;
-}
 
 bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb, LoadMsg load_msg) {
     if (!ctxdb.TxnBegin())
@@ -426,30 +385,6 @@ static string toAddress(const CScript& scriptPubKey,
     return as_bytes;
 }
 
-bool IsPegWhiteListed(const CTransaction & tx,
-                      MapPrevTx & txInputs)
-{
-    if (!fPegDemoMode)
-        return true;
-    
-    size_t n_vin = tx.vin.size();
-    if (tx.IsCoinBase()) n_vin = 0;
-    for (unsigned int i = 0; i < n_vin; i++)
-    {
-        const COutPoint & prevout = tx.vin[i].prevout;
-        CTransaction& txPrev = txInputs[prevout.hash].second;
-        if (prevout.n >= txPrev.vout.size()) {
-            continue;
-        }
-        
-        auto sAddress = toAddress(txPrev.vout[prevout.n].scriptPubKey);
-        if (vPegWhitelist.count(sAddress)) {
-            return true;
-        }
-    }
-    return false;
-}
-
 bool CalculateStandardFractions(const CTransaction & tx,
                                 int nSupply,
                                 unsigned int nTime,
@@ -559,11 +494,6 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
 {
     size_t n_vin = tx.vin.size();
     size_t n_vout = tx.vout.size();
-
-    if (!IsPegWhiteListed(tx, inputs)) {
-        sFailCause = "Not whitelisted";
-        return true;
-    }
 
     if (n_vin != 1) {
         sFailCause = "More than one input";

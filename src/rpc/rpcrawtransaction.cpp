@@ -768,7 +768,7 @@ Value sendrawtransaction(const Array& params, bool fHelp)
     if (tx.IsExchangeTx(nExchangeOut, wid)) {
         if (tx.nLockTime >0) {
             unsigned int nMaxHeight = tx.nLockTime + Params().PegInterval(Params().nPegIntervalProbeHeight) -5;
-            if (pindexBest->nHeight > nMaxHeight) {
+            if ((unsigned int)(pindexBest->nHeight) > nMaxHeight) {
                 throw JSONRPCError(RPC_MISC_ERROR, "Transaction is expired");
             }
         }

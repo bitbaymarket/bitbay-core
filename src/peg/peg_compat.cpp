@@ -78,11 +78,6 @@ bool CalculateStakingFractions_testnet200k(const CTransaction & tx,
     size_t n_vin = tx.vin.size();
     size_t n_vout = tx.vout.size();
 
-    if (!IsPegWhiteListed(tx, inputs)) {
-        sFailCause = "Not whitelisted";
-        return true;
-    }
-
     if (n_vin != 1) {
         sFailCause = "More than one input";
         return false;

@@ -310,6 +310,7 @@ static void computeTxPegForNextCycle(const CTransaction & rawTx,
     }
 
     bool peg_ok = CalculateStandardFractions(rawTx,
+                                             peglevel_net.nCycle+1,
                                              peglevel_net.nSupplyNext,
                                              pindexBest->nTime,
                                              mapInputs,

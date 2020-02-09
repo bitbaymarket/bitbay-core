@@ -225,7 +225,7 @@ Value registerdeposit(const Array& params, bool fHelp)
     if (fExchangeTx && nExchangeOut <0) {
         throw JSONRPCError(RPC_MISC_ERROR, "Can not register output from exchange internal tx");
     }
-    if (fExchangeTx && nExchangeOut != out.i) {
+    if (fExchangeTx && nExchangeOut != nout) {
         throw JSONRPCError(RPC_MISC_ERROR, "Can not register change output from exchange tx");
     }
     
@@ -315,3 +315,86 @@ Value registerdeposit(const Array& params, bool fHelp)
     return result;
 }
 
+
+Value updatetxout(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "updatetxout "
+                "<txid:nout> "
+                "<peglevel_hex>\n"
+            );
+    
+    string sTxout = params[0].get_str();
+    vector<string> vTxoutArgs;
+    boost::split(vTxoutArgs, sTxout, boost::is_any_of(":"));
+    
+    if (vTxoutArgs.size() != 2) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
+                           "Txout is not recognized, format txid:nout");
+    }
+    
+    string sTxid = vTxoutArgs[0];
+    char * pEnd = nullptr;
+    long nout = strtol(vTxoutArgs[1].c_str(), &pEnd, 0);
+    if (pEnd == vTxoutArgs[1].c_str()) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, 
+                           "Txout is not recognized, format txid:nout, nout is not number");
+    }
+
+    string peglevel_hex = params[1].get_str();
+
+    CPegLevel peglevel(peglevel_hex);
+    if (!peglevel.IsValid()) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Can not unpack peglevel");
+    }
+
+    uint256 txhash;
+    txhash.SetHex(sTxid);
+    
+    Object result;
+    
+    CTxDB txdb("r");
+    CTxIndex txindex;
+    if (!txdb.ReadTxIndex(txhash, txindex)) {
+        throw JSONRPCError(RPC_MISC_ERROR, "ReadTxIndex tx failed");
+    }
+    CTransaction tx;
+    if (!tx.ReadFromDisk(txindex.pos)) {
+        throw JSONRPCError(RPC_MISC_ERROR, "ReadFromDisk tx failed");
+    }
+    if (nout <0 || size_t(nout) >= tx.vout.size()) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Nout is out of index");
+    }
+
+    CPegDB pegdb("r");
+    auto fkey = uint320(txhash, nout);
+    CFractions frDeposit(tx.vout[nout].nValue, CFractions::VALUE);
+    if (!pegdb.ReadFractions(fkey, frDeposit, false)) {
+        result.push_back(Pair("completed", false));
+        result.push_back(Pair("status", "No peg data read failed"));
+        return result;
+    }
+    
+    frDeposit = frDeposit.Std();
+    CPegData pdTxout;
+    pdTxout.fractions.sReturnAddr = HexStr(
+        tx.vout[nout].scriptPubKey.begin(), 
+        tx.vout[nout].scriptPubKey.end()
+    );
+    pdTxout.fractions += frDeposit;
+
+    pdTxout.peglevel = peglevel;
+    pdTxout.nLiquid = pdTxout.fractions.High(peglevel);
+    pdTxout.nReserve = pdTxout.fractions.Low(peglevel);
+    
+    result.push_back(Pair("completed", true));
+    result.push_back(Pair("status", "Updated"));
+    
+    result.push_back(Pair("cycle", peglevel.nCycle));
+    
+    printpeglevel(peglevel, result);
+    printpegtxout(pdTxout, result, "txout_");
+    
+    return result;
+}

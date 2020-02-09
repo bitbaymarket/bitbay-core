@@ -305,6 +305,7 @@ static const CRPCCommand vRPCCommands[] =
 #ifdef ENABLE_EXCHANGE
     { "listdeposits",           &listdeposits,           false,     false,     true },
     { "registerdeposit",        &registerdeposit,        false,     false,     true },
+    { "updatetxout",            &updatetxout,            false,     false,     true },
     { "getpeglevel",            &getpeglevel,            false,     false,     true },
     { "makepeglevel",           &makepeglevel,           false,     false,     true },
     { "updatepegbalances",      &updatepegbalances,      false,     false,     true },

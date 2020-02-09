@@ -180,6 +180,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "prepareliquidwithdraw", 3 },
     { "preparereservewithdraw", 3 },
     { "validaterawtransaction", 1 },
+    { "validaterawtransaction", 2 },
 };
 
 class CRPCConvertTable

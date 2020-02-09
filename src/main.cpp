@@ -1579,7 +1579,9 @@ bool CTransaction::ConnectInputs(MapPrevTx inputs,
     if (!IsCoinStake()) {
         if (pindexBlock->nHeight >= nPegStartHeight) {
             string sPegFailCause;
-            bool peg_ok = CalculateStandardFractions(*this, 
+            int nCycle = pindexBlock->nHeight / Params().PegInterval(pindexBlock->nHeight);
+            bool peg_ok = CalculateStandardFractions(*this,
+                                                     nCycle,
                                                      pindexBlock->nPegSupplyIndex,
                                                      pindexBlock->nTime,
                                                      inputs, finputs,

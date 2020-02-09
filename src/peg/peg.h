@@ -49,6 +49,7 @@ bool IsPegWhiteListed(const CTransaction & tx, MapPrevTx & inputs);
 bool IsPegWhiteListed(const CTransaction & tx, MapPrevOut & inputs);
 
 bool CalculateStandardFractions(const CTransaction & tx,
+                                int nCycle,
                                 int nSupply,
                                 unsigned int nTime,
                                 MapPrevTx & inputs,

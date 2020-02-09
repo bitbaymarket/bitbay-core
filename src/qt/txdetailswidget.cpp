@@ -293,7 +293,10 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
             continue;
         }
 
+        int nCycle = pblockindex->nHeight / Params().PegInterval(pblockindex->nHeight);
+        
         bool peg_ok = CalculateStandardFractions(tx,
+                                                 nCycle,
                                                  pblockindex->nPegSupplyIndex,
                                                  pblockindex->nTime,
                                                  mapInputs, mapInputsFractions,
@@ -458,7 +461,9 @@ void TxDetailsWidget::openTx(CTransaction & tx,
                                            sPegFailCause);
     }
     else {
+        int nCycle = pblockindex ? pblockindex->nHeight / Params().PegInterval(pblockindex->nHeight) : 1;
         peg_ok = CalculateStandardFractions(tx,
+                                            nCycle,
                                             nSupply,
                                             nTime,
                                             mapInputs, mapInputsFractions,

@@ -436,7 +436,10 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
 
                     if (tx.IsCoinStake()) continue;
                     
+                    int nCycle = pblockindex->nHeight / Params().PegInterval(pblockindex->nHeight);
+                    
                     bool peg_ok = CalculateStandardFractions(tx, 
+                                                             nCycle,
                                                              pblockindex->nPegSupplyIndex,
                                                              pblockindex->nTime,
                                                              mapInputs, mapInputsFractions,

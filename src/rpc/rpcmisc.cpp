@@ -506,12 +506,12 @@ Value verifymessage(const Array& params, bool fHelp)
 
 Value validaterawtransaction(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 || params.size() > 4)
+    if (fHelp || params.size() < 2 || params.size() > 3)
         throw runtime_error(
-            "validaterawtransaction <hex string> <pegsupplyindex>\n"
+            "validaterawtransaction <hex string> <pegsupplyindex> [cycle]\n"
             "Validate the transaction (serialized, hex-encoded).\n"
-            "Second optional argument is peg supply level for the validation of \n"
-            "the transaction with peg system.\n"
+            "Second argument is peg supply level for the validation of the transaction with peg system.\n"
+            "Third optional argument (cycle number) is required for validation of exchange transaction.\n"
             "Returns json object with keys:\n"
             "  complete : 1 if transaction bypassed all peg checks\n"
             );
@@ -534,18 +534,23 @@ Value validaterawtransaction(const Array& params, bool fHelp)
     if (txVariants.empty())
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Missing transaction");
 
-    int supply = params[1].get_int();
-    if (supply <0) {
+    int nSupply = params[1].get_int();
+    if (nSupply <0) {
         throw runtime_error(
             "validaterawtransaction <hex string> <pegsupplyindex>\n"
             "pegsupplyindex below zero");
     }
-    if (supply > nPegMaxSupplyIndex) {
+    if (nSupply > nPegMaxSupplyIndex) {
         throw runtime_error(
             "validaterawtransaction <hex string> <pegsupplyindex>\n"
             "pegsupplyindex above maximum possible");
     }
 
+    int nCycle = 1;
+    if (params.size() > 2) {
+        nCycle = params[2].get_int();
+    }
+    
     // tx will end up with all the checks; it
     // starts as a clone of the rawtx:
     CTransaction tx(txVariants[0]);
@@ -572,7 +577,8 @@ Value validaterawtransaction(const Array& params, bool fHelp)
 
     string sPegFailCause;
     bool peg_ok = CalculateStandardFractions(tx,
-                                             supply,
+                                             nCycle,
+                                             nSupply,
                                              tx.nTime,
                                              mapInputs, mapInputsFractions,
                                              mapOutputsFractions,

@@ -735,11 +735,27 @@ int64_t CWallet::GetDebit(const CTxIn &txin) const
     return 0;
 }
 
+int CWallet::GetPegCycle() const
+{
+    if (nLastHashBestChain != hashBestChain) {
+        LOCK(cs_main);
+        auto pblockindex = mapBlockIndex[hashBestChain];
+        nLastPegCycle = pblockindex->nHeight / Params().PegInterval(pblockindex->nHeight);
+        nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
+        nLastPegSupplyNIndex = pblockindex->GetNextIntervalPegSupplyIndex();
+        nLastPegSupplyNNIndex = pblockindex->GetNextNextIntervalPegSupplyIndex();
+        nLastBlockTime = pblockindex->nTime;
+        nLastHashBestChain = hashBestChain;
+    }
+    return nLastPegCycle;
+}
+
 int CWallet::GetPegSupplyIndex() const
 {
     if (nLastHashBestChain != hashBestChain) {
         LOCK(cs_main);
         auto pblockindex = mapBlockIndex[hashBestChain];
+        nLastPegCycle = pblockindex->nHeight / Params().PegInterval(pblockindex->nHeight);
         nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
         nLastPegSupplyNIndex = pblockindex->GetNextIntervalPegSupplyIndex();
         nLastPegSupplyNNIndex = pblockindex->GetNextNextIntervalPegSupplyIndex();
@@ -754,6 +770,7 @@ int CWallet::GetPegSupplyNIndex() const
     if (nLastHashBestChain != hashBestChain) {
         LOCK(cs_main);
         auto pblockindex = mapBlockIndex[hashBestChain];
+        nLastPegCycle = pblockindex->nHeight / Params().PegInterval(pblockindex->nHeight);
         nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
         nLastPegSupplyNIndex = pblockindex->GetNextIntervalPegSupplyIndex();
         nLastPegSupplyNNIndex = pblockindex->GetNextNextIntervalPegSupplyIndex();
@@ -768,6 +785,7 @@ int CWallet::GetPegSupplyNNIndex() const
     if (nLastHashBestChain != hashBestChain) {
         LOCK(cs_main);
         auto pblockindex = mapBlockIndex[hashBestChain];
+        nLastPegCycle = pblockindex->nHeight / Params().PegInterval(pblockindex->nHeight);
         nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
         nLastPegSupplyNIndex = pblockindex->GetNextIntervalPegSupplyIndex();
         nLastPegSupplyNNIndex = pblockindex->GetNextNextIntervalPegSupplyIndex();
@@ -790,6 +808,7 @@ int64_t CWallet::GetFrozen(uint256 txhash, long n, const CTxOut& txout,
         if (nLastHashBestChain != hashBestChain) {
             LOCK(cs_main);
             auto pblockindex = mapBlockIndex[hashBestChain];
+            nLastPegCycle = pblockindex->nHeight / Params().PegInterval(pblockindex->nHeight);
             nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
             nLastBlockTime = pblockindex->nTime;
             nLastHashBestChain = hashBestChain;
@@ -834,6 +853,7 @@ int64_t CWallet::GetReserve(uint256 txhash, long n, const CTxOut& txout) const
         if (nLastHashBestChain != hashBestChain) {
             LOCK(cs_main);
             auto pblockindex = mapBlockIndex[hashBestChain];
+            nLastPegCycle = pblockindex->nHeight / Params().PegInterval(pblockindex->nHeight);
             nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
             nLastBlockTime = pblockindex->nTime;
             nLastHashBestChain = hashBestChain;
@@ -872,6 +892,7 @@ int64_t CWallet::GetLiquidity(uint256 txhash, long n, const CTxOut& txout) const
         if (nLastHashBestChain != hashBestChain) {
             LOCK(cs_main);
             auto pblockindex = mapBlockIndex[hashBestChain];
+            nLastPegCycle = pblockindex->nHeight / Params().PegInterval(pblockindex->nHeight);
             nLastPegSupplyIndex = pblockindex->nPegSupplyIndex;
             nLastBlockTime = pblockindex->nTime;
             nLastHashBestChain = hashBestChain;
@@ -1341,7 +1362,9 @@ void CWallet::ResendWalletTransactions(bool fForce)
                 }
             
                 string sPegFailCause;
+                int nCycle = pindexBest->nHeight / Params().PegInterval(pindexBest->nHeight);
                 bool peg_ok = CalculateStandardFractions(wtx, 
+                                                         nCycle,
                                                          pindexBest->nPegSupplyIndex,
                                                          pindexBest->nTime,
                                                          mapInputs, mapInputsFractions,
@@ -2414,6 +2437,7 @@ bool CWallet::CreateTransaction(PegTxType txType,
             }
 
             bool peg_ok = CalculateStandardFractions(wtxNew, 
+                                                     GetPegCycle(),
                                                      GetPegSupplyIndex(),
                                                      wtxNew.nTime,
                                                      mapInputs, mapInputsFractions,

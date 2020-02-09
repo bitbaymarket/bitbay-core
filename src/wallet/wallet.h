@@ -179,6 +179,7 @@ public:
     CPubKey vchDefaultKey;
     int64_t nTimeFirstKey;
     mutable uint256 nLastHashBestChain;
+    mutable int nLastPegCycle = 1;
     mutable int nLastPegSupplyIndex = 0;
     mutable int nLastPegSupplyNIndex = 0;
     mutable int nLastPegSupplyNNIndex = 0;
@@ -256,6 +257,7 @@ public:
     int64_t GetImmatureBalance() const;
     int64_t GetStake() const;
     int64_t GetNewMint() const;
+    int GetPegCycle() const;
     int GetPegSupplyIndex() const;
     int GetPegSupplyNIndex() const;
     int GetPegSupplyNNIndex() const;

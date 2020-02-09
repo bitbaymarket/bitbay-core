@@ -5,128 +5,14 @@ matrix:
       dist: trusty
       sudo: required
       env:
-        - DEPLOY_FILE=tests.txt
-        - ARCH="tests"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
-        - DEPLOY_FILE=mainnet-node.dockerimage
-        - ARCH="mainnet-node"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
-        - DEPLOY_FILE=mainnet-seed-node.dockerimage
-        - ARCH="mainnet-seed-node"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
-        - DEPLOY_FILE=testnet-node.dockerimage
-        - ARCH="testnet-node"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
-        - DEPLOY_FILE=testnet-seed-node.dockerimage
-        - ARCH="testnet-seed-node"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
-        - DEPLOY_FILE=testnet-exchange-node.dockerimage
-        - ARCH="testnet-exchange-node"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
-        - DEPLOY_FILE=testnet-bitbay-wallet-qt_linux64.tgz
-        - ARCH="testnet-qtwallet-lin64"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
-        - DEPLOY_FILE=testnet-bitbay-wallet-qt_win32.zip
-        - ARCH="testnet-qtwallet-win32"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
-        - DEPLOY_FILE=testnet-bitbay-wallet-qt_win64.zip
-        - ARCH="testnet-qtwallet-win64"
-    - os: osx
-      osx_image: xcode9.4
-      compiler: clang
-      env:
-        - DEPLOY_FILE=testnet-bitbay-wallet-qt_mac.zip
-        - ARCH="testnet-qtwallet-mac64"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
-        - DEPLOY_FILE=testnet-bitbayd_linux64.tgz
-        - ARCH="testnet-bitbayd-lin64"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
-        - DEPLOY_FILE=bitbay-wallet-qt_linux64.tgz
-        - ARCH="qtwallet-lin64"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
         - DEPLOY_FILE=bitbayd_linux64.tgz
         - ARCH="bitbayd-lin64"
     - os: linux
       dist: trusty
       sudo: required
       env:
-        - DEPLOY_FILE=bitbay-wallet-qt_win32.zip
-        - ARCH="qtwallet-win32"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
-        - DEPLOY_FILE=bitbay-wallet-qt_win64.zip
-        - ARCH="qtwallet-win64"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
-        - DEPLOY_FILE=bitbayd_win32.zip
-        - ARCH="bitbayd-win32"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
-        - DEPLOY_FILE=bitbayd_win64.zip
-        - ARCH="bitbayd-win64"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
-        - DEPLOY_FILE=bitbayd_db6_win32.zip
-        - ARCH="bitbayd-db6-win32"
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
-        - DEPLOY_FILE=bitbayd_db6_win64.zip
-        - ARCH="bitbayd-db6-win64"
-    - os: osx
-      osx_image: xcode9.4
-      compiler: clang
-      env:
-        - DEPLOY_FILE=bitbay-wallet-qt_mac.zip
-        - ARCH="qtwallet-mac64"
-    - os: osx
-      osx_image: xcode9.4
-      compiler: clang
-      env:
-        - DEPLOY_FILE=bitbayd_mac.zip
-        - ARCH="bitbayd-mac64"
+        - DEPLOY_FILE=bitbayd_linux32.tgz
+        - ARCH="bitbayd-lin32"
 services:
   - docker
 
@@ -202,6 +88,10 @@ install:
   fi
 - >
   if [[ $ARCH == "qtwallet-lin64" ]]; then
+    export                                                      ;
+  fi
+- >
+  if [[ $ARCH == "bitbayd-lin32" ]]; then
     export                                                      ;
   fi
 - >
@@ -337,6 +227,10 @@ before_script:
 - >
   if [[ $ARCH == "qtwallet-lin64" ]]; then
     docker pull bitbayofficial/builder-linux64:alpine;
+  fi
+- >
+  if [[ $ARCH == "bitbayd-lin32" ]]; then
+    docker pull bitbayofficial/builder-linux32:alpine;
   fi
 - >
   if [[ $ARCH == "bitbayd-lin64" ]]; then
@@ -663,6 +557,28 @@ script:
           make -j2";
   fi
 - >
+  if [[ $ARCH == "bitbayd-lin32" ]]; then
+    echo "LIBS += -static" > bitbayd-local.pri &&
+    echo "CONFIG += silent" >> bitbayd-local.pri &&
+    docker run --rm \
+        -v $(pwd):/mnt \
+        -u $(stat -c %u:%g .) \
+        bitbayofficial/builder-linux32:alpine \
+        /bin/sh -c "qmake-qt5 -v && \
+          cd /mnt && \
+          ls -al && \
+          qmake-qt5 \
+            CICD=travis_x32 \
+            \"USE_DBUS=0\" \
+            \"USE_QRCODE=0\" \
+            \"BOOST_LIB_SUFFIX=-mt\" \
+            bitbayd.pro && \
+          sed -i 's/\/usr\/lib\/libssl.so/-lssl/' Makefile &&
+          sed -i 's/\/usr\/lib\/libcrypto.so/-lcrypto/' Makefile &&
+          sed -i s:sys/fcntl.h:fcntl.h: src/compat.h &&
+          make -j2";
+  fi
+- >
   if [[ $ARCH == "bitbayd-lin64" ]]; then
     echo "LIBS += -static" > bitbayd-local.pri &&
     echo "CONFIG += silent" >> bitbayd-local.pri &&
@@ -856,6 +772,13 @@ script:
     file bitbay-wallet-qt                       &&
     ls -l                                       &&
     tar -zcf $DEPLOY_FILE bitbay-wallet-qt      ;
+  fi
+- >
+  if [[ $ARCH == "bitbayd-lin32" ]]; then
+    ldd bitbayd                        &&
+    file bitbayd                       &&
+    ls -l                              &&
+    tar -zcf $DEPLOY_FILE bitbayd      ;
   fi
 - >
   if [[ $ARCH == "bitbayd-lin64" ]]; then

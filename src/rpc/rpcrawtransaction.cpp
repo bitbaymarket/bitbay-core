@@ -741,6 +741,14 @@ Value sendrawtransaction(const Array& params, bool fHelp)
 
     RPCTypeCheck(params, list_of(str_type));
 
+    if (!pindexBest) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Blockchain is not in sync");
+    }
+    
+    if (pindexBest->GetBlockTime() < GetTime() - 90*60) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Blockchain is not in sync");
+    }
+    
     // parse hex string from parameter
     vector<unsigned char> txData(ParseHex(params[0].get_str()));
     CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
@@ -755,6 +763,17 @@ Value sendrawtransaction(const Array& params, bool fHelp)
     }
     uint256 hashTx = tx.GetHash();
 
+    uint256 wid;
+    int nExchangeOut = -1;
+    if (tx.IsExchangeTx(nExchangeOut, wid)) {
+        if (tx.nLockTime >0) {
+            unsigned int nMaxHeight = tx.nLockTime + Params().PegInterval(Params().nPegIntervalProbeHeight) -5;
+            if (pindexBest->nHeight > nMaxHeight) {
+                throw JSONRPCError(RPC_MISC_ERROR, "Transaction is expired");
+            }
+        }
+    }
+    
     // See if the transaction is already in a block
     // or in the memory pool:
     CTransaction existingTx;

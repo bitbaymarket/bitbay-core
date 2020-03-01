@@ -166,7 +166,13 @@ QString BitcoinUnits::formatWithUnit(int unit, qint64 amount, bool plussign)
 QString BitcoinUnits::formatWithUnitForLabel(int unit, qint64 amount, bool plussign, int hli)
 {
     QString rate = QString::number(hli);
-    if (hli <0) rate.clear();
+    if (hli <0) {
+        return QString("<b>")
+                +format(unit, amount, plussign)
+                +QString("</b> <font color='#666666'>")
+                +name(unit)
+                +QString("</font>");
+    }
     rate = rate.leftJustified(4, 'x');
     rate = rate.replace('x', "&nbsp;");
     QString txt = QString("<b>")

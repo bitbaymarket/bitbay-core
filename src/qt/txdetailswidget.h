@@ -73,7 +73,8 @@ private slots:
                        const CFractions &, 
                        const CPegLevel &,
                        int64_t nLiquidSave = -1,
-                       int64_t nReserveSave = -1);
+                       int64_t nReserveSave = -1,
+                       int64_t nID = 0);
     void copyPegData(QTreeWidget *);
 
 private:

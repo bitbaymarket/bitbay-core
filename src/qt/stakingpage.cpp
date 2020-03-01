@@ -36,13 +36,6 @@ StakingPage::StakingPage(QWidget *parent) :
     ui->setupUi(this);
     GUIUtil::SetBitBayFonts(this);
     
-#ifdef Q_OS_MAC
-    QFont hfont("Roboto Black", 20, QFont::Bold);
-#else
-    QFont hfont("Roboto Black", 15, QFont::Bold);
-#endif
-
-    ui->labelTitle->setFont(hfont);
     setStyleSheet("QRadioButton { background: none; }");
 
 #ifdef Q_OS_MAC
@@ -128,7 +121,6 @@ extern double GetPoSKernelPS();
 
 void StakingPage::updateTimer()
 {
-    return;
     uint64_t nWeight = 0;
     {
         if (!pwalletMain)

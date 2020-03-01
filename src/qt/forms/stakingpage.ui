@@ -54,22 +54,12 @@
           <property name="rightMargin">
            <number>25</number>
           </property>
-          <item row="2" column="0">
-           <spacer name="horizontalSpacer_3">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item row="1" column="0" colspan="3">
+          <item row="0" column="0" colspan="3">
            <layout class="QGridLayout" name="gridLayout">
             <property name="leftMargin">
+             <number>25</number>
+            </property>
+            <property name="topMargin">
              <number>25</number>
             </property>
             <item row="0" column="0">
@@ -94,7 +84,70 @@
             </item>
            </layout>
           </item>
-          <item row="2" column="1">
+          <item row="2" column="1" colspan="2">
+           <widget class="QGroupBox" name="groupBox">
+            <property name="title">
+             <string>Dynamic Peg votes system:</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_2">
+             <item row="1" column="0">
+              <widget class="QRadioButton" name="radioButtonVoteDeflate">
+               <property name="text">
+                <string>Deflation</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0">
+              <widget class="QRadioButton" name="radioButtonVoteNone">
+               <property name="text">
+                <string>Disable</string>
+               </property>
+               <property name="checked">
+                <bool>false</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QRadioButton" name="radioButtonVoteAuto">
+               <property name="text">
+                <string>Automatic (recommended)</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QRadioButton" name="radioButtonVoteNoChange">
+               <property name="text">
+                <string>No Changes</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QRadioButton" name="radioButtonVoteInflate">
+               <property name="text">
+                <string>Inflation</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <spacer name="horizontalSpacer_3">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item row="1" column="1">
            <spacer name="horizontalSpacer_4">
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
@@ -107,40 +160,163 @@
             </property>
            </spacer>
           </item>
-          <item row="0" column="0" colspan="3">
-           <layout class="QHBoxLayout" name="horizontalLayout_4">
+          <item row="4" column="0" colspan="2">
+           <layout class="QVBoxLayout" name="verticalLayout">
             <property name="leftMargin">
-             <number>25</number>
+             <number>40</number>
             </property>
-            <property name="topMargin">
-             <number>25</number>
+            <property name="rightMargin">
+             <number>20</number>
             </property>
             <item>
-             <widget class="QLabel" name="labelTitle">
+             <widget class="QCheckBox" name="checkRewardTo">
               <property name="text">
-               <string>Staking</string>
-              </property>
-              <property name="textFormat">
-               <enum>Qt::PlainText</enum>
+               <string>Reward to address:</string>
               </property>
              </widget>
             </item>
             <item>
-             <spacer name="horizontalSpacer_2">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
+             <layout class="QHBoxLayout" name="horizontalLayout_2">
+              <property name="spacing">
+               <number>7</number>
               </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
+              <item>
+               <widget class="QValidatedLineEdit" name="lineRewardTo">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
+                <property name="toolTip">
+                 <string>The address to send the reward to. If empty, stake reward will remain attached to address that staked it.</string>
+                </property>
+                <property name="maxLength">
+                 <number>34</number>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QToolButton" name="rewardAddressBookButton">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>25</width>
+                  <height>25</height>
+                 </size>
+                </property>
+                <property name="toolTip">
+                 <string>Choose address from address book</string>
+                </property>
+                <property name="text">
+                 <string/>
+                </property>
+                <property name="icon">
+                 <iconset resource="../bitbay.qrc">
+                  <normaloff>:/icons/address-book</normaloff>:/icons/address-book</iconset>
+                </property>
+                <property name="shortcut">
+                 <string>Alt+A</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="checkSupportFund">
+              <property name="text">
+               <string>Support BITBAY marketing fund:</string>
               </property>
-             </spacer>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_5">
+              <property name="spacing">
+               <number>7</number>
+              </property>
+              <item>
+               <widget class="QValidatedLineEdit" name="lineSupportTo">
+                <property name="enabled">
+                 <bool>true</bool>
+                </property>
+                <property name="toolTip">
+                 <string>The marketing fund address to send the reward to.</string>
+                </property>
+                <property name="maxLength">
+                 <number>34</number>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QToolButton" name="supportAddressBookButton">
+                <property name="enabled">
+                 <bool>true</bool>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>25</width>
+                  <height>25</height>
+                 </size>
+                </property>
+                <property name="toolTip">
+                 <string>Choose address from address book</string>
+                </property>
+                <property name="text">
+                 <string/>
+                </property>
+                <property name="icon">
+                 <iconset resource="../bitbay.qrc">
+                  <normaloff>:/icons/address-book</normaloff>:/icons/address-book</iconset>
+                </property>
+                <property name="shortcut">
+                 <string>Alt+A</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_3">
+              <item>
+               <widget class="QSlider" name="sliderSupport">
+                <property name="minimum">
+                 <number>10</number>
+                </property>
+                <property name="maximum">
+                 <number>100</number>
+                </property>
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="tickPosition">
+                 <enum>QSlider::TicksBothSides</enum>
+                </property>
+                <property name="tickInterval">
+                 <number>10</number>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="labelSupportValue">
+                <property name="text">
+                 <string>10</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="labelSupportPercent">
+                <property name="text">
+                 <string>%</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
             </item>
            </layout>
           </item>
-          <item row="3" column="0" rowspan="2">
+          <item row="2" column="0" rowspan="2">
            <layout class="QGridLayout" name="gridLayout_3">
             <property name="leftMargin">
              <number>25</number>
@@ -411,213 +587,7 @@
             </item>
            </layout>
           </item>
-          <item row="3" column="1" colspan="2">
-           <widget class="QGroupBox" name="groupBox">
-            <property name="title">
-             <string>Dynamic Peg votes system:</string>
-            </property>
-            <layout class="QGridLayout" name="gridLayout_2">
-             <item row="1" column="0">
-              <widget class="QRadioButton" name="radioButtonVoteDeflate">
-               <property name="text">
-                <string>Deflation</string>
-               </property>
-              </widget>
-             </item>
-             <item row="4" column="0">
-              <widget class="QRadioButton" name="radioButtonVoteNone">
-               <property name="text">
-                <string>Disable</string>
-               </property>
-               <property name="checked">
-                <bool>false</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="0">
-              <widget class="QRadioButton" name="radioButtonVoteAuto">
-               <property name="text">
-                <string>Automatic (recommended)</string>
-               </property>
-               <property name="checked">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="0">
-              <widget class="QRadioButton" name="radioButtonVoteNoChange">
-               <property name="text">
-                <string>No Changes</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="0">
-              <widget class="QRadioButton" name="radioButtonVoteInflate">
-               <property name="text">
-                <string>Inflation</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </widget>
-          </item>
-          <item row="5" column="0" colspan="2">
-           <layout class="QVBoxLayout" name="verticalLayout">
-            <property name="leftMargin">
-             <number>40</number>
-            </property>
-            <property name="rightMargin">
-             <number>20</number>
-            </property>
-            <item>
-             <widget class="QCheckBox" name="checkRewardTo">
-              <property name="text">
-               <string>Reward to address:</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_2">
-              <property name="spacing">
-               <number>7</number>
-              </property>
-              <item>
-               <widget class="QValidatedLineEdit" name="lineRewardTo">
-                <property name="enabled">
-                 <bool>false</bool>
-                </property>
-                <property name="toolTip">
-                 <string>The address to send the reward to. If empty, stake reward will remain attached to address that staked it.</string>
-                </property>
-                <property name="maxLength">
-                 <number>34</number>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QToolButton" name="rewardAddressBookButton">
-                <property name="enabled">
-                 <bool>false</bool>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>25</width>
-                  <height>25</height>
-                 </size>
-                </property>
-                <property name="toolTip">
-                 <string>Choose address from address book</string>
-                </property>
-                <property name="text">
-                 <string/>
-                </property>
-                <property name="icon">
-                 <iconset resource="../bitbay.qrc">
-                  <normaloff>:/icons/address-book</normaloff>:/icons/address-book</iconset>
-                </property>
-                <property name="shortcut">
-                 <string>Alt+A</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="checkSupportFund">
-              <property name="text">
-               <string>Support BITBAY marketing fund:</string>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_5">
-              <property name="spacing">
-               <number>7</number>
-              </property>
-              <item>
-               <widget class="QValidatedLineEdit" name="lineSupportTo">
-                <property name="enabled">
-                 <bool>true</bool>
-                </property>
-                <property name="toolTip">
-                 <string>The marketing fund address to send the reward to.</string>
-                </property>
-                <property name="maxLength">
-                 <number>34</number>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QToolButton" name="supportAddressBookButton">
-                <property name="enabled">
-                 <bool>true</bool>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>25</width>
-                  <height>25</height>
-                 </size>
-                </property>
-                <property name="toolTip">
-                 <string>Choose address from address book</string>
-                </property>
-                <property name="text">
-                 <string/>
-                </property>
-                <property name="icon">
-                 <iconset resource="../bitbay.qrc">
-                  <normaloff>:/icons/address-book</normaloff>:/icons/address-book</iconset>
-                </property>
-                <property name="shortcut">
-                 <string>Alt+A</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_3">
-              <item>
-               <widget class="QSlider" name="sliderSupport">
-                <property name="minimum">
-                 <number>10</number>
-                </property>
-                <property name="maximum">
-                 <number>100</number>
-                </property>
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="tickPosition">
-                 <enum>QSlider::TicksBothSides</enum>
-                </property>
-                <property name="tickInterval">
-                 <number>10</number>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QLabel" name="labelSupportValue">
-                <property name="text">
-                 <string>10</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QLabel" name="labelSupportPercent">
-                <property name="text">
-                 <string>%</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-           </layout>
-          </item>
-          <item row="4" column="1">
+          <item row="3" column="1">
            <spacer name="verticalSpacer_3">
             <property name="orientation">
              <enum>Qt::Vertical</enum>

@@ -1339,7 +1339,7 @@ void TxDetailsWidget::openPegVotes(QTreeWidgetItem * item, int column)
     
     {
         QStringList cells;
-        cells << "Votes Multipler";
+        cells << "Votes Multiplier";
         cells << "1 + Peg/120";
         if (has_x2 || has_x3 || has_x4) {
             cells << QString::number(nWeightMultiplier);
@@ -1518,7 +1518,8 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
                                     const CFractions & fractions,
                                     const CPegLevel & level,
                                     int64_t nLiquidSave,
-                                    int64_t nReserveSave)
+                                    int64_t nReserveSave,
+                                    int64_t nID)
 {
     if (!table) return;
     QWidget * top = table->topLevelWidget();
@@ -1667,6 +1668,14 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
         row_item_reserve_save->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         row_item_reserve_save->setData(1, BlockchainModel::ValueForCopy, qlonglong(nReserveSave));
         table->addTopLevelItem(row_item_reserve_save);
+        
+        QStringList row_id;
+        row_id << tr("ID") << QString::number(nID);
+        auto row_item_id = new QTreeWidgetItem(row_id);
+        row_item_id->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
+        row_item_id->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        row_item_id->setData(1, BlockchainModel::ValueForCopy, qlonglong(nID));
+        table->addTopLevelItem(row_item_id);
     } else {
         QStringList row_liquid_calc;
         row_liquid_calc << tr("L") << displayValue(fractions.High(level));
@@ -1690,7 +1699,7 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
     auto row_item_vhli = new QTreeWidgetItem(row_vhli);
     row_item_vhli->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
     row_item_vhli->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-    row_item_vhli->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.Total()));
+    row_item_vhli->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.HLI()));
     table->addTopLevelItem(row_item_vhli);
     
     QStringList row_lhli;
@@ -1698,7 +1707,7 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
     auto row_item_lhli = new QTreeWidgetItem(row_lhli);
     row_item_lhli->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
     row_item_lhli->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-    row_item_lhli->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.Total()));
+    row_item_lhli->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.HighPart(level, nullptr).HLI()));
     table->addTopLevelItem(row_item_lhli);
     
     QStringList row_rhli;
@@ -1706,7 +1715,7 @@ void TxDetailsWidget::plotFractions(QTreeWidget * table,
     auto row_item_rhli = new QTreeWidgetItem(row_rhli);
     row_item_rhli->setData(0, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignLeft));
     row_item_rhli->setData(1, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-    row_item_rhli->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.Total()));
+    row_item_rhli->setData(1, BlockchainModel::ValueForCopy, qlonglong(fractions.LowPart(level, nullptr).HLI()));
     table->addTopLevelItem(row_item_rhli);
     
     QStringList row_space;
@@ -1911,7 +1920,8 @@ void TxDetailsWidget::openFractionsMenu(const QPoint & pos)
                                   pegdata.fractions, 
                                   pegdata.peglevel, 
                                   pegdata.nLiquid, 
-                                  pegdata.nReserve);
+                                  pegdata.nReserve,
+                                  pegdata.nId);
                 });
                 a = m.addAction(tr("Copy pegdata"));
                 connect(a, &QAction::triggered, [&] {

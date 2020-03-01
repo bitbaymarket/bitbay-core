@@ -284,6 +284,8 @@ bool updatepegbalances(
 
     int64_t nPegPoolValue = pdPegPool.fractions.Total();
     pdPegPool.nLiquid = nPegPoolValue - pdPegPool.nReserve;
+    pdPegPool.nId++;
+    pdBalance.nId = pdPegPool.nId;
    
     return true;
 }
@@ -433,6 +435,14 @@ bool moveliquid(
         return false;
     }
 
+    if (pdSrc.nId != 0 && pdDst.nId != 0 && pdSrc.nId == pdDst.nId) {
+        std::stringstream ss;
+        ss << "Detected move between same user src id:" << pdSrc.nId
+           << " vs dst id:" << pdDst.nId;
+        sErr = ss.str();
+        return false;
+    }
+
     int64_t nIn = pdSrc.fractions.Total() + pdDst.fractions.Total();
 
     bool fPartial = peglevel.nShiftLastPart >0 && peglevel.nShiftLastTotal >0;
@@ -554,6 +564,14 @@ bool movereserve(
         std::stringstream ss;
         ss << "Outdated 'dst' of cycle of " << pdDst.peglevel.nCycle
            << ", current " << peglevel.nCycle;
+        sErr = ss.str();
+        return false;
+    }
+    
+    if (pdSrc.nId != 0 && pdDst.nId != 0 && pdSrc.nId == pdDst.nId) {
+        std::stringstream ss;
+        ss << "Detected move between same user src id:" << pdSrc.nId
+           << " vs dst id:" << pdDst.nId;
         sErr = ss.str();
         return false;
     }

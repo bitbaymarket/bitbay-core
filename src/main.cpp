@@ -2424,7 +2424,7 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const u
                             if (ExtractDestinations(txPrev.vout[txin.prevout.n].scriptPubKey, type, vAddresses, nRequired)) {
                                 if (vAddresses.size()==1) {
                                     string sAddress = CBitcoinAddress(vAddresses.front()).ToString();
-                                    if (Params().sTrustedStackers.count(sAddress)) {
+                                    if (Params().sTrustedStakers.count(sAddress)) {
                                         hasBetterStakerTrust = true;
                                         break;
                                     }

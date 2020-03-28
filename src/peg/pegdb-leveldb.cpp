@@ -22,6 +22,9 @@
 #include "chainparams.h"
 #include "base58.h"
 
+#include <iostream>
+#include <fstream>
+
 using namespace std;
 using namespace boost;
 
@@ -256,6 +259,8 @@ bool CPegDB::RemovePegTxId(uint256 txid)
     return Erase(txid);
 }
 
+//std::map<string, int> stake_addr_stats;
+
 bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
 {
     // For Peg System activated via TX
@@ -299,7 +304,7 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                 return error("WritePegCheck() : flag1 write failed");
             if (!txdb.WritePegCheck(PEG_DB_CHECK2, false))
                 return error("WritePegCheck() : flag2 write failed");
-            if (!txdb.WritePegCheck(PEG_DB_CHECK3, false))
+            if (!txdb.WritePegCheck(PEG_DB_CHECK_ON_FORK, false))
                 return error("WritePegCheck() : flag3 write failed");
             if (!txdb.TxnCommit())
                 return error("WriteBlockIndexIsPegReady() : TxnCommit failed");
@@ -340,7 +345,7 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
         txdb.ReadPegCheck(PEG_DB_CHECK2, fPegCheck2);
 
         bool fPegCheck3 = false;
-        txdb.ReadPegCheck(PEG_DB_CHECK3, fPegCheck3);
+        txdb.ReadPegCheck(PEG_DB_CHECK_ON_FORK, fPegCheck3);
         
         bool fPegPruneStored = true;
         if (!pegdb.ReadPegPruneEnabled(fPegPruneStored)) {
@@ -541,7 +546,7 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
             if (!txdb.WritePegCheck(PEG_DB_CHECK2, true))
                 return error("WritePegCheck() : flag2 write failed");
 
-            if (!txdb.WritePegCheck(PEG_DB_CHECK3, true))
+            if (!txdb.WritePegCheck(PEG_DB_CHECK_ON_FORK, true))
                 return error("WritePegCheck() : flag3 write failed");
             
             if (!pegdb.WritePegStartHeight(nPegStartHeight))
@@ -576,6 +581,16 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
             }
         }
     }
-
+    
+//    ofstream myfile;
+//    myfile.open ("/home/alex/addrs.txt");
+//    for(auto it = stake_addr_stats.begin(); it != stake_addr_stats.end(); it++) {
+//        myfile << it->first
+//               << '\t'
+//               << it->second
+//               << std::endl;
+//    }
+//    myfile.close();
+      
     return true;
 }

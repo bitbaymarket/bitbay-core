@@ -20,7 +20,7 @@ enum
     PEG_SUBPREMIUM_RATING   = 200,
     PEG_DB_CHECK1           = 1, // testnet: update1 for votes calculation
     PEG_DB_CHECK2           = 2, // testnet: update2 for stake liquidity calculation
-    PEG_DB_CHECK3           = 35, // testnet: update3 for cold tx support
+    PEG_DB_CHECK_ON_FORK    = 35,
     PEG_PRUNE_INTERVAL      = 10000
 };
 

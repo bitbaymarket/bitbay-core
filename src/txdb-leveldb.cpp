@@ -616,6 +616,9 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
             bool ok = Checkpoints::CheckHardened(nHeight, pindex->GetBlockHash());
             if (!ok) {
                 pindexFork = pindexLast;
+                // trigger peg rebuild
+                if (!WritePegCheck(PEG_DB_CHECK_ON_FORK, false))
+                    return error("WritePegCheck() : flag3 write failed");
                 break;
             }
             pindexLast = pindex;

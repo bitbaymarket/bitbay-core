@@ -482,6 +482,8 @@ bool CalculateStakingFractions(const CTransaction & tx,
                 sFailCause);
 }
 
+//extern std::map<string, int> stake_addr_stats;
+
 bool CalculateStakingFractions_v2(const CTransaction & tx,
                                   const CBlockIndex* pindexBlock,
                                   MapPrevTx & inputs,
@@ -538,6 +540,8 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
             return false;
         }
     }
+    
+    //stake_addr_stats[sInputAddress]++;
 
     // Check funds to be returned to same address
     int64_t nValueReturn = 0;

@@ -81,7 +81,7 @@ public:
     virtual int PegInterval(int /*nHeight*/) const { return nPegInterval; } 
     uint256 PegActivationTxhash() const { return hashPegActivationTx; }
     
-    std::set<string> sTrustedStackers;
+    std::set<string> sTrustedStakers;
     
 protected:
     CChainParams() {}

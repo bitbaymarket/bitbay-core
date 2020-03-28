@@ -2377,7 +2377,61 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const u
     CPegDB pegdb;
 
     // New best
-    if (pindexNew->nChainTrust > nBestChainTrust)
+    bool hasBetterStakerTrust = false;
+    bool hasBetterChainTrust = pindexNew->nChainTrust > nBestChainTrust;
+    if (!hasBetterChainTrust) {
+        // find out if better trust by stakers of new chain
+        // 1. find fork point
+        CBlockIndex* pfork = pindexBest;
+        CBlockIndex* plonger = pindexNew;
+        while (pfork != plonger)
+        {
+            while (plonger->nHeight > pfork->nHeight)
+                if (!(plonger = plonger->pprev))
+                    return error("AddToBlockIndex() : plonger->pprev is null");
+            if (pfork == plonger)
+                break;
+            if (!(pfork = pfork->pprev))
+                return error("AddToBlockIndex() : pfork->pprev is null");
+        }
+        // 2. check stakers of new chain
+        for (CBlockIndex* pindex = pindexNew; pindex != pfork; pindex = pindex->pprev) {
+            CBlock block;
+            if (!block.ReadFromDisk(pindex, true))
+                return error("ReadFromDisk() : block read failed");
+            if (block.vtx.size() >1 && block.vtx[1].IsCoinStake()) {
+                CTransaction& tx = block.vtx[1];
+                if (tx.vin.size() >1) {
+                    const CTxIn & txin = tx.vin[0];
+                    // Read txindex
+                    CTxIndex txindex;
+                    if (!txdb.ReadTxIndex(txin.prevout.hash, txindex)) {
+                        continue;
+                    }
+                    // Read txPrev
+                    CTransaction txPrev;
+                    if (!txPrev.ReadFromDisk(txindex.pos)) {
+                        continue;
+                    }
+                    if (txPrev.vout.size() > txin.prevout.n) {
+                        int nRequired;
+                        txnouttype type;
+                        vector<CTxDestination> vAddresses;
+                        if (ExtractDestinations(txPrev.vout[txin.prevout.n].scriptPubKey, type, vAddresses, nRequired)) {
+                            if (vAddresses.size()==1) {
+                                string sAddress = CBitcoinAddress(vAddresses.front()).ToString();
+                                if (Params().sTrustedStackers.count(sAddress)) {
+                                    hasBetterStakerTrust = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (hasBetterChainTrust || hasBetterStakerTrust)
         if (!SetBestChain(txdb, pegdb, pindexNew))
             return false;
 

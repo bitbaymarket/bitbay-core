@@ -134,6 +134,31 @@ public:
         nPegInterval = 200;
         
         hashPegActivationTx.SetHex("0b00aa061b47d833204ef8d7debfc911d08456119fb236a2e966488263044ff6");
+        
+        // 1
+        sTrustedStackers.insert("bNgmCcxPKgQQqUe6rhNtbGWowMJFCuxjZ3");
+        sTrustedStackers.insert("bEfg9bMLSgmjB5TDiur9FscZij4XXrd8C5");
+        sTrustedStackers.insert("bTuZboysrngsaqJvRj4db4CV2Qa21Q5Jcb");
+        sTrustedStackers.insert("bMvqdtSZtxDDBEj6NBHAg38iCdvmFwALix");
+        sTrustedStackers.insert("bJvBcHh45A6mjfKhy8Qg9AagbWfHWB1abC");
+        sTrustedStackers.insert("bN2NGi2bF1cpcQcsxmY4daCpi2tQqW5tnS");
+        sTrustedStackers.insert("bS4MGJKwN3vWCSgmsmYfXoJzS3QHPCRtcB");
+        // 2
+        sTrustedStackers.insert("bZ8sJgk1VsgbNcqUqBY5hNR9kMaJ5kksEG");
+        sTrustedStackers.insert("bYf1uCCEc4Ge5juuHntYpJvuZ6L6fkqc9w");
+        sTrustedStackers.insert("bYCwwHbSGo85k86Bd5S7drLQ2m1EnUcqTq");
+        sTrustedStackers.insert("bURCwQiJhTSX2JA72LmPwCG3vF9zCpPB6J");
+        sTrustedStackers.insert("bUjrA5QmFntnGABYfeaHbSf5QKF1ptmztr");
+        sTrustedStackers.insert("bJMBgyS6u4SPFwJKGpcgWnPSRcuXF8iTme");
+        sTrustedStackers.insert("bFEEzRWNWKGxFmjAkT1SmjNs8VTD9eTYje");
+        sTrustedStackers.insert("bCqaStDHVoU89DWDjRxrsGbVFBWhxBFdP3");
+        sTrustedStackers.insert("bbn4mJawLC8C26gfw4TVAcfRftiRvb6hZz");
+        // m
+        sTrustedStackers.insert("bP66u6L53PmFppSszfDnUN7dBh6jeNw1uJ");
+        sTrustedStackers.insert("BNFFzvTApN8JtFcWgjQHKCezKthuu6bDdv");
+        sTrustedStackers.insert("BCJxZgskT61557Jf2DmtwYvHJVaeRrwok6");
+        sTrustedStackers.insert("B6QNEmPwd3ZDdqWRp1o6cTXaDGnXwevkjA");
+        sTrustedStackers.insert("BDAXuYqpAjvP6P1rCQmvcBabbXhkg9KPSb");
     }
 
     virtual const CBlock& GenesisBlock() const { return genesis; }

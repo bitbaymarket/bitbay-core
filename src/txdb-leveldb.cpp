@@ -18,8 +18,12 @@
 #include "util.h"
 #include "main.h"
 #include "chainparams.h"
+#include "checkpoints.h"
 #include "base58.h"
 #include "peg.h"
+
+#include <iostream>
+#include <fstream>
 
 using namespace std;
 using namespace boost;
@@ -431,6 +435,7 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
     boost::this_thread::interruption_point();
 
     // Calculate nChainTrust
+//    vector<pair<int,uint256> > vCheckpoints;
     vector<pair<int, CBlockIndex*> > vSortedByHeight;
     vSortedByHeight.reserve(mapBlockIndex.size());
     for(const std::pair<uint256, CBlockIndex*> & item : mapBlockIndex)
@@ -443,8 +448,21 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
     {
         CBlockIndex* pindex = item.second;
         pindex->nChainTrust = (pindex->pprev ? pindex->pprev->nChainTrust : 0) + pindex->GetBlockTrust();
+//        if (pindex->nHeight % 50000 == 0) {
+//            vCheckpoints.push_back(make_pair(pindex->nHeight, pindex->GetBlockHash()));
+//        }
     }
 
+//    ofstream myfile;
+//    myfile.open ("/home/alex/checks.txt");
+//    for(auto chk : vCheckpoints) {
+//        myfile << chk.first
+//               << '\t'
+//               << chk.second.ToString()
+//               << std::endl;
+//    }
+//    myfile.close();
+    
     // Load hashBestChain pointer to end of best chain
     if (!ReadHashBestChain(hashBestChain))
     {
@@ -585,6 +603,23 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
                      }
                 }
             }
+        }
+    }
+    { // check hard checkpoints
+        CBlockIndex* pindexLast = NULL;
+        vector<int> vHeights = Checkpoints::GetCheckpointsHeights();
+        for(int nHeight : vHeights) {
+            CBlockIndex* pindex = FindBlockByHeight(nHeight);
+            if (!pindex) {
+                break;
+            }
+            bool ok = Checkpoints::CheckHardened(nHeight, pindex->GetBlockHash());
+            if (!ok) {
+                pindexFork = pindexLast;
+                break;
+            }
+            pindexLast = pindex;
+            load_msg(" checkpoint: "+std::to_string(pindex->nHeight));
         }
     }
     if (pindexFork)

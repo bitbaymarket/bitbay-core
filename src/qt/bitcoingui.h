@@ -256,7 +256,10 @@ private slots:
     /** initiate request to retrieve rates */
     void ratesRequestInitiate();
     /** called as retrieved all bytes for rates */
-    void ratesReplyFinished(QNetworkReply *reply);
+    void netDataReplyFinished(QNetworkReply *reply);
+
+    /** initiate request to retrieve release info */
+    void releaseRequestInitiate();
 };
 
 #endif // BITCOINGUI_H

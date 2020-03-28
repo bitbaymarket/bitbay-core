@@ -561,11 +561,15 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     // Request rates
     netAccessManager = new QNetworkAccessManager(this);
     connect(netAccessManager, &QNetworkAccessManager::finished,
-            this, &BitcoinGUI::ratesReplyFinished);
+            this, &BitcoinGUI::netDataReplyFinished);
     
-    QTimer* timer = new QTimer(this);
-    connect(timer, SIGNAL(timeout()), this, SLOT(ratesRequestInitiate()));
-    timer->start(1000*60*15); // updates rates every 15 minutes
+    QTimer* timer1 = new QTimer(this);
+    connect(timer1, SIGNAL(timeout()), this, SLOT(ratesRequestInitiate()));
+    timer1->start(1000*60*15); // updates rates every 15 minutes
+
+    QTimer* timer2 = new QTimer(this);
+    connect(timer2, SIGNAL(timeout()), this, SLOT(releaseRequestInitiate()));
+    timer2->start(1000*60*60*24*2); // check the release info every 2 days
 }
 
 BitcoinGUI::~BitcoinGUI()
@@ -1085,6 +1089,7 @@ void BitcoinGUI::showEvent(QShowEvent *e)
     if (firstTimeRequest) {
         firstTimeRequest = false;
         ratesRequestInitiate();
+        releaseRequestInitiate();
     }
 }
 
@@ -1544,7 +1549,7 @@ void BitcoinGUI::ratesRequestInitiate()
     netAccessManager->get(req_rates_1k);
 }
 
-void BitcoinGUI::ratesReplyFinished(QNetworkReply *reply)
+void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
 {
     // #NOTE18
     if (!reply) {
@@ -1664,4 +1669,44 @@ void BitcoinGUI::ratesReplyFinished(QNetworkReply *reply)
             }
         }
     }
+    else if (reply->url().path().endsWith("release.json")) {
+        auto release_obj = json_doc.object();
+        auto record_ver_maj = release_obj["version_major"];
+        auto record_ver_min = release_obj["version_minor"];
+        auto record_ver_rev = release_obj["version_revision"];
+        if (!record_ver_maj.isDouble()) return;
+        if (!record_ver_min.isDouble()) return;
+        if (!record_ver_rev.isDouble()) return;
+        int ver_maj = record_ver_maj.toInt();
+        int ver_min = record_ver_min.toInt();
+        int ver_rev = record_ver_rev.toInt();
+        if (ver_maj < CLIENT_VERSION_MAJOR) return;
+        if (ver_min < CLIENT_VERSION_MINOR) return;
+        if (ver_rev <=CLIENT_VERSION_REVISION) return;
+        QMessageBox::warning(this, 
+                             tr("New Version Warning"), 
+                             tr("New Version BitBay wallet is available %1.%2.%3.\n"
+                                "You have %4.%5.%6.")
+                             .arg(ver_maj)
+                             .arg(ver_min)
+                             .arg(ver_rev)
+                             .arg(CLIENT_VERSION_MAJOR)
+                             .arg(CLIENT_VERSION_MINOR)
+                             .arg(CLIENT_VERSION_REVISION), 
+                             QMessageBox::Ok);
+    }
 }
+
+void BitcoinGUI::releaseRequestInitiate()
+{
+    QUrl release_url = QUrl("https://bitbaymarket.github.io/bitbay-core-peg/release.json");
+    if (TestNet()) {
+        // todo
+        return;
+    } 
+
+    QNetworkRequest req_release(release_url);
+    req_release.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    netAccessManager->get(req_release);
+}
+

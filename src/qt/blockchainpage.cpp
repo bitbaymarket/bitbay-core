@@ -44,6 +44,7 @@ extern void TxToJSON(const CTransaction& tx,
                      const MapFractions&,
                      int nSupply,
                      json_spirit::Object& entry);
+extern double GetDifficulty(const CBlockIndex* blockindex = NULL);
 
 BlockchainPage::BlockchainPage(QWidget *parent) :
     QDialog(parent),
@@ -387,6 +388,8 @@ void BlockchainPage::openBlock(uint256 hash)
     ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Next",nbhash})));
     ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Previous",pbhash})));
     ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Version",QString::number(block.nVersion)})));
+    ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Block Bits", QString::fromStdString(strprintf("%08x", pblockindex->nBits))})));
+    ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Difficulty", QString::number(GetDifficulty(pblockindex))})));
     ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Block Trust",QString::fromStdString(pblockindex->GetBlockTrust().ToString())})));
     ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Chain Trust",QString::fromStdString(pblockindex->nChainTrust.ToString())})));
 

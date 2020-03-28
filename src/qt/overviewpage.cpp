@@ -123,7 +123,7 @@ OverviewPage::OverviewPage(QWidget *parent) :
             color: rgb(102,102,102);
             background-color: rgb(255,255,255);
             padding-left: 10px;
-            padding-right:10px;
+            padding-right:3px;
         }
     )";
 

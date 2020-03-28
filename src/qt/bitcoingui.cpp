@@ -1681,12 +1681,15 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
         int ver_min = record_ver_min.toInt();
         int ver_rev = record_ver_rev.toInt();
         if (ver_maj < CLIENT_VERSION_MAJOR) return;
-        if (ver_min < CLIENT_VERSION_MINOR) return;
-        if (ver_rev <=CLIENT_VERSION_REVISION) return;
+        if (ver_maj == CLIENT_VERSION_MAJOR && 
+            ver_min < CLIENT_VERSION_MINOR) return;
+        if (ver_maj == CLIENT_VERSION_MAJOR && 
+            ver_min == CLIENT_VERSION_MINOR && 
+            ver_rev <=CLIENT_VERSION_REVISION) return;
         QMessageBox::warning(this, 
                              tr("New Version Warning"), 
-                             tr("New Version BitBay wallet is available %1.%2.%3.\n"
-                                "You have %4.%5.%6.")
+                             tr("New Version of BitBay wallet is available %1.%2.%3.\n"
+                                "Current running has version %4.%5.%6.")
                              .arg(ver_maj)
                              .arg(ver_min)
                              .arg(ver_rev)

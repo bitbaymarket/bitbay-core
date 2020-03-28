@@ -978,9 +978,11 @@ static CBlockIndex* pblockindexFBBHLast;
 CBlockIndex* FindBlockByHeight(int nHeight)
 {
     CBlockIndex *pblockindex;
+    if (nHeight > nBestHeight)
+        return NULL;
     if (nHeight < nBestHeight / 2)
         pblockindex = pindexGenesisBlock;
-    else
+    else 
         pblockindex = pindexBest;
     if (pblockindexFBBHLast && abs(nHeight - pblockindex->nHeight) > abs(nHeight - pblockindexFBBHLast->nHeight))
         pblockindex = pblockindexFBBHLast;

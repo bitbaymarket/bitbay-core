@@ -153,6 +153,18 @@ public:
         sTrustedStackers.insert("bFEEzRWNWKGxFmjAkT1SmjNs8VTD9eTYje");
         sTrustedStackers.insert("bCqaStDHVoU89DWDjRxrsGbVFBWhxBFdP3");
         sTrustedStackers.insert("bbn4mJawLC8C26gfw4TVAcfRftiRvb6hZz");
+        // 3
+        sTrustedStackers.insert("bamTjYPT5R822PLgVXUUUdYG6mQTnwmLtj");
+        sTrustedStackers.insert("bbaeKoaSbH23JP1PHM7Fa3oPAfDLQjA9fr");
+        sTrustedStackers.insert("bbbVueUaexGJgxkh2o2Eicd7nKDkuygGoc");
+        sTrustedStackers.insert("bE2sWfTAKR556uFwFjkeQcgMQTFZU2c5c6");
+        sTrustedStackers.insert("bG5WbMoXhMYEVa52ucZWjnidsqTidH7XoV");
+        sTrustedStackers.insert("bHcSb6MC3dxAZbyBSMtSfq81WUF8odrfs6");
+        sTrustedStackers.insert("bLRmZWd5mhE8H5AeSdXuRgwsdXAfEPRdDD");
+        sTrustedStackers.insert("bSg6gu7nH8aHwz2FTqfNF3h6TBExozfkMc");
+        sTrustedStackers.insert("bU7Fr7yrYJWgx6dTqpLW7Xs2Ztc7DBShNC");
+        sTrustedStackers.insert("bWVt3Qp1M2m3qNc2JgBcis6v2fu2ARoBzh");
+        sTrustedStackers.insert("bZT1vZsC123vFHpxwiXYTAt9k9kpfmhD9Y");
         // m
         sTrustedStackers.insert("bP66u6L53PmFppSszfDnUN7dBh6jeNw1uJ");
         sTrustedStackers.insert("BNFFzvTApN8JtFcWgjQHKCezKthuu6bDdv");

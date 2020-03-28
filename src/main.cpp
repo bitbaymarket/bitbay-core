@@ -2394,35 +2394,38 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const u
             if (!(pfork = pfork->pprev))
                 return error("AddToBlockIndex() : pfork->pprev is null");
         }
-        // 2. check stakers of new chain
-        for (CBlockIndex* pindex = pindexNew; pindex != pfork; pindex = pindex->pprev) {
-            CBlock block;
-            if (!block.ReadFromDisk(pindex, true))
-                return error("ReadFromDisk() : block read failed");
-            if (block.vtx.size() >1 && block.vtx[1].IsCoinStake()) {
-                CTransaction& tx = block.vtx[1];
-                if (tx.vin.size() >1) {
-                    const CTxIn & txin = tx.vin[0];
-                    // Read txindex
-                    CTxIndex txindex;
-                    if (!txdb.ReadTxIndex(txin.prevout.hash, txindex)) {
-                        continue;
-                    }
-                    // Read txPrev
-                    CTransaction txPrev;
-                    if (!txPrev.ReadFromDisk(txindex.pos)) {
-                        continue;
-                    }
-                    if (txPrev.vout.size() > txin.prevout.n) {
-                        int nRequired;
-                        txnouttype type;
-                        vector<CTxDestination> vAddresses;
-                        if (ExtractDestinations(txPrev.vout[txin.prevout.n].scriptPubKey, type, vAddresses, nRequired)) {
-                            if (vAddresses.size()==1) {
-                                string sAddress = CBitcoinAddress(vAddresses.front()).ToString();
-                                if (Params().sTrustedStackers.count(sAddress)) {
-                                    hasBetterStakerTrust = true;
-                                    break;
+        int nDepthToFork = pindexNew->nHeight - pfork->nHeight;
+        if (nDepthToFork > 20) {
+            // 2. check stakers of new chain
+            for (CBlockIndex* pindex = pindexNew; pindex != pfork; pindex = pindex->pprev) {
+                CBlock block;
+                if (!block.ReadFromDisk(pindex, true))
+                    return error("ReadFromDisk() : block read failed");
+                if (block.vtx.size() >1 && block.vtx[1].IsCoinStake()) {
+                    CTransaction& tx = block.vtx[1];
+                    if (tx.vin.size() >1) {
+                        const CTxIn & txin = tx.vin[0];
+                        // Read txindex
+                        CTxIndex txindex;
+                        if (!txdb.ReadTxIndex(txin.prevout.hash, txindex)) {
+                            continue;
+                        }
+                        // Read txPrev
+                        CTransaction txPrev;
+                        if (!txPrev.ReadFromDisk(txindex.pos)) {
+                            continue;
+                        }
+                        if (txPrev.vout.size() > txin.prevout.n) {
+                            int nRequired;
+                            txnouttype type;
+                            vector<CTxDestination> vAddresses;
+                            if (ExtractDestinations(txPrev.vout[txin.prevout.n].scriptPubKey, type, vAddresses, nRequired)) {
+                                if (vAddresses.size()==1) {
+                                    string sAddress = CBitcoinAddress(vAddresses.front()).ToString();
+                                    if (Params().sTrustedStackers.count(sAddress)) {
+                                        hasBetterStakerTrust = true;
+                                        break;
+                                    }
                                 }
                             }
                         }

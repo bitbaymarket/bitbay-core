@@ -488,3 +488,44 @@ Value gettxout(const Array& params, bool fHelp)
 
     return ret;
 }
+
+Value createbootstrap(const Array& params, bool fHelp)
+{
+    if (fHelp)
+        throw runtime_error(
+            "createbootstrap\n"
+            "Create bootstrap file.");
+
+    int nWritten = 0;
+
+    Object ret;
+
+    boost::filesystem::path pathBootstrap = GetDataDir() / "bootstrap.dat";
+    FILE *file = fopen(pathBootstrap.string().c_str(), "wb");
+    CAutoFile fileout = CAutoFile(file, SER_DISK, CLIENT_VERSION);
+    if (!fileout) {
+        return JSONRPCError(RPC_MISC_ERROR, "Open bootstrap failed");
+    }
+    
+    uint256 blockHash = Params().HashGenesisBlock();
+    map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(blockHash);
+    if (mi == mapBlockIndex.end()) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Genesis block not found");
+    }
+    CBlockIndex* pindex = (*mi).second;
+    while (pindex) {
+        CBlock block;
+        if (!block.ReadFromDisk(pindex, true)) {
+            throw JSONRPCError(RPC_MISC_ERROR, "Block read failed");
+        }
+        // Write index header
+        unsigned int nSize = fileout.GetSerializeSize(block);
+        fileout << FLATDATA(Params().MessageStart()) << nSize;
+        fileout << block;
+        nWritten++;
+        pindex = pindex->pnext;
+    }
+    
+    ret.push_back(Pair("written", nWritten));
+    return ret;
+}

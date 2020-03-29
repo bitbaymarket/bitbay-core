@@ -250,6 +250,7 @@ static const CRPCCommand vRPCCommands[] =
     { "getfractionsbase64",     &getfractionsbase64,     true,      false,     false },
     { "getliquidityrate",       &getliquidityrate,       true,      false,     false },
     { "validaterawtransaction", &validaterawtransaction, true,      false,     false },
+    { "createbootstrap",        &createbootstrap,        true,      false,     false },
 
 #ifdef ENABLE_WALLET
     { "getmininginfo",          &getmininginfo,          true,      false,     false },

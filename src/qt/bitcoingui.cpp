@@ -726,7 +726,11 @@ void BitcoinGUI::setClientModel(ClientModel *clientModel)
             if(trayIcon)
             {
                 trayIcon->setToolTip(tr("BitBay client") + QString(" ") + tr("[testnet]"));
+#ifdef Q_WS_WIN
                 trayIcon->setIcon(QIcon(":/icons/toolbar_testnet"));
+#else
+                trayIcon->setIcon(QIcon(":/icons/trayicon32_testnet"));
+#endif
                 toggleHideAction->setIcon(QIcon(":/icons/toolbar_testnet"));
             }
         }

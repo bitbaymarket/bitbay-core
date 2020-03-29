@@ -421,7 +421,7 @@ bool CheckProofOfStake(CBlockIndex* pindexPrev, const CTransaction& tx, unsigned
     CTransaction txPrev;
     CTxIndex txindex;
     if (!txPrev.ReadFromDisk(txdb, txin.prevout, txindex))
-        return tx.DoS(1, error("CheckProofOfStake() : INFO: read txPrev failed"));  // previous transaction not in main chain, may occur during initial download
+        return tx.DoS(1, error("CheckProofOfStake() : INFO: read txPrev failed %s", txin.prevout.hash.ToString()));  // previous transaction not in main chain, may occur during initial download
 
     // Verify signature
     if (!VerifySignature(txPrev, tx, 0, SCRIPT_VERIFY_NONE, 0))

@@ -92,6 +92,13 @@ matrix:
         - DEPLOY_FILE=bitbayd_linux64.tgz
         - ARCH="bitbayd-lin64"
     - os: linux
+      arch: arm64
+      dist: trusty
+      sudo: required
+      env:
+        - DEPLOY_FILE=bitbayd_linux64arm.tgz
+        - ARCH="bitbayd-lin64arm"
+    - os: linux
       dist: trusty
       sudo: required
       env:

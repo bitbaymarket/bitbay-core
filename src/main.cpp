@@ -1804,6 +1804,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
             int64_t nTxValueOut = tx.GetValueOut();
             nValueIn += nTxValueIn;
             nValueOut += nTxValueOut;
+            
             if (!tx.IsCoinStake())
                 nFees += nTxValueIn - nTxValueOut;
             if (tx.IsCoinStake())
@@ -1814,6 +1815,8 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
                                   feesFractions,
                                   posThisTx, pindex, true, false, flags))
                 return false;
+            
+            //if (!tx.)
         }
 
         mapQueuedChanges[hashTx] = CTxIndex(posThisTx, tx.vout.size());
@@ -1918,6 +1921,20 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
                     PrunePegForBlock(blockprune, pegdb);
                 }
             }
+        }
+    }
+    
+    // Write address changes
+    for(CTransaction& tx : vtx)
+    {
+        uint256 hashTx = tx.GetHash();
+        // credit input addresses
+        for(const CTxIn & txin : tx.vin) {
+            
+        }
+        // debit output addresses
+        for(const CTxOut & txout : tx.vout) {
+            
         }
     }
 
@@ -3085,6 +3102,8 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
         }
     }
     if (!txdb.LoadBlockIndex(load_msg))
+        return false;
+    if (!txdb.LoadUtxoData(load_msg))
         return false;
     
     CPegDB pegdb("cr+");

@@ -200,6 +200,7 @@ public:
     bool ReadBestInvalidTrust(CBigNum& bnBestInvalidTrust);
     bool WriteBestInvalidTrust(CBigNum bnBestInvalidTrust);
     bool LoadBlockIndex(LoadMsg load_msg);
+    bool LoadUtxoData(LoadMsg load_msg);
     
     // flags for peg system peg
     bool ReadPegStartHeight(int& nHeight);
@@ -213,9 +214,15 @@ public:
     
     bool ReadPegPruneEnabled(bool& fEnabled);
     bool WritePegPruneEnabled(bool fEnabled);
+
+    bool ReadUtxoDbIsReady(bool& bReady);
+    bool WriteUtxoDbIsReady(bool bReady);
+
+    bool ReadUtxoDbEnabled(bool& fEnabled);
+    bool WriteUtxoDbEnabled(bool fEnabled);
     
-private:
-    bool LoadBlockIndexGuts();
+    bool ReadAddressLastBalance(string addr, CAddrBalance & balance, int64_t & nIdx);
+    bool ReadAddressBalanceRecords(string addr, vector<CAddrBalance> & records);
 };
 
 extern leveldb::DB *txdb; // global pointer for LevelDB object instance

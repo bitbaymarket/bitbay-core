@@ -8,6 +8,7 @@
 #include <boost/version.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include <leveldb/env.h>
 #include <leveldb/cache.h>
@@ -21,6 +22,7 @@
 #include "checkpoints.h"
 #include "base58.h"
 #include "peg.h"
+#include "script.h"
 
 #include <iostream>
 #include <fstream>
@@ -636,6 +638,230 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
         CTxDB txdb;
         CPegDB pegdb;
         block.SetBestChain(txdb, pegdb, pindexFork);
+    }
+    
+    return true;
+}
+
+bool CTxDB::ReadUtxoDbEnabled(bool& fEnabled)
+{
+#ifdef ENABLE_EXPLORER
+    fEnabled = false;
+    return true;
+#else
+    return Read(string("utxoDbEnabled"), fEnabled);
+#endif
+}
+
+bool CTxDB::WriteUtxoDbEnabled(bool fEnabled)
+{
+    return Write(string("utxoDbEnabled"), fEnabled);
+}
+
+bool CTxDB::ReadUtxoDbIsReady(bool& bReady)
+{
+    return Read(string("utxoDbIsReady"), bReady);
+}
+
+bool CTxDB::WriteUtxoDbIsReady(bool bReady)
+{
+    return Write(string("utxoDbIsReady"), bReady);
+}
+
+bool CTxDB::ReadAddressLastBalance(string sAddress, CAddrBalance & balance, int64_t & nIdx)
+{
+    nIdx = -1;
+    bool fFound = false;
+    leveldb::Iterator *iterator = pdb->NewIterator(leveldb::ReadOptions());
+    string sNum = strprintf("%016x", 0);
+    CDataStream ssStartKey(SER_DISK, CLIENT_VERSION);
+    ssStartKey << "addr"+sAddress+sNum;
+    iterator->Seek(ssStartKey.str());
+    if (iterator->Valid()) {
+        CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+        ssKey.write(iterator->key().data(), iterator->key().size());
+        string sKey;
+        ssKey >> sKey;
+        if (boost::starts_with(sKey, "addr"+sAddress)) {
+            sNum = sKey.substr(4+34);
+            std::istringstream(sNum) >> std::hex >> nIdx;
+            nIdx = INT64_MAX-nIdx;
+            CDataStream ssValue(SER_DISK, CLIENT_VERSION);
+            ssValue.write(iterator->value().data(), iterator->value().size());
+            ssValue >> balance;
+            fFound = true;
+        }
+    }
+    delete iterator;
+    return fFound;
+}
+
+bool CTxDB::ReadAddressBalanceRecords(string sAddress, vector<CAddrBalance> & vRecords)
+{
+    bool fFound = false;
+    leveldb::Iterator *iterator = pdb->NewIterator(leveldb::ReadOptions());
+    string sNum = strprintf("%016x", 0);
+    CDataStream ssStartKey(SER_DISK, CLIENT_VERSION);
+    ssStartKey << "addr"+sAddress+sNum;
+    iterator->Seek(ssStartKey.str());
+    while (iterator->Valid()) {
+        CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+        ssKey.write(iterator->key().data(), iterator->key().size());
+        string sKey;
+        ssKey >> sKey;
+        if (boost::starts_with(sKey, "addr"+sAddress)) {
+            CAddrBalance balance;
+            CDataStream ssValue(SER_DISK, CLIENT_VERSION);
+            ssValue.write(iterator->value().data(), iterator->value().size());
+            ssValue >> balance;
+            vRecords.push_back(balance);
+            fFound = true;
+        } 
+        else {
+            break;
+        }
+        iterator->Next();
+    }
+    delete iterator;
+    return fFound;
+}
+
+bool CTxDB::LoadUtxoData(LoadMsg load_msg)
+{
+    bool fIsReady = false;
+    bool fEnabled = false;
+    
+    ReadUtxoDbIsReady(fIsReady);
+    ReadUtxoDbEnabled(fEnabled);
+
+    fIsReady = false;
+    fEnabled = true;
+    
+    // remove old
+    {
+        leveldb::Iterator *iterator = pdb->NewIterator(leveldb::ReadOptions());
+        string sNum = strprintf("%016x", 0);
+        CDataStream ssStartKey(SER_DISK, CLIENT_VERSION);
+        ssStartKey << "addr0000000000000000000000000000000000"+sNum;
+        iterator->Seek(ssStartKey.str());
+        int n =0;
+        while (iterator->Valid()) {
+            if (n % 10000 == 0) {
+                load_msg(std::string(" delete old addresses: ")+std::to_string(n));
+            }
+            CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+            ssKey.write(iterator->key().data(), iterator->key().size());
+            string sKey;
+            ssKey >> sKey;
+            if (boost::starts_with(sKey, "addr")) {
+                string sDeleteKey = iterator->key().ToString();
+                iterator->Next();
+                pdb->Delete(leveldb::WriteOptions(), sDeleteKey);
+                n++;
+                continue;
+            }
+            else {
+                break;
+            }
+            iterator->Next();
+            n++;
+        }
+        delete iterator;
+    }
+    
+    if (!fIsReady && fEnabled) {
+        
+        //if (!TxnBegin())
+        //    return error("LoadUtxoData() : tx TxnBegin failed");
+        
+        CBlockIndex* pindex = pindexGenesisBlock;
+        while (pindex)
+        {
+            if (pindex->nHeight % 1000 == 0) {
+                load_msg(std::string(" process addresses: ")+std::to_string(pindex->nHeight));
+    
+                //if (!TxnCommit())
+                //    return error("LoadUtxoData() : TxnCommit failed");
+                //if (!TxnBegin())
+                //    return error("LoadUtxoData() : TxnBegin failed");
+            }
+            
+            CBlock block;
+            block.ReadFromDisk(pindex, true);
+            for(size_t i=0; i < block.vtx.size(); i++)
+            {
+                const CTransaction& tx = block.vtx[i];
+                auto txhash = tx.GetHash();
+                // credit input addresses
+                for(size_t j =0; j < tx.vin.size(); j++) {
+                    const COutPoint & prevout = tx.vin[j].prevout;
+                    CTransaction prev;
+                    if(!ReadDiskTx(prevout.hash, prev))
+                        continue;
+                    if (prev.vout.size() <= prevout.n)
+                        continue;
+                    const CTxOut & txout = prev.vout[prevout.n];
+                    CTxDestination dst;
+                    if(!ExtractDestination(txout.scriptPubKey, dst))
+                        continue;
+                    string sAddress = CBitcoinAddress(dst).ToString();
+                    if (sAddress.size() != 34)
+                        continue;
+                    
+                    int64_t nIdx = -1;
+                    CAddrBalance lastbalance;
+                    ReadAddressLastBalance(sAddress, lastbalance, nIdx);
+                    
+                    CAddrBalance balance;
+                    balance.nTime = tx.nTime;
+                    balance.nHeight = pindex->nHeight;
+                    balance.nTxIndex = i;
+                    balance.txhash = txhash;
+                    balance.nCredit = txout.nValue;
+                    balance.nBalance = lastbalance.nBalance - balance.nCredit;
+                    string sNum = strprintf("%016x", INT64_MAX-(nIdx+1));
+                    Write("addr"+sAddress+sNum, balance);
+                }
+                // debit output addresses
+                for(size_t j =0; j < tx.vout.size(); j++) {
+                    const CTxOut & txout = tx.vout[j];
+                    CTxDestination dst;
+                    if(!ExtractDestination(txout.scriptPubKey, dst))
+                        continue;
+                    string sAddress = CBitcoinAddress(dst).ToString();
+                    if (sAddress.size() != 34)
+                        continue;
+                    
+                    int64_t nIdx = -1;
+                    CAddrBalance lastbalance;
+                    ReadAddressLastBalance(sAddress, lastbalance, nIdx);
+                    
+                    CAddrBalance balance;
+                    balance.nTime = tx.nTime;
+                    balance.nHeight = pindex->nHeight;
+                    balance.nTxIndex = i;
+                    balance.txhash = txhash;
+                    balance.nDebit = txout.nValue;
+                    balance.nBalance = lastbalance.nBalance + balance.nDebit;
+                    string sNum = strprintf("%016x", INT64_MAX-(nIdx+1));
+                    Write("addr"+sAddress+sNum, balance);
+                }
+            }
+            pindex = pindex->pnext;
+        }
+        
+        //if (!TxnCommit())
+        //    return error("LoadUtxoData() : TxnCommit failed");
+        
+        boost::this_thread::interruption_point();
+        
+        // utxo db is ready for use
+        WriteUtxoDbIsReady(true);
+    }
+    
+    if (fIsReady && !fEnabled) {
+        // turn off as ready, new blocks are not processed
+        WriteUtxoDbIsReady(false);
     }
     
     return true;

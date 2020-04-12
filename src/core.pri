@@ -106,6 +106,9 @@ wallet {
             $$PWD/exchange/rpcwithdraw.cpp \
             $$PWD/exchange/rpcexchange_util.cpp \
     }
+    explorer {
+        DEFINES += ENABLE_EXPLORER
+    }
 
     HEADERS += \
         $$PWD/wallet/db.h \

@@ -55,6 +55,7 @@ public slots:
     void showChainPage();
     void showBlockPage();
     void showTxPage();
+    void showAddrPage();
     void showNetPage();
     void jumpToTop();
     
@@ -67,6 +68,7 @@ private slots:
     void openTxFromInput();
     void jumpToBlock();
     void openBlockFromInput();
+    void openAddressFromInput();
     void updateCurrentBlockIndex();
     void scrollToCurrentBlockIndex();
     void openChainMenu(const QPoint &);

@@ -71,6 +71,7 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     connect(ui->buttonChain, SIGNAL(clicked()), this, SLOT(showChainPage()));
     connect(ui->buttonBlock, SIGNAL(clicked()), this, SLOT(showBlockPage()));
     connect(ui->buttonTx, SIGNAL(clicked()), this, SLOT(showTxPage()));
+    connect(ui->buttonAddress, SIGNAL(clicked()), this, SLOT(showAddrPage()));
     connect(ui->buttonNet, SIGNAL(clicked()), this, SLOT(showNetPage()));
     connect(ui->buttonMempool, SIGNAL(clicked()), this, SLOT(showMempoolPage()));
 
@@ -114,16 +115,19 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     )";
     ui->blockValues->setStyleSheet(hstyle);
     ui->blockchainView->setStyleSheet(hstyle);
+    ui->balanceValues->setStyleSheet(hstyle);
     ui->netNodes->setStyleSheet(hstyle);
     ui->mempoolView->setStyleSheet(hstyle);
 
     ui->blockValues->setFont(font);
     ui->blockchainView->setFont(font);
+    ui->balanceValues->setFont(font);
     ui->netNodes->setFont(font);
     ui->mempoolView->setFont(font);
 
     ui->blockValues->header()->setFont(font);
     ui->blockchainView->header()->setFont(font);
+    ui->balanceValues->header()->setFont(font);
     ui->netNodes->header()->setFont(font);
     ui->mempoolView->header()->setFont(font);
 
@@ -131,12 +135,21 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
             this, SLOT(jumpToBlock()));
     connect(ui->lineFindBlock, SIGNAL(returnPressed()),
             this, SLOT(openBlockFromInput()));
+    connect(ui->lineFindAddress, SIGNAL(returnPressed()),
+            this, SLOT(openAddressFromInput()));
     connect(ui->lineTx, SIGNAL(returnPressed()),
             this, SLOT(openTxFromInput()));
     
     ui->netNodes->header()->resizeSection(0 /*addr*/, 250);
     ui->netNodes->header()->resizeSection(1 /*protocol*/, 100);
     ui->netNodes->header()->resizeSection(2 /*version*/, 250);
+    
+    ui->balanceValues->header()->resizeSection(0 /*n*/, 50);
+    ui->balanceValues->header()->resizeSection(1 /*tx*/, 80);
+    ui->balanceValues->header()->resizeSection(2 /*credit*/,  180);
+    ui->balanceValues->header()->resizeSection(3 /*debit */,  180);
+    ui->balanceValues->header()->resizeSection(4 /*balance*/, 180);
+    ui->balanceValues->header()->resizeSection(5 /*F*/, 20);
     
     QTimer * t = new QTimer(this);
     t->setInterval(10 * 1000);
@@ -167,6 +180,11 @@ void BlockchainPage::showBlockPage()
 void BlockchainPage::showTxPage()
 {
     ui->tabs->setCurrentWidget(ui->pageTx);
+}
+
+void BlockchainPage::showAddrPage()
+{
+    ui->tabs->setCurrentWidget(ui->pageAddress);
 }
 
 void BlockchainPage::showNetPage()
@@ -736,3 +754,31 @@ void BlockchainPage::updateMempool()
         }
     }
 }
+
+void BlockchainPage::openAddressFromInput()
+{
+    ui->balanceValues->clear();
+    QString addr = ui->lineFindAddress->text();
+    LOCK(cs_main);
+    CTxDB txdb("r");
+    vector<CAddrBalance> records;
+    bool ok = txdb.ReadAddressBalanceRecords(addr.toStdString(), records);
+    if (!ok) return;
+    int nIdx = records.size();
+    for (const auto & record : records) {
+        //auto shash = QString::fromStdString(record.txhash.ToString());
+        auto item = new QTreeWidgetItem;
+        item->setText(0, QString::number(nIdx));
+        item->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        item->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        item->setData(4, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        item->setText(1, QString("%1-%2").arg(record.nHeight).arg(record.nTxIndex));
+        item->setText(2, record.nCredit>0 ? "-"+displayValue(record.nCredit) : QString(""));
+        item->setText(3, record.nDebit >0 ? "+"+displayValue(record.nDebit ) : QString(""));
+        item->setText(4, displayValue(record.nBalance));
+        item->setText(6, QString::fromStdString(DateTimeStrFormat(record.nTime)));
+        ui->balanceValues->addTopLevelItem(item);
+        nIdx--;
+    }
+}
+

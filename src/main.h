@@ -607,6 +607,48 @@ public:
 
 
 
+/**  A txdb record that contains the balance change per address
+ */
+class CAddrBalance
+{
+public:
+    uint256 txhash;
+    int64_t nHeight;
+    int16_t nTxIndex;
+    int64_t nTime;
+    int64_t nDebit;
+    int64_t nCredit;
+    int64_t nBalance;
+
+    CAddrBalance()
+    {
+        SetNull();
+    }
+
+    IMPLEMENT_SERIALIZE
+    (
+        READWRITE(txhash);
+        READWRITE(nHeight);
+        READWRITE(nTxIndex);
+        READWRITE(nTime);
+        READWRITE(nDebit);
+        READWRITE(nCredit);
+        READWRITE(nBalance);
+    )
+
+    void SetNull()
+    {
+        nHeight = 0;
+        nTxIndex = 0;
+        nTime = 0;
+        nDebit = 0;
+        nCredit = 0;
+        nBalance = 0;
+    }
+
+};
+
+
 
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,

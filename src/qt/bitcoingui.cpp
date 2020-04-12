@@ -1662,14 +1662,16 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
             if (!record_bay_vote.isString()) return;
             
             QString pegvote = record_bay_vote.toString();
-            if (pegvote == "inflate") {
-                walletModel->setTrackerVote(PEG_VOTE_INFLATE, bay_floor_in_usd);
-            } else if (pegvote == "deflate") {
-                walletModel->setTrackerVote(PEG_VOTE_DEFLATE, bay_floor_in_usd);
-            } else if (pegvote == "nochange") {
-                walletModel->setTrackerVote(PEG_VOTE_NOCHANGE, bay_floor_in_usd);
-            } else {
-                walletModel->setTrackerVote(PEG_VOTE_NONE, bay_floor_in_usd);
+            if (walletModel) {
+                if (pegvote == "inflate") {
+                    walletModel->setTrackerVote(PEG_VOTE_INFLATE, bay_floor_in_usd);
+                } else if (pegvote == "deflate") {
+                    walletModel->setTrackerVote(PEG_VOTE_DEFLATE, bay_floor_in_usd);
+                } else if (pegvote == "nochange") {
+                    walletModel->setTrackerVote(PEG_VOTE_NOCHANGE, bay_floor_in_usd);
+                } else {
+                    walletModel->setTrackerVote(PEG_VOTE_NONE, bay_floor_in_usd);
+                }
             }
         }
     }
@@ -1690,6 +1692,9 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
         if (ver_maj == CLIENT_VERSION_MAJOR && 
             ver_min == CLIENT_VERSION_MINOR && 
             ver_rev <=CLIENT_VERSION_REVISION) return;
+        if (!walletModel) {
+            return;
+        }
         QMessageBox::warning(this, 
                              tr("New Version Warning"), 
                              tr("New Version of BitBay wallet is available %1.%2.%3.\n"

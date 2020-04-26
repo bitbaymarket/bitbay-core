@@ -228,7 +228,8 @@ public:
     bool ReadAddressLastBalance(string addr, CAddressBalance & balance, int64_t & nIdx);
     bool ReadAddressBalanceRecords(string addr, vector<CAddressBalance> & records);
     bool ReadAddressUnspent(string addr, vector<CAddressUnspent> & records);
-	
+    bool ReadAddressFrozen(string addr, vector<CAddressUnspent> & records);
+
     bool AddUnspent(std::string sAddress, uint320 txoutid, CAddressUnspent & utxo) {
         string sTxout = txoutid.GetHex();
         return Write("utxo"+sAddress+sTxout, utxo);

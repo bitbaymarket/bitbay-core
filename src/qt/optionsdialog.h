@@ -45,6 +45,7 @@ private slots:
     void updateDisplayUnit();
     void handleProxyIpValid(QValidatedLineEdit *object, bool fState);
     void changePegPrune(bool);
+    void changeUtxoAddress(bool);
 
 signals:
     void proxyIpValid(QValidatedLineEdit *object, bool fValid);

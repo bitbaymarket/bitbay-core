@@ -14,29 +14,10 @@
    <string>Blochain Info page</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="6">
-    <spacer name="horizontalSpacer">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>40</width>
-       <height>20</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
    <item row="0" column="5">
-    <widget class="QToolButton" name="buttonNet">
+    <widget class="QToolButton" name="buttonMempool">
      <property name="text">
-      <string>Net</string>
-     </property>
-     <property name="checkable">
-      <bool>true</bool>
-     </property>
-     <property name="autoExclusive">
-      <bool>true</bool>
+      <string>Mempool</string>
      </property>
     </widget>
    </item>
@@ -53,22 +34,19 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="4">
-    <widget class="QToolButton" name="buttonMempool">
+   <item row="0" column="3">
+    <widget class="QToolButton" name="buttonAddress">
      <property name="text">
-      <string>Mempool</string>
+      <string>Address</string>
      </property>
     </widget>
    </item>
-   <item row="0" column="0">
-    <widget class="QToolButton" name="buttonChain">
+   <item row="0" column="2">
+    <widget class="QToolButton" name="buttonTx">
      <property name="text">
-      <string>Chain</string>
+      <string>Transaction</string>
      </property>
      <property name="checkable">
-      <bool>true</bool>
-     </property>
-     <property name="checked">
       <bool>true</bool>
      </property>
      <property name="autoExclusive">
@@ -76,7 +54,7 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="0" colspan="7">
+   <item row="1" column="0" colspan="8">
     <widget class="QStackedWidget" name="tabs">
      <property name="currentIndex">
       <number>0</number>
@@ -219,7 +197,7 @@
         <number>0</number>
        </property>
        <item row="0" column="0">
-        <widget class="QLineEdit" name="lineFindAddress">
+        <widget class="QLineEdit" name="lineBalanceAddress">
          <property name="placeholderText">
           <string>Enter address and press Return to see details</string>
          </property>
@@ -264,7 +242,7 @@
          </column>
          <column>
           <property name="text">
-           <string>Balance</string>
+           <string>Total</string>
           </property>
          </column>
          <column>
@@ -275,6 +253,78 @@
          <column>
           <property name="text">
            <string>Date</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="pageUtxo">
+      <layout class="QGridLayout" name="gridLayout_8">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item row="0" column="0">
+        <widget class="QLineEdit" name="lineUtxoAddress">
+         <property name="placeholderText">
+          <string>Enter address and press Return to see details</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QTreeWidget" name="utxoValues">
+         <property name="alternatingRowColors">
+          <bool>true</bool>
+         </property>
+         <property name="rootIsDecorated">
+          <bool>false</bool>
+         </property>
+         <property name="uniformRowHeights">
+          <bool>true</bool>
+         </property>
+         <property name="itemsExpandable">
+          <bool>false</bool>
+         </property>
+         <property name="allColumnsShowFocus">
+          <bool>true</bool>
+         </property>
+         <column>
+          <property name="text">
+           <string>N</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Tx</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Liquid</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Reserve</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Amount</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>F</string>
           </property>
          </column>
         </widget>
@@ -378,10 +428,10 @@
      </widget>
     </widget>
    </item>
-   <item row="0" column="2">
-    <widget class="QToolButton" name="buttonTx">
+   <item row="0" column="6">
+    <widget class="QToolButton" name="buttonNet">
      <property name="text">
-      <string>Transaction</string>
+      <string>Net</string>
      </property>
      <property name="checkable">
       <bool>true</bool>
@@ -391,10 +441,39 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="3">
-    <widget class="QToolButton" name="buttonAddress">
+   <item row="0" column="0">
+    <widget class="QToolButton" name="buttonChain">
      <property name="text">
-      <string>Address</string>
+      <string>Chain</string>
+     </property>
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+     <property name="autoExclusive">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="7">
+    <spacer name="horizontalSpacer">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>40</width>
+       <height>20</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item row="0" column="4">
+    <widget class="QToolButton" name="buttonUnspent">
+     <property name="text">
+      <string>Unspent</string>
      </property>
     </widget>
    </item>
@@ -404,14 +483,21 @@
   <tabstop>buttonChain</tabstop>
   <tabstop>buttonBlock</tabstop>
   <tabstop>buttonTx</tabstop>
+  <tabstop>buttonAddress</tabstop>
+  <tabstop>buttonUnspent</tabstop>
   <tabstop>buttonMempool</tabstop>
   <tabstop>buttonNet</tabstop>
   <tabstop>lineJumpToBlock</tabstop>
   <tabstop>blockchainView</tabstop>
-  <tabstop>blockValues</tabstop>
-  <tabstop>lineFindBlock</tabstop>
   <tabstop>lineTx</tabstop>
   <tabstop>netNodes</tabstop>
+  <tabstop>blockValues</tabstop>
+  <tabstop>lineFindBlock</tabstop>
+  <tabstop>lineBalanceAddress</tabstop>
+  <tabstop>balanceValues</tabstop>
+  <tabstop>lineUtxoAddress</tabstop>
+  <tabstop>utxoValues</tabstop>
+  <tabstop>mempoolView</tabstop>
  </tabstops>
  <resources/>
  <connections/>

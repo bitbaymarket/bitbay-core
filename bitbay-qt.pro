@@ -27,6 +27,13 @@ count(USE_EXCHANGE, 1) {
     }
 }
 
+count(USE_EXPLORER, 1) {
+    contains(USE_EXPLORER, 1) {
+        message(Building with USE_EXPLORER support)
+        CONFIG += explorer
+    }
+}
+
 # mac builds
 include(bitbay-mac.pri)
 

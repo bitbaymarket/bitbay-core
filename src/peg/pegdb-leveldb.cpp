@@ -318,9 +318,9 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
 
     if (!fBlockIndexIsPegReady) {
         if (!SetBlocksIndexesReadyForPeg(txdb, load_msg))
-            return error("LoadBlockIndex() : SetBlocksIndexesReadyForPeg failed");
+            return error("LoadPegData() : SetBlocksIndexesReadyForPeg failed");
     }
-
+    
     bool fPegPruneEnabled = true;
     if (!txdb.ReadPegPruneEnabled(fPegPruneEnabled)) {
         fPegPruneEnabled = true;

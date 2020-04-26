@@ -228,6 +228,7 @@ enum GetMinFee_mode
 };
 
 typedef std::map<uint256, std::pair<CTxIndex, CTransaction> > MapPrevTx;
+typedef std::map<uint256, CTxIndex> MapPrevTxIndex;
 
 int64_t GetMinFee(const CTransaction& tx, 
                   int nHeight, 
@@ -440,6 +441,9 @@ public:
     void GetOutputFor(const CTxIn& input, const MapPrevTx& inputs, CTxOut& txout) const;
     
     bool IsExchangeTx(int & nOut, uint256 & id) const;
+    
+    bool ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t nTxIdx, MapPrevTx& mapInputs) const;
+    bool DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs) const;
 };
 
 /** wrapper for CTxOut that provides a more compact serialization */
@@ -552,32 +556,50 @@ public:
 class CTxIndex
 {
 public:
+    static const int CURRENT_VERSION=1;
+    int nVersion;
     CDiskTxPos pos;
     std::vector<CDiskTxPos> vSpent;
+    int64_t nHeight;
+    uint16_t nIndex;
 
     CTxIndex()
     {
         SetNull();
     }
 
-    CTxIndex(const CDiskTxPos& posIn, unsigned int nOutputs)
+    CTxIndex(const CDiskTxPos& posIn, 
+             unsigned int nOutputs, 
+             int64_t nHeight, 
+             uint16_t nTxIndex)
     {
+        SetNull();
         pos = posIn;
         vSpent.resize(nOutputs);
     }
 
     IMPLEMENT_SERIALIZE
     (
-        if (!(nType & SER_GETHASH))
-            READWRITE(nVersion);
-        READWRITE(pos);
-        READWRITE(vSpent);
+        READWRITE(this->nVersion);
+        nVersion = this->nVersion;
+        if (nVersion >= 1000000) {
+            READWRITE(pos);
+            READWRITE(vSpent);
+        } else if (nVersion == 1) {
+            READWRITE(pos);
+            READWRITE(vSpent);
+            READWRITE(nHeight);
+            READWRITE(nIndex);
+        }
     )
 
     void SetNull()
     {
+        nVersion = CTxIndex::CURRENT_VERSION;
         pos.SetNull();
         vSpent.clear();
+        nHeight = 0;
+        nIndex = 0;
     }
 
     bool IsNull()
@@ -601,26 +623,24 @@ public:
     int GetHeightInMainChain(unsigned int* vtxidx =nullptr,
                              uint256 txhash =uint256(0),
                              uint256* blockhash =nullptr) const;
-    int GetHeight() const;
-
 };
 
 
 
 /**  A txdb record that contains the balance change per address
  */
-class CAddrBalance
+class CAddressBalance
 {
 public:
     uint256 txhash;
     int64_t nHeight;
-    int16_t nTxIndex;
+    int16_t nIndex;
     int64_t nTime;
     int64_t nDebit;
     int64_t nCredit;
     int64_t nBalance;
 
-    CAddrBalance()
+    CAddressBalance()
     {
         SetNull();
     }
@@ -629,7 +649,7 @@ public:
     (
         READWRITE(txhash);
         READWRITE(nHeight);
-        READWRITE(nTxIndex);
+        READWRITE(nIndex);
         READWRITE(nTime);
         READWRITE(nDebit);
         READWRITE(nCredit);
@@ -639,7 +659,7 @@ public:
     void SetNull()
     {
         nHeight = 0;
-        nTxIndex = 0;
+        nIndex = 0;
         nTime = 0;
         nDebit = 0;
         nCredit = 0;
@@ -648,6 +668,38 @@ public:
 
 };
 
+/**  A txdb record that contains the utxo change per address
+ */
+class CAddressUnspent
+{
+public:
+    uint256 txhash;
+    unsigned int nOut;
+    int64_t nHeight;
+    int16_t nIndex;
+    int64_t nAmount;
+
+    CAddressUnspent()
+    {
+        SetNull();
+    }
+
+    IMPLEMENT_SERIALIZE
+    (
+        READWRITE(nHeight);
+        READWRITE(nIndex);
+        READWRITE(nAmount);
+    )
+
+    void SetNull()
+    {
+        nOut = 0;
+        nHeight = 0;
+        nIndex = 0;
+        nAmount = 0;
+    }
+
+};
 
 
 

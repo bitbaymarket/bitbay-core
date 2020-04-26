@@ -321,7 +321,8 @@ unique_ptr<CBlock> CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, i
                                   feesFractions,
                                   CDiskTxPos(1,1,1), pindexPrev, false, true, MANDATORY_SCRIPT_VERIFY_FLAGS))
                 continue;
-            mapTestPoolTmp[tx.GetHash()] = CTxIndex(CDiskTxPos(1,1,1), tx.vout.size());
+            mapTestPoolTmp[tx.GetHash()] = CTxIndex(CDiskTxPos(1,1,1), tx.vout.size(), 
+                                                    0/*nHeight*/, nBlockTx +2 /*coinbase+coinstake*/);
             swap(mapTestPool, mapTestPoolTmp);
 
             // Added

@@ -921,22 +921,6 @@ int CTxIndex::GetHeightInMainChain(unsigned int* vtxidx, uint256 txhash, uint256
     return pindex->nHeight;
 }
 
-int CTxIndex::GetHeight() const
-{
-    // Read block header
-    CBlock block;
-    if (!block.ReadFromDisk(pos.nFile, pos.nBlockPos, false))
-        return 0;
-    // Find the block in the index
-    uint256 bhash = block.GetHash();
-    map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(bhash);
-    if (mi == mapBlockIndex.end()) return 0;
-    CBlockIndex* pindex = (*mi).second;
-    if (!pindex) return 0;
-    return pindex->nHeight;
-}
-
-
 // Return transaction in tx, and if it was found inside a block, its hash is placed in hashBlock
 bool GetTransaction(const uint256 &hash, CTransaction &tx, uint256 &hashBlock)
 {
@@ -1328,17 +1312,29 @@ bool CTransaction::IsExchangeTx(int & nOut, uint256 & wid) const
 
 bool CTransaction::DisconnectInputs(CTxDB& txdb)
 {
+    bool fUtxoDbEnabled = false;
+    if (!txdb.ReadUtxoDbEnabled(fUtxoDbEnabled)) {
+        fUtxoDbEnabled = false;
+    }
+    
     // Relinquish previous transactions' spent pointers
     if (!IsCoinBase())
     {
+        MapPrevTx mapInputs;
+        
         for(const CTxIn& txin : vin)
         {
             COutPoint prevout = txin.prevout;
 
             // Get prev txindex from disk
-            CTxIndex txindex;
+            CTxIndex& txindex = mapInputs[prevout.hash].first;
             if (!txdb.ReadTxIndex(prevout.hash, txindex))
                 return error("DisconnectInputs() : ReadTxIndex failed");
+            if (fUtxoDbEnabled) {
+                CTransaction& prev = mapInputs[prevout.hash].second;
+                if(!txdb.ReadDiskTx(prevout.hash, prev))
+                    return error("DisconnectInputs() : ReadDiskTx failed");
+            }
 
             if (prevout.n >= txindex.vSpent.size())
                 return error("DisconnectInputs() : prevout.n out of range");
@@ -1349,6 +1345,12 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb)
             // Write back
             if (!txdb.UpdateTxIndex(prevout.hash, txindex))
                 return error("DisconnectInputs() : UpdateTxIndex failed");
+        }
+        
+        if (fUtxoDbEnabled) {
+            if (!DisconnectUtxo(txdb, mapInputs)) {
+                return error("DisconnectInputs() : DisconnectUtxo failed");
+            }
         }
     }
 
@@ -1456,7 +1458,7 @@ bool CTransaction::FetchInputs(CTxDB& txdb,
         else {
             // Know the height
             bool fMustHaveFractions = false;
-            int nHeight = txindex.GetHeight();
+            int nHeight = txindex.nHeight;
             if (nHeight >= nPegStartHeight) {
                 fMustHaveFractions = true;
             }
@@ -1663,6 +1665,183 @@ bool CTransaction::ConnectInputs(MapPrevTx inputs,
     return true;
 }
 
+static void CreateUtxoHistoryRecord(CTxDB& txdb, 
+                                    string sAddress,
+                                    int64_t nTime,
+                                    int64_t nHeight,
+                                    int16_t nIndex,
+                                    uint256 txhash,
+                                    map<string, CAddressBalance>& mapAddressesBalances,
+                                    map<string, int64_t>& mapAddressesBalancesIdxs) {
+    if (mapAddressesBalances.count(sAddress)) 
+        return; // already present
+    int64_t nLastIndex = -1;
+    CAddressBalance & balance = mapAddressesBalances[sAddress];
+    txdb.ReadAddressLastBalance(sAddress, balance, nLastIndex);
+    mapAddressesBalancesIdxs[sAddress] = nLastIndex+1;
+    balance.nTime   = nTime;
+    balance.nHeight = nHeight;
+    balance.nIndex  = nIndex;
+    balance.txhash  = txhash;
+    balance.nCredit = 0;
+    balance.nDebit  = 0;
+}
+
+bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t nTxIdx, MapPrevTx& mapInputs) const
+{
+    auto txhash = GetHash();
+    map<string, int64_t> mapAddressesBalancesIdxs;
+    map<string, CAddressBalance> mapAddressesBalances;
+    
+    // credit input addresses
+    // remove spents utxo
+    for(size_t j =0; j < vin.size(); j++) {
+        if (IsCoinBase()) continue;
+        const COutPoint & prevout = vin[j].prevout;
+        const CTransaction& prev = mapInputs[prevout.hash].second;
+        if (prev.vout.size() <= prevout.n)
+            return error("ConnectUtxo() : wrong prevout.n");
+        const CTxOut & txout = prev.vout[prevout.n];
+        CTxDestination dst;
+        if(!ExtractDestination(txout.scriptPubKey, dst))
+            continue;
+        string sAddress = CBitcoinAddress(dst).ToString();
+        if (sAddress.size() != 34)
+            continue;
+        
+        // remove spent utxo
+        auto txoutid = uint320(prevout.hash, prevout.n);
+        if (!txdb.EraseUnspent(sAddress, txoutid))
+            return error("ConnectUtxo() : EraseUnspent");
+        // make a record if not ready
+        CreateUtxoHistoryRecord(txdb, 
+                                sAddress, 
+                                nTime,
+                                pindex->nHeight,
+                                nTxIdx,
+                                txhash,
+                                mapAddressesBalances, 
+                                mapAddressesBalancesIdxs);
+        // credit record
+        CAddressBalance & balance = mapAddressesBalances[sAddress];
+        balance.nCredit += txout.nValue;
+    }
+    // make new via outputs
+    for(size_t j =0; j < vout.size(); j++) {
+        const CTxOut & txout = vout[j];
+        CTxDestination dst;
+        if(!ExtractDestination(txout.scriptPubKey, dst))
+            continue;
+        string sAddress = CBitcoinAddress(dst).ToString();
+        if (sAddress.size() != 34)
+            continue;
+        
+        // add new utxo
+        CAddressUnspent unspent;
+        unspent.nHeight = pindex->nHeight;
+        unspent.nIndex  = nTxIdx;
+        unspent.nAmount = txout.nValue;
+        auto txoutid = uint320(txhash, j);
+        if (!txdb.AddUnspent(sAddress, txoutid, unspent))
+            return error("ConnectUtxo() : AddUnspent");
+        // make a record if not ready
+        CreateUtxoHistoryRecord(txdb, 
+                                sAddress, 
+                                nTime,
+                                pindex->nHeight,
+                                nTxIdx,
+                                txhash,
+                                mapAddressesBalances, 
+                                mapAddressesBalancesIdxs);
+        // debit record
+        CAddressBalance & balance = mapAddressesBalances[sAddress];
+        balance.nDebit += txout.nValue;
+    }
+    // write history records
+    for(pair<const string, CAddressBalance> & item : mapAddressesBalances) {
+        const string& sAddress = item.first;
+        CAddressBalance& balance = item.second;
+        int64_t nIdx = mapAddressesBalancesIdxs[sAddress];
+        int64_t nDiff = balance.nDebit - balance.nCredit;
+        if (nDiff < 0) {
+            balance.nDebit = 0;
+            balance.nCredit = -nDiff;
+        } else if (nDiff > 0) {
+            balance.nDebit = nDiff;
+            balance.nCredit = 0;
+        } else {
+            balance.nDebit = 0;
+            balance.nCredit = 0;
+        }
+        balance.nBalance = balance.nBalance + nDiff;
+        if (!txdb.AddBalance(sAddress, nIdx, balance))
+            return error("ConnectUtxo() : AddBalance");
+    }
+    
+    return true;
+}
+
+bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs) const
+{
+    auto txhash = GetHash();
+    set<string> setAddresses;
+    
+    // remove utxos via outputs
+    for(size_t j =0; j < vout.size(); j++) {
+        const CTxOut & txout = vout[j];
+        CTxDestination dst;
+        if(!ExtractDestination(txout.scriptPubKey, dst))
+            continue;
+        string sAddress = CBitcoinAddress(dst).ToString();
+        if (sAddress.size() != 34)
+            continue;
+        
+        setAddresses.insert(sAddress);
+        auto txoutid = uint320(txhash, j);
+        if (!txdb.EraseUnspent(sAddress, txoutid))
+            return error("DisconnectUtxo() : EraseUnspent");
+    }
+    // reappend spent utxos via inputs
+    for(size_t j =0; j < vin.size(); j++) {
+        if (IsCoinBase()) continue;
+        const COutPoint & prevout = vin[j].prevout;
+        const CTxIndex& prevtxindex = mapInputs[prevout.hash].first;
+        const CTransaction& prev = mapInputs[prevout.hash].second;
+        if (prev.vout.size() <= prevout.n)
+            return error("DisconnectUtxo() : wrong prevout.n");
+        const CTxOut & txout = prev.vout[prevout.n];
+        CTxDestination dst;
+        if(!ExtractDestination(txout.scriptPubKey, dst))
+            continue;
+        string sAddress = CBitcoinAddress(dst).ToString();
+        if (sAddress.size() != 34)
+            continue;
+        
+        setAddresses.insert(sAddress);
+        CAddressUnspent unspent;
+        unspent.nHeight = prevtxindex.nHeight;
+        unspent.nIndex  = prevtxindex.nIndex;
+        unspent.nAmount = txout.nValue;
+        auto txoutid = uint320(prevout.hash, prevout.n);
+        if (!txdb.AddUnspent(sAddress, txoutid, unspent))
+            return error("DisconnectUtxo() : AddUnspent");
+    }
+    // remove history records
+    for(string sAddress : setAddresses) {
+        int64_t nLastIndex = -1;
+        CAddressBalance balance;
+        if (!txdb.ReadAddressLastBalance(sAddress, balance, nLastIndex)) 
+            return error("DisconnectUtxo() : ReadAddressLastBalance not found last record for %s", sAddress);
+        if (balance.txhash != txhash)
+            return error("DisconnectUtxo() : ReadAddressLastBalance has invalid txhash %s, expected %s", 
+                         balance.txhash.GetHex(), txhash.GetHex());
+        if (!txdb.EraseBalance(sAddress, nLastIndex))
+            return error("DisconnectUtxo() : EraseBalance");
+    }
+    return true;
+}
+
+
 bool CBlock::DisconnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex)
 {
     // Disconnect in reverse order
@@ -1726,6 +1905,12 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
                  SCRIPT_VERIFY_FIX_HASHTYPE |
                  SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY;
     }
+    
+    // track utxo db changes
+    bool fUtxoDbEnabled = false;
+    if (!txdb.ReadUtxoDbEnabled(fUtxoDbEnabled)) {
+        fUtxoDbEnabled = false;
+    }
 
     //// issue here: it doesn't know the version
     unsigned int nTxPos;
@@ -1747,8 +1932,9 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     int64_t nValueOut = 0;
     int64_t nStakeReward = 0;
     unsigned int nSigOps = 0;
-    for(CTransaction& tx : vtx)
+    for(size_t i=0; i< vtx.size(); i++)
     {
+        CTransaction& tx = vtx[i];
         uint256 hashTx = tx.GetHash();
 
         // Do not allow blocks that contain transactions which 'overwrite' older transactions,
@@ -1815,11 +2001,15 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
                                   feesFractions,
                                   posThisTx, pindex, true, false, flags))
                 return false;
-            
-            //if (!tx.)
         }
 
-        mapQueuedChanges[hashTx] = CTxIndex(posThisTx, tx.vout.size());
+        mapQueuedChanges[hashTx] = CTxIndex(posThisTx, tx.vout.size(), pindex->nHeight, i);
+        
+        if (fUtxoDbEnabled) {
+            if (!tx.ConnectUtxo(txdb, pindex, i, mapInputs)) {
+                return error("ConnectBlock() : utxo records Write failed");
+            }
+        }
     }
 
     if (IsProofOfWork())
@@ -1924,20 +2114,6 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         }
     }
     
-    // Write address changes
-    for(CTransaction& tx : vtx)
-    {
-        uint256 hashTx = tx.GetHash();
-        // credit input addresses
-        for(const CTxIn & txin : tx.vin) {
-            
-        }
-        // debit output addresses
-        for(const CTxOut & txout : tx.vout) {
-            
-        }
-    }
-
     // Update block index on disk without changing it in memory.
     // The memory index structure will be changed after the db commits.
     if (pindex->pprev)

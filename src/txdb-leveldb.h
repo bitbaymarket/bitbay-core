@@ -187,7 +187,7 @@ public:
 
     bool ReadTxIndex(uint256 hash, CTxIndex& txindex);
     bool UpdateTxIndex(uint256 hash, const CTxIndex& txindex);
-    bool AddTxIndex(const CTransaction& tx, const CDiskTxPos& pos, int nHeight);
+    bool AddTxIndex(const CTransaction& tx, const CDiskTxPos& pos, int64_t nHeight, uint16_t nTxIndex);
     bool EraseTxIndex(const CTransaction& tx);
     bool ContainsTx(uint256 hash);
     bool ReadDiskTx(uint256 hash, CTransaction& tx, CTxIndex& txindex);
@@ -201,10 +201,14 @@ public:
     bool WriteBestInvalidTrust(CBigNum bnBestInvalidTrust);
     bool LoadBlockIndex(LoadMsg load_msg);
     bool LoadUtxoData(LoadMsg load_msg);
+    bool CleanupUtxoData(LoadMsg load_msg);
     
     // flags for peg system peg
     bool ReadPegStartHeight(int& nHeight);
     bool WritePegStartHeight(int nHeight);
+
+    bool ReadTxIndexIsV1Ready(bool& bReady);
+    bool WriteTxIndexIsV1Ready(bool bReady);
     
     bool ReadBlockIndexIsPegReady(bool& bReady);
     bool WriteBlockIndexIsPegReady(bool bReady);
@@ -221,8 +225,26 @@ public:
     bool ReadUtxoDbEnabled(bool& fEnabled);
     bool WriteUtxoDbEnabled(bool fEnabled);
     
-    bool ReadAddressLastBalance(string addr, CAddrBalance & balance, int64_t & nIdx);
-    bool ReadAddressBalanceRecords(string addr, vector<CAddrBalance> & records);
+    bool ReadAddressLastBalance(string addr, CAddressBalance & balance, int64_t & nIdx);
+    bool ReadAddressBalanceRecords(string addr, vector<CAddressBalance> & records);
+    bool ReadAddressUnspent(string addr, vector<CAddressUnspent> & records);
+	
+    bool AddUnspent(std::string sAddress, uint320 txoutid, CAddressUnspent & utxo) {
+        string sTxout = txoutid.GetHex();
+        return Write("utxo"+sAddress+sTxout, utxo);
+    }
+    bool EraseUnspent(std::string sAddress, uint320 txoutid) {
+        string sTxout = txoutid.GetHex();
+        return Erase("utxo"+sAddress+sTxout);
+    }
+    bool AddBalance(std::string sAddress, int64_t nIndex, CAddressBalance & balance) {
+        string sRIndex = strprintf("%016x", INT64_MAX-nIndex);
+        return Write("addr"+sAddress+sRIndex, balance);
+    }
+    bool EraseBalance(std::string sAddress, int64_t nIndex) {
+        string sRIndex = strprintf("%016x", INT64_MAX-nIndex);
+        return Erase("addr"+sAddress+sRIndex);
+    }
 };
 
 extern leveldb::DB *txdb; // global pointer for LevelDB object instance

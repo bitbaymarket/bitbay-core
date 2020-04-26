@@ -100,8 +100,18 @@ OptionsDialog::OptionsDialog(QWidget *parent) :
 #ifdef ENABLE_EXCHANGE
         ui->prunePegInfo->setEnabled(false);
 #endif
+        bool fUtxoDbEnabled = false;
+        if (!txdb.ReadUtxoDbEnabled(fUtxoDbEnabled)) {
+            fUtxoDbEnabled = false;
+        }
+        ui->utxoAddressInfo->setChecked(fUtxoDbEnabled);
+#ifdef ENABLE_EXPLORER
+        ui->prunePegInfo->setEnabled(false);
+        ui->utxoAddressInfo->setEnabled(false);
+#endif
     }
     connect(ui->prunePegInfo, SIGNAL(toggled(bool)), this, SLOT(changePegPrune(bool)));
+    connect(ui->utxoAddressInfo, SIGNAL(toggled(bool)), this, SLOT(changeUtxoAddress(bool)));
 }
 
 OptionsDialog::~OptionsDialog()
@@ -193,6 +203,7 @@ void OptionsDialog::on_okButton_clicked()
         LOCK(cs_main);
         CTxDB txdb("r+");
         txdb.WritePegPruneEnabled(ui->prunePegInfo->isChecked());
+        txdb.WriteUtxoDbEnabled(ui->utxoAddressInfo->isChecked());
     }
     accept();
 }
@@ -209,6 +220,7 @@ void OptionsDialog::on_applyButton_clicked()
         LOCK(cs_main);
         CTxDB txdb("r+");
         txdb.WritePegPruneEnabled(ui->prunePegInfo->isChecked());
+        txdb.WriteUtxoDbEnabled(ui->utxoAddressInfo->isChecked());
     }
     disableApplyButton();
 }
@@ -275,4 +287,11 @@ bool OptionsDialog::eventFilter(QObject *object, QEvent *event)
 
 void OptionsDialog::changePegPrune(bool f)
 {
+    Q_UNUSED(f);
 }
+
+void OptionsDialog::changeUtxoAddress(bool f)
+{
+    Q_UNUSED(f);
+}
+

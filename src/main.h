@@ -668,16 +668,16 @@ public:
 
 };
 
-/**  A txdb record that contains the utxo change per address
+/**  A txdb record that contains the utxo per address
  */
 class CAddressUnspent
 {
 public:
-    uint256 txhash;
-    unsigned int nOut;
+    uint320 txoutid;
     int64_t nHeight;
     int16_t nIndex;
     int64_t nAmount;
+    uint32_t nFlags;
 
     CAddressUnspent()
     {
@@ -689,14 +689,15 @@ public:
         READWRITE(nHeight);
         READWRITE(nIndex);
         READWRITE(nAmount);
+        READWRITE(nFlags);
     )
 
     void SetNull()
     {
-        nOut = 0;
         nHeight = 0;
         nIndex = 0;
         nAmount = 0;
+        nFlags = 0;
     }
 
 };

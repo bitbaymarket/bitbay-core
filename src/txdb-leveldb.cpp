@@ -828,6 +828,40 @@ bool CTxDB::ReadAddressUnspent(string sAddress, vector<CAddressUnspent> & vRecor
             CDataStream ssValue(SER_DISK, CLIENT_VERSION);
             ssValue.write(iterator->value().data(), iterator->value().size());
             ssValue >> utxo;
+            string txoutidhex = sKey.substr(4+34, 80);
+            utxo.txoutid = uint320(txoutidhex);
+            vRecords.push_back(utxo);
+            fFound = true;
+        } 
+        else {
+            break;
+        }
+        iterator->Next();
+    }
+    delete iterator;
+    return fFound;
+}
+
+bool CTxDB::ReadAddressFrozen(string sAddress, vector<CAddressUnspent> & vRecords)
+{
+    bool fFound = false;
+    leveldb::Iterator *iterator = pdb->NewIterator(leveldb::ReadOptions());
+    string sNum = strprintf("%080x", 0);
+    CDataStream ssStartKey(SER_DISK, CLIENT_VERSION);
+    ssStartKey << "ftxo"+sAddress+sNum;
+    iterator->Seek(ssStartKey.str());
+    while (iterator->Valid()) {
+        CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+        ssKey.write(iterator->key().data(), iterator->key().size());
+        string sKey;
+        ssKey >> sKey;
+        if (boost::starts_with(sKey, "ftxo"+sAddress)) {
+            CAddressUnspent utxo;
+            CDataStream ssValue(SER_DISK, CLIENT_VERSION);
+            ssValue.write(iterator->value().data(), iterator->value().size());
+            ssValue >> utxo;
+            string txoutidhex = sKey.substr(4+34, 80);
+            utxo.txoutid = uint320(txoutidhex);
             vRecords.push_back(utxo);
             fFound = true;
         } 
@@ -892,6 +926,38 @@ bool CTxDB::CleanupUtxoData(LoadMsg load_msg)
             string sKey;
             ssKey >> sKey;
             if (boost::starts_with(sKey, "utxo")) {
+                string sDeleteKey = iterator->key().ToString();
+                iterator->Next();
+                pdb->Delete(leveldb::WriteOptions(), sDeleteKey);
+                n++;
+                continue;
+            }
+            else {
+                break;
+            }
+            iterator->Next();
+            n++;
+        }
+        delete iterator;
+    }
+    // remove old frozen records
+    {
+        leveldb::Iterator *iterator = pdb->NewIterator(leveldb::ReadOptions());
+        string sTxout = strprintf("%080x", 0); // 256+64
+        CDataStream ssStartKey(SER_DISK, CLIENT_VERSION);
+        string sStart = strprintf("%034x", 0);
+        ssStartKey << "ftxo"+sStart+sTxout;
+        iterator->Seek(ssStartKey.str());
+        int n =0;
+        while (iterator->Valid()) {
+            if (n % 10000 == 0) {
+                load_msg(std::string(" cleanup3: ")+std::to_string(n));
+            }
+            CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+            ssKey.write(iterator->key().data(), iterator->key().size());
+            string sKey;
+            ssKey >> sKey;
+            if (boost::starts_with(sKey, "ftxo")) {
                 string sDeleteKey = iterator->key().ToString();
                 iterator->Next();
                 pdb->Delete(leveldb::WriteOptions(), sDeleteKey);

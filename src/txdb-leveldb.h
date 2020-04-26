@@ -237,6 +237,14 @@ public:
         string sTxout = txoutid.GetHex();
         return Erase("utxo"+sAddress+sTxout);
     }
+    bool AddFrozen(std::string sAddress, uint320 txoutid, CAddressUnspent & utxo) {
+        string sTxout = txoutid.GetHex();
+        return Write("ftxo"+sAddress+sTxout, utxo);
+    }
+    bool EraseFrozen(std::string sAddress, uint320 txoutid) {
+        string sTxout = txoutid.GetHex();
+        return Erase("ftxo"+sAddress+sTxout);
+    }
     bool AddBalance(std::string sAddress, int64_t nIndex, CAddressBalance & balance) {
         string sRIndex = strprintf("%016x", INT64_MAX-nIndex);
         return Write("addr"+sAddress+sRIndex, balance);

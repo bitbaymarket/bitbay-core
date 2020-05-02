@@ -73,7 +73,7 @@ protected:
         // First we must search for it in the currently pending set of
         // changes to the db. Then go on to read disk and compare which is to use.
         if (activeBatch) {
-            foundInBatch = SeekBatch(ssFromKey, &strBKey, &strBValue, &erasedKeys) == false;
+            foundInBatch = SeekBatch(ssFromKey, &strBKey, &strBValue, &erasedKeys);
         }
 
         std::string strDKey;

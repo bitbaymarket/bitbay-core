@@ -831,37 +831,39 @@ void BlockchainPage::openUtxoAddressFromInput()
     {
         vector<CAddressUnspent> records;
         bool ok = txdb.ReadAddressUnspent(addr.toStdString(), records);
-        if (!ok) return;
-        int nIdx = records.size();
-        for (const auto & record : records) {
-            //auto shash = QString::fromStdString(record.txhash.ToString());
-            auto item = new QTreeWidgetItem;
-            item->setText(0, QString::number(nIdx));
-            item->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-            item->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-            item->setData(4, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-            item->setText(1, QString("%1-%2").arg(record.nHeight).arg(record.nIndex));
-            item->setText(4, displayValue(record.nAmount));
-            ui->utxoValues->addTopLevelItem(item);
-            nIdx--;
+        if (ok) {
+            int nIdx = records.size();
+            for (const auto & record : records) {
+                //auto shash = QString::fromStdString(record.txhash.ToString());
+                auto item = new QTreeWidgetItem;
+                item->setText(0, QString::number(nIdx));
+                item->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+                item->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+                item->setData(4, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+                item->setText(1, QString("%1-%2").arg(record.nHeight).arg(record.nIndex));
+                item->setText(4, displayValue(record.nAmount));
+                ui->utxoValues->addTopLevelItem(item);
+                nIdx--;
+            }
         }
     }
     {
         vector<CAddressUnspent> records;
         bool ok = txdb.ReadAddressFrozen(addr.toStdString(), records);
-        if (!ok) return;
-        int nIdx = records.size();
-        for (const auto & record : records) {
-            //auto shash = QString::fromStdString(record.txhash.ToString());
-            auto item = new QTreeWidgetItem;
-            item->setText(0, "F-"+QString::number(nIdx));
-            item->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-            item->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-            item->setData(4, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-            item->setText(1, QString("%1-%2").arg(record.nHeight).arg(record.nIndex));
-            item->setText(4, displayValue(record.nAmount));
-            ui->utxoValues->addTopLevelItem(item);
-            nIdx--;
+        if (ok) {
+            int nIdx = records.size();
+            for (const auto & record : records) {
+                //auto shash = QString::fromStdString(record.txhash.ToString());
+                auto item = new QTreeWidgetItem;
+                item->setText(0, "F-"+QString::number(nIdx));
+                item->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+                item->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+                item->setData(4, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+                item->setText(1, QString("%1-%2").arg(record.nHeight).arg(record.nIndex));
+                item->setText(4, displayValue(record.nAmount));
+                ui->utxoValues->addTopLevelItem(item);
+                nIdx--;
+            }
         }
     }
 }

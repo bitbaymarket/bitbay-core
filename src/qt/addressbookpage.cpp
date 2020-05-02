@@ -101,7 +101,7 @@ AddressBookPage::AddressBookPage(Mode mode, Tabs tab, QWidget *parent) :
 
     // Connect signals for context menu actions
     connect(copyAddressAction, SIGNAL(triggered()), this, SLOT(on_copyToClipboard_clicked()));
-    connect(copyPubKeyAction, SIGNAL(triggered()), this, SLOT(on_copyPubKeyToClipboard_clicked()));
+    //connect(copyPubKeyAction, SIGNAL(triggered()), this, SLOT(on_copyPubKeyToClipboard_clicked()));
     connect(copyLabelAction, SIGNAL(triggered()), this, SLOT(onCopyLabelAction()));
     connect(editAction, SIGNAL(triggered()), this, SLOT(onEditAction()));
     connect(deleteAction, SIGNAL(triggered()), this, SLOT(on_deleteButton_clicked()));
@@ -173,10 +173,10 @@ void AddressBookPage::on_copyToClipboard_clicked()
     GUIUtil::copyEntryData(ui->tableView, AddressTableModel::Address);
 }
 
-void AddressBookPage::on_copyPubKeyToClipboard_clicked()
-{
-    //GUIUtil::copyEntryData(ui->tableView, AddressTableModel::Address);
-}
+//void AddressBookPage::on_copyPubKeyToClipboard_clicked()
+//{
+//    //GUIUtil::copyEntryData(ui->tableView, AddressTableModel::Address);
+//}
 
 void AddressBookPage::onCopyLabelAction()
 {

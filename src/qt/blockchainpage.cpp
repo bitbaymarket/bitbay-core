@@ -75,16 +75,6 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     connect(ui->buttonUnspent, SIGNAL(clicked()), this, SLOT(showUtxoPage()));
     connect(ui->buttonNet, SIGNAL(clicked()), this, SLOT(showNetPage()));
     connect(ui->buttonMempool, SIGNAL(clicked()), this, SLOT(showMempoolPage()));
-
-    {
-        CTxDB txdb("r");
-        bool fIsReady = false;
-        bool fEnabled = false;
-        txdb.ReadUtxoDbIsReady(fIsReady);
-        txdb.ReadUtxoDbEnabled(fEnabled);
-        ui->buttonAddress->setEnabled(/*fIsReady && */fEnabled);
-        ui->buttonUnspent->setEnabled(/*fIsReady && */fEnabled);
-    }
     
     ui->blockchainView->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->blockValues->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -183,6 +173,24 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
 BlockchainPage::~BlockchainPage()
 {
     delete ui;
+}
+
+void BlockchainPage::showEvent(QShowEvent * se)
+{
+    static bool first_show = true;
+    if (first_show) {
+        first_show = false;
+        {
+            CTxDB txdb("r");
+            bool fIsReady = false;
+            bool fEnabled = false;
+            txdb.ReadUtxoDbIsReady(fIsReady);
+            txdb.ReadUtxoDbEnabled(fEnabled);
+            ui->buttonAddress->setEnabled(/*fIsReady && */fEnabled);
+            ui->buttonUnspent->setEnabled(/*fIsReady && */fEnabled);
+        }
+    }
+    QDialog::showEvent(se);
 }
 
 BlockchainModel * BlockchainPage::blockchainModel() const
@@ -561,7 +569,11 @@ void BlockchainPage::openTxFromInput()
         LOCK(cs_main);
         CTxDB txdb("r");
         CTxIndex txindex;
-        txdb.ReadTxIndex(txhash, txindex);
+        if (!txdb.ReadTxIndex(txhash, txindex)) {
+            showTxPage();
+            txDetails->showNotFound();
+            return;
+        }
         txindex.GetHeightInMainChain(&nTxNum, txhash, &blockhash);
     }
     showTxPage();
@@ -816,21 +828,41 @@ void BlockchainPage::openUtxoAddressFromInput()
     QString addr = ui->lineUtxoAddress->text();
     LOCK(cs_main);
     CTxDB txdb("r");
-    vector<CAddressUnspent> records;
-    bool ok = txdb.ReadAddressUnspent(addr.toStdString(), records);
-    if (!ok) return;
-    int nIdx = records.size();
-    for (const auto & record : records) {
-        //auto shash = QString::fromStdString(record.txhash.ToString());
-        auto item = new QTreeWidgetItem;
-        item->setText(0, QString::number(nIdx));
-        item->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        item->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        item->setData(4, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        item->setText(1, QString("%1-%2").arg(record.nHeight).arg(record.nIndex));
-        item->setText(4, displayValue(record.nAmount));
-        ui->utxoValues->addTopLevelItem(item);
-        nIdx--;
+    {
+        vector<CAddressUnspent> records;
+        bool ok = txdb.ReadAddressUnspent(addr.toStdString(), records);
+        if (!ok) return;
+        int nIdx = records.size();
+        for (const auto & record : records) {
+            //auto shash = QString::fromStdString(record.txhash.ToString());
+            auto item = new QTreeWidgetItem;
+            item->setText(0, QString::number(nIdx));
+            item->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+            item->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+            item->setData(4, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+            item->setText(1, QString("%1-%2").arg(record.nHeight).arg(record.nIndex));
+            item->setText(4, displayValue(record.nAmount));
+            ui->utxoValues->addTopLevelItem(item);
+            nIdx--;
+        }
+    }
+    {
+        vector<CAddressUnspent> records;
+        bool ok = txdb.ReadAddressFrozen(addr.toStdString(), records);
+        if (!ok) return;
+        int nIdx = records.size();
+        for (const auto & record : records) {
+            //auto shash = QString::fromStdString(record.txhash.ToString());
+            auto item = new QTreeWidgetItem;
+            item->setText(0, "F-"+QString::number(nIdx));
+            item->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+            item->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+            item->setData(4, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+            item->setText(1, QString("%1-%2").arg(record.nHeight).arg(record.nIndex));
+            item->setText(4, displayValue(record.nAmount));
+            ui->utxoValues->addTopLevelItem(item);
+            nIdx--;
+        }
     }
 }
 

@@ -447,7 +447,9 @@ public:
                      MapFractions& mapInputsFractions,
                      MapFractions& mapOutputsFractions) const;
     bool DisconnectUtxo(CTxDB& txdb, 
-                        MapPrevTx& mapInputs, MapFractions& mapInputsFractions) const;
+                        MapPrevTx& mapInputs, 
+                        MapFractions& mapInputsFractions,
+                        MapFractions& mapOutputsFractions) const;
 };
 
 /** wrapper for CTxOut that provides a more compact serialization */

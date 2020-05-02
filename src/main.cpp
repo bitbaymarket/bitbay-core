@@ -1322,6 +1322,7 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb, CPegDB& pegdb)
     {
         MapPrevTx mapInputs;
         MapFractions mapInputsFractions;
+        MapFractions mapOutputsFractions;
         
         for(const CTxIn& txin : vin)
         {
@@ -1355,7 +1356,16 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb, CPegDB& pegdb)
         }
         
         if (fUtxoDbEnabled) {
-            if (!DisconnectUtxo(txdb, mapInputs, mapInputsFractions)) {
+            for(size_t i=0; i< vout.size(); i++)
+            {
+                auto txoutid = uint320(GetHash(), i);
+                CFractions& fractions = mapOutputsFractions[txoutid];
+                fractions = CFractions(0, CFractions::VALUE);
+                if (!pegdb.ReadFractions(txoutid, fractions, true /*must_have*/)) {
+                    mapOutputsFractions.erase(txoutid);
+                }
+            }
+            if (!DisconnectUtxo(txdb, mapInputs, mapInputsFractions, mapOutputsFractions)) {
                 return error("DisconnectInputs() : DisconnectUtxo failed");
             }
         }
@@ -1720,19 +1730,11 @@ bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t n
             continue;
         
         auto txoutid = uint320(prevout.hash, prevout.n);
-        bool frozen = false;
-        if (mapInputsFractions.count(txoutid)) {
-            const CFractions& fractions = mapInputsFractions[txoutid];
-            if (fractions.nFlags & CFractions::NOTARY_F) frozen = true;
-            if (fractions.nFlags & CFractions::NOTARY_V) frozen = true;
-        }
-        // remove spent or frozen (spent during block to unfreeze)
-        // though if spent then it is expected to be in list of unspent
-        if (!txdb.EraseUnspent(sAddress, txoutid)) {
-            if (!txdb.EraseFrozen(sAddress, txoutid)) {
-                return error("ConnectUtxo() : EraseUnspent/EraseFrozen");
-            }
-        }
+        // remove spent or frozen
+        if (!txdb.EraseUnspent(sAddress, txoutid))
+            return error("ConnectUtxo() : EraseUnspent");
+        if (!txdb.EraseFrozen(sAddress, txoutid))
+            return error("ConnectUtxo() : EraseFrozen");
         // make a record if not ready
         CreateUtxoHistoryRecord(txdb, 
                                 sAddress, 
@@ -1763,21 +1765,20 @@ bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t n
         unspent.nAmount = txout.nValue;
         auto txoutid = uint320(txhash, j);
         bool frozen = false;
-        // TODO
-//        if (mapInputsFractions.count(txoutid)) {
-//            const CFractions& fractions = mapInputsFractions[txoutid];
-//            if (fractions.nFlags & CFractions::NOTARY_F) { 
-//                unspent.nFlags = CFractions::NOTARY_F;
-//                frozen = true;
-//            }
-//            if (fractions.nFlags & CFractions::NOTARY_V) {
-//                unspent.nFlags = CFractions::NOTARY_V;
-//                frozen = true;
-//            }
-//        }
+        if (mapOutputsFractions.count(txoutid)) {
+            const CFractions& fractions = mapOutputsFractions[txoutid];
+            if (fractions.nFlags & CFractions::NOTARY_F) { 
+                unspent.nFlags = CFractions::NOTARY_F;
+                frozen = true;
+            }
+            if (fractions.nFlags & CFractions::NOTARY_V) {
+                unspent.nFlags = CFractions::NOTARY_V;
+                frozen = true;
+            }
+        }
         if (frozen) {
             if (!txdb.AddFrozen(sAddress, txoutid, unspent))
-                return error("ConnectUtxo() : AddUnspent");
+                return error("ConnectUtxo() : AddFrozen");
         } else {
             if (!txdb.AddUnspent(sAddress, txoutid, unspent))
                 return error("ConnectUtxo() : AddUnspent");
@@ -1819,7 +1820,9 @@ bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t n
     return true;
 }
 
-bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs, MapFractions& mapInputsFractions) const
+bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs, 
+                                  MapFractions& mapInputsFractions,
+                                  MapFractions& mapOutputsFractions) const
 {
     auto txhash = GetHash();
     set<string> setAddresses;
@@ -1838,6 +1841,8 @@ bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs, MapFraction
         auto txoutid = uint320(txhash, j);
         if (!txdb.EraseUnspent(sAddress, txoutid))
             return error("DisconnectUtxo() : EraseUnspent");
+        if (!txdb.EraseFrozen(sAddress, txoutid))
+            return error("DisconnectUtxo() : EraseFrozen");
     }
     // reappend spent utxos via inputs
     for(size_t j =0; j < vin.size(); j++) {
@@ -1861,8 +1866,26 @@ bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs, MapFraction
         unspent.nIndex  = prevtxindex.nIndex;
         unspent.nAmount = txout.nValue;
         auto txoutid = uint320(prevout.hash, prevout.n);
-        if (!txdb.AddUnspent(sAddress, txoutid, unspent))
-            return error("DisconnectUtxo() : AddUnspent");
+        
+        bool frozen = false;
+        if (mapInputsFractions.count(txoutid)) {
+            const CFractions& fractions = mapInputsFractions[txoutid];
+            if (fractions.nFlags & CFractions::NOTARY_F) { 
+                unspent.nFlags = CFractions::NOTARY_F;
+                frozen = true;
+            }
+            if (fractions.nFlags & CFractions::NOTARY_V) {
+                unspent.nFlags = CFractions::NOTARY_V;
+                frozen = true;
+            }
+        }
+        if (frozen) {
+            if (!txdb.AddFrozen(sAddress, txoutid, unspent))
+                return error("DisconnectUtxo() : AddFrozen");
+        } else {
+            if (!txdb.AddUnspent(sAddress, txoutid, unspent))
+                return error("DisconnectUtxo() : AddUnspent");
+        }
     }
     // remove history records
     for(string sAddress : setAddresses) {

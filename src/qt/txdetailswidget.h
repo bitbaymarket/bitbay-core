@@ -61,6 +61,7 @@ public slots:
                 int nSupplyN, 
                 int nSupplyNN, 
                 unsigned int nTime);
+    void showNotFound();
 
 private slots:
     void openPegVotes(QTreeWidgetItem*,int);

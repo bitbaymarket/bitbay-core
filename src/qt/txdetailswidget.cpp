@@ -305,6 +305,14 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
     return ok;
 }
 
+void TxDetailsWidget::showNotFound()
+{
+    ui->txValues->clear();
+    ui->txInputs->clear();
+    ui->txOutputs->clear();
+    ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Error","Transaction not found"})));
+}
+
 void TxDetailsWidget::openTx(uint256 blockhash, uint txidx)
 {
     LOCK(cs_main);

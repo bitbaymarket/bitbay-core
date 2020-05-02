@@ -55,7 +55,72 @@ protected:
     // or leaves value alone and sets deleted = true if activeBatch contains a
     // delete for it.
     bool ScanBatch(const CDataStream &key, std::string *value, bool *deleted) const;
+    bool SeekBatch(const CDataStream &fromkey, 
+                   std::string *key, std::string *value, 
+                   std::set<std::string> *erased) const;
 
+    template<typename K>
+    bool Seek(const K& fromkey, std::string & rawkey, std::string & rawvalue)
+    {
+        CDataStream ssFromKey(SER_DISK, CLIENT_VERSION);
+        ssFromKey.reserve(1000);
+        ssFromKey << fromkey;
+        
+        std::string strBKey;
+        std::string strBValue;
+        bool foundInBatch = false;
+        std::set<std::string> erasedKeys;
+        // First we must search for it in the currently pending set of
+        // changes to the db. Then go on to read disk and compare which is to use.
+        if (activeBatch) {
+            foundInBatch = SeekBatch(ssFromKey, &strBKey, &strBValue, &erasedKeys) == false;
+        }
+
+        std::string strDKey;
+        std::string strDValue;
+        bool foundOnDisk = false;
+        leveldb::Iterator *iterator = pdb->NewIterator(leveldb::ReadOptions());
+        iterator->Seek(ssFromKey.str());
+        if (!iterator->Valid()) {
+            if (!foundInBatch) {
+                delete iterator;
+                return false; // not found
+            }
+        }
+        while(iterator->Valid()) {
+            strDKey = iterator->key().ToString();
+            strDValue = iterator->value().ToString();
+            if (!erasedKeys.count(strDKey)) {
+                foundOnDisk = true;
+                break;
+            }
+            iterator->Next();
+        }
+        delete iterator;
+        
+        if (foundInBatch && !foundOnDisk) {
+            rawkey = strBKey;
+            rawvalue = strBValue;
+        } else if (!foundInBatch && foundOnDisk) {
+            rawkey = strDKey;
+            rawvalue = strDValue;
+        } else if (!foundInBatch && !foundOnDisk) {
+            return false; // not found
+        } else if (foundInBatch && foundOnDisk) {
+            leveldb::Slice sbkey(strBKey);
+            leveldb::Slice sdkey(strDKey);
+            if (sbkey.compare(sdkey) <= 0) {
+                rawkey = strBKey;
+                rawvalue = strBValue;
+            } else {
+                rawkey = strDKey;
+                rawvalue = strDValue;
+            }
+        }
+        
+        return true;
+    }
+    
     template<typename K, typename T>
     bool Read(const K& key, T& value)
     {
@@ -226,9 +291,6 @@ public:
     bool WriteUtxoDbEnabled(bool fEnabled);
     
     bool ReadAddressLastBalance(string addr, CAddressBalance & balance, int64_t & nIdx);
-    bool ReadAddressBalanceRecords(string addr, vector<CAddressBalance> & records);
-    bool ReadAddressUnspent(string addr, vector<CAddressUnspent> & records);
-    bool ReadAddressFrozen(string addr, vector<CAddressUnspent> & records);
 
     bool AddUnspent(std::string sAddress, uint320 txoutid, CAddressUnspent & utxo) {
         string sTxout = txoutid.GetHex();
@@ -254,6 +316,14 @@ public:
         string sRIndex = strprintf("%016x", INT64_MAX-nIndex);
         return Erase("addr"+sAddress+sRIndex);
     }
+    
+    // warning: this method use disk Seek and ignores current batch
+    bool ReadAddressBalanceRecords(string addr, vector<CAddressBalance> & records);
+    // warning: this method use disk Seek and ignores current batch
+    bool ReadAddressUnspent(string addr, vector<CAddressUnspent> & records);
+    // warning: this method use disk Seek and ignores current batch
+    bool ReadAddressFrozen(string addr, vector<CAddressUnspent> & records);
+    
 };
 
 extern leveldb::DB *txdb; // global pointer for LevelDB object instance

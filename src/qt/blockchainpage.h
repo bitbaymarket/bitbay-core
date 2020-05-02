@@ -78,6 +78,9 @@ private slots:
     void updateConnections(const CNodeShortStats &);
     void updateMempool();
 
+protected:
+    void showEvent(QShowEvent *) override;
+    
 private:
     Ui::BlockchainPage* ui;
     BlockchainModel* model;

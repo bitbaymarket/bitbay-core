@@ -189,6 +189,36 @@ public:
     }
 };
 
+class CBatchSeeker : public leveldb::WriteBatch::Handler {
+public:
+    std::string needle;
+    struct cmpBySlice {
+        bool operator()(const std::string& a, const std::string& b) const {
+            leveldb::Slice sa(a);
+            leveldb::Slice sb(b);
+            int cmp = sa.compare(sb);
+            return cmp < 0;
+        }
+    };    
+    std::map<std::string,std::string, cmpBySlice> seekmap;
+    std::set<std::string> *erased;
+
+    CBatchSeeker() {}
+
+    virtual void Put(const leveldb::Slice& key, const leveldb::Slice& value) {
+        leveldb::Slice sneedle(needle);
+        if (key.compare(sneedle) >= 0) {
+            seekmap[key.ToString()] = value.ToString();
+        }
+        erased->erase(key.ToString());
+    }
+
+    virtual void Delete(const leveldb::Slice& key) {
+        seekmap.erase(key.ToString());
+        erased->insert(key.ToString());
+    }
+};
+
 // When performing a read, if we have an active batch we need to check it first
 // before reading from the database, as the rest of the code assumes that once
 // a database transaction begins reads are consistent with it. It would be good
@@ -206,6 +236,29 @@ bool CTxDB::ScanBatch(const CDataStream &key, string *value, bool *deleted) cons
         throw runtime_error(status.ToString());
     }
     return scanner.foundEntry;
+}
+
+// When performing a seek, if we have an active batch we need to check it first
+// before reading from the database, as the rest of the code assumes that once
+// a database transaction begins reads are consistent with it. It would be good
+// to change that assumption in future and avoid the performance hit, though in
+// practice it does not appear to be large.
+bool CTxDB::SeekBatch(const CDataStream &fromkey, 
+                      string *key, string *value, 
+                      std::set<std::string> *erased) const {
+    assert(activeBatch);
+    CBatchSeeker scanner;
+    scanner.needle = fromkey.str();
+    scanner.erased = erased;
+    leveldb::Status status = activeBatch->Iterate(&scanner);
+    if (!status.ok()) {
+        throw runtime_error(status.ToString());
+    }
+    if (scanner.seekmap.empty())
+        return false;
+    *key = scanner.seekmap.begin()->first;
+    *value = scanner.seekmap.begin()->second;
+    return true;
 }
 
 bool CTxDB::ReadTxIndex(uint256 hash, CTxIndex& txindex)
@@ -755,28 +808,27 @@ bool CTxDB::WriteUtxoDbIsReady(bool bReady)
 bool CTxDB::ReadAddressLastBalance(string sAddress, CAddressBalance & balance, int64_t & nIdx)
 {
     nIdx = -1;
-    bool fFound = false;
-    leveldb::Iterator *iterator = pdb->NewIterator(leveldb::ReadOptions());
     string sNum = strprintf("%016x", 0);
-    CDataStream ssStartKey(SER_DISK, CLIENT_VERSION);
-    ssStartKey << "addr"+sAddress+sNum;
-    iterator->Seek(ssStartKey.str());
-    if (iterator->Valid()) {
-        CDataStream ssKey(SER_DISK, CLIENT_VERSION);
-        ssKey.write(iterator->key().data(), iterator->key().size());
-        string sKey;
-        ssKey >> sKey;
-        if (boost::starts_with(sKey, "addr"+sAddress)) {
-            sNum = sKey.substr(4+34);
-            std::istringstream(sNum) >> std::hex >> nIdx;
-            nIdx = INT64_MAX-nIdx;
-            CDataStream ssValue(SER_DISK, CLIENT_VERSION);
-            ssValue.write(iterator->value().data(), iterator->value().size());
-            ssValue >> balance;
-            fFound = true;
-        }
+    string sStartKey = "addr"+sAddress+sNum;
+    string sRawKey;
+    string sRawValue;
+    if (!Seek(sStartKey, sRawKey, sRawValue))
+        return false;
+    
+    bool fFound = false;
+    CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+    ssKey.write(sRawKey.data(), sRawKey.size());
+    string sKey;
+    ssKey >> sKey;
+    if (boost::starts_with(sKey, "addr"+sAddress)) {
+        sNum = sKey.substr(4+34);
+        std::istringstream(sNum) >> std::hex >> nIdx;
+        nIdx = INT64_MAX-nIdx;
+        CDataStream ssValue(SER_DISK, CLIENT_VERSION);
+        ssValue.write(sRawValue.data(), sRawValue.size());
+        ssValue >> balance;
+        fFound = true;
     }
-    delete iterator;
     return fFound;
 }
 
@@ -887,7 +939,7 @@ bool CTxDB::CleanupUtxoData(LoadMsg load_msg)
         int n =0;
         while (iterator->Valid()) {
             if (n % 10000 == 0) {
-                load_msg(std::string(" cleanup1: ")+std::to_string(n));
+                load_msg(std::string(" cleanup #1: ")+std::to_string(n));
             }
             CDataStream ssKey(SER_DISK, CLIENT_VERSION);
             ssKey.write(iterator->key().data(), iterator->key().size());
@@ -919,7 +971,7 @@ bool CTxDB::CleanupUtxoData(LoadMsg load_msg)
         int n =0;
         while (iterator->Valid()) {
             if (n % 10000 == 0) {
-                load_msg(std::string(" cleanup2: ")+std::to_string(n));
+                load_msg(std::string(" cleanup #2: ")+std::to_string(n));
             }
             CDataStream ssKey(SER_DISK, CLIENT_VERSION);
             ssKey.write(iterator->key().data(), iterator->key().size());
@@ -951,7 +1003,7 @@ bool CTxDB::CleanupUtxoData(LoadMsg load_msg)
         int n =0;
         while (iterator->Valid()) {
             if (n % 10000 == 0) {
-                load_msg(std::string(" cleanup3: ")+std::to_string(n));
+                load_msg(std::string(" cleanup #3: ")+std::to_string(n));
             }
             CDataStream ssKey(SER_DISK, CLIENT_VERSION);
             ssKey.write(iterator->key().data(), iterator->key().size());
@@ -982,6 +1034,9 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg)
      
     ReadUtxoDbIsReady(fIsReady);
     ReadUtxoDbEnabled(fEnabled);
+
+//    fIsReady = false;
+//    fEnabled = true;
     
     if (!fIsReady && fEnabled) {
         // remove all first
@@ -993,7 +1048,7 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg)
         while (pindex)
         {
             if (pindex->nHeight % 1000 == 0) {
-                load_msg(std::string(" process addresses: ")+std::to_string(pindex->nHeight));
+                load_msg(std::string(" balances changes: ")+std::to_string(pindex->nHeight));
             }
             CBlock block;
             if (!block.ReadFromDisk(pindex, true)) 

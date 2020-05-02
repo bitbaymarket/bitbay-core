@@ -986,6 +986,8 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg)
     if (!fIsReady && fEnabled) {
         // remove all first
         CleanupUtxoData(load_msg);
+        // pegdb is ready
+        CPegDB pegdb("r");
         // over all blocks
         CBlockIndex* pindex = pindexGenesisBlock;
         while (pindex)
@@ -1002,6 +1004,7 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg)
             {
                 const CTransaction& tx = block.vtx[i];
                 MapPrevTx mapInputs;
+                MapFractions mapInputsFractions;
                 for(size_t j =0; j < tx.vin.size(); j++) {
                     if (tx.IsCoinBase()) continue;
                     const COutPoint & prevout = tx.vin[j].prevout;
@@ -1012,8 +1015,25 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg)
                     CTransaction& prev = mapInputs[prevout.hash].second;
                     if(!ReadDiskTx(prevout.hash, prev))
                         return error("LoadUtxoData() : ReadDiskTx failed");
+                    // Read input fractions
+                    auto txoutid = uint320(prevout.hash, prevout.n);
+                    CFractions& fractions = mapInputsFractions[txoutid];
+                    fractions = CFractions(0, CFractions::VALUE);
+                    if (!pegdb.ReadFractions(txoutid, fractions, true /*must_have*/)) {
+                        mapInputsFractions.erase(txoutid);
+                    }
                 }
-                if (!tx.ConnectUtxo(*this, pindex, i, mapInputs))
+                MapFractions mapOutputsFractions;
+                for(size_t j =0; j < tx.vout.size(); j++) {
+                    // Read output fractions
+                    auto txoutid = uint320(tx.GetHash(), j);
+                    CFractions& fractions = mapOutputsFractions[txoutid];
+                    fractions = CFractions(0, CFractions::VALUE);
+                    if (!pegdb.ReadFractions(txoutid, fractions, true /*must_have*/)) {
+                        mapOutputsFractions.erase(txoutid);
+                    }
+                }
+                if (!tx.ConnectUtxo(*this, pindex, i, mapInputs, mapInputsFractions, mapOutputsFractions))
                     return error("LoadUtxoData() : tx.ConnectUtxo failed");
             }
             

@@ -392,7 +392,7 @@ public:
     bool ReadFromDisk(CTxDB& txdb, COutPoint prevout, CTxIndex& txindexRet);
     bool ReadFromDisk(CTxDB& txdb, COutPoint prevout);
     bool ReadFromDisk(COutPoint prevout);
-    bool DisconnectInputs(CTxDB& txdb);
+    bool DisconnectInputs(CTxDB& txdb, CPegDB& pegdb);
 
     /** Fetch from memory and/or disk. inputsRet keys are transaction hashes.
 
@@ -442,8 +442,12 @@ public:
     
     bool IsExchangeTx(int & nOut, uint256 & id) const;
     
-    bool ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t nTxIdx, MapPrevTx& mapInputs) const;
-    bool DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs) const;
+    bool ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t nTxIdx, 
+                     MapPrevTx& mapInputs, 
+                     MapFractions& mapInputsFractions,
+                     MapFractions& mapOutputsFractions) const;
+    bool DisconnectUtxo(CTxDB& txdb, 
+                        MapPrevTx& mapInputs, MapFractions& mapInputsFractions) const;
 };
 
 /** wrapper for CTxOut that provides a more compact serialization */
@@ -638,6 +642,7 @@ public:
     int64_t nTime;
     int64_t nDebit;
     int64_t nCredit;
+    int64_t nFrozen;
     int64_t nBalance;
 
     CAddressBalance()
@@ -653,6 +658,7 @@ public:
         READWRITE(nTime);
         READWRITE(nDebit);
         READWRITE(nCredit);
+        READWRITE(nFrozen);
         READWRITE(nBalance);
     )
 
@@ -663,6 +669,7 @@ public:
         nTime = 0;
         nDebit = 0;
         nCredit = 0;
+        nFrozen = 0;
         nBalance = 0;
     }
 

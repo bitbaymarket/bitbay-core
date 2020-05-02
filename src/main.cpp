@@ -1310,7 +1310,7 @@ bool CTransaction::IsExchangeTx(int & nOut, uint256 & wid) const
     return false;
 }
 
-bool CTransaction::DisconnectInputs(CTxDB& txdb)
+bool CTransaction::DisconnectInputs(CTxDB& txdb, CPegDB& pegdb)
 {
     bool fUtxoDbEnabled = false;
     if (!txdb.ReadUtxoDbEnabled(fUtxoDbEnabled)) {
@@ -1321,6 +1321,7 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb)
     if (!IsCoinBase())
     {
         MapPrevTx mapInputs;
+        MapFractions mapInputsFractions;
         
         for(const CTxIn& txin : vin)
         {
@@ -1334,6 +1335,12 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb)
                 CTransaction& prev = mapInputs[prevout.hash].second;
                 if(!txdb.ReadDiskTx(prevout.hash, prev))
                     return error("DisconnectInputs() : ReadDiskTx failed");
+                auto txoutid = uint320(prevout.hash, prevout.n);
+                CFractions& fractions = mapInputsFractions[txoutid];
+                fractions = CFractions(0, CFractions::VALUE);
+                if (!pegdb.ReadFractions(txoutid, fractions, true /*must_have*/)) {
+                    mapInputsFractions.erase(txoutid);
+                }
             }
 
             if (prevout.n >= txindex.vSpent.size())
@@ -1348,7 +1355,7 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb)
         }
         
         if (fUtxoDbEnabled) {
-            if (!DisconnectUtxo(txdb, mapInputs)) {
+            if (!DisconnectUtxo(txdb, mapInputs, mapInputsFractions)) {
                 return error("DisconnectInputs() : DisconnectUtxo failed");
             }
         }
@@ -1687,7 +1694,10 @@ static void CreateUtxoHistoryRecord(CTxDB& txdb,
     balance.nDebit  = 0;
 }
 
-bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t nTxIdx, MapPrevTx& mapInputs) const
+bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t nTxIdx, 
+                               MapPrevTx& mapInputs, 
+                               MapFractions& mapInputsFractions,
+                               MapFractions& mapOutputsFractions) const
 {
     auto txhash = GetHash();
     map<string, int64_t> mapAddressesBalancesIdxs;
@@ -1709,10 +1719,20 @@ bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t n
         if (sAddress.size() != 34)
             continue;
         
-        // remove spent utxo
         auto txoutid = uint320(prevout.hash, prevout.n);
-        if (!txdb.EraseUnspent(sAddress, txoutid))
-            return error("ConnectUtxo() : EraseUnspent");
+        bool frozen = false;
+        if (mapInputsFractions.count(txoutid)) {
+            const CFractions& fractions = mapInputsFractions[txoutid];
+            if (fractions.nFlags & CFractions::NOTARY_F) frozen = true;
+            if (fractions.nFlags & CFractions::NOTARY_V) frozen = true;
+        }
+        // remove spent or frozen (spent during block to unfreeze)
+        // though if spent then it is expected to be in list of unspent
+        if (!txdb.EraseUnspent(sAddress, txoutid)) {
+            if (!txdb.EraseFrozen(sAddress, txoutid)) {
+                return error("ConnectUtxo() : EraseUnspent/EraseFrozen");
+            }
+        }
         // make a record if not ready
         CreateUtxoHistoryRecord(txdb, 
                                 sAddress, 
@@ -1742,8 +1762,26 @@ bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t n
         unspent.nIndex  = nTxIdx;
         unspent.nAmount = txout.nValue;
         auto txoutid = uint320(txhash, j);
-        if (!txdb.AddUnspent(sAddress, txoutid, unspent))
-            return error("ConnectUtxo() : AddUnspent");
+        bool frozen = false;
+        // TODO
+//        if (mapInputsFractions.count(txoutid)) {
+//            const CFractions& fractions = mapInputsFractions[txoutid];
+//            if (fractions.nFlags & CFractions::NOTARY_F) { 
+//                unspent.nFlags = CFractions::NOTARY_F;
+//                frozen = true;
+//            }
+//            if (fractions.nFlags & CFractions::NOTARY_V) {
+//                unspent.nFlags = CFractions::NOTARY_V;
+//                frozen = true;
+//            }
+//        }
+        if (frozen) {
+            if (!txdb.AddFrozen(sAddress, txoutid, unspent))
+                return error("ConnectUtxo() : AddUnspent");
+        } else {
+            if (!txdb.AddUnspent(sAddress, txoutid, unspent))
+                return error("ConnectUtxo() : AddUnspent");
+        }
         // make a record if not ready
         CreateUtxoHistoryRecord(txdb, 
                                 sAddress, 
@@ -1781,7 +1819,7 @@ bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t n
     return true;
 }
 
-bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs) const
+bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs, MapFractions& mapInputsFractions) const
 {
     auto txhash = GetHash();
     set<string> setAddresses;
@@ -1846,7 +1884,7 @@ bool CBlock::DisconnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex)
 {
     // Disconnect in reverse order
     for (int i = vtx.size()-1; i >= 0; i--) {
-        if (!vtx[i].DisconnectInputs(txdb)) {
+        if (!vtx[i].DisconnectInputs(txdb, pegdb)) {
             return false;
         }
         for (unsigned int j = vtx[i].vin.size(); j-- > 0;) {
@@ -1924,6 +1962,8 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     // bitbay: prepare peg supply index information
     CalculateBlockPegIndex(pindex);
 
+    map<size_t,MapPrevTx> mapInputs;
+    map<size_t,MapFractions> mapInputsFractions;
     map<uint256, CTxIndex> mapQueuedChanges;
     MapFractions mapQueuedFractionsChanges;
     CFractions feesFractions;
@@ -1965,8 +2005,6 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         if (!fJustCheck)
             nTxPos += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
 
-        MapPrevTx mapInputs;
-        MapFractions mapInputsFractions;
         if (tx.IsCoinBase())
             nValueOut += tx.GetValueOut();
         else
@@ -1975,18 +2013,18 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
             if (!tx.FetchInputs(txdb, pegdb,
                                 mapQueuedChanges, mapQueuedFractionsChanges,
                                 true, false,
-                                mapInputs, mapInputsFractions,
+                                mapInputs[i], mapInputsFractions[i],
                                 fInvalid))
                 return false;
 
             // Add in sigops done by pay-to-script-hash inputs;
             // this is to prevent a "rogue miner" from creating
             // an incredibly-expensive-to-validate block.
-            nSigOps += GetP2SHSigOpCount(tx, mapInputs);
+            nSigOps += GetP2SHSigOpCount(tx, mapInputs[i]);
             if (nSigOps > MAX_BLOCK_SIGOPS)
                 return DoS(100, error("ConnectBlock() : too many sigops"));
 
-            int64_t nTxValueIn = tx.GetValueIn(mapInputs);
+            int64_t nTxValueIn = tx.GetValueIn(mapInputs[i]);
             int64_t nTxValueOut = tx.GetValueOut();
             nValueIn += nTxValueIn;
             nValueOut += nTxValueOut;
@@ -1996,7 +2034,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
             if (tx.IsCoinStake())
                 nStakeReward = nTxValueOut - nTxValueIn;
 
-            if (!tx.ConnectInputs(mapInputs, mapInputsFractions,
+            if (!tx.ConnectInputs(mapInputs[i], mapInputsFractions[i],
                                   mapQueuedChanges, mapQueuedFractionsChanges,
                                   feesFractions,
                                   posThisTx, pindex, true, false, flags))
@@ -2005,10 +2043,9 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
 
         mapQueuedChanges[hashTx] = CTxIndex(posThisTx, tx.vout.size(), pindex->nHeight, i);
         
-        if (fUtxoDbEnabled) {
-            if (!tx.ConnectUtxo(txdb, pindex, i, mapInputs)) {
-                return error("ConnectBlock() : utxo records Write failed");
-            }
+        if (!fUtxoDbEnabled) {
+            mapInputs.clear();
+            mapInputsFractions.clear();
         }
     }
 
@@ -2032,23 +2069,21 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         const COutPoint & prevout = vtx[1].vin[0].prevout;
         
         bool fInvalid;
-        MapPrevTx mapInputs;
-        MapFractions mapInputsFractions;
         if (!vtx[1].FetchInputs(txdb, pegdb,
                                 mapQueuedChanges, mapQueuedFractionsChanges,
                                 true, false,
-                                mapInputs, mapInputsFractions,
+                                mapInputs[1], mapInputsFractions[1],
                                 fInvalid))
             return false;
         
         auto fkey = uint320(prevout.hash, prevout.n);
-        if (mapInputsFractions.find(fkey) == mapInputsFractions.end()) {
+        if (mapInputsFractions[1].find(fkey) == mapInputsFractions[1].end()) {
             return error("ConnectBlock() : no input fractions found");
         }
         int64_t nCalculatedStakeReward = GetProofOfStakeReward(
-                    pindex->pprev, nCoinAge, nFees, mapInputsFractions[fkey]);
+                    pindex->pprev, nCoinAge, nFees, mapInputsFractions[1][fkey]);
         int64_t nCalculatedStakeRewardWithoutFee = GetProofOfStakeReward(
-                    pindex->pprev, nCoinAge, 0 /*nFees*/, mapInputsFractions[fkey]);
+                    pindex->pprev, nCoinAge, 0 /*nFees*/, mapInputsFractions[1][fkey]);
 
         if (nStakeReward > nCalculatedStakeReward)
             return DoS(100, error("ConnectBlock() : coinstake pays too much(actual=%d vs calculated=%d)", nStakeReward, nCalculatedStakeReward));
@@ -2056,15 +2091,19 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         if (pindex->nHeight >= nPegStartHeight) {
             string sPegFailCause;
             if (!CalculateStakingFractions(vtx[1], pindex,
-                                           mapInputs, mapInputsFractions,
+                                           mapInputs[1], mapInputsFractions[1],
                                            mapQueuedChanges, mapQueuedFractionsChanges,
                                            feesFractions, nCalculatedStakeRewardWithoutFee,
                                            sPegFailCause)) {
                 return DoS(100, error("ConnectBlock() : fail on calculations of stake fractions (cause=%s)", sPegFailCause.c_str()));
             }
         }
+        if (!fUtxoDbEnabled) {
+            mapInputs.clear();
+            mapInputsFractions.clear();
+        }
     }
-
+    
     // ppcoin: track money supply and mint amount info
     pindex->nMint = nValueOut - nValueIn + nFees;
     pindex->nMoneySupply = (pindex->pprev? pindex->pprev->nMoneySupply : 0) + nValueOut - nValueIn;
@@ -2078,6 +2117,17 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     if (fJustCheck)
         return true;
 
+    // fractions in and out are ready
+    if (fUtxoDbEnabled) {
+        for(size_t i=0; i< vtx.size(); i++)
+        {
+            CTransaction& tx = vtx[i];
+            if (!tx.ConnectUtxo(txdb, pindex, i, mapInputs[i], mapInputsFractions[i], mapQueuedFractionsChanges)) {
+                return error("ConnectBlock() : utxo records Write failed");
+            }
+        }
+    }
+    
     // Write queued txindex changes
     for (map<uint256, CTxIndex>::iterator mi = mapQueuedChanges.begin(); mi != mapQueuedChanges.end(); ++mi)
     {
@@ -3279,13 +3329,15 @@ bool LoadBlockIndex(LoadMsg load_msg, bool fAllowNew)
     }
     if (!txdb.LoadBlockIndex(load_msg))
         return false;
-    if (!txdb.LoadUtxoData(load_msg))
-        return false;
     
     CPegDB pegdb("cr+");
     if (!pegdb.LoadPegData(txdb, load_msg))
         return false;
 
+    // pegdb to be ready for utxo db build
+    if (!txdb.LoadUtxoData(load_msg))
+        return false;
+    
     //
     // Init with genesis block
     //

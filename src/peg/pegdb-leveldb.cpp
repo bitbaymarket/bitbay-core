@@ -15,8 +15,7 @@
 #include <memenv/memenv.h>
 
 #include "kernel.h"
-#include "pegdb-leveldb.h"
-#include "txdb-leveldb.h"
+#include "txdb.h"
 #include "util.h"
 #include "main.h"
 #include "chainparams.h"

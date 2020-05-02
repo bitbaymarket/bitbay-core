@@ -875,6 +875,8 @@ public:
     }
 };
 
+uint320 uint320_MAX("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+
 inline bool operator==(const uint320& a, uint64_t b)                         { return (base_uint320)a == b; }
 inline bool operator!=(const uint320& a, uint64_t b)                         { return (base_uint320)a != b; }
 inline const uint320 operator<<(const base_uint320& a, unsigned int shift)   { return uint320(a) <<= shift; }

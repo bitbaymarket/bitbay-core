@@ -192,29 +192,25 @@ public:
 class CBatchSeeker : public leveldb::WriteBatch::Handler {
 public:
     std::string needle;
-    struct cmpBySlice {
-        bool operator()(const std::string& a, const std::string& b) const {
-            leveldb::Slice sa(a);
-            leveldb::Slice sb(b);
-            int cmp = sa.compare(sb);
-            return cmp < 0;
-        }
-    };    
-    std::map<std::string,std::string, cmpBySlice> seekmap;
+    std::string stople;
+    std::map<std::string,std::string, CTxDB::cmpBySlice> *seekmap;
     std::set<std::string> *erased;
 
     CBatchSeeker() {}
 
     virtual void Put(const leveldb::Slice& key, const leveldb::Slice& value) {
         leveldb::Slice sneedle(needle);
+        leveldb::Slice sstople(stople);
         if (key.compare(sneedle) >= 0) {
-            seekmap[key.ToString()] = value.ToString();
+            if (stople.empty() || key.compare(sstople) <= 0) {
+                (*seekmap)[key.ToString()] = value.ToString();
+            }
         }
         erased->erase(key.ToString());
     }
 
     virtual void Delete(const leveldb::Slice& key) {
-        seekmap.erase(key.ToString());
+        seekmap->erase(key.ToString());
         erased->insert(key.ToString());
     }
 };
@@ -245,20 +241,44 @@ bool CTxDB::ScanBatch(const CDataStream &key, string *value, bool *deleted) cons
 // practice it does not appear to be large.
 bool CTxDB::SeekBatch(const CDataStream &fromkey, 
                       string *key, string *value, 
+                      std::map<std::string,std::string, CTxDB::cmpBySlice> *seekmap,
                       std::set<std::string> *erased) const {
     assert(activeBatch);
     CBatchSeeker scanner;
     scanner.needle = fromkey.str();
     scanner.erased = erased;
+    scanner.seekmap = seekmap;
     leveldb::Status status = activeBatch->Iterate(&scanner);
     if (!status.ok()) {
         throw runtime_error(status.ToString());
     }
-    if (scanner.seekmap.empty())
+    if (scanner.seekmap->empty())
         return false;
-    *key = scanner.seekmap.begin()->first;
-    *value = scanner.seekmap.begin()->second;
+    *key = scanner.seekmap->begin()->first;
+    *value = scanner.seekmap->begin()->second;
     return true;
+}
+
+// When performing a seek, if we have an active batch we need to check it first
+// before reading from the database, as the rest of the code assumes that once
+// a database transaction begins reads are consistent with it. It would be good
+// to change that assumption in future and avoid the performance hit, though in
+// practice it does not appear to be large.
+bool CTxDB::SeekBatch(const CDataStream &fromkey, 
+                      const CDataStream &tokey, 
+                      std::map<std::string,std::string, CTxDB::cmpBySlice> *seekmap,
+                      std::set<std::string> *erased) const {
+    assert(activeBatch);
+    CBatchSeeker scanner;
+    scanner.needle = fromkey.str();
+    scanner.stople = tokey.str();
+    scanner.erased = erased;
+    scanner.seekmap = seekmap;
+    leveldb::Status status = activeBatch->Iterate(&scanner);
+    if (!status.ok()) {
+        throw runtime_error(status.ToString());
+    }
+    return !scanner.seekmap->empty();
 }
 
 bool CTxDB::ReadTxIndex(uint256 hash, CTxIndex& txindex)
@@ -832,6 +852,7 @@ bool CTxDB::ReadAddressLastBalance(string sAddress, CAddressBalance & balance, i
     return fFound;
 }
 
+// warning: this method use disk Seek and ignores current batch
 bool CTxDB::ReadAddressBalanceRecords(string sAddress, vector<CAddressBalance> & vRecords)
 {
     bool fFound = false;
@@ -862,6 +883,7 @@ bool CTxDB::ReadAddressBalanceRecords(string sAddress, vector<CAddressBalance> &
     return fFound;
 }
 
+// warning: this method use disk Seek and ignores current batch
 bool CTxDB::ReadAddressUnspent(string sAddress, vector<CAddressUnspent> & vRecords)
 {
     bool fFound = false;
@@ -894,6 +916,7 @@ bool CTxDB::ReadAddressUnspent(string sAddress, vector<CAddressUnspent> & vRecor
     return fFound;
 }
 
+// warning: this method use disk Seek and ignores current batch
 bool CTxDB::ReadAddressFrozen(string sAddress, vector<CAddressUnspent> & vRecords)
 {
     bool fFound = false;
@@ -924,6 +947,18 @@ bool CTxDB::ReadAddressFrozen(string sAddress, vector<CAddressUnspent> & vRecord
     }
     delete iterator;
     return fFound;
+}
+
+bool CTxDB::ReadFrozenQueue(uint64_t nLockTime)
+{
+    string sMinTime = strprintf("%016x", 0);
+    string sMaxTime = strprintf("%016x", nLockTime);
+    string sMinTxout = uint320().GetHex();
+    string sMaxTxout = uint320_MAX.GetHex();
+    vector<std::pair<string, string> > values;
+    string sMinKey = "fqueue"+sMinTime+sMinTxout;
+    string sMaxKey = "fqueue"+sMaxTime+sMaxTxout;
+    return Range(sMinKey, sMaxKey, values);
 }
 
 bool CTxDB::CleanupUtxoData(LoadMsg load_msg)
@@ -1035,8 +1070,8 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg)
     ReadUtxoDbIsReady(fIsReady);
     ReadUtxoDbEnabled(fEnabled);
 
-//    fIsReady = false;
-//    fEnabled = true;
+    fIsReady = false;
+    fEnabled = true;
     
     if (!fIsReady && fEnabled) {
         // remove all first

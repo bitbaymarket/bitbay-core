@@ -360,12 +360,6 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                 || !fPegCheck3) {
             // reprocess from nPegStartHeight
 
-            if (!txdb.TxnBegin())
-                return error("LoadBlockIndex() : tx TxnBegin failed");
-            
-            if (!pegdb.TxnBegin())
-                return error("LoadBlockIndex() : peg TxnBegin failed");
-
             // back to nPegStartHeight
             CBlockIndex* pblockindexPegFail = nullptr;
             CBlockIndex* pblockindex = nullptr;
@@ -383,16 +377,6 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
 
                 if (pblockindex->nHeight % 100 == 0) {
                     load_msg(std::string(" process peg fractions: ")+std::to_string(pblockindex->nHeight));
-
-                    if (!txdb.TxnCommit())
-                        return error("LoadBlockIndex() : TxnCommit failed");
-                    if (!txdb.TxnBegin())
-                        return error("LoadBlockIndex() : TxnBegin failed");
-                    
-                    if (!pegdb.TxnCommit())
-                        return error("LoadBlockIndex() : peg TxnCommit failed");
-                    if (!pegdb.TxnBegin())
-                        return error("LoadBlockIndex() : peg TxnBegin failed");
                 }
 
                 // at very beginning have peg supply index
@@ -556,12 +540,6 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
             
             if (!pegdb.WritePegPruneEnabled(fPegPruneEnabled))
                 return error("WritePegPruneEnabled() : peg prune flag write failed");
-            
-            if (!pegdb.TxnCommit())
-                return error("LoadBlockIndex() : peg TxnCommit failed");
-            
-            if (!txdb.TxnCommit())
-                return error("LoadBlockIndex() : TxnCommit failed");
             
             if (pblockindexPegFail) {
                 auto pindexFork = pblockindexPegFail->pprev;

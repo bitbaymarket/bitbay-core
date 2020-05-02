@@ -40,6 +40,15 @@ public:
     // Destroys the underlying shared global state accessed by this TxDB.
     void Close();
 
+    struct cmpBySlice {
+        bool operator()(const std::string& a, const std::string& b) const {
+            leveldb::Slice sa(a);
+            leveldb::Slice sb(b);
+            int cmp = sa.compare(sb);
+            return cmp < 0;
+        }
+    };
+    
 private:
     leveldb::DB *pdb;  // Points to the global instance.
 
@@ -51,12 +60,18 @@ private:
     int nVersion;
 
 protected:
+    
     // Returns true and sets (value,false) if activeBatch contains the given key
     // or leaves value alone and sets deleted = true if activeBatch contains a
     // delete for it.
     bool ScanBatch(const CDataStream &key, std::string *value, bool *deleted) const;
     bool SeekBatch(const CDataStream &fromkey, 
                    std::string *key, std::string *value, 
+                   std::map<std::string,std::string, CTxDB::cmpBySlice> *seekmap,
+                   std::set<std::string> *erased) const;
+    bool SeekBatch(const CDataStream &fromkey, 
+                   const CDataStream &tokey, 
+                   std::map<std::string,std::string, CTxDB::cmpBySlice> *seekmap,
                    std::set<std::string> *erased) const;
 
     template<typename K>
@@ -70,10 +85,11 @@ protected:
         std::string strBValue;
         bool foundInBatch = false;
         std::set<std::string> erasedKeys;
+        std::map<std::string,std::string, CTxDB::cmpBySlice> seekmap;
         // First we must search for it in the currently pending set of
         // changes to the db. Then go on to read disk and compare which is to use.
         if (activeBatch) {
-            foundInBatch = SeekBatch(ssFromKey, &strBKey, &strBValue, &erasedKeys);
+            foundInBatch = SeekBatch(ssFromKey, &strBKey, &strBValue, &seekmap, &erasedKeys);
         }
 
         std::string strDKey;
@@ -110,6 +126,7 @@ protected:
             leveldb::Slice sbkey(strBKey);
             leveldb::Slice sdkey(strDKey);
             if (sbkey.compare(sdkey) <= 0) {
+                // ==, batch has fresh value
                 rawkey = strBKey;
                 rawvalue = strBValue;
             } else {
@@ -119,6 +136,89 @@ protected:
         }
         
         return true;
+    }
+    
+    template<typename K, typename T>
+    bool Range(const K& fromkey, const K& tokey, std::vector<std::pair<K,T>>& values)
+    {
+        values.clear();
+        CDataStream ssFromKey(SER_DISK, CLIENT_VERSION);
+        ssFromKey.reserve(1000);
+        ssFromKey << fromkey;
+        CDataStream ssToKey(SER_DISK, CLIENT_VERSION);
+        ssToKey.reserve(1000);
+        ssToKey << tokey;
+        
+        auto push_back = [&](std::string rawkey, std::string rawvalue) {
+            values.resize(values.size()+1);
+            CDataStream ssKey(rawkey.data(), rawkey.data() + rawkey.size(),
+                                SER_DISK, CLIENT_VERSION);
+            ssKey >> values.back().first;
+            CDataStream ssValue(rawvalue.data(), rawvalue.data() + rawvalue.size(),
+                                SER_DISK, CLIENT_VERSION);
+            ssValue >> values.back().second;
+        };
+        
+        bool foundInBatch = false;
+        std::set<std::string> erasedKeys;
+        std::map<std::string,std::string, CTxDB::cmpBySlice> seekmap;
+        // First we must search for it in the currently pending set of
+        // changes to the db. Then go on to read disk and compare which is to use.
+        if (activeBatch) {
+            foundInBatch = SeekBatch(ssFromKey, ssToKey, &seekmap, &erasedKeys);
+        }
+        
+        leveldb::Iterator *iterator = pdb->NewIterator(leveldb::ReadOptions());
+        iterator->Seek(ssFromKey.str());
+        if (!iterator->Valid()) {
+            if (!foundInBatch) {
+                delete iterator;
+                return false; // not found
+            }
+        }
+        // to merge with batch
+        while(iterator->Valid()) {
+            string strDKey = iterator->key().ToString();
+            if (erasedKeys.count(strDKey)) {
+                iterator->Next();
+                continue;
+            }
+            if (leveldb::Slice(strDKey).compare(leveldb::Slice(ssToKey.str())) > 0) {
+                break;
+            }
+            // first add lower keys from batch
+            bool skipDValue = false;
+            if (!seekmap.empty()) {
+                string strBKey = seekmap.begin()->first;
+                while (leveldb::Slice(strBKey).compare(leveldb::Slice(strDKey)) <=0) {
+                    if (strBKey == strDKey)
+                        skipDValue = true;
+                    string strBValue = seekmap.begin()->second;
+                    push_back(strBKey, strBValue);
+                    // next
+                    seekmap.erase(strBKey);
+                    if (seekmap.empty())
+                        break;
+                    strBKey = seekmap.begin()->first;
+                }
+            }
+            // add disk value if not in batch
+            if (!skipDValue) {
+                string strDValue = iterator->value().ToString();
+                push_back(strDKey, strDValue);
+            }
+            iterator->Next();
+        }
+        delete iterator;
+        //remains upper keys in batch
+        while(!seekmap.empty()) {
+            string strBKey = seekmap.begin()->first;
+            string strBValue = seekmap.begin()->second;
+            push_back(strBKey, strBValue);
+            seekmap.erase(strBKey);
+        }
+        
+        return !values.empty();
     }
     
     template<typename K, typename T>
@@ -291,6 +391,7 @@ public:
     bool WriteUtxoDbEnabled(bool fEnabled);
     
     bool ReadAddressLastBalance(string addr, CAddressBalance & balance, int64_t & nIdx);
+    bool ReadFrozenQueue(uint64_t nLockTime);
 
     bool AddUnspent(std::string sAddress, uint320 txoutid, CAddressUnspent & utxo) {
         string sTxout = txoutid.GetHex();
@@ -315,6 +416,16 @@ public:
     bool EraseBalance(std::string sAddress, int64_t nIndex) {
         string sRIndex = strprintf("%016x", INT64_MAX-nIndex);
         return Erase("addr"+sAddress+sRIndex);
+    }
+    bool AddToFrozenQueue(uint64_t nLockTime, uint320 txoutid, std::string sAddress) {
+        string sTime = strprintf("%016x", nLockTime);
+        string sTxout = txoutid.GetHex();
+        return Write("fqueue"+sTime+sTxout, sAddress);
+    }
+    bool EraseFromFrozenQueue(uint64_t nLockTime, uint320 txoutid) {
+        string sTime = strprintf("%016x", nLockTime);
+        string sTxout = txoutid.GetHex();
+        return Erase("fqueue"+sTime+sTxout);
     }
     
     // warning: this method use disk Seek and ignores current batch

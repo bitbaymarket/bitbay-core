@@ -46,9 +46,6 @@ static string sBurnAddress =
 extern leveldb::DB *txdb; // global pointer for LevelDB object instance
 
 bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb, LoadMsg load_msg) {
-    if (!ctxdb.TxnBegin())
-        return error("SetBlocksIndexesReadyForPeg() : TxnBegin failed");
-
     leveldb::Iterator *iterator = txdb->NewIterator(leveldb::ReadOptions());
     // Seek to start key.
     CDataStream ssStartKey(SER_DISK, CLIENT_VERSION);
@@ -84,20 +81,12 @@ bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb, LoadMsg load_msg) {
         indexCount++;
         if (indexCount % 10000 == 0) {
             load_msg(std::string(" update block indexes for peg: ")+std::to_string(indexCount));
-            // commit on every 10k
-            if (!ctxdb.TxnCommit())
-                return error("SetBlocksIndexesReadyForPeg() : TxnCommit failed");
-            if (!ctxdb.TxnBegin())
-                return error("SetBlocksIndexesReadyForPeg() : TxnBegin failed");
         }
     }
     delete iterator;
 
     if (!ctxdb.WriteBlockIndexIsPegReady(true))
         return error("SetBlocksIndexesReadyForPeg() : flag write failed");
-
-    if (!ctxdb.TxnCommit())
-        return error("SetBlocksIndexesReadyForPeg() : TxnCommit failed");
 
     return true;
 }

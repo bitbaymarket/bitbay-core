@@ -687,6 +687,7 @@ public:
     int16_t nIndex;
     int64_t nAmount;
     uint32_t nFlags;
+    uint64_t nLockTime;
 
     CAddressUnspent()
     {
@@ -699,6 +700,7 @@ public:
         READWRITE(nIndex);
         READWRITE(nAmount);
         READWRITE(nFlags);
+        READWRITE(nLockTime);
     )
 
     void SetNull()
@@ -995,6 +997,8 @@ public:
     bool AcceptBlock();
     bool SignBlock(CWallet& keystore, int64_t nFees);
     bool CheckBlockSignature() const;
+    bool ConnectFrozenQueue(CTxDB& txdb);
+    bool DisconnectFrozenQueue(CTxDB& txdb);
 
 private:
     bool SetBestChainInner(CTxDB& txdb, CPegDB& pegdb, CBlockIndex *pindexNew);

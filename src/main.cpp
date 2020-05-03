@@ -1791,6 +1791,10 @@ bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t n
                 unspent.nLockTime = fractions.nLockTime;
                 frozen = true;
             }
+            if (IsCoinStake()) {
+                CFrozenQueued skip;
+                frozen = txdb.ReadFrozenQueued(fractions.nLockTime, txoutid, skip);
+            }
         }
         if (frozen) {
             if (!txdb.AddFrozen(sAddress, txoutid, unspent))
@@ -1848,11 +1852,14 @@ bool CBlock::ProcessFrozenQueue(CTxDB& txdb, const CBlockIndex* pindex)
     std::vector<CFrozenQueued> records;
     txdb.ReadFrozenQueue(nTime, records);
     for(auto record : records) {
+        // 1. remove from queue
         if (!txdb.EraseFromFrozenQueue(record.nLockTime, record.txoutid))
             return error("ProcessFrozenQueue() : EraseFromFrozenQueue");
+        // 2. unfreezing balance record
         int64_t nLastIndex = -1;
         CAddressBalance balance;
-        txdb.ReadAddressLastBalance(record.sAddress, balance, nLastIndex);
+        if (!txdb.ReadAddressLastBalance(record.sAddress, balance, nLastIndex))
+            return error("ProcessFrozenQueue() : ReadAddressLastBalance");
         nLastIndex = nLastIndex+1;
         balance.nTime     = nTime;                  /*blocktime*/
         balance.nHeight   = pindex->nHeight;        /*blockheight*/
@@ -1864,6 +1871,14 @@ bool CBlock::ProcessFrozenQueue(CTxDB& txdb, const CBlockIndex* pindex)
         balance.nFrozen   -= record.nAmount;
         if (!txdb.AddBalance(record.sAddress, nLastIndex, balance))
             return error("ConnectUtxo() : AddBalance");
+        // 3. move from ftxo to utxo
+        CAddressUnspent frozen;
+        if (!txdb.ReadFrozen(record.sAddress, record.txoutid, frozen))
+            return error("ProcessFrozenQueue() : ReadFrozen");
+        if (!txdb.EraseFrozen(record.sAddress, record.txoutid))
+            return error("ProcessFrozenQueue() : EraseFrozen");
+        if (!txdb.AddUnspent(record.sAddress, record.txoutid, frozen))
+            return error("ProcessFrozenQueue() : AddUnspent");
     }
     return true;
 }
@@ -1906,7 +1921,7 @@ bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs,
     }
     
     // before disconnecting utxos move frozen back to pool
-    // and remove unfreezing balance history records
+    // and remove unfreezing balance history records (they are top)
     // and add them back as frozen queue records, 
     // so it affects only intersecting addresses
     for(string sAddress : setAddresses) {
@@ -1915,20 +1930,31 @@ bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs,
             int64_t nLastIndex = -1;
             CAddressBalance balance;
             if (!txdb.ReadAddressLastBalance(sAddress, balance, nLastIndex)) 
-                return error("DisconnectUtxo() : ReadAddressLastBalance not found last record for %s", sAddress);
+                return error("DisconnectUtxo() : frozen queue: ReadAddressLastBalance not found last record for %s", sAddress);
             if (balance.nIndex <0) {
                 if (!txdb.EraseBalance(sAddress, nLastIndex))
-                    return error("DisconnectUtxo() : EraseBalance (unfreezing)");
+                    return error("DisconnectUtxo() : frozen queue: EraseBalance (unfreezing)");
                 // back to freeze queue
                 uint64_t nLockTime = balance.nLockTime;
                 uint320 txoutid(balance.txhash, -balance.nIndex+1);
                 if (!txdb.AddToFrozenQueue(nLockTime, txoutid, CFrozenQueued(sAddress, balance.nDebit)))
-                    return error("DisconnectUtxo() : AddToFrozenQueue");
+                    return error("DisconnectUtxo() : frozen queue: AddToFrozenQueue");
+                // move from utxo to ftxo
+                // 3. move from ftxo to utxo
+                CAddressUnspent unspent;
+                if (!txdb.ReadUnspent(sAddress, txoutid, unspent))
+                    return error("DisconnectUtxo() : frozen queue: ReadFrozen");
+                if (!txdb.EraseUnspent(sAddress, txoutid))
+                    return error("DisconnectUtxo() : frozen queue: EraseFrozen");
+                if (!txdb.AddFrozen(sAddress, txoutid, unspent))
+                    return error("DisconnectUtxo() : frozen queue: AddUnspent");
             } else {
                 done = true;
             }
         } while(!done);
     }
+    
+    bool isStakeFrozen = false;
     
     // remove utxos via outputs
     for(size_t j =0; j < vout.size(); j++) {
@@ -1945,6 +1971,10 @@ bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs,
             const CFractions& fractions = mapOutputsFractions[txoutid];
             if ((fractions.nFlags & CFractions::NOTARY_F) || 
                 (fractions.nFlags & CFractions::NOTARY_V)) { 
+                if (IsCoinStake()) {
+                    CFrozenQueued skip;
+                    isStakeFrozen = txdb.ReadFrozenQueued(fractions.nLockTime, txoutid, skip);
+                }
                 if (!txdb.EraseFromFrozenQueue(fractions.nLockTime, txoutid))
                     return error("DisconnectUtxo() : EraseFromFrozenQueue");
             }
@@ -1988,6 +2018,9 @@ bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs,
                 unspent.nFlags = CFractions::NOTARY_V;
                 unspent.nLockTime = fractions.nLockTime;
                 frozen = true;
+            }
+            if (IsCoinStake()) {
+                frozen = isStakeFrozen;
             }
         }
         if (frozen) {

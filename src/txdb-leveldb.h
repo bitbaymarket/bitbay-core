@@ -398,13 +398,21 @@ public:
         string sTxout = txoutid.GetHex();
         return Write("utxo"+sAddress+sTxout, utxo);
     }
+    bool ReadUnspent(std::string sAddress, uint320 txoutid, CAddressUnspent & utxo) {
+        string sTxout = txoutid.GetHex();
+        return Read("utxo"+sAddress+sTxout, utxo);
+    }
     bool EraseUnspent(std::string sAddress, uint320 txoutid) {
         string sTxout = txoutid.GetHex();
         return Erase("utxo"+sAddress+sTxout);
     }
-    bool AddFrozen(std::string sAddress, uint320 txoutid, const CAddressUnspent & utxo) {
+    bool AddFrozen(std::string sAddress, uint320 txoutid, const CAddressUnspent & ftxo) {
         string sTxout = txoutid.GetHex();
-        return Write("ftxo"+sAddress+sTxout, utxo);
+        return Write("ftxo"+sAddress+sTxout, ftxo);
+    }
+    bool ReadFrozen(std::string sAddress, uint320 txoutid, CAddressUnspent & ftxo) {
+        string sTxout = txoutid.GetHex();
+        return Read("ftxo"+sAddress+sTxout, ftxo);
     }
     bool EraseFrozen(std::string sAddress, uint320 txoutid) {
         string sTxout = txoutid.GetHex();

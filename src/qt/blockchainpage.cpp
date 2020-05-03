@@ -800,6 +800,15 @@ void BlockchainPage::updateMempool()
 
 void BlockchainPage::openBalanceAddressFromInput()
 {
+    
+    bool fPegPruneEnabled = true;
+    {
+        CPegDB pegdb("r");
+        if (!pegdb.ReadPegPruneEnabled(fPegPruneEnabled)) {
+            fPegPruneEnabled = true;
+        }
+    }
+    
     ui->balanceCurrent->clear();
     ui->balanceValues->clear();
     QString addr = ui->lineBalanceAddress->text();
@@ -829,20 +838,39 @@ void BlockchainPage::openBalanceAddressFromInput()
         item->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         item->setData(4, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         item->setData(5, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        if (record.nIndex >=0) {
+        if (record.nIndex == 1) { // stake
+            item->setText(1, QString("%1-%2").arg(record.nHeight).arg(record.nIndex));
+            if (record.nCredit == 0) {
+                item->setData(2, Qt::TextColorRole, QColor("#808080"));
+                item->setText(2, "(stake)");
+            } else {
+                item->setText(2, "-"+displayValue(record.nCredit));
+            }
+            if (record.nDebit == 0) {
+                item->setData(3, Qt::TextColorRole, QColor("#808080"));
+                item->setText(3, "(reward to other)");
+            } else {
+                item->setText(3, "+"+displayValue(record.nDebit));
+            }
+        }
+        else if (record.nIndex >=0) {
             item->setText(1, QString("%1-%2").arg(record.nHeight).arg(record.nIndex));
             item->setText(2, record.nCredit>0 ? "-"+displayValue(record.nCredit) : QString(""));
             item->setText(3, record.nDebit >0 ? "+"+displayValue(record.nDebit ) : QString(""));
         } else {
             item->setText(1, QString("%1-U").arg(record.nHeight));
             item->setData(2, Qt::TextColorRole, QColor("#808080"));
-            item->setText(2, QString("(Unfreeze)"));
+            item->setText(2, QString("(unfreeze)"));
             item->setData(3, Qt::TextColorRole, QColor("#808080"));
             item->setText(3, displayValue(record.nDebit));
         }
         item->setText(4, displayValue(record.nBalance));
         item->setData(5, Qt::TextColorRole, QColor("#808080"));
-        item->setText(5, record.nFrozen >0 ? displayValue(record.nFrozen) : QString(""));
+        if (fPegPruneEnabled && record.nHeight >= nPegStartHeight && (nBestHeight-record.nHeight) > PEG_PRUNE_INTERVAL) {
+            item->setText(5, QString("(pruned)"));
+        } else {
+            item->setText(5, record.nFrozen >0 ? displayValue(record.nFrozen) : QString(""));
+        }
         item->setText(6, QString::fromStdString(DateTimeStrFormat(record.nTime)));
         ui->balanceValues->addTopLevelItem(item);
         nIdx--;

@@ -55,8 +55,8 @@ public slots:
     void showChainPage();
     void showBlockPage();
     void showTxPage();
-    void showAddrPage();
-    void showUtxoPage();
+    void showBalancePage();
+    void showUnspentPage();
     void showNetPage();
     void jumpToTop();
     
@@ -67,15 +67,23 @@ private slots:
     void openBlock(QTreeWidgetItem*,int);
     void openTx(QTreeWidgetItem*,int);
     void openTxFromInput();
+    void openTxFromBalance(QTreeWidgetItem*,int);
+    void openTxFromUnspent(QTreeWidgetItem*,int);
     void jumpToBlock();
     void openBlockFromInput();
-    void openBalanceAddressFromInput();
-    void openBalanceAddressFromTx(QString address);
-    void openUtxoAddressFromInput();
+    void openBalanceFromInput();
+    void openBalanceFromTx(QString address);
+    void openUnspentFromInput();
+    void openUnspentFromAddress(QString address);
+    void openUnspentFromBalance(QTreeWidgetItem*,int);
     void updateCurrentBlockIndex();
     void scrollToCurrentBlockIndex();
     void openChainMenu(const QPoint &);
     void openBlockMenu(const QPoint &);
+    void openNetMenu(const QPoint &);
+    void openBalanceMenu1(const QPoint &);
+    void openBalanceMenu2(const QPoint &);
+    void openUnspentMenu(const QPoint &);
     void updateConnections(const CNodeShortStats &);
     void updateMempool();
 

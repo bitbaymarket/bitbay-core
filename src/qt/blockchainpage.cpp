@@ -71,13 +71,14 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     connect(ui->buttonChain, SIGNAL(clicked()), this, SLOT(showChainPage()));
     connect(ui->buttonBlock, SIGNAL(clicked()), this, SLOT(showBlockPage()));
     connect(ui->buttonTx, SIGNAL(clicked()), this, SLOT(showTxPage()));
-    connect(ui->buttonAddress, SIGNAL(clicked()), this, SLOT(showAddrPage()));
-    connect(ui->buttonUnspent, SIGNAL(clicked()), this, SLOT(showUtxoPage()));
+    connect(ui->buttonAddress, SIGNAL(clicked()), this, SLOT(showBalancePage()));
+    connect(ui->buttonUnspent, SIGNAL(clicked()), this, SLOT(showUnspentPage()));
     connect(ui->buttonNet, SIGNAL(clicked()), this, SLOT(showNetPage()));
     connect(ui->buttonMempool, SIGNAL(clicked()), this, SLOT(showMempoolPage()));
     
     ui->blockchainView->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->blockValues->setContextMenuPolicy(Qt::CustomContextMenu);
+    ui->netNodes->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->blockchainView->installEventFilter(new BlockchainPageChainEvents(ui->blockchainView, this));
     ui->blockValues->installEventFilter(new BlockchainPageBlockEvents(ui->blockValues, this));
 
@@ -85,6 +86,8 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
             this, SLOT(openChainMenu(const QPoint &)));
     connect(ui->blockValues, SIGNAL(customContextMenuRequested(const QPoint &)),
             this, SLOT(openBlockMenu(const QPoint &)));
+    connect(ui->netNodes, SIGNAL(customContextMenuRequested(const QPoint &)),
+            this, SLOT(openNetMenu(const QPoint &)));
 
     connect(ui->blockchainView, SIGNAL(activated(const QModelIndex &)),
             this, SLOT(openBlock(const QModelIndex &)));
@@ -143,9 +146,9 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     connect(ui->lineFindBlock, SIGNAL(returnPressed()),
             this, SLOT(openBlockFromInput()));
     connect(ui->lineBalanceAddress, SIGNAL(returnPressed()),
-            this, SLOT(openBalanceAddressFromInput()));
+            this, SLOT(openBalanceFromInput()));
     connect(ui->lineUtxoAddress, SIGNAL(returnPressed()),
-            this, SLOT(openUtxoAddressFromInput()));
+            this, SLOT(openUnspentFromInput()));
     connect(ui->lineTx, SIGNAL(returnPressed()),
             this, SLOT(openTxFromInput()));
     
@@ -168,7 +171,24 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     ui->utxoValues->header()->resizeSection(5 /*F*/,        20);
     
     connect(txDetails, SIGNAL(openAddressBalance(QString)),
-            this, SLOT(openBalanceAddressFromTx(QString)));
+            this, SLOT(openBalanceFromTx(QString)));
+    connect(ui->balanceCurrent, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
+            this, SLOT(openUnspentFromBalance(QTreeWidgetItem*,int)));
+    connect(ui->balanceValues, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
+            this, SLOT(openTxFromBalance(QTreeWidgetItem*,int)));
+    connect(ui->utxoValues, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
+            this, SLOT(openTxFromUnspent(QTreeWidgetItem*,int)));
+    
+    ui->balanceCurrent->setContextMenuPolicy(Qt::CustomContextMenu);
+    ui->balanceValues->setContextMenuPolicy(Qt::CustomContextMenu);
+    ui->utxoValues->setContextMenuPolicy(Qt::CustomContextMenu);
+    
+    connect(ui->balanceCurrent, SIGNAL(customContextMenuRequested(const QPoint &)),
+            this, SLOT(openBalanceMenu1(const QPoint &)));
+    connect(ui->balanceValues, SIGNAL(customContextMenuRequested(const QPoint &)),
+            this, SLOT(openBalanceMenu2(const QPoint &)));
+    connect(ui->utxoValues, SIGNAL(customContextMenuRequested(const QPoint &)),
+            this, SLOT(openUnspentMenu(const QPoint &)));
     
     QTimer * t = new QTimer(this);
     t->setInterval(10 * 1000);
@@ -219,12 +239,12 @@ void BlockchainPage::showTxPage()
     ui->tabs->setCurrentWidget(ui->pageTx);
 }
 
-void BlockchainPage::showAddrPage()
+void BlockchainPage::showBalancePage()
 {
     ui->tabs->setCurrentWidget(ui->pageAddress);
 }
 
-void BlockchainPage::showUtxoPage()
+void BlockchainPage::showUnspentPage()
 {
     ui->tabs->setCurrentWidget(ui->pageUtxo);
 }
@@ -529,6 +549,134 @@ void BlockchainPage::openBlockMenu(const QPoint & pos)
     m.exec(ui->blockValues->viewport()->mapToGlobal(pos));
 }
 
+void BlockchainPage::openNetMenu(const QPoint & pos)
+{
+    QModelIndex mi = ui->netNodes->indexAt(pos);
+    if (!mi.isValid()) return;
+    auto model = mi.model();
+    if (!model) return;
+
+    QMenu m;
+
+    auto a = m.addAction(tr("Copy Value"));
+    connect(a, &QAction::triggered, [&] {
+        QModelIndex mi2 = model->index(mi.row(), mi.column());
+        QApplication::clipboard()->setText(
+            mi2.data(Qt::DisplayRole).toString()
+        );
+    });
+    a = m.addAction(tr("Copy All Rows"));
+    connect(a, &QAction::triggered, [&] {
+        QString text;
+        for(int r=0; r<model->rowCount(); r++) {
+            for(int c=0; c<model->columnCount(); c++) {
+                if (c>0) text += "\t";
+                QModelIndex mi2 = model->index(r, c);
+                text += mi2.data(Qt::DisplayRole).toString();
+            }
+            text += "\n";
+        }
+        QApplication::clipboard()->setText(text);
+    });
+    m.exec(ui->netNodes->viewport()->mapToGlobal(pos));
+}
+
+void BlockchainPage::openBalanceMenu1(const QPoint & pos)
+{
+    QModelIndex mi = ui->balanceCurrent->indexAt(pos);
+    if (!mi.isValid()) return;
+    auto model = mi.model();
+    if (!model) return;
+
+    QMenu m;
+
+    auto a = m.addAction(tr("Copy Value"));
+    connect(a, &QAction::triggered, [&] {
+        QModelIndex mi2 = model->index(mi.row(), mi.column());
+        QApplication::clipboard()->setText(
+            mi2.data(Qt::DisplayRole).toString()
+        );
+    });
+    a = m.addAction(tr("Copy All Rows"));
+    connect(a, &QAction::triggered, [&] {
+        QString text;
+        for(int r=0; r<model->rowCount(); r++) {
+            for(int c=0; c<model->columnCount(); c++) {
+                if (c>0) text += "\t";
+                QModelIndex mi2 = model->index(r, c);
+                text += mi2.data(Qt::DisplayRole).toString();
+            }
+            text += "\n";
+        }
+        QApplication::clipboard()->setText(text);
+    });
+    m.exec(ui->balanceCurrent->viewport()->mapToGlobal(pos));
+}
+
+void BlockchainPage::openBalanceMenu2(const QPoint & pos)
+{
+    QModelIndex mi = ui->balanceValues->indexAt(pos);
+    if (!mi.isValid()) return;
+    auto model = mi.model();
+    if (!model) return;
+
+    QMenu m;
+
+    auto a = m.addAction(tr("Copy Value"));
+    connect(a, &QAction::triggered, [&] {
+        QModelIndex mi2 = model->index(mi.row(), mi.column());
+        QApplication::clipboard()->setText(
+            mi2.data(Qt::DisplayRole).toString()
+        );
+    });
+    a = m.addAction(tr("Copy All Rows"));
+    connect(a, &QAction::triggered, [&] {
+        QString text;
+        for(int r=0; r<model->rowCount(); r++) {
+            for(int c=0; c<model->columnCount(); c++) {
+                if (c>0) text += "\t";
+                QModelIndex mi2 = model->index(r, c);
+                text += mi2.data(Qt::DisplayRole).toString();
+            }
+            text += "\n";
+        }
+        QApplication::clipboard()->setText(text);
+    });
+    m.exec(ui->balanceValues->viewport()->mapToGlobal(pos));
+}
+
+void BlockchainPage::openUnspentMenu(const QPoint & pos)
+{
+    QModelIndex mi = ui->utxoValues->indexAt(pos);
+    if (!mi.isValid()) return;
+    auto model = mi.model();
+    if (!model) return;
+
+    QMenu m;
+
+    auto a = m.addAction(tr("Copy Value"));
+    connect(a, &QAction::triggered, [&] {
+        QModelIndex mi2 = model->index(mi.row(), mi.column());
+        QApplication::clipboard()->setText(
+            mi2.data(Qt::DisplayRole).toString()
+        );
+    });
+    a = m.addAction(tr("Copy All Rows"));
+    connect(a, &QAction::triggered, [&] {
+        QString text;
+        for(int r=0; r<model->rowCount(); r++) {
+            for(int c=0; c<model->columnCount(); c++) {
+                if (c>0) text += "\t";
+                QModelIndex mi2 = model->index(r, c);
+                text += mi2.data(Qt::DisplayRole).toString();
+            }
+            text += "\n";
+        }
+        QApplication::clipboard()->setText(text);
+    });
+    m.exec(ui->utxoValues->viewport()->mapToGlobal(pos));
+}
+
 bool BlockchainPageBlockEvents::eventFilter(QObject *obj, QEvent *event)
 {
     if (event->type() == QEvent::KeyRelease) {
@@ -546,6 +694,32 @@ bool BlockchainPageBlockEvents::eventFilter(QObject *obj, QEvent *event)
         }
     }
     return QObject::eventFilter(obj, event);
+}
+
+void BlockchainPage::openTxFromBalance(QTreeWidgetItem * item,int)
+{
+    uint256 txhash = item->data(0, BlockchainModel::HashRole).value<uint256>();
+    CTxDB txdb("r");
+    CTxIndex txindex;
+    txdb.ReadTxIndex(txhash, txindex);
+    uint nTxNum = 0;
+    uint256 blockhash;
+    txindex.GetHeightInMainChain(&nTxNum, txhash, &blockhash);
+    showTxPage();
+    txDetails->openTx(blockhash, nTxNum);
+}
+
+void BlockchainPage::openTxFromUnspent(QTreeWidgetItem * item,int)
+{
+    uint256 txhash = item->data(0, BlockchainModel::HashRole).value<uint256>();
+    CTxDB txdb("r");
+    CTxIndex txindex;
+    txdb.ReadTxIndex(txhash, txindex);
+    uint nTxNum = 0;
+    uint256 blockhash;
+    txindex.GetHeightInMainChain(&nTxNum, txhash, &blockhash);
+    showTxPage();
+    txDetails->openTx(blockhash, nTxNum);
 }
 
 void BlockchainPage::openTxFromInput()
@@ -801,18 +975,18 @@ void BlockchainPage::updateMempool()
     }
 }
 
-void BlockchainPage::openBalanceAddressFromInput()
+void BlockchainPage::openBalanceFromInput()
 {
     QString addr = ui->lineBalanceAddress->text();
     ui->balanceCurrent->clear();
     ui->balanceValues->clear();
     if (addr.length() != 34) return;
-    openBalanceAddressFromTx(addr);
+    openBalanceFromTx(addr);
 }
 
-void BlockchainPage::openBalanceAddressFromTx(QString addr)
+void BlockchainPage::openBalanceFromTx(QString addr)
 {
-    showAddrPage();
+    showBalancePage();
     if (addr != ui->lineBalanceAddress->text())
         ui->lineBalanceAddress->setText(addr);
     
@@ -848,6 +1022,9 @@ void BlockchainPage::openBalanceAddressFromTx(QString addr)
             isLatestRecord = false;
         }
         auto item = new QTreeWidgetItem;
+        QVariant vhash;
+        vhash.setValue(record.txhash);
+        item->setData(0, BlockchainModel::HashRole, vhash);
         item->setText(0, QString::number(nIdx));
         item->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         item->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
@@ -906,10 +1083,26 @@ void BlockchainPage::openBalanceAddressFromTx(QString addr)
     }
 }
 
-void BlockchainPage::openUtxoAddressFromInput()
+void BlockchainPage::openUnspentFromBalance(QTreeWidgetItem*,int)
 {
-    ui->utxoValues->clear();
+    QString addr = ui->lineBalanceAddress->text();
+    openUnspentFromAddress(addr);
+}
+
+void BlockchainPage::openUnspentFromInput()
+{
     QString addr = ui->lineUtxoAddress->text();
+    openUnspentFromAddress(addr);
+}
+
+void BlockchainPage::openUnspentFromAddress(QString addr)
+{
+    showUnspentPage();
+    if (addr != ui->lineUtxoAddress->text())
+        ui->lineUtxoAddress->setText(addr);
+    
+    ui->utxoValues->clear();
+    
     LOCK(cs_main);
     CTxDB txdb("r");
     CPegDB pegdb("r");
@@ -921,6 +1114,9 @@ void BlockchainPage::openUtxoAddressFromInput()
             for (const auto & record : records) {
                 uint320 txoutid(record.txoutid);
                 auto item = new QTreeWidgetItem;
+                QVariant vhash;
+                vhash.setValue(txoutid.b1());
+                item->setData(0, BlockchainModel::HashRole, vhash);
                 item->setText(0, QString::number(nIdx));
                 item->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
                 item->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
@@ -950,6 +1146,9 @@ void BlockchainPage::openUtxoAddressFromInput()
             for (const auto & record : records) {
                 uint320 txoutid(record.txoutid);
                 auto item = new QTreeWidgetItem;
+                QVariant vhash;
+                vhash.setValue(txoutid.b1());
+                item->setData(0, BlockchainModel::HashRole, vhash);
                 item->setText(0, "F-"+QString::number(nIdx));
                 item->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
                 item->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));

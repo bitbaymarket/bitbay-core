@@ -912,6 +912,7 @@ void BlockchainPage::openUtxoAddressFromInput()
     QString addr = ui->lineUtxoAddress->text();
     LOCK(cs_main);
     CTxDB txdb("r");
+    CPegDB pegdb("r");
     {
         vector<CAddressUnspent> records;
         bool ok = txdb.ReadAddressUnspent(addr.toStdString(), records);
@@ -925,6 +926,16 @@ void BlockchainPage::openUtxoAddressFromInput()
                 item->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
                 item->setData(4, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
                 item->setText(1, QString("%1-%2:%3").arg(record.nHeight).arg(record.nIndex).arg(txoutid.b2()));
+                CFractions fractions(record.nAmount, CFractions::STD);
+                if (record.nHeight > nPegStartHeight) {
+                    if (pegdb.ReadFractions(txoutid, fractions, true /*must_have*/)) {
+                        item->setText(2, displayValue(fractions.High(pindexBest->nPegSupplyIndex)));
+                        item->setText(3, displayValue(fractions.Low(pindexBest->nPegSupplyIndex)));
+                    }
+                } else {
+                    item->setText(2, displayValue(fractions.High(pindexBest->nPegSupplyIndex)));
+                    item->setText(3, displayValue(fractions.Low(pindexBest->nPegSupplyIndex)));
+                }
                 item->setText(4, displayValue(record.nAmount));
                 ui->utxoValues->addTopLevelItem(item);
                 nIdx--;

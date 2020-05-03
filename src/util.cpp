@@ -77,6 +77,7 @@ string strMiscWarning;
 bool fNoListen = false;
 bool fLogTimestamps = false;
 volatile bool fReopenDebugLog = false;
+uint320 uint320_MAX("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
 // Init OpenSSL library multithreading support
 static CCriticalSection** ppmutexOpenSSL;

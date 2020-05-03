@@ -639,13 +639,14 @@ class CAddressBalance
 {
 public:
     uint256 txhash;
-    int64_t nHeight;
-    int16_t nIndex;
-    int64_t nTime;
+    uint64_t nTime;
+    uint64_t nHeight;
+    int64_t nIndex;
     int64_t nDebit;
     int64_t nCredit;
-    int64_t nFrozen;
     int64_t nBalance;
+    int64_t nFrozen;
+    uint64_t nLockTime;
 
     CAddressBalance()
     {
@@ -660,19 +661,21 @@ public:
         READWRITE(nTime);
         READWRITE(nDebit);
         READWRITE(nCredit);
-        READWRITE(nFrozen);
         READWRITE(nBalance);
+        READWRITE(nFrozen);
+        READWRITE(nLockTime);
     )
 
     void SetNull()
     {
-        nHeight = 0;
-        nIndex = 0;
-        nTime = 0;
-        nDebit = 0;
-        nCredit = 0;
-        nFrozen = 0;
-        nBalance = 0;
+        nHeight   = 0;
+        nIndex    = 0;
+        nTime     = 0;
+        nDebit    = 0;
+        nCredit   = 0;
+        nBalance  = 0;
+        nFrozen   = 0;
+        nLockTime = 0;
     }
 
 };
@@ -705,14 +708,50 @@ public:
 
     void SetNull()
     {
-        nHeight = 0;
-        nIndex = 0;
-        nAmount = 0;
-        nFlags = 0;
+        nHeight   = 0;
+        nIndex    = 0;
+        nAmount   = 0;
+        nFlags    = 0;
+        nLockTime = 0;
     }
 
 };
 
+/**  A txdb record that contains the utxo per address
+ */
+class CFrozenQueued
+{
+public:
+    uint64_t    nLockTime;
+    uint320     txoutid;
+    int64_t     nAmount;
+    std::string sAddress;
+
+    CFrozenQueued()
+    {
+        SetNull();
+    }
+
+    CFrozenQueued(std::string sAddress, int64_t nAmount)
+    {
+        SetNull();
+        this->nAmount = nAmount;
+        this->sAddress = sAddress;
+    }
+    
+    IMPLEMENT_SERIALIZE
+    (
+        READWRITE(nAmount);
+        READWRITE(sAddress);
+    )
+    
+    void SetNull()
+    {
+        nAmount   = 0;
+        nLockTime = 0;
+    }
+
+};
 
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
@@ -997,8 +1036,7 @@ public:
     bool AcceptBlock();
     bool SignBlock(CWallet& keystore, int64_t nFees);
     bool CheckBlockSignature() const;
-    bool ConnectFrozenQueue(CTxDB& txdb);
-    bool DisconnectFrozenQueue(CTxDB& txdb);
+    bool ProcessFrozenQueue(CTxDB& txdb, const CBlockIndex* pindex);
 
 private:
     bool SetBestChainInner(CTxDB& txdb, CPegDB& pegdb, CBlockIndex *pindexNew);

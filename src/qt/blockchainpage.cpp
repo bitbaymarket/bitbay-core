@@ -116,6 +116,7 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     )";
     ui->blockValues->setStyleSheet(hstyle);
     ui->blockchainView->setStyleSheet(hstyle);
+    ui->balanceCurrent->setStyleSheet(hstyle);
     ui->balanceValues->setStyleSheet(hstyle);
     ui->utxoValues->setStyleSheet(hstyle);
     ui->netNodes->setStyleSheet(hstyle);
@@ -123,6 +124,7 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
 
     ui->blockValues->setFont(font);
     ui->blockchainView->setFont(font);
+    ui->balanceCurrent->setFont(font);
     ui->balanceValues->setFont(font);
     ui->utxoValues->setFont(font);
     ui->netNodes->setFont(font);
@@ -130,6 +132,7 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
 
     ui->blockValues->header()->setFont(font);
     ui->blockchainView->header()->setFont(font);
+    ui->balanceCurrent->header()->setFont(font);
     ui->balanceValues->header()->setFont(font);
     ui->utxoValues->header()->setFont(font);
     ui->netNodes->header()->setFont(font);
@@ -155,7 +158,7 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     ui->balanceValues->header()->resizeSection(2 /*credit*/,    180);
     ui->balanceValues->header()->resizeSection(3 /*debit */,    180);
     ui->balanceValues->header()->resizeSection(4 /*balance*/,   180);
-    ui->balanceValues->header()->resizeSection(5 /*F*/,         20);
+    ui->balanceValues->header()->resizeSection(5 /*frozen*/,    180);
 
     ui->utxoValues->header()->resizeSection(0 /*n*/,        70);
     ui->utxoValues->header()->resizeSection(1 /*tx*/,       100);
@@ -797,6 +800,7 @@ void BlockchainPage::updateMempool()
 
 void BlockchainPage::openBalanceAddressFromInput()
 {
+    ui->balanceCurrent->clear();
     ui->balanceValues->clear();
     QString addr = ui->lineBalanceAddress->text();
     LOCK(cs_main);
@@ -805,17 +809,40 @@ void BlockchainPage::openBalanceAddressFromInput()
     bool ok = txdb.ReadAddressBalanceRecords(addr.toStdString(), records);
     if (!ok) return;
     int nIdx = records.size();
+    bool isLatestRecord = true;
     for (const auto & record : records) {
-        //auto shash = QString::fromStdString(record.txhash.ToString());
+        if (isLatestRecord) {
+            int nValueMaxLen = qMax(displayValue(record.nBalance).length(),
+                                    qMax(displayValue(0).length(),
+                                         qMax(displayValue(0).length(),
+                                              displayValue(record.nFrozen).length())));
+            
+            ui->balanceCurrent->addTopLevelItem(new QTreeWidgetItem(QStringList({"Total",displayValueR(record.nBalance, nValueMaxLen)})));
+            ui->balanceCurrent->addTopLevelItem(new QTreeWidgetItem(QStringList({"Liquid",displayValueR(0, nValueMaxLen)})));
+            ui->balanceCurrent->addTopLevelItem(new QTreeWidgetItem(QStringList({"Reserve",displayValueR(0, nValueMaxLen)})));
+            ui->balanceCurrent->addTopLevelItem(new QTreeWidgetItem(QStringList({"Frozen",displayValueR(record.nFrozen, nValueMaxLen)})));
+            isLatestRecord = false;
+        }
         auto item = new QTreeWidgetItem;
         item->setText(0, QString::number(nIdx));
         item->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         item->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
         item->setData(4, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-        item->setText(1, QString("%1-%2").arg(record.nHeight).arg(record.nIndex));
-        item->setText(2, record.nCredit>0 ? "-"+displayValue(record.nCredit) : QString(""));
-        item->setText(3, record.nDebit >0 ? "+"+displayValue(record.nDebit ) : QString(""));
+        item->setData(5, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        if (record.nIndex >=0) {
+            item->setText(1, QString("%1-%2").arg(record.nHeight).arg(record.nIndex));
+            item->setText(2, record.nCredit>0 ? "-"+displayValue(record.nCredit) : QString(""));
+            item->setText(3, record.nDebit >0 ? "+"+displayValue(record.nDebit ) : QString(""));
+        } else {
+            item->setText(1, QString("%1-U").arg(record.nHeight));
+            item->setData(2, Qt::TextColorRole, QColor("#808080"));
+            item->setText(2, QString("(Unfreeze)"));
+            item->setData(3, Qt::TextColorRole, QColor("#808080"));
+            item->setText(3, displayValue(record.nDebit));
+        }
         item->setText(4, displayValue(record.nBalance));
+        item->setData(5, Qt::TextColorRole, QColor("#808080"));
+        item->setText(5, record.nFrozen >0 ? displayValue(record.nFrozen) : QString(""));
         item->setText(6, QString::fromStdString(DateTimeStrFormat(record.nTime)));
         ui->balanceValues->addTopLevelItem(item);
         nIdx--;

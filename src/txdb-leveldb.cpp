@@ -949,16 +949,34 @@ bool CTxDB::ReadAddressFrozen(string sAddress, vector<CAddressUnspent> & vRecord
     return fFound;
 }
 
-bool CTxDB::ReadFrozenQueue(uint64_t nLockTime)
+bool CTxDB::ReadFrozenQueue(uint64_t nLockTime, vector<CFrozenQueued> & records)
 {
     string sMinTime = strprintf("%016x", 0);
     string sMaxTime = strprintf("%016x", nLockTime);
     string sMinTxout = uint320().GetHex();
     string sMaxTxout = uint320_MAX.GetHex();
-    vector<std::pair<string, string> > values;
+    vector<std::pair<string, CFrozenQueued> > values;
     string sMinKey = "fqueue"+sMinTime+sMinTxout;
     string sMaxKey = "fqueue"+sMaxTime+sMaxTxout;
-    return Range(sMinKey, sMaxKey, values);
+    bool fFound = Range(sMinKey, sMaxKey, values);
+    records.resize(values.size());
+    for(size_t i=0; i< values.size(); i++) {
+        string sLockTimeHex = values[i].first.substr(6,16);
+        string sTxoutidHex = values[i].first.substr(6+16,80);
+        records[i].sAddress = values[i].second.sAddress;
+        records[i].nAmount = values[i].second.nAmount;
+        records[i].txoutid = uint320(sTxoutidHex);
+        std::istringstream(sLockTimeHex) >> std::hex >> records[i].nLockTime;
+    }
+    return fFound;
+}
+
+bool CTxDB::ReadFrozenQueued(uint64_t nLockTime, uint320 txoutid, CFrozenQueued & record)
+{
+    string sTime = strprintf("%016x", nLockTime);
+    string sTxout = txoutid.GetHex();
+    string sKey = "fqueue"+sTime+sTxout;
+    return Read(sKey, record);
 }
 
 bool CTxDB::CleanupUtxoData(LoadMsg load_msg)
@@ -1059,6 +1077,38 @@ bool CTxDB::CleanupUtxoData(LoadMsg load_msg)
         }
         delete iterator;
     }
+    // remove old frozen queue records
+    {
+        leveldb::Iterator *iterator = pdb->NewIterator(leveldb::ReadOptions());
+        string sTime = strprintf("%016x", 0);
+        string sTxout = strprintf("%080x", 0); // 256+64
+        CDataStream ssStartKey(SER_DISK, CLIENT_VERSION);
+        ssStartKey << "fqueue"+sTime+sTxout;
+        iterator->Seek(ssStartKey.str());
+        int n =0;
+        while (iterator->Valid()) {
+            if (n % 10000 == 0) {
+                load_msg(std::string(" cleanup #4: ")+std::to_string(n));
+            }
+            CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+            ssKey.write(iterator->key().data(), iterator->key().size());
+            string sKey;
+            ssKey >> sKey;
+            if (boost::starts_with(sKey, "fqueue")) {
+                string sDeleteKey = iterator->key().ToString();
+                iterator->Next();
+                pdb->Delete(leveldb::WriteOptions(), sDeleteKey);
+                n++;
+                continue;
+            }
+            else {
+                break;
+            }
+            iterator->Next();
+            n++;
+        }
+        delete iterator;
+    }
     return true;
 }
 
@@ -1070,8 +1120,8 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg)
     ReadUtxoDbIsReady(fIsReady);
     ReadUtxoDbEnabled(fEnabled);
 
-    fIsReady = false;
-    fEnabled = true;
+//    fIsReady = false;
+//    fEnabled = true;
     
     if (!fIsReady && fEnabled) {
         // remove all first

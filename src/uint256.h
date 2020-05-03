@@ -875,7 +875,7 @@ public:
     }
 };
 
-uint320 uint320_MAX("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+extern uint320 uint320_MAX;
 
 inline bool operator==(const uint320& a, uint64_t b)                         { return (base_uint320)a == b; }
 inline bool operator!=(const uint320& a, uint64_t b)                         { return (base_uint320)a != b; }

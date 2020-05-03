@@ -14,37 +14,10 @@
    <string>Blochain Info page</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="5">
-    <widget class="QToolButton" name="buttonMempool">
-     <property name="text">
-      <string>Mempool</string>
-     </property>
-    </widget>
-   </item>
    <item row="0" column="1">
     <widget class="QToolButton" name="buttonBlock">
      <property name="text">
       <string>Block</string>
-     </property>
-     <property name="checkable">
-      <bool>true</bool>
-     </property>
-     <property name="autoExclusive">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="3">
-    <widget class="QToolButton" name="buttonAddress">
-     <property name="text">
-      <string>Balance</string>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="2">
-    <widget class="QToolButton" name="buttonTx">
-     <property name="text">
-      <string>Transaction</string>
      </property>
      <property name="checkable">
       <bool>true</bool>
@@ -183,7 +156,7 @@
       </layout>
      </widget>
      <widget class="QWidget" name="pageAddress">
-      <layout class="QGridLayout" name="gridLayout_7">
+      <layout class="QGridLayout" name="gridLayout_7" rowstretch="0,1,30">
        <property name="leftMargin">
         <number>0</number>
        </property>
@@ -204,6 +177,41 @@
         </widget>
        </item>
        <item row="1" column="0">
+        <widget class="QTreeWidget" name="balanceCurrent">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>100</height>
+          </size>
+         </property>
+         <property name="alternatingRowColors">
+          <bool>true</bool>
+         </property>
+         <property name="rootIsDecorated">
+          <bool>false</bool>
+         </property>
+         <property name="uniformRowHeights">
+          <bool>true</bool>
+         </property>
+         <property name="itemsExpandable">
+          <bool>false</bool>
+         </property>
+         <property name="allColumnsShowFocus">
+          <bool>true</bool>
+         </property>
+         <column>
+          <property name="text">
+           <string>Property</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Value</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+       <item row="2" column="0">
         <widget class="QTreeWidget" name="balanceValues">
          <property name="alternatingRowColors">
           <bool>true</bool>
@@ -247,7 +255,7 @@
          </column>
          <column>
           <property name="text">
-           <string>F</string>
+           <string>Frozen</string>
           </property>
          </column>
          <column>
@@ -428,10 +436,17 @@
      </widget>
     </widget>
    </item>
-   <item row="0" column="6">
-    <widget class="QToolButton" name="buttonNet">
+   <item row="0" column="3">
+    <widget class="QToolButton" name="buttonAddress">
      <property name="text">
-      <string>Net</string>
+      <string>Balance</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="2">
+    <widget class="QToolButton" name="buttonTx">
+     <property name="text">
+      <string>Transaction</string>
      </property>
      <property name="checkable">
       <bool>true</bool>
@@ -441,15 +456,12 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="0">
-    <widget class="QToolButton" name="buttonChain">
+   <item row="0" column="6">
+    <widget class="QToolButton" name="buttonNet">
      <property name="text">
-      <string>Chain</string>
+      <string>Net</string>
      </property>
      <property name="checkable">
-      <bool>true</bool>
-     </property>
-     <property name="checked">
       <bool>true</bool>
      </property>
      <property name="autoExclusive">
@@ -470,10 +482,33 @@
      </property>
     </spacer>
    </item>
+   <item row="0" column="0">
+    <widget class="QToolButton" name="buttonChain">
+     <property name="text">
+      <string>Chain</string>
+     </property>
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+     <property name="autoExclusive">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
    <item row="0" column="4">
     <widget class="QToolButton" name="buttonUnspent">
      <property name="text">
       <string>Unspent</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="5">
+    <widget class="QToolButton" name="buttonMempool">
+     <property name="text">
+      <string>Mempool</string>
      </property>
     </widget>
    </item>

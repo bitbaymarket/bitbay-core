@@ -391,9 +391,10 @@ public:
     bool WriteUtxoDbEnabled(bool fEnabled);
     
     bool ReadAddressLastBalance(string addr, CAddressBalance & balance, int64_t & nIdx);
-    bool ReadFrozenQueue(uint64_t nLockTime);
+    bool ReadFrozenQueue(uint64_t nLockTime, std::vector<CFrozenQueued> &);
+    bool ReadFrozenQueued(uint64_t nLockTime, uint320 txoutid, CFrozenQueued &);
 
-    bool AddUnspent(std::string sAddress, uint320 txoutid, CAddressUnspent & utxo) {
+    bool AddUnspent(std::string sAddress, uint320 txoutid, const CAddressUnspent & utxo) {
         string sTxout = txoutid.GetHex();
         return Write("utxo"+sAddress+sTxout, utxo);
     }
@@ -401,7 +402,7 @@ public:
         string sTxout = txoutid.GetHex();
         return Erase("utxo"+sAddress+sTxout);
     }
-    bool AddFrozen(std::string sAddress, uint320 txoutid, CAddressUnspent & utxo) {
+    bool AddFrozen(std::string sAddress, uint320 txoutid, const CAddressUnspent & utxo) {
         string sTxout = txoutid.GetHex();
         return Write("ftxo"+sAddress+sTxout, utxo);
     }
@@ -409,7 +410,7 @@ public:
         string sTxout = txoutid.GetHex();
         return Erase("ftxo"+sAddress+sTxout);
     }
-    bool AddBalance(std::string sAddress, int64_t nIndex, CAddressBalance & balance) {
+    bool AddBalance(std::string sAddress, int64_t nIndex, const CAddressBalance & balance) {
         string sRIndex = strprintf("%016x", INT64_MAX-nIndex);
         return Write("addr"+sAddress+sRIndex, balance);
     }
@@ -417,10 +418,10 @@ public:
         string sRIndex = strprintf("%016x", INT64_MAX-nIndex);
         return Erase("addr"+sAddress+sRIndex);
     }
-    bool AddToFrozenQueue(uint64_t nLockTime, uint320 txoutid, std::string sAddress) {
+    bool AddToFrozenQueue(uint64_t nLockTime, uint320 txoutid, const CFrozenQueued & record) {
         string sTime = strprintf("%016x", nLockTime);
         string sTxout = txoutid.GetHex();
-        return Write("fqueue"+sTime+sTxout, sAddress);
+        return Write("fqueue"+sTime+sTxout, record);
     }
     bool EraseFromFrozenQueue(uint64_t nLockTime, uint320 txoutid) {
         string sTime = strprintf("%016x", nLockTime);

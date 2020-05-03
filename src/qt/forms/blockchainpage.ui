@@ -312,7 +312,7 @@
          </column>
          <column>
           <property name="text">
-           <string>Tx</string>
+           <string>Txout</string>
           </property>
          </column>
          <column>

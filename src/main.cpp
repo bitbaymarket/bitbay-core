@@ -1713,6 +1713,8 @@ bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t n
     map<string, int64_t> mapAddressesBalancesIdxs;
     map<string, CAddressBalance> mapAddressesBalances;
     
+    bool isStakeFrozen = false;
+    
     // credit input addresses
     // remove spents utxo
     for(size_t j =0; j < vin.size(); j++) {
@@ -1735,9 +1737,14 @@ bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t n
             const CFractions& fractions = mapInputsFractions[txoutid];
             if ((fractions.nFlags & CFractions::NOTARY_F) || 
                 (fractions.nFlags & CFractions::NOTARY_V)) { 
-                // check if it is still in queue
+                // check if it is still in queue or not over lock time
                 CFrozenQueued skip;
                 frozen = txdb.ReadFrozenQueued(fractions.nLockTime, txoutid, skip);
+                if (IsCoinStake()) {
+                    isStakeFrozen = frozen;
+                    if (fractions.nLockTime > (pindex->nTime+1000))
+                        isStakeFrozen = true;
+                }
                 if (!txdb.EraseFromFrozenQueue(fractions.nLockTime, txoutid))
                     return error("ConnectUtxo() : EraseFromFrozenQueue");
             }
@@ -1784,16 +1791,12 @@ bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t n
             if (fractions.nFlags & CFractions::NOTARY_F) { 
                 unspent.nFlags = CFractions::NOTARY_F;
                 unspent.nLockTime = fractions.nLockTime;
-                frozen = true;
+                frozen = IsCoinStake() ? isStakeFrozen : true;
             }
             if (fractions.nFlags & CFractions::NOTARY_V) {
                 unspent.nFlags = CFractions::NOTARY_V;
                 unspent.nLockTime = fractions.nLockTime;
-                frozen = true;
-            }
-            if (IsCoinStake()) {
-                CFrozenQueued skip;
-                frozen = txdb.ReadFrozenQueued(fractions.nLockTime, txoutid, skip);
+                frozen = IsCoinStake() ? isStakeFrozen : true;
             }
         }
         if (frozen) {
@@ -2012,15 +2015,12 @@ bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs,
             if (fractions.nFlags & CFractions::NOTARY_F) { 
                 unspent.nFlags = CFractions::NOTARY_F;
                 unspent.nLockTime = fractions.nLockTime;
-                frozen = true;
+                frozen = IsCoinStake() ? isStakeFrozen : true;
             }
             if (fractions.nFlags & CFractions::NOTARY_V) {
                 unspent.nFlags = CFractions::NOTARY_V;
                 unspent.nLockTime = fractions.nLockTime;
-                frozen = true;
-            }
-            if (IsCoinStake()) {
-                frozen = isStakeFrozen;
+                frozen = IsCoinStake() ? isStakeFrozen : true;
             }
         }
         if (frozen) {

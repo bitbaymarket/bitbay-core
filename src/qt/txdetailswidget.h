@@ -63,6 +63,9 @@ public slots:
                 unsigned int nTime);
     void showNotFound();
 
+signals:
+    void openAddressBalance(QString address);
+    
 private slots:
     void openPegVotes(QTreeWidgetItem*,int);
     void openFractions(QTreeWidgetItem*,int);

@@ -144,7 +144,8 @@ TxDetailsWidget::~TxDetailsWidget()
 
 void TxDetailsWidget::openTx(QTreeWidgetItem * item, int column)
 {
-    if ((sender() == ui->txInputs || sender() == ui->txOutputs) && column == 1) {
+    if ((sender() == ui->txInputs && column == COL_INP_TX) || 
+        (sender() == ui->txOutputs && column == COL_OUT_TX)) {
         uint256 txhash = item->data(1, BlockchainModel::HashRole).value<uint256>();
         CTxDB txdb("r");
         CTxIndex txindex;
@@ -153,6 +154,22 @@ void TxDetailsWidget::openTx(QTreeWidgetItem * item, int column)
         uint256 blockhash;
         txindex.GetHeightInMainChain(&nTxNum, txhash, &blockhash);
         openTx(blockhash, nTxNum);
+    }
+    if ((sender() == ui->txInputs && column == COL_INP_ADDR) || 
+        (sender() == ui->txOutputs && column == COL_OUT_ADDR)) {
+        QString address = item->text(COL_INP_ADDR);
+        if (address.length() != 34) 
+            return;
+        
+        CTxDB txdb("r");
+        bool fIsReady = false;
+        bool fEnabled = false;
+        txdb.ReadUtxoDbIsReady(fIsReady);
+        txdb.ReadUtxoDbEnabled(fEnabled);
+        if (!fIsReady || !fEnabled)
+            return;
+        
+        emit openAddressBalance(address);
     }
 }
 

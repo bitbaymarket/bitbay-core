@@ -167,6 +167,9 @@ BlockchainPage::BlockchainPage(QWidget *parent) :
     ui->utxoValues->header()->resizeSection(4 /*amount*/,   180);
     ui->utxoValues->header()->resizeSection(5 /*F*/,        20);
     
+    connect(txDetails, SIGNAL(openAddressBalance(QString)),
+            this, SLOT(openBalanceAddressFromTx(QString)));
+    
     QTimer * t = new QTimer(this);
     t->setInterval(10 * 1000);
     connect(t, SIGNAL(timeout()), this, SLOT(updateMempool()));
@@ -800,6 +803,18 @@ void BlockchainPage::updateMempool()
 
 void BlockchainPage::openBalanceAddressFromInput()
 {
+    QString addr = ui->lineBalanceAddress->text();
+    ui->balanceCurrent->clear();
+    ui->balanceValues->clear();
+    if (addr.length() != 34) return;
+    openBalanceAddressFromTx(addr);
+}
+
+void BlockchainPage::openBalanceAddressFromTx(QString addr)
+{
+    showAddrPage();
+    if (addr != ui->lineBalanceAddress->text())
+        ui->lineBalanceAddress->setText(addr);
     
     bool fPegPruneEnabled = true;
     {
@@ -811,7 +826,7 @@ void BlockchainPage::openBalanceAddressFromInput()
     
     ui->balanceCurrent->clear();
     ui->balanceValues->clear();
-    QString addr = ui->lineBalanceAddress->text();
+    
     LOCK(cs_main);
     CTxDB txdb("r");
     vector<CAddressBalance> records;
@@ -848,7 +863,7 @@ void BlockchainPage::openBalanceAddressFromInput()
             }
             if (record.nDebit == 0) {
                 item->setData(3, Qt::TextColorRole, QColor("#808080"));
-                item->setText(3, "(reward to other)");
+                item->setText(3, "(reward moved)");
             } else {
                 item->setText(3, "+"+displayValue(record.nDebit));
             }
@@ -866,7 +881,8 @@ void BlockchainPage::openBalanceAddressFromInput()
         }
         item->setText(4, displayValue(record.nBalance));
         item->setData(5, Qt::TextColorRole, QColor("#808080"));
-        if (fPegPruneEnabled && record.nHeight >= nPegStartHeight && (nBestHeight-record.nHeight) > PEG_PRUNE_INTERVAL) {
+        if (fPegPruneEnabled && record.nHeight >= uint64_t(nPegStartHeight) && 
+            (uint64_t(nBestHeight)-record.nHeight) > PEG_PRUNE_INTERVAL) {
             item->setText(5, QString("(pruned)"));
         } else {
             item->setText(5, record.nFrozen >0 ? displayValue(record.nFrozen) : QString(""));
@@ -874,6 +890,19 @@ void BlockchainPage::openBalanceAddressFromInput()
         item->setText(6, QString::fromStdString(DateTimeStrFormat(record.nTime)));
         ui->balanceValues->addTopLevelItem(item);
         nIdx--;
+    }
+    
+    if (isLatestRecord) {
+        int nValueMaxLen = qMax(displayValue(0).length(),
+                                qMax(displayValue(0).length(),
+                                     qMax(displayValue(0).length(),
+                                          displayValue(0).length())));
+        
+        ui->balanceCurrent->addTopLevelItem(new QTreeWidgetItem(QStringList({"Total",displayValueR(0, nValueMaxLen)})));
+        ui->balanceCurrent->addTopLevelItem(new QTreeWidgetItem(QStringList({"Liquid",displayValueR(0, nValueMaxLen)})));
+        ui->balanceCurrent->addTopLevelItem(new QTreeWidgetItem(QStringList({"Reserve",displayValueR(0, nValueMaxLen)})));
+        ui->balanceCurrent->addTopLevelItem(new QTreeWidgetItem(QStringList({"Frozen",displayValueR(0, nValueMaxLen)})));
+        isLatestRecord = false;
     }
 }
 
@@ -889,13 +918,13 @@ void BlockchainPage::openUtxoAddressFromInput()
         if (ok) {
             int nIdx = records.size();
             for (const auto & record : records) {
-                //auto shash = QString::fromStdString(record.txhash.ToString());
+                uint320 txoutid(record.txoutid);
                 auto item = new QTreeWidgetItem;
                 item->setText(0, QString::number(nIdx));
                 item->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
                 item->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
                 item->setData(4, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-                item->setText(1, QString("%1-%2").arg(record.nHeight).arg(record.nIndex));
+                item->setText(1, QString("%1-%2:%3").arg(record.nHeight).arg(record.nIndex).arg(txoutid.b2()));
                 item->setText(4, displayValue(record.nAmount));
                 ui->utxoValues->addTopLevelItem(item);
                 nIdx--;
@@ -908,13 +937,13 @@ void BlockchainPage::openUtxoAddressFromInput()
         if (ok) {
             int nIdx = records.size();
             for (const auto & record : records) {
-                //auto shash = QString::fromStdString(record.txhash.ToString());
+                uint320 txoutid(record.txoutid);
                 auto item = new QTreeWidgetItem;
                 item->setText(0, "F-"+QString::number(nIdx));
                 item->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
                 item->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
                 item->setData(4, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
-                item->setText(1, QString("%1-%2").arg(record.nHeight).arg(record.nIndex));
+                item->setText(1, QString("%1-%2:%3").arg(record.nHeight).arg(record.nIndex).arg(txoutid.b2()));
                 item->setText(4, displayValue(record.nAmount));
                 ui->utxoValues->addTopLevelItem(item);
                 nIdx--;

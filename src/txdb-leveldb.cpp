@@ -1139,6 +1139,10 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg)
             if (!block.ReadFromDisk(pindex, true)) 
                 return error("LoadUtxoData() : block ReadFromDisk failed");
             
+            if (pindex->nHeight == 2584866) {
+                load_msg(std::string(" balances changes: ")+std::to_string(pindex->nHeight));
+            }
+            
             // fill address map
             for(size_t i=0; i < block.vtx.size(); i++)
             {
@@ -1176,6 +1180,8 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg)
                 if (!tx.ConnectUtxo(*this, pindex, i, mapInputs, mapInputsFractions, mapOutputsFractions))
                     return error("LoadUtxoData() : tx.ConnectUtxo failed");
             }
+            if (!block.ProcessFrozenQueue(*this, pindex))
+                return error("ConnectBlock() : ConnectFrozenQueue failed");
             
             pindex = pindex->pnext;
         }

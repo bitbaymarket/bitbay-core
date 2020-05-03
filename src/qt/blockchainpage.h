@@ -70,6 +70,7 @@ private slots:
     void jumpToBlock();
     void openBlockFromInput();
     void openBalanceAddressFromInput();
+    void openBalanceAddressFromTx(QString address);
     void openUtxoAddressFromInput();
     void updateCurrentBlockIndex();
     void scrollToCurrentBlockIndex();

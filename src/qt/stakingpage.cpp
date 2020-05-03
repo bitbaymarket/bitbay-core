@@ -187,7 +187,7 @@ void StakingPage::updateTimer()
     
     if (lastPegVoteType != PEG_VOTE_AUTO && 
             lastPegVoteType != PEG_VOTE_NONE &&
-            lastPegVoteTypeChanged.secsTo(QDateTime::currentDateTime()) > (50*60*60)) {
+            lastPegVoteTypeChanged.secsTo(QDateTime::currentDateTime()) > (84*60*60)) {
         pwalletMain->SetPegVoteType(PEG_VOTE_AUTO);
         ui->radioButtonVoteAuto->setChecked(true);
     }

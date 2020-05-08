@@ -109,7 +109,7 @@ public:
     CFractions(const CFractions &);
     CFractions& operator=(const CFractions&);
 
-    bool Pack(CDataStream &, unsigned long* len =nullptr) const;
+    bool Pack(CDataStream &, unsigned long* len =nullptr, bool compress=true) const;
     bool Unpack(CDataStream &);
 
     CFractions Std() const;

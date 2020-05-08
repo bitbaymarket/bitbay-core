@@ -1010,14 +1010,18 @@ void BlockchainPage::openBalanceFromTx(QString addr)
     bool isLatestRecord = true;
     for (const auto & record : records) {
         if (isLatestRecord) {
+            CFractions pegbalance;
+            txdb.ReadPegBalance(addr.toStdString(), pegbalance);
+            int64_t nLiquid = pegbalance.High(pindexBest->nPegSupplyIndex);
+            int64_t nReserve = pegbalance.Low(pindexBest->nPegSupplyIndex);
             int nValueMaxLen = qMax(displayValue(record.nBalance).length(),
-                                    qMax(displayValue(0).length(),
-                                         qMax(displayValue(0).length(),
+                                    qMax(displayValue(nLiquid).length(),
+                                         qMax(displayValue(nReserve).length(),
                                               displayValue(record.nFrozen).length())));
             
             ui->balanceCurrent->addTopLevelItem(new QTreeWidgetItem(QStringList({"Total",displayValueR(record.nBalance, nValueMaxLen)})));
-            ui->balanceCurrent->addTopLevelItem(new QTreeWidgetItem(QStringList({"Liquid",displayValueR(0, nValueMaxLen)})));
-            ui->balanceCurrent->addTopLevelItem(new QTreeWidgetItem(QStringList({"Reserve",displayValueR(0, nValueMaxLen)})));
+            ui->balanceCurrent->addTopLevelItem(new QTreeWidgetItem(QStringList({"Liquid",displayValueR(nLiquid, nValueMaxLen)})));
+            ui->balanceCurrent->addTopLevelItem(new QTreeWidgetItem(QStringList({"Reserve",displayValueR(nReserve, nValueMaxLen)})));
             ui->balanceCurrent->addTopLevelItem(new QTreeWidgetItem(QStringList({"Frozen",displayValueR(record.nFrozen, nValueMaxLen)})));
             isLatestRecord = false;
         }
@@ -1106,7 +1110,29 @@ void BlockchainPage::openUnspentFromAddress(QString addr)
     LOCK(cs_main);
     CTxDB txdb("r");
     CPegDB pegdb("r");
+
+    auto totalitem = new QTreeWidgetItem;
     {
+        totalitem->setText(0, QString("Balance"));
+        QFont f = totalitem->data(0, Qt::FontRole).value<QFont>();
+        f.setBold(true);
+        QVariant vf;
+        vf.setValue(f);
+        totalitem->setData(0, Qt::FontRole, vf);
+        totalitem->setData(2, Qt::FontRole, vf);
+        totalitem->setData(3, Qt::FontRole, vf);
+        totalitem->setData(4, Qt::FontRole, vf);
+        totalitem->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        totalitem->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        totalitem->setData(4, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        ui->utxoValues->addTopLevelItem(totalitem);
+    }
+        
+    {
+        
+        int64_t nLiquid = 0;
+        int64_t nReserve = 0;
+        int64_t nBalance = 0;
         vector<CAddressUnspent> records;
         bool ok = txdb.ReadAddressUnspent(addr.toStdString(), records);
         if (ok) {
@@ -1125,20 +1151,51 @@ void BlockchainPage::openUnspentFromAddress(QString addr)
                 CFractions fractions(record.nAmount, CFractions::STD);
                 if (record.nHeight > nPegStartHeight) {
                     if (pegdb.ReadFractions(txoutid, fractions, true /*must_have*/)) {
-                        item->setText(2, displayValue(fractions.High(pindexBest->nPegSupplyIndex)));
-                        item->setText(3, displayValue(fractions.Low(pindexBest->nPegSupplyIndex)));
+                        int64_t nUnspentLiquid = fractions.High(pindexBest->nPegSupplyIndex);
+                        int64_t nUnspentReserve = fractions.Low(pindexBest->nPegSupplyIndex);
+                        item->setText(2, displayValue(nUnspentLiquid));
+                        item->setText(3, displayValue(nUnspentReserve));
+                        nLiquid += nUnspentLiquid;
+                        nReserve += nUnspentReserve;
                     }
                 } else {
-                    item->setText(2, displayValue(fractions.High(pindexBest->nPegSupplyIndex)));
-                    item->setText(3, displayValue(fractions.Low(pindexBest->nPegSupplyIndex)));
+                    int64_t nUnspentLiquid = fractions.High(pindexBest->nPegSupplyIndex);
+                    int64_t nUnspentReserve = fractions.Low(pindexBest->nPegSupplyIndex);
+                    item->setText(2, displayValue(nUnspentLiquid));
+                    item->setText(3, displayValue(nUnspentReserve));
+                    nLiquid += nUnspentLiquid;
+                    nReserve += nUnspentReserve;
                 }
+                nBalance += record.nAmount;
                 item->setText(4, displayValue(record.nAmount));
                 ui->utxoValues->addTopLevelItem(item);
                 nIdx--;
             }
         }
+        
+        totalitem->setText(2, displayValue(nLiquid));
+        totalitem->setText(3, displayValue(nReserve));
+        totalitem->setText(4, displayValue(nBalance));
     }
+    
+    auto frozenitem = new QTreeWidgetItem;
     {
+        frozenitem->setText(0, QString("Frozen"));
+        QFont f = frozenitem->data(0, Qt::FontRole).value<QFont>();
+        f.setBold(true);
+        QVariant vf;
+        vf.setValue(f);
+        frozenitem->setData(0, Qt::FontRole, vf);
+        frozenitem->setData(4, Qt::FontRole, vf);
+        frozenitem->setData(2, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        frozenitem->setData(3, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        frozenitem->setData(4, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
+        ui->utxoValues->addTopLevelItem(frozenitem);
+    }
+    
+    {
+        int64_t nFrozen = 0;
+        
         vector<CAddressUnspent> records;
         bool ok = txdb.ReadAddressFrozen(addr.toStdString(), records);
         if (ok) {
@@ -1155,10 +1212,12 @@ void BlockchainPage::openUnspentFromAddress(QString addr)
                 item->setData(4, Qt::TextAlignmentRole, int(Qt::AlignVCenter | Qt::AlignRight));
                 item->setText(1, QString("%1-%2:%3").arg(record.nHeight).arg(record.nIndex).arg(txoutid.b2()));
                 item->setText(4, displayValue(record.nAmount));
+                nFrozen += record.nAmount;
                 ui->utxoValues->addTopLevelItem(item);
                 nIdx--;
             }
         }
+        frozenitem->setText(4, displayValue(nFrozen));
     }
 }
 

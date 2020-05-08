@@ -1365,7 +1365,7 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb, CPegDB& pegdb)
                     mapOutputsFractions.erase(txoutid);
                 }
             }
-            if (!DisconnectUtxo(txdb, mapInputs, mapInputsFractions, mapOutputsFractions)) {
+            if (!DisconnectUtxo(txdb, pegdb, mapInputs, mapInputsFractions, mapOutputsFractions)) {
                 return error("DisconnectInputs() : DisconnectUtxo failed");
             }
         }
@@ -1732,9 +1732,11 @@ bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t n
             continue;
         
         auto txoutid = uint320(prevout.hash, prevout.n);
+        CFractions frbase(txout.nValue, CFractions::VALUE);
+        CFractions& fractions = frbase;
         bool frozen = false;
         if (mapInputsFractions.count(txoutid)) {
-            const CFractions& fractions = mapInputsFractions[txoutid];
+            fractions = mapInputsFractions[txoutid];
             if ((fractions.nFlags & CFractions::NOTARY_F) || 
                 (fractions.nFlags & CFractions::NOTARY_V)) { 
                 // check if it is still in queue or not over lock time
@@ -1750,10 +1752,16 @@ bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t n
             }
         }
         // remove spent or frozen
-        if (!txdb.EraseUnspent(sAddress, txoutid))
-            return error("ConnectUtxo() : EraseUnspent");
-        if (!txdb.EraseFrozen(sAddress, txoutid))
-            return error("ConnectUtxo() : EraseFrozen");
+        CAddressUnspent unspent;
+        if (txdb.ReadUnspent(sAddress, txoutid, unspent)) {
+            if (!txdb.DeductSpent(sAddress, fractions, unspent.nHeight >= nPegStartHeight))
+                return error("ConnectUtxo() : DeductSpent");
+            if (!txdb.EraseUnspent(sAddress, txoutid))
+                return error("ConnectUtxo() : EraseUnspent");
+        } else {
+            if (!txdb.EraseFrozen(sAddress, txoutid))
+                return error("ConnectUtxo() : EraseFrozen");
+        }
         // make a record if not ready
         CreateUtxoHistoryRecord(txdb, 
                                 sAddress, 
@@ -1785,9 +1793,11 @@ bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t n
         unspent.nIndex  = nTxIdx;
         unspent.nAmount = txout.nValue;
         auto txoutid = uint320(txhash, j);
+        CFractions frbase(txout.nValue, CFractions::VALUE);
+        CFractions& fractions = frbase;
         bool frozen = false;
         if (mapOutputsFractions.count(txoutid)) {
-            const CFractions& fractions = mapOutputsFractions[txoutid];
+            fractions = mapOutputsFractions[txoutid];
             if (fractions.nFlags & CFractions::NOTARY_F) { 
                 unspent.nFlags = CFractions::NOTARY_F;
                 unspent.nLockTime = fractions.nLockTime;
@@ -1807,6 +1817,8 @@ bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t n
         } else {
             if (!txdb.AddUnspent(sAddress, txoutid, unspent))
                 return error("ConnectUtxo() : AddUnspent");
+            if (!txdb.AppendUnspent(sAddress, fractions, unspent.nHeight >= nPegStartHeight))
+                return error("ConnectUtxo() : AppendSpent");
         }
         // make a record if not ready
         CreateUtxoHistoryRecord(txdb, 
@@ -1850,7 +1862,9 @@ bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t n
 
 // remove records from frozen queue and add artificial 
 // balance records indicating the unfreezing amount
-bool CBlock::ProcessFrozenQueue(CTxDB& txdb, const CBlockIndex* pindex)
+bool CBlock::ProcessFrozenQueue(CTxDB& txdb, 
+                                CPegDB& pegdb,
+                                const CBlockIndex* pindex)
 {
     std::vector<CFrozenQueued> records;
     txdb.ReadFrozenQueue(nTime, records);
@@ -1882,11 +1896,20 @@ bool CBlock::ProcessFrozenQueue(CTxDB& txdb, const CBlockIndex* pindex)
             return error("ProcessFrozenQueue() : EraseFrozen");
         if (!txdb.AddUnspent(record.sAddress, record.txoutid, frozen))
             return error("ProcessFrozenQueue() : AddUnspent");
+        if (balance.nHeight >= uint64_t(nPegStartHeight)) {
+            CFractions fractions(frozen.nAmount, CFractions::VALUE);
+            if (!pegdb.ReadFractions(record.txoutid, fractions, true /*must_have*/))
+                return error("ProcessFrozenQueue() : ReadFractions");
+            if (!txdb.AppendUnspent(record.sAddress, fractions, true /*peg_on*/))
+                return error("ProcessFrozenQueue() : AppendSpent");
+        }
     }
     return true;
 }
 
-bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs, 
+bool CTransaction::DisconnectUtxo(CTxDB& txdb, 
+                                  CPegDB& pegdb,
+                                  MapPrevTx& mapInputs, 
                                   MapFractions& mapInputsFractions,
                                   MapFractions& mapOutputsFractions) const
 {
@@ -1943,10 +1966,16 @@ bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs,
                 if (!txdb.AddToFrozenQueue(nLockTime, txoutid, CFrozenQueued(sAddress, balance.nDebit)))
                     return error("DisconnectUtxo() : frozen queue: AddToFrozenQueue");
                 // move from utxo to ftxo
-                // 3. move from ftxo to utxo
                 CAddressUnspent unspent;
                 if (!txdb.ReadUnspent(sAddress, txoutid, unspent))
-                    return error("DisconnectUtxo() : frozen queue: ReadFrozen");
+                    return error("DisconnectUtxo() : frozen queue: ReadUnspent");
+                if (balance.nHeight >= uint64_t(nPegStartHeight)) {
+                    CFractions fractions(unspent.nAmount, CFractions::VALUE);
+                    if (!pegdb.ReadFractions(txoutid, fractions, true /*must_have*/))
+                        return error("DisconnectUtxo() : frozen queue: ReadFractions");
+                    if (!txdb.DeductSpent(sAddress, fractions, true /*peg_on*/))
+                        return error("DisconnectUtxo() : DeductSpent");
+                }
                 if (!txdb.EraseUnspent(sAddress, txoutid))
                     return error("DisconnectUtxo() : frozen queue: EraseFrozen");
                 if (!txdb.AddFrozen(sAddress, txoutid, unspent))
@@ -1970,8 +1999,10 @@ bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs,
             continue;
         
         auto txoutid = uint320(txhash, j);
+        CFractions frbase(txout.nValue, CFractions::VALUE);
+        CFractions& fractions = frbase;
         if (mapOutputsFractions.count(txoutid)) {
-            const CFractions& fractions = mapOutputsFractions[txoutid];
+            fractions = mapOutputsFractions[txoutid];
             if ((fractions.nFlags & CFractions::NOTARY_F) || 
                 (fractions.nFlags & CFractions::NOTARY_V)) { 
                 if (IsCoinStake()) {
@@ -1982,10 +2013,16 @@ bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs,
                     return error("DisconnectUtxo() : EraseFromFrozenQueue");
             }
         }
-        if (!txdb.EraseUnspent(sAddress, txoutid))
-            return error("DisconnectUtxo() : EraseUnspent");
-        if (!txdb.EraseFrozen(sAddress, txoutid))
-            return error("DisconnectUtxo() : EraseFrozen");
+        CAddressUnspent unspent;
+        if (txdb.ReadUnspent(sAddress, txoutid, unspent)) {
+            if (!txdb.DeductSpent(sAddress, fractions, unspent.nHeight >= nPegStartHeight))
+                return error("DisconnectUtxo() : DeductSpent");
+            if (!txdb.EraseUnspent(sAddress, txoutid))
+                return error("DisconnectUtxo() : EraseUnspent");
+        } else {
+            if (!txdb.EraseFrozen(sAddress, txoutid))
+                return error("DisconnectUtxo() : EraseFrozen");
+        }
     }
     // reappend spent utxos via inputs
     for(size_t j =0; j < vin.size(); j++) {
@@ -2008,10 +2045,11 @@ bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs,
         unspent.nIndex  = prevtxindex.nIndex;
         unspent.nAmount = txout.nValue;
         auto txoutid = uint320(prevout.hash, prevout.n);
-        
+        CFractions frbase(txout.nValue, CFractions::VALUE);
+        CFractions& fractions = frbase;
         bool frozen = false;
         if (mapInputsFractions.count(txoutid)) {
-            const CFractions& fractions = mapInputsFractions[txoutid];
+            fractions = mapInputsFractions[txoutid];
             if (fractions.nFlags & CFractions::NOTARY_F) { 
                 unspent.nFlags = CFractions::NOTARY_F;
                 unspent.nLockTime = fractions.nLockTime;
@@ -2031,6 +2069,8 @@ bool CTransaction::DisconnectUtxo(CTxDB& txdb, MapPrevTx& mapInputs,
         } else {
             if (!txdb.AddUnspent(sAddress, txoutid, unspent))
                 return error("DisconnectUtxo() : AddUnspent");
+            if (!txdb.AppendUnspent(sAddress, fractions, unspent.nHeight >= nPegStartHeight))
+                return error("DisconnectUtxo() : AppendSpent");
         }
     }
     // remove balance history records
@@ -2294,7 +2334,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
                 return error("ConnectBlock() : utxo records Write failed");
             }
         }
-        if (!ProcessFrozenQueue(txdb, pindex))
+        if (!ProcessFrozenQueue(txdb, pegdb, pindex))
             return error("ConnectBlock() : ConnectFrozenQueue failed");
     }
     

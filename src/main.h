@@ -447,6 +447,7 @@ public:
                      MapFractions& mapInputsFractions,
                      MapFractions& mapOutputsFractions) const;
     bool DisconnectUtxo(CTxDB& txdb, 
+                        CPegDB& pegdb,
                         MapPrevTx& mapInputs, 
                         MapFractions& mapInputsFractions,
                         MapFractions& mapOutputsFractions) const;
@@ -1036,7 +1037,7 @@ public:
     bool AcceptBlock();
     bool SignBlock(CWallet& keystore, int64_t nFees);
     bool CheckBlockSignature() const;
-    bool ProcessFrozenQueue(CTxDB& txdb, const CBlockIndex* pindex);
+    bool ProcessFrozenQueue(CTxDB& txdb, CPegDB& pegdb, const CBlockIndex* pindex);
 
 private:
     bool SetBestChainInner(CTxDB& txdb, CPegDB& pegdb, CBlockIndex *pindexNew);

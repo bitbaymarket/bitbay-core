@@ -261,6 +261,36 @@ protected:
         }
         return true;
     }
+    template<typename K>
+    bool ReadStr(const K& key, std::string& strValue)
+    {
+        CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+        ssKey.reserve(1000);
+        ssKey << key;
+
+        bool readFromDb = true;
+        if (activeBatch) {
+            // First we must search for it in the currently pending set of
+            // changes to the db. If not found in the batch, go on to read disk.
+            bool deleted = false;
+            readFromDb = ScanBatch(ssKey, &strValue, &deleted) == false;
+            if (deleted) {
+                return false;
+            }
+        }
+        if (readFromDb) {
+            leveldb::Status status = pdb->Get(leveldb::ReadOptions(),
+                                              ssKey.str(), &strValue);
+            if (!status.ok()) {
+                if (status.IsNotFound())
+                    return false;
+                // Some unexpected error.
+                LogPrintf("LevelDB read failure: %s\n", status.ToString());
+                return false;
+            }
+        }
+        return true;
+    }
 
     template<typename K, typename T>
     bool Write(const K& key, const T& value)
@@ -367,6 +397,7 @@ public:
     bool LoadBlockIndex(LoadMsg load_msg);
     bool LoadUtxoData(LoadMsg load_msg);
     bool CleanupUtxoData(LoadMsg load_msg);
+    bool CleanupPegBalances(LoadMsg load_msg);
     
     // flags for peg system peg
     bool ReadPegStartHeight(int& nHeight);
@@ -436,6 +467,9 @@ public:
         string sTxout = txoutid.GetHex();
         return Erase("fqueue"+sTime+sTxout);
     }
+    bool DeductSpent(std::string sAddress, const CFractions & fractions, bool peg_on);
+    bool AppendUnspent(std::string sAddress, const CFractions & fractions, bool peg_on);
+    bool ReadPegBalance(std::string sAddress, CFractions & fractions);
     
     // warning: this method use disk Seek and ignores current batch
     bool ReadAddressBalanceRecords(string addr, vector<CAddressBalance> & records);

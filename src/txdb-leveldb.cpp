@@ -34,7 +34,7 @@ leveldb::DB *txdb; // global pointer for LevelDB object instance
 
 static leveldb::Options GetOptions() {
     leveldb::Options options;
-    int nCacheSizeMB = GetArg("-dbcache", 25);
+    int nCacheSizeMB = GetArg("-dbcache", 50);
     options.block_cache = leveldb::NewLRUCache(nCacheSizeMB * 1048576);
     options.filter_policy = leveldb::NewBloomFilterPolicy(10);
     return options;
@@ -1109,6 +1109,43 @@ bool CTxDB::CleanupUtxoData(LoadMsg load_msg)
         }
         delete iterator;
     }
+    CleanupPegBalances(load_msg);
+    return true;
+}
+
+bool CTxDB::CleanupPegBalances(LoadMsg load_msg)
+{
+    // remove old pegbalance records
+    {
+        leveldb::Iterator *iterator = pdb->NewIterator(leveldb::ReadOptions());
+        string sStart = strprintf("%034x", 0);
+        CDataStream ssStartKey(SER_DISK, CLIENT_VERSION);
+        ssStartKey << "pegbalance"+sStart;
+        iterator->Seek(ssStartKey.str());
+        int n =0;
+        while (iterator->Valid()) {
+            if (n % 10000 == 0) {
+                load_msg(std::string(" cleanup #5: ")+std::to_string(n));
+            }
+            CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+            ssKey.write(iterator->key().data(), iterator->key().size());
+            string sKey;
+            ssKey >> sKey;
+            if (boost::starts_with(sKey, "pegbalance")) {
+                string sDeleteKey = iterator->key().ToString();
+                iterator->Next();
+                pdb->Delete(leveldb::WriteOptions(), sDeleteKey);
+                n++;
+                continue;
+            }
+            else {
+                break;
+            }
+            iterator->Next();
+            n++;
+        }
+        delete iterator;
+    }
     return true;
 }
 
@@ -1123,12 +1160,18 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg)
 //    fIsReady = false;
 //    fEnabled = true;
     
+    set<string> setSkipAddresses;
+    setSkipAddresses.insert(Params().PegInflateAddr());
+    setSkipAddresses.insert(Params().PegDeflateAddr());
+    setSkipAddresses.insert(Params().PegNochangeAddr());
+    
     if (!fIsReady && fEnabled) {
         // remove all first
         CleanupUtxoData(load_msg);
         // pegdb is ready
         CPegDB pegdb("r");
         // over all blocks
+        
         CBlockIndex* pindex = pindexGenesisBlock;
         while (pindex)
         {
@@ -1138,10 +1181,6 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg)
             CBlock block;
             if (!block.ReadFromDisk(pindex, true)) 
                 return error("LoadUtxoData() : block ReadFromDisk failed");
-            
-            if (pindex->nHeight == 2584866) {
-                load_msg(std::string(" balances changes: ")+std::to_string(pindex->nHeight));
-            }
             
             // fill address map
             for(size_t i=0; i < block.vtx.size(); i++)
@@ -1163,7 +1202,7 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg)
                     auto txoutid = uint320(prevout.hash, prevout.n);
                     CFractions& fractions = mapInputsFractions[txoutid];
                     fractions = CFractions(0, CFractions::VALUE);
-                    if (!pegdb.ReadFractions(txoutid, fractions, true /*must_have*/)) {
+                    if (!pegdb.ReadFractions(txoutid, fractions, true)) { // must_have
                         mapInputsFractions.erase(txoutid);
                     }
                 }
@@ -1173,17 +1212,117 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg)
                     auto txoutid = uint320(tx.GetHash(), j);
                     CFractions& fractions = mapOutputsFractions[txoutid];
                     fractions = CFractions(0, CFractions::VALUE);
-                    if (!pegdb.ReadFractions(txoutid, fractions, true /*must_have*/)) {
+                    if (!pegdb.ReadFractions(txoutid, fractions, true)) { // must_have
                         mapOutputsFractions.erase(txoutid);
                     }
                 }
                 if (!tx.ConnectUtxo(*this, pindex, i, mapInputs, mapInputsFractions, mapOutputsFractions))
                     return error("LoadUtxoData() : tx.ConnectUtxo failed");
             }
-            if (!block.ProcessFrozenQueue(*this, pindex))
-                return error("ConnectBlock() : ConnectFrozenQueue failed");
+            if (!block.ProcessFrozenQueue(*this, pegdb, pindex))
+                return error("LoadUtxoData() : ConnectFrozenQueue failed");
             
             pindex = pindex->pnext;
+        }
+        
+        // when it is ready we recalc pegbalances as if prune enabled
+        // we do not have pegdatas of those txouts which were pruned
+        // so all pegbalances are recalculated from unspent pegdata
+        CleanupPegBalances(load_msg);
+        {
+            // two passes:
+            // first pass to collect and add all non-peg unspents without counting peg fractions
+            // secod pass to collect and add all peg-based unspent with peg append/deduct
+            {
+                leveldb::Iterator *iterator = pdb->NewIterator(leveldb::ReadOptions());
+                string sTxout = strprintf("%080x", 0); // 256+64
+                CDataStream ssStartKey(SER_DISK, CLIENT_VERSION);
+                string sStart = strprintf("%034x", 0);
+                ssStartKey << "utxo"+sStart+sTxout;
+                iterator->Seek(ssStartKey.str());
+                int n =0;
+                while (iterator->Valid()) {
+                    if (n % 10000 == 0) {
+                        load_msg(std::string(" balances: ")+std::to_string(n));
+                    }
+                    CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+                    ssKey.write(iterator->key().data(), iterator->key().size());
+                    string sKey;
+                    ssKey >> sKey;
+                    if (boost::starts_with(sKey, "utxo")) {
+                        CDataStream ssValue(SER_DISK, CLIENT_VERSION);
+                        ssValue.write(iterator->value().data(), iterator->value().size());
+                        CAddressUnspent unspent;
+                        ssValue >> unspent;
+                        string sAddress = sKey.substr(4,34);
+                        
+                        CFractions fractions(unspent.nAmount, CFractions::VALUE);
+                        bool peg_on = unspent.nHeight >= nPegStartHeight;
+                        if (!peg_on) {
+                            if (!AppendUnspent(sAddress, fractions, true /*still sumup as pegbased*/))
+                                return error("LoadUtxoData() : AppendUnspent failed");
+                        }
+                        
+                        iterator->Next();
+                        n++;
+                        continue;
+                    }
+                    else {
+                        break;
+                    }
+                    iterator->Next();
+                    n++;
+                }
+                delete iterator;
+            }
+            // peg-based
+            {
+                leveldb::Iterator *iterator = pdb->NewIterator(leveldb::ReadOptions());
+                string sTxout = strprintf("%080x", 0); // 256+64
+                CDataStream ssStartKey(SER_DISK, CLIENT_VERSION);
+                string sStart = strprintf("%034x", 0);
+                ssStartKey << "utxo"+sStart+sTxout;
+                iterator->Seek(ssStartKey.str());
+                int n =0;
+                while (iterator->Valid()) {
+                    if (n % 10000 == 0) {
+                        load_msg(std::string(" balances: ")+std::to_string(n));
+                    }
+                    CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+                    ssKey.write(iterator->key().data(), iterator->key().size());
+                    string sKey;
+                    ssKey >> sKey;
+                    if (boost::starts_with(sKey, "utxo")) {
+                        CDataStream ssValue(SER_DISK, CLIENT_VERSION);
+                        ssValue.write(iterator->value().data(), iterator->value().size());
+                        CAddressUnspent unspent;
+                        ssValue >> unspent;
+                        string sAddress = sKey.substr(4,34);
+                        string sTxoutidHex = sKey.substr(4+34,80);
+                        uint320 txoutid(sTxoutidHex);
+                        
+                        CFractions fractions(unspent.nAmount, CFractions::VALUE);
+                        bool peg_on = unspent.nHeight >= nPegStartHeight;
+                        if (peg_on) {
+                            if (!setSkipAddresses.count(sAddress))
+                                if (!pegdb.ReadFractions(txoutid, fractions, true /*must_have*/))
+                                    return error("LoadUtxoData() : ReadFractions failed");
+                            if (!AppendUnspent(sAddress, fractions, peg_on))
+                                return error("LoadUtxoData() : AppendUnspent failed");
+                        }
+                        
+                        iterator->Next();
+                        n++;
+                        continue;
+                    }
+                    else {
+                        break;
+                    }
+                    iterator->Next();
+                    n++;
+                }
+                delete iterator;
+            }
         }
         
         boost::this_thread::interruption_point();
@@ -1198,5 +1337,56 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg)
         WriteUtxoDbIsReady(false);
     }
     
+    return true;
+}
+
+bool CTxDB::DeductSpent(std::string sAddress, const CFractions & fractions, bool peg_on) {
+    CFractions base(0, CFractions::VALUE);
+    std::string strValue;
+    if (ReadStr("pegbalance"+sAddress, strValue)) {
+        CDataStream finp(strValue.data(), strValue.data() + strValue.size(),
+                         SER_DISK, CLIENT_VERSION);
+        if (!base.Unpack(finp))
+            return false;
+    }
+    if (!peg_on) {
+        base = CFractions(base.Total() - fractions.Total(), CFractions::VALUE);
+    } else {
+        base -= fractions;
+    }
+    CDataStream fout(SER_DISK, CLIENT_VERSION);
+    base.Pack(fout, nullptr, false /*compress*/);
+    return Write("pegbalance"+sAddress, fout);
+}
+
+bool CTxDB::AppendUnspent(std::string sAddress, const CFractions & fractions, bool peg_on) {
+    CFractions base(0, CFractions::VALUE);
+    std::string strValue;
+    if (ReadStr("pegbalance"+sAddress, strValue)) {
+        CDataStream finp(strValue.data(), strValue.data() + strValue.size(),
+                         SER_DISK, CLIENT_VERSION);
+        if (!base.Unpack(finp))
+            return false;
+    }
+    if (!peg_on) {
+        base = CFractions(base.Total() + fractions.Total(), CFractions::VALUE);
+    } else {
+        base += fractions;
+    }
+    CDataStream fout(SER_DISK, CLIENT_VERSION);
+    base.Pack(fout, nullptr, false /*compress*/);
+    return Write("pegbalance"+sAddress, fout);
+}
+
+bool CTxDB::ReadPegBalance(std::string sAddress, CFractions & fractions)
+{
+    fractions = CFractions(0, CFractions::VALUE);
+    std::string strValue;
+    if (ReadStr("pegbalance"+sAddress, strValue)) {
+        CDataStream finp(strValue.data(), strValue.data() + strValue.size(),
+                         SER_DISK, CLIENT_VERSION);
+        if (!fractions.Unpack(finp))
+            return false;
+    }
     return true;
 }

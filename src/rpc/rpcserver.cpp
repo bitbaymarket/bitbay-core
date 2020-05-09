@@ -251,7 +251,8 @@ static const CRPCCommand vRPCCommands[] =
     { "getliquidityrate",       &getliquidityrate,       true,      false,     false },
     { "validaterawtransaction", &validaterawtransaction, true,      false,     false },
     { "createbootstrap",        &createbootstrap,        true,      false,     false },
-
+    { "listunspent",            &listunspent,            false,     false,     false },
+  
 #ifdef ENABLE_WALLET
     { "getmininginfo",          &getmininginfo,          true,      false,     false },
     { "getstakinginfo",         &getstakinginfo,         true,      false,     false },
@@ -292,7 +293,6 @@ static const CRPCCommand vRPCCommands[] =
     { "importprivkey",          &importprivkey,          false,     false,     true },
     { "importwallet",           &importwallet,           false,     false,     true },
     { "importaddress",          &importaddress,          false,     false,     true },
-    { "listunspent",            &listunspent,            false,     false,     true },
     { "listfrozen",             &listfrozen,             false,     false,     true },
     { "settxfee",               &settxfee,               false,     false,     true },
     { "getsubsidy",             &getsubsidy,             true,      true,      false },

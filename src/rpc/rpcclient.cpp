@@ -183,14 +183,23 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "validaterawtransaction", 2 },
 };
 
+static const CRPCConvertParam vRPCMixedParams[] =
+{
+    { "listunspent", 0 },
+};
+
 class CRPCConvertTable
 {
 private:
+    std::set<std::pair<std::string, int> > mixed;
     std::set<std::pair<std::string, int> > members;
 
 public:
     CRPCConvertTable();
 
+    bool ismixed(const std::string& method, int idx) {
+        return (mixed.count(std::make_pair(method, idx)) > 0);
+    }
     bool convert(const std::string& method, int idx) {
         return (members.count(std::make_pair(method, idx)) > 0);
     }
@@ -198,10 +207,18 @@ public:
 
 CRPCConvertTable::CRPCConvertTable()
 {
-    const unsigned int n_elem =
+    const unsigned int n_elem1 =
+        (sizeof(vRPCMixedParams) / sizeof(vRPCMixedParams[0]));
+
+    for (unsigned int i = 0; i < n_elem1; i++) {
+        mixed.insert(std::make_pair(vRPCMixedParams[i].methodName,
+                                    vRPCMixedParams[i].paramIdx));
+    }
+    
+    const unsigned int n_elem2 =
         (sizeof(vRPCConvertParams) / sizeof(vRPCConvertParams[0]));
 
-    for (unsigned int i = 0; i < n_elem; i++) {
+    for (unsigned int i = 0; i < n_elem2; i++) {
         members.insert(std::make_pair(vRPCConvertParams[i].methodName,
                                       vRPCConvertParams[i].paramIdx));
     }
@@ -217,6 +234,17 @@ Array RPCConvertValues(const std::string &strMethod, const std::vector<std::stri
     for (unsigned int idx = 0; idx < strParams.size(); idx++) {
         const std::string& strVal = strParams[idx];
 
+        // if type can be mixed
+        if (rpcCvtTable.ismixed(strMethod, idx)) {
+            Value jVal;
+            if (!read_string(strVal, jVal)) {
+                params.push_back(strVal);
+            } else {
+                params.push_back(jVal);
+            }
+            continue;
+        }
+        
         // insert string value directly
         if (!rpcCvtTable.convert(strMethod, idx)) {
             params.push_back(strVal);

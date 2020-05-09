@@ -1,5 +1,6 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2018-2020 yshurik
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -193,18 +194,25 @@ Value getrawtransaction(const Array& params, bool fHelp)
 }
 
 #ifdef ENABLE_WALLET
-Value listunspent(const Array& params, bool fHelp)
+Value listunspent2(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() > 4)
         throw runtime_error(
             "listunspent [minconf=1] [maxconf=9999999] [\"address\",...] [pegsupplyindex]\n"
-            "Returns array of unspent transaction outputs\n"
-            "with between minconf and maxconf (inclusive) confirmations.\n"
-            "Optionally filtered to only include txouts paid to specified addresses.\n"
-            "If peg supply index is provided then liquid and reserve are calculated for specified peg value."
-            "Results are an array of Objects, each of which has:\n"
-            "{txid, vout, scriptPubKey, amount, liquid, reserve, confirmations}");
+            "\t(wallet api)\n"
+            "\tReturns array of unspent transaction outputs\n"
+            "\twith between minconf and maxconf (inclusive) confirmations.\n"
+            "\tOptionally filtered to only include txouts paid to specified addresses.\n"
+            "\tIf peg supply index is provided then liquid and reserve are calculated for specified peg value.\n"
+            "\tResults are an array of Objects, each of which has:\n"
+            "\t{txid, vout, scriptPubKey, amount, liquid, reserve, confirmations}");
 
+    if (params.size() > 0) {
+        if (params[0].type() == str_type) {
+            return listunspent1(params, fHelp);
+        }
+    }
+    
     RPCTypeCheck(params, list_of(int_type)(int_type)(array_type));
 
     int nMinDepth = 1;
@@ -302,11 +310,12 @@ Value listfrozen(const Array& params, bool fHelp)
     if (fHelp || params.size() > 4)
         throw runtime_error(
             "listfrozen [minconf=1] [maxconf=9999999] [\"address\",...] [pegsupplyindex]\n"
-            "Returns array of frozen transaction outputs\n"
-            "with between minconf and maxconf (inclusive) confirmations.\n"
-            "Optionally filtered to only include txouts paid to specified addresses.\n"
-            "If peg supply index is provided then liquid and reserve are calculated for specified peg value."
-            "Results are an array of Objects, each of which has:\n"
+            "\t(wallet api)\n"
+            "\tReturns array of frozen transaction outputs\n"
+            "\twith between minconf and maxconf (inclusive) confirmations.\n"
+            "\tOptionally filtered to only include txouts paid to specified addresses.\n"
+            "\tIf peg supply index is provided then liquid and reserve are calculated for specified peg value.\n"
+            "\tResults are an array of Objects, each of which has:\n"
             "{txid, vout, scriptPubKey, amount, liquid, reserve, confirmations}");
 
     RPCTypeCheck(params, list_of(int_type)(int_type)(array_type));

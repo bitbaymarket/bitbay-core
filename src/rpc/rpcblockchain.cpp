@@ -1,17 +1,23 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2018-2020 yshurik
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <boost/assign/list_of.hpp>
+
 #include "rpcserver.h"
 #include "main.h"
+#include "base58.h"
 #include "kernel.h"
 #include "checkpoints.h"
 #include "txdb-leveldb.h"
 #include "pegdb-leveldb.h"
 
-using namespace json_spirit;
 using namespace std;
+using namespace boost;
+using namespace boost::assign;
+using namespace json_spirit;
 
 extern void TxToJSON(const CTransaction& tx, 
                      const uint256 hashBlock, 
@@ -528,4 +534,124 @@ Value createbootstrap(const Array& params, bool fHelp)
     
     ret.push_back(Pair("written", nWritten));
     return ret;
+}
+
+Value listunspent(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() > 4)
+        throw runtime_error(
+            "listunspent [minconf=1] [maxconf=9999999] [\"address\",...] [pegsupplyindex]\n"
+            "\t(wallet api)\n"
+            "\tReturns array of unspent transaction outputs\n"
+            "\twith between minconf and maxconf (inclusive) confirmations.\n"
+            "\tOptionally filtered to only include txouts paid to specified addresses.\n"
+            "\tIf peg supply index is provided then liquid and reserve are calculated for specified peg value.\n"
+            "\tResults are an array of Objects, each of which has:\n"
+            "\t{txid, vout, scriptPubKey, amount, liquid, reserve, confirmations}\n\n"
+
+            "listunspent address [minconf=1] [maxconf=9999999] [pegsupplyindex]\n"
+            "\t(blockchain api)\n"
+            "\tReturns array of unspent transaction outputs\n"
+            "\twith between minconf and maxconf (inclusive) confirmations.\n"
+            "\tIf peg supply index is provided then liquid and reserve are calculated for specified peg value.\n"
+            "\tResults are an array of Objects, each of which has:\n"
+            "\t{txid, vout, amount, liquid, reserve, height, txindex, confirmations}");
+    
+    if (params.size() > 0) {
+        if (params[0].type() == str_type) {
+            return listunspent1(params, fHelp);
+        }
+    }
+    
+#ifdef ENABLE_WALLET
+    return listunspent2(params, fHelp);
+#else
+    return listunspent1(params, fHelp);
+#endif
+}
+
+Value listunspent1(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 4)
+        throw runtime_error(
+            "listunspent address [minconf=1] [maxconf=9999999] [pegsupplyindex]\n"
+            "\t(blockchain api)\n"
+            "\tReturns array of unspent transaction outputs\n"
+            "\twith between minconf and maxconf (inclusive) confirmations.\n"
+            "\tIf peg supply index is provided then liquid and reserve are calculated for specified peg value.\n"
+            "\tResults are an array of Objects, each of which has:\n"
+            "\t{txid, vout, amount, liquid, reserve, height, txindex, confirmations}");
+
+    RPCTypeCheck(params, list_of(str_type)(int_type)(int_type)(int_type));
+
+    CBitcoinAddress address(params[0].get_str());
+    if (!address.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid BitBay address: ")+params[0].get_str());
+    
+    string sAddress = params[0].get_str();
+    if (sAddress.length() != 34)
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid BitBay address: ")+params[0].get_str());
+    
+    int nMinDepth = 1;
+    if (params.size() > 1)
+        nMinDepth = params[1].get_int();
+
+    int nMaxDepth = 9999999;
+    if (params.size() > 2)
+        nMaxDepth = params[2].get_int();
+    
+    int nHeightNow = nBestHeight;
+    
+    CTxDB txdb("r");
+    CPegDB pegdb("r");
+    
+    bool fIsReady = false;
+    bool fEnabled = false;
+    txdb.ReadUtxoDbIsReady(fIsReady);
+    txdb.ReadUtxoDbEnabled(fEnabled);
+    if (!fEnabled)
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Balance/unspent database is not enabled"));
+    if (!fIsReady)
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Balance/unspent database is not ready (may require restart)"));
+    
+    vector<CAddressUnspent> records;
+    if (!txdb.ReadAddressUnspent(sAddress, records))
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed ReadAddressUnspent"));
+    
+    Array results;
+    for (const auto & record : records) {
+        int nDepth = nHeightNow - record.nHeight +1;
+        if (nDepth < nMinDepth || nDepth > nMaxDepth)
+            continue;
+        
+        uint320 txoutid(record.txoutid);
+        
+        Object entry;
+        entry.push_back(Pair("txid", txoutid.b1().GetHex()));
+        entry.push_back(Pair("vout", txoutid.b2()));
+        entry.push_back(Pair("address", sAddress));
+        entry.push_back(Pair("amount",ValueFromAmount(record.nAmount)));
+
+        CFractions fractions(record.nAmount, CFractions::STD);
+        if (record.nHeight > nPegStartHeight) {
+            if (pegdb.ReadFractions(txoutid, fractions, true /*must_have*/)) {
+                int64_t nUnspentLiquid = fractions.High(pindexBest->nPegSupplyIndex);
+                int64_t nUnspentReserve = fractions.Low(pindexBest->nPegSupplyIndex);
+                entry.push_back(Pair("liquid",ValueFromAmount(nUnspentLiquid)));
+                entry.push_back(Pair("reserve",ValueFromAmount(nUnspentReserve)));
+            }
+        } else {
+            int64_t nUnspentLiquid = fractions.High(pindexBest->nPegSupplyIndex);
+            int64_t nUnspentReserve = fractions.Low(pindexBest->nPegSupplyIndex);
+            entry.push_back(Pair("liquid",ValueFromAmount(nUnspentLiquid)));
+            entry.push_back(Pair("reserve",ValueFromAmount(nUnspentReserve)));
+        }
+        
+        entry.push_back(Pair("height", record.nHeight));
+        entry.push_back(Pair("txindex", record.nIndex));
+        entry.push_back(Pair("confirmations", nDepth));
+        results.push_back(entry);
+    }
+    
+    return results;
 }

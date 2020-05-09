@@ -152,6 +152,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listdeposits", 0 },
     { "listdeposits", 1 },
     { "listdeposits", 2 },
+    { "balance", 1 },
     { "getrawtransaction", 1 },
     { "createrawtransaction", 0 },
     { "createrawtransaction", 1 },

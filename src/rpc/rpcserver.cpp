@@ -253,6 +253,7 @@ static const CRPCCommand vRPCCommands[] =
     { "createbootstrap",        &createbootstrap,        true,      false,     false },
     { "listunspent",            &listunspent,            false,     false,     false },
     { "listfrozen",             &listfrozen,             false,     false,     false },
+    { "balance",                &balance,                false,     false,     false },
   
 #ifdef ENABLE_WALLET
     { "getmininginfo",          &getmininginfo,          true,      false,     false },

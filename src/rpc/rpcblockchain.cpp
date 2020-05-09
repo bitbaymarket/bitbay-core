@@ -600,6 +600,14 @@ Value listunspent1(const Array& params, bool fHelp)
     if (params.size() > 2)
         nMaxDepth = params[2].get_int();
     
+    int nSupply = 0;
+    if (pindexBest) {
+        nSupply = pindexBest->nPegSupplyIndex;
+    }
+    if (params.size() > 3) {
+        nSupply = params[3].get_int();
+    }
+    
     int nHeightNow = nBestHeight;
     
     CTxDB txdb("r");
@@ -635,14 +643,14 @@ Value listunspent1(const Array& params, bool fHelp)
         CFractions fractions(record.nAmount, CFractions::STD);
         if (record.nHeight > nPegStartHeight) {
             if (pegdb.ReadFractions(txoutid, fractions, true /*must_have*/)) {
-                int64_t nUnspentLiquid = fractions.High(pindexBest->nPegSupplyIndex);
-                int64_t nUnspentReserve = fractions.Low(pindexBest->nPegSupplyIndex);
+                int64_t nUnspentLiquid = fractions.High(nSupply);
+                int64_t nUnspentReserve = fractions.Low(nSupply);
                 entry.push_back(Pair("liquid",ValueFromAmount(nUnspentLiquid)));
                 entry.push_back(Pair("reserve",ValueFromAmount(nUnspentReserve)));
             }
         } else {
-            int64_t nUnspentLiquid = fractions.High(pindexBest->nPegSupplyIndex);
-            int64_t nUnspentReserve = fractions.Low(pindexBest->nPegSupplyIndex);
+            int64_t nUnspentLiquid = fractions.High(nSupply);
+            int64_t nUnspentReserve = fractions.Low(nSupply);
             entry.push_back(Pair("liquid",ValueFromAmount(nUnspentLiquid)));
             entry.push_back(Pair("reserve",ValueFromAmount(nUnspentReserve)));
         }
@@ -720,6 +728,14 @@ Value listfrozen1(const Array& params, bool fHelp)
     if (params.size() > 2)
         nMaxDepth = params[2].get_int();
     
+    int nSupply = 0;
+    if (pindexBest) {
+        nSupply = pindexBest->nPegSupplyIndex;
+    }
+    if (params.size() > 3) {
+        nSupply = params[3].get_int();
+    }
+    
     int nHeightNow = nBestHeight;
     
     CTxDB txdb("r");
@@ -755,14 +771,14 @@ Value listfrozen1(const Array& params, bool fHelp)
         CFractions fractions(record.nAmount, CFractions::STD);
         if (record.nHeight > nPegStartHeight) {
             if (pegdb.ReadFractions(txoutid, fractions, true /*must_have*/)) {
-                int64_t nUnspentLiquid = fractions.High(pindexBest->nPegSupplyIndex);
-                int64_t nUnspentReserve = fractions.Low(pindexBest->nPegSupplyIndex);
+                int64_t nUnspentLiquid = fractions.High(nSupply);
+                int64_t nUnspentReserve = fractions.Low(nSupply);
                 entry.push_back(Pair("liquid",ValueFromAmount(nUnspentLiquid)));
                 entry.push_back(Pair("reserve",ValueFromAmount(nUnspentReserve)));
             }
         } else {
-            int64_t nUnspentLiquid = fractions.High(pindexBest->nPegSupplyIndex);
-            int64_t nUnspentReserve = fractions.Low(pindexBest->nPegSupplyIndex);
+            int64_t nUnspentLiquid = fractions.High(nSupply);
+            int64_t nUnspentReserve = fractions.Low(nSupply);
             entry.push_back(Pair("liquid",ValueFromAmount(nUnspentLiquid)));
             entry.push_back(Pair("reserve",ValueFromAmount(nUnspentReserve)));
         }
@@ -776,4 +792,69 @@ Value listfrozen1(const Array& params, bool fHelp)
     
     return results;
 }
+
+Value balance(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 2)
+        throw runtime_error(
+            "balance address [pegsupplyindex]\n"
+            "\t(blockchain api)\n"
+            "\tReturns current balance of the specified address\n"
+            "\tIf peg supply index is provided then liquid and reserve are calculated for specified peg value.\n");
+
+    RPCTypeCheck(params, list_of(str_type)(int_type));
+
+    CBitcoinAddress address(params[0].get_str());
+    if (!address.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid BitBay address: ")+params[0].get_str());
+    
+    string sAddress = params[0].get_str();
+    if (sAddress.length() != 34)
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid BitBay address: ")+params[0].get_str());
+    
+    int nSupply = 0;
+    if (pindexBest) {
+        nSupply = pindexBest->nPegSupplyIndex;
+    }
+    if (params.size() > 1) {
+        nSupply = params[1].get_int();
+    }
+    
+    CTxDB txdb("r");
+    
+    bool fIsReady = false;
+    bool fEnabled = false;
+    txdb.ReadUtxoDbIsReady(fIsReady);
+    txdb.ReadUtxoDbEnabled(fEnabled);
+    if (!fEnabled)
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Balance/unspent database is not enabled"));
+    if (!fIsReady)
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Balance/unspent database is not ready (may require restart)"));
+    
+    int64_t nLastIndex = -1;
+    CAddressBalance balance;
+    bool fFound = txdb.ReadAddressLastBalance(sAddress, balance, nLastIndex);
+    
+    Object result;
+    
+    result.push_back(Pair("address", sAddress));
+    result.push_back(Pair("amount",ValueFromAmount(balance.nBalance)));
+    result.push_back(Pair("frozen",ValueFromAmount(balance.nFrozen)));
+
+    int64_t nUnspentLiquid = 0;
+    int64_t nUnspentReserve = 0;
+    if (fFound) {
+        CFractions fractions(balance.nBalance - balance.nFrozen, CFractions::STD);
+        if (!txdb.ReadPegBalance(sAddress, fractions))
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("ReadPegBalance failed"));
+        nUnspentLiquid = fractions.High(nSupply);
+        nUnspentReserve = fractions.Low(nSupply);
+    }
+    result.push_back(Pair("liquid",ValueFromAmount(nUnspentLiquid)));
+    result.push_back(Pair("reserve",ValueFromAmount(nUnspentReserve)));
+    result.push_back(Pair("transactions", nLastIndex+1));
+    
+    return result;
+}
+
 

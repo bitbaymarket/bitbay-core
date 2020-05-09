@@ -1963,7 +1963,7 @@ bool CTransaction::DisconnectUtxo(CTxDB& txdb,
                     return error("DisconnectUtxo() : frozen queue: EraseBalance (unfreezing)");
                 // back to freeze queue
                 uint64_t nLockTime = balance.nLockTime;
-                uint320 txoutid(balance.txhash, -balance.nIndex+1);
+                uint320 txoutid(balance.txhash, -balance.nIndex-1);
                 if (!txdb.AddToFrozenQueue(nLockTime, txoutid, CFrozenQueued(sAddress, balance.nDebit)))
                     return error("DisconnectUtxo() : frozen queue: AddToFrozenQueue");
                 // move from utxo to ftxo

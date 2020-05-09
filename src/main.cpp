@@ -1314,9 +1314,10 @@ bool CTransaction::IsExchangeTx(int & nOut, uint256 & wid) const
 bool CTransaction::DisconnectInputs(CTxDB& txdb, CPegDB& pegdb)
 {
     bool fUtxoDbEnabled = false;
-    if (!txdb.ReadUtxoDbEnabled(fUtxoDbEnabled)) {
-        fUtxoDbEnabled = false;
-    }
+    bool fUtxoDbIsReady = false;
+    txdb.ReadUtxoDbEnabled(fUtxoDbEnabled);
+    txdb.ReadUtxoDbIsReady(fUtxoDbIsReady);
+    if (!fUtxoDbIsReady) fUtxoDbEnabled = false;
     
     // Relinquish previous transactions' spent pointers
     if (!IsCoinBase())
@@ -2155,9 +2156,10 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
     
     // track utxo db changes
     bool fUtxoDbEnabled = false;
-    if (!txdb.ReadUtxoDbEnabled(fUtxoDbEnabled)) {
-        fUtxoDbEnabled = false;
-    }
+    bool fUtxoDbIsReady = false;
+    txdb.ReadUtxoDbEnabled(fUtxoDbEnabled);
+    txdb.ReadUtxoDbIsReady(fUtxoDbIsReady);
+    if (!fUtxoDbIsReady) fUtxoDbEnabled = false;
 
     //// issue here: it doesn't know the version
     unsigned int nTxPos;

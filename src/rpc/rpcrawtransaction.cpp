@@ -305,7 +305,7 @@ Value listunspent2(const Array& params, bool fHelp)
     return results;
 }
 
-Value listfrozen(const Array& params, bool fHelp)
+Value listfrozen2(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() > 4)
         throw runtime_error(

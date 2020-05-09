@@ -186,6 +186,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
 static const CRPCConvertParam vRPCMixedParams[] =
 {
     { "listunspent", 0 },
+    { "listfrozen", 0 },
 };
 
 class CRPCConvertTable

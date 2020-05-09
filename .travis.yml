@@ -29,6 +29,12 @@ matrix:
       dist: trusty
       sudo: required
       env:
+        - DEPLOY_FILE=mainnet-explorer-node.dockerimage
+        - ARCH="mainnet-explorer-node"
+    - os: linux
+      dist: trusty
+      sudo: required
+      env:
         - DEPLOY_FILE=testnet-node.dockerimage
         - ARCH="testnet-node"
     - os: linux
@@ -147,6 +153,10 @@ install:
   fi
 - >
   if [[ $ARCH == "mainnet-exchange-node" ]]; then
+    export                                                      ;
+  fi
+- >
+  if [[ $ARCH == "mainnet-explorer-node" ]]; then
     export                                                      ;
   fi
 - >
@@ -304,6 +314,10 @@ before_script:
   fi
 - >
   if [[ $ARCH == "mainnet-exchange-node" ]]; then
+    docker pull bitbayofficial/builder-linux64:alpine;
+  fi
+- >
+  if [[ $ARCH == "mainnet-explorer-node" ]]; then
     docker pull bitbayofficial/builder-linux64:alpine;
   fi
 - >
@@ -483,6 +497,35 @@ script:
     cp ../../bitbayd . &&
     docker build . -f mainnet-exchange-node.dockerfile -t bitbayofficial/mainnet-exchange-node:latest &&
     docker save bitbayofficial/mainnet-exchange-node:latest -o ../../mainnet-exchange-node.dockerimage &&
+    cd ../..;
+  fi
+- >
+  if [[ $ARCH == "mainnet-explorer-node" ]]; then
+    echo "LIBS += -static" > bitbayd-local.pri &&
+    echo "CONFIG += silent" >> bitbayd-local.pri &&
+    docker run --rm \
+        -v $(pwd):/mnt \
+        -u $(stat -c %u:%g .) \
+        bitbayofficial/builder-linux64:alpine \
+        /bin/sh -c "qmake-qt5 -v && \
+          cd /mnt && \
+          ls -al && \
+          qmake-qt5 \
+            CICD=travis_x64 \
+            \"USE_DBUS=0\" \
+            \"USE_QRCODE=0\" \
+            \"USE_WALLET=0\" \
+            \"USE_EXPLORER=1\" \
+            \"BOOST_LIB_SUFFIX=-mt\" \
+            bitbayd.pro && \
+          sed -i 's/\/usr\/lib\/libssl.so/-lssl/' Makefile &&
+          sed -i 's/\/usr\/lib\/libcrypto.so/-lcrypto/' Makefile &&
+          sed -i s:sys/fcntl.h:fcntl.h: src/compat.h &&
+          make -j2" &&
+    cd contrib/docker &&
+    cp ../../bitbayd . &&
+    docker build . -f mainnet-explorer-node.dockerfile -t bitbayofficial/mainnet-explorer-node:latest &&
+    docker save bitbayofficial/mainnet-explorer-node:latest -o ../../mainnet-explorer-node.dockerimage &&
     cd ../..;
   fi
 - >

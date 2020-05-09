@@ -89,6 +89,10 @@ SOURCES += \
 
 INCLUDEPATH += $$PWD/wallet
 
+explorer {
+    DEFINES += ENABLE_EXPLORER
+}
+
 wallet {
 
     DEFINES += ENABLE_WALLET
@@ -105,9 +109,6 @@ wallet {
             $$PWD/exchange/rpcexchange.cpp \
             $$PWD/exchange/rpcwithdraw.cpp \
             $$PWD/exchange/rpcexchange_util.cpp \
-    }
-    explorer {
-        DEFINES += ENABLE_EXPLORER
     }
 
     HEADERS += \

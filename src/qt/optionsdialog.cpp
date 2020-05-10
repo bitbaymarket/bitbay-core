@@ -204,6 +204,9 @@ void OptionsDialog::on_okButton_clicked()
         CTxDB txdb("r+");
         txdb.WritePegPruneEnabled(ui->prunePegInfo->isChecked());
         txdb.WriteUtxoDbEnabled(ui->utxoAddressInfo->isChecked());
+        if (!ui->utxoAddressInfo->isChecked()) {
+            txdb.WriteUtxoDbIsReady(false);
+        }
     }
     accept();
 }
@@ -221,6 +224,9 @@ void OptionsDialog::on_applyButton_clicked()
         CTxDB txdb("r+");
         txdb.WritePegPruneEnabled(ui->prunePegInfo->isChecked());
         txdb.WriteUtxoDbEnabled(ui->utxoAddressInfo->isChecked());
+        if (!ui->utxoAddressInfo->isChecked()) {
+            txdb.WriteUtxoDbIsReady(false);
+        }
     }
     disableApplyButton();
 }

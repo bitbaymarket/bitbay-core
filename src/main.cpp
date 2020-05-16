@@ -1866,7 +1866,9 @@ bool CTransaction::ConnectUtxo(CTxDB& txdb, const CBlockIndex* pindex, int16_t n
 // balance records indicating the unfreezing amount
 bool CBlock::ProcessFrozenQueue(CTxDB& txdb, 
                                 CPegDB& pegdb,
-                                const CBlockIndex* pindex)
+                                MapFractions& mapFractions,
+                                const CBlockIndex* pindex,
+                                bool fLoading)
 {
     std::vector<CFrozenQueued> records;
     txdb.ReadFrozenQueue(nTime, records);
@@ -1900,8 +1902,11 @@ bool CBlock::ProcessFrozenQueue(CTxDB& txdb,
             return error("ProcessFrozenQueue() : AddUnspent");
         if (balance.nHeight >= uint64_t(nPegStartHeight)) {
             CFractions fractions(frozen.nAmount, CFractions::VALUE);
-            if (!pegdb.ReadFractions(record.txoutid, fractions, true /*must_have*/))
-                return error("ProcessFrozenQueue() : ReadFractions");
+            if (mapFractions.count(record.txoutid))
+                fractions = mapFractions[record.txoutid];
+            else
+                if (!pegdb.ReadFractions(record.txoutid, fractions, !fLoading /*must_have*/))
+                    return error("ProcessFrozenQueue() : ReadFractions: %s", record.txoutid.GetHex());
             if (!txdb.AppendUnspent(record.sAddress, fractions, true /*peg_on*/))
                 return error("ProcessFrozenQueue() : AppendSpent");
         }
@@ -2337,8 +2342,10 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
                 return error("ConnectBlock() : utxo records Write failed");
             }
         }
-        if (!ProcessFrozenQueue(txdb, pegdb, pindex))
-            return error("ConnectBlock() : ConnectFrozenQueue failed");
+        if (pindex->nHeight >= nPegStartHeight) {
+            if (!ProcessFrozenQueue(txdb, pegdb, mapQueuedFractionsChanges, pindex, false /*fLoading*/))
+                return error("ConnectBlock() : ConnectFrozenQueue failed");
+        }
     }
     
     // Write queued txindex changes

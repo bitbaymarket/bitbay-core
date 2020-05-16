@@ -619,6 +619,8 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
         if (pindexGenesisBlock == NULL) {
             // empty blockchain on disk
             // prepare pegdb marks
+            WriteBlockIndexIsPegReady(true);
+            WriteTxIndexIsV1Ready(true);
             return true;
         }
         return error("CTxDB::LoadBlockIndex() : hashBestChain not loaded");
@@ -1220,7 +1222,8 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg)
                 if (!tx.ConnectUtxo(*this, pindex, i, mapInputs, mapInputsFractions, mapOutputsFractions))
                     return error("LoadUtxoData() : tx.ConnectUtxo failed");
             }
-            if (!block.ProcessFrozenQueue(*this, pegdb, pindex))
+            MapFractions mapFractionsEmpty; // empty as all is in pegdb already
+            if (!block.ProcessFrozenQueue(*this, pegdb, mapFractionsEmpty, pindex, true /*fLoading*/))
                 return error("LoadUtxoData() : ConnectFrozenQueue failed");
             
             pindex = pindex->pnext;

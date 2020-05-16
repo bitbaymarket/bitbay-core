@@ -278,11 +278,11 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                 fPegIsActivatedViaTx = true;
                 LogPrintf("LoadPegData() : peg to start: %d\n", nPegToStart);
                 if (!txdb.TxnBegin())
-                    return error("WriteBlockIndexIsPegReady() : TxnBegin failed");
+                    return error("LoadPegData() : TxnBegin failed");
                 if (!txdb.WritePegStartHeight(nPegStartHeight))
-                    return error("WritePegStartHeight() : flag write failed");
+                    return error("LoadPegData() : flag write failed");
                 if (!txdb.TxnCommit())
-                    return error("WriteBlockIndexIsPegReady() : TxnCommit failed");
+                    return error("LoadPegData() : TxnCommit failed");
                 if (nPegStartHeight > nBestHeight) {
                     strMiscWarning = "Warning : Peg system has activation at block: "+std::to_string(nPegStartHeight);
                 }

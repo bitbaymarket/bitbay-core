@@ -1038,7 +1038,11 @@ public:
     bool AcceptBlock();
     bool SignBlock(CWallet& keystore, int64_t nFees);
     bool CheckBlockSignature() const;
-    bool ProcessFrozenQueue(CTxDB& txdb, CPegDB& pegdb, const CBlockIndex* pindex);
+    bool ProcessFrozenQueue(CTxDB& txdb, 
+                            CPegDB& pegdb, 
+                            MapFractions& mapFractions,
+                            const CBlockIndex* pindex, 
+                            bool fLoading);
 
 private:
     bool SetBestChainInner(CTxDB& txdb, CPegDB& pegdb, CBlockIndex *pindexNew);

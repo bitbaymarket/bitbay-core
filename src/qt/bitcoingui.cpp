@@ -15,6 +15,7 @@
 #include "signmessagepage.h"
 #include "verifymessagepage.h"
 #include "stakingpage.h"
+#include "dynamicpegpage.h"
 #include "blockchainpage.h"
 #include "blockchainmodel.h"
 #include "optionsdialog.h"
@@ -135,6 +136,8 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     verifyMessagePage = new VerifyMessagePage(this);
 
     stakingPage = new StakingPage(this);
+
+    dynamicPegPage = new DynamicPegPage(this);
     
     infoPage = new BlockchainPage(this);
     
@@ -147,6 +150,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     centralStackedWidget->addWidget(signMessagePage);
     centralStackedWidget->addWidget(verifyMessagePage);
     centralStackedWidget->addWidget(stakingPage);
+    centralStackedWidget->addWidget(dynamicPegPage);
     centralStackedWidget->addWidget(infoPage);
 
     connect(centralStackedWidget, SIGNAL(currentChanged(int)),
@@ -424,6 +428,22 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
 #if defined(ENABLE_EXCHANGE)
     tabStaking->setEnabled(false);
 #endif
+
+    tabDynamicPeg = new QToolButton();
+    tabDynamicPeg->setFixedSize(160,50);
+    tabDynamicPeg->setText(tr("DYNAMIC PEG"));
+    tabDynamicPeg->setCheckable(true);
+    tabDynamicPeg->setAutoRaise(true);
+    tabDynamicPeg->setFont(font);
+    tabDynamicPeg->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    tabDynamicPeg->setIcon(QIcon(":/icons/dynpeg"));
+    tabDynamicPeg->setIconSize(QSize(16,16));
+    tabsGroup->addButton(tabDynamicPeg);
+    leftPanelLayout->addWidget(tabDynamicPeg);
+    
+#if defined(ENABLE_EXCHANGE)
+    tabDynamicPeg->setEnabled(false);
+#endif
     
     tabInfo = new QToolButton();
     tabInfo->setFixedSize(160,50);
@@ -453,6 +473,8 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     connect(tabVerify, SIGNAL(clicked()), this, SLOT(gotoVerifyMessagePage()));
     connect(tabStaking, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
     connect(tabStaking, SIGNAL(clicked()), this, SLOT(gotoStakingPage()));
+    connect(tabDynamicPeg, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
+    connect(tabDynamicPeg, SIGNAL(clicked()), this, SLOT(gotoDynamicPegPage()));
     connect(tabInfo, SIGNAL(clicked()), this, SLOT(showNormalIfMinimized()));
     connect(tabInfo, SIGNAL(clicked()), this, SLOT(gotoInfoPage()));
 
@@ -775,6 +797,7 @@ void BitcoinGUI::setWalletModel(WalletModel *walletModel)
         signMessagePage->setModel(walletModel);
         verifyMessagePage->setModel(walletModel);
         stakingPage->setWalletModel(walletModel);
+        dynamicPegPage->setWalletModel(walletModel);
 
         setEncryptionStatus(walletModel->getEncryptionStatus());
         connect(walletModel, SIGNAL(encryptionStatusChanged(int)), this, SLOT(setEncryptionStatus(int)));
@@ -1249,6 +1272,15 @@ void BitcoinGUI::gotoStakingPage()
 {
     tabStaking->setChecked(true);
     centralStackedWidget->setCurrentWidget(stakingPage);
+
+    exportAction->setEnabled(false);
+    disconnect(exportAction, SIGNAL(triggered()), 0, 0);
+}
+
+void BitcoinGUI::gotoDynamicPegPage()
+{
+    tabDynamicPeg->setChecked(true);
+    centralStackedWidget->setCurrentWidget(dynamicPegPage);
 
     exportAction->setEnabled(false);
     disconnect(exportAction, SIGNAL(triggered()), 0, 0);

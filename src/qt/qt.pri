@@ -13,6 +13,7 @@ HEADERS += \
     $$PWD/signmessagepage.h \
     $$PWD/verifymessagepage.h \
     $$PWD/stakingpage.h \
+    $$PWD/dynamicpegpage.h \
     $$PWD/blockchainpage.h \
     $$PWD/txdetailswidget.h \
     $$PWD/itemdelegates.h \
@@ -58,6 +59,7 @@ SOURCES += \
     $$PWD/signmessagepage.cpp \
     $$PWD/verifymessagepage.cpp \
     $$PWD/stakingpage.cpp \
+    $$PWD/dynamicpegpage.cpp \
     $$PWD/blockchainpage.cpp \
     $$PWD/txdetailswidget.cpp \
     $$PWD/itemdelegates.cpp \
@@ -100,6 +102,7 @@ FORMS += \
     $$PWD/forms/signmessagepage.ui \
     $$PWD/forms/verifymessagepage.ui \
     $$PWD/forms/stakingpage.ui \
+    $$PWD/forms/dynamicpegpage.ui \
     $$PWD/forms/blockchainpage.ui \
     $$PWD/forms/txdetails.ui \
     $$PWD/forms/aboutdialog.ui \

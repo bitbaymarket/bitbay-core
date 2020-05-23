@@ -689,6 +689,12 @@ void SetBitBayThemeQSS(QApplication& app)
             color: rgb(0,0,0);
             background: rgb(204,203,227);
         }
+        QBalloonTip {
+            min-width: 16px;
+            min-height: 16px;
+            padding-left: 0px;
+            padding-right: 0px;
+        }
 
     )");
 

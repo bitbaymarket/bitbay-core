@@ -26,7 +26,6 @@ public slots:
     void updateTimer();
     
 private slots:
-    void updatePegVoteType();
     void updateDisplayUnit();
     void updateRewardActions();
     void setAmounts(qint64 reward5, qint64 reward10, qint64 reward20, qint64 reward40, 
@@ -56,9 +55,6 @@ private:
     quint32 current10Stake  =0;
     quint32 current20Stake  =0;
     quint32 current40Stake  =0;
-    
-    int lastPegVoteType = 0;
-    QDateTime lastPegVoteTypeChanged;
 };
 
 #endif // STAKINGPAGE_H

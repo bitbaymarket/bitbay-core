@@ -89,12 +89,6 @@ StakingPage::StakingPage(QWidget *parent) :
     pollTimer->start();
     connect(pollTimer, SIGNAL(timeout()), this, SLOT(updateTimer()));
     
-    connect(ui->radioButtonVoteNone, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
-    connect(ui->radioButtonVoteAuto, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
-    connect(ui->radioButtonVoteInflate, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
-    connect(ui->radioButtonVoteDeflate, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
-    connect(ui->radioButtonVoteNoChange, SIGNAL(clicked(bool)), this, SLOT(updatePegVoteType()));
-    
     ui->lineRewardTo->setPlaceholderText(tr("Enter a BitBay address:"));
     ui->lineSupportTo->setPlaceholderText(tr("Enter a BitBay address:"));
 
@@ -177,34 +171,6 @@ void StakingPage::updateTimer()
             ui->labelText->setText(tr("Not staking because you don't have mature coins"));
         else
             ui->labelText->setText(tr("Not staking"));
-    }
-    
-    auto voteType = pwalletMain->GetPegVoteType();
-    if (voteType != lastPegVoteType) {
-        lastPegVoteType = voteType;
-        lastPegVoteTypeChanged = QDateTime::currentDateTime();
-    }
-    
-    if (lastPegVoteType != PEG_VOTE_AUTO && 
-            lastPegVoteType != PEG_VOTE_NONE &&
-            lastPegVoteTypeChanged.secsTo(QDateTime::currentDateTime()) > (84*60*60)) {
-        pwalletMain->SetPegVoteType(PEG_VOTE_AUTO);
-        ui->radioButtonVoteAuto->setChecked(true);
-    }
-}
-
-void StakingPage::updatePegVoteType()
-{
-    if (ui->radioButtonVoteNone->isChecked()) {
-        pwalletMain->SetPegVoteType(PEG_VOTE_NONE);
-    } else if (ui->radioButtonVoteAuto->isChecked()) {
-        pwalletMain->SetPegVoteType(PEG_VOTE_AUTO);
-    } else if (ui->radioButtonVoteInflate->isChecked()) {
-        pwalletMain->SetPegVoteType(PEG_VOTE_INFLATE);
-    } else if (ui->radioButtonVoteDeflate->isChecked()) {
-        pwalletMain->SetPegVoteType(PEG_VOTE_DEFLATE);
-    } else if (ui->radioButtonVoteNoChange->isChecked()) {
-        pwalletMain->SetPegVoteType(PEG_VOTE_NOCHANGE);
     }
 }
 
@@ -362,16 +328,6 @@ void StakingPage::setAmounts(qint64 amount5, qint64 amount10, qint64 amount20, q
     ui->labelTotalCount->setText(tr("(%1)").arg(count));
     if (stake)
         ui->labelTotalCount->setText(tr("(%1/%2)").arg(stake).arg(count));
-    
-    double last_peak = pwalletMain->LastPeakPrice();
-    PegVoteType last_vote = pwalletMain->LastAutoVoteType();
-
-    ui->radioButtonVoteDeflate->setText(last_vote == PEG_VOTE_DEFLATE 
-                                        ? tr("Deflation (auto to %1)").arg(last_peak)
-                                        : tr("Deflation"));
-    ui->radioButtonVoteInflate->setText(last_vote == PEG_VOTE_INFLATE 
-                                        ? tr("Inflation (auto to %1)").arg(last_peak)
-                                        : tr("Inflation"));
 }
 
 void StakingPage::addressBookRewardClicked()

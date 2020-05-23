@@ -16,6 +16,7 @@ class SendCoinsDialog;
 class SignMessagePage;
 class VerifyMessagePage;
 class StakingPage;
+class DynamicPegPage;
 class BlockchainPage;
 class SignVerifyMessageDialog;
 class Notificator;
@@ -80,6 +81,7 @@ private:
     SignMessagePage *signMessagePage;
     VerifyMessagePage *verifyMessagePage;
     StakingPage *stakingPage;
+    DynamicPegPage *dynamicPegPage;
     BlockchainPage *infoPage;
 
     QLabel *lastBlockLabel;
@@ -131,6 +133,7 @@ private:
     QToolButton * tabSign = nullptr;
     QToolButton * tabVerify = nullptr;
     QToolButton * tabStaking = nullptr;
+    QToolButton * tabDynamicPeg = nullptr;
     QToolButton * tabInfo = nullptr;
 
     QSystemTrayIcon *trayIcon;
@@ -202,8 +205,10 @@ private slots:
     void gotoSignMessagePage();
     /** Switch to verify message page */
     void gotoVerifyMessagePage();
-    /** Switch to info page */
+    /** Switch to stake page */
     void gotoStakingPage();
+    /** Switch to dynamic peg page */
+    void gotoDynamicPegPage();
     /** Switch to info page */
     void gotoInfoPage();
     /** Switch to info page and blocks tab */

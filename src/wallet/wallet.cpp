@@ -2678,7 +2678,6 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
     // Add vote output
     lastAutoPegVoteType = PEG_VOTE_NONE;
     if (voteType != PEG_VOTE_NONE) {
-        txNew.vout.push_back(CTxOut(0, txNew.vout[1].scriptPubKey)); //add vote
         CScript scriptPubKey;
         string address = "";
         if (voteType == PEG_VOTE_INFLATE) {
@@ -2716,13 +2715,17 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
                 }
             }
         }
-        if (!CBitcoinAddress(address).IsValid()) {
-            LogPrint("coinstake", "CreateCoinStake : vote address=%s is not valid\n", address);
+        if (!address.empty()) {
+            if (!CBitcoinAddress(address).IsValid()) {
+                LogPrint("coinstake", "CreateCoinStake : vote address=%s is not valid\n", address);
+            } else {
+                txNew.vout.push_back(CTxOut(0, txNew.vout[1].scriptPubKey)); //add vote
+                scriptPubKey.SetDestination(CBitcoinAddress(address).Get());
+                txNew.vout[txNew.vout.size()-1].scriptPubKey = scriptPubKey;
+                txNew.vout[txNew.vout.size()-1].nValue = PEG_MAKETX_VOTE_VALUE;
+                txNew.vout[txNew.vout.size()-2].nValue -= PEG_MAKETX_VOTE_VALUE; // from reward
+            }
         }
-        scriptPubKey.SetDestination(CBitcoinAddress(address).Get());
-        txNew.vout[txNew.vout.size()-1].scriptPubKey = scriptPubKey;
-        txNew.vout[txNew.vout.size()-1].nValue = PEG_MAKETX_VOTE_VALUE;
-        txNew.vout[txNew.vout.size()-2].nValue -= PEG_MAKETX_VOTE_VALUE; // from reward
     }
 
     // Sign

@@ -76,6 +76,9 @@
 
 #include <iostream>
 
+#include "qwt/qwt_plot.h"
+#include "qwt/qwt_plot_curve.h"
+
 extern CWallet* pwalletMain;
 extern int64_t nLastCoinStakeSearchInterval;
 double GetPoSKernelPS();
@@ -1583,6 +1586,8 @@ void BitcoinGUI::ratesRequestInitiate()
     QNetworkRequest req_rates_1k(ratedb_1k_url);
     req_rates_1k.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     netAccessManager->get(req_rates_1k);
+    
+    dynamicPegPage->setAlgorithmInfo("BitBay", ratedb_url.toString(), ratedb_1k_url.toString());
 }
 
 void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
@@ -1593,6 +1598,22 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
     }
     reply->deleteLater();
     if (reply->error()) {
+        if (reply->url().path().endsWith("rates1k.json")) {
+            dynamicPegPage->setStatusMessage("Algorithm Chart error, "+
+                                             reply->errorString());
+            dynamicPegPage->setAlgorithmVote("disabled");
+            if (walletModel) {
+                walletModel->setTrackerVote(PEG_VOTE_NONE, 0.2);
+            }
+        }
+        else if (reply->url().path().endsWith("rates.json")) {
+            dynamicPegPage->setStatusMessage("Algorithm URL error, "+
+                                             reply->errorString());
+            dynamicPegPage->setAlgorithmVote("disabled");
+            if (walletModel) {
+                walletModel->setTrackerVote(PEG_VOTE_NONE, 0.2);
+            }
+        }
         return;
     }
     QByteArray data = reply->readAll();
@@ -1609,6 +1630,17 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
         deque<double> btc_rates;
         deque<double> bay_rates;
         
+        QVector<double> xs_price;
+        QVector<double> ys_price;
+        QVector<double> xs_floor;
+        QVector<double> ys_floor;
+        QVector<double> xs_floormin;
+        QVector<double> ys_floormin;
+        QVector<double> xs_floormax;
+        QVector<double> ys_floormax;
+        uint64_t nTimeMin = 0;
+        uint64_t nTimeMax = 0;
+        
         for(int i=0; i<records.size(); i++) {
             auto record = records.at(i);
             if (!record.isObject()) continue;
@@ -1619,8 +1651,10 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
             if (!record_btc.isObject()) continue;
             auto record_btc_obj = record_btc.toObject();
             auto record_bay_obj = record_bay.toObject();
+            auto record_day_price = record_btc_obj["last_updated"];
             auto record_btc_price = record_btc_obj["price"];
             auto record_bay_price = record_bay_obj["price"];
+            auto record_bay_floor = record_bay_obj["floor"];
             if (!record_bay_price.isDouble()) continue;
             if (!record_btc_price.isDouble()) continue;
             bay_in_usd = record_bay_price.toDouble();
@@ -1639,8 +1673,62 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
             while (bay_rates.size() > 1000) {
                 bay_rates.pop_front();
             }
+            
+            if (!record_bay_floor.isDouble()) continue;
+            auto floor_in_usd = record_bay_floor.toDouble();
+            auto dt = QDateTime::fromString(record_day_price.toString(), Qt::ISODate);
+            xs_price.push_back(dt.toMSecsSinceEpoch());
+            ys_price.push_back(bay_in_usd);
+            xs_floor.push_back(dt.toMSecsSinceEpoch());
+            ys_floor.push_back(floor_in_usd);
+            xs_floormin.push_back(dt.toMSecsSinceEpoch());
+            ys_floormin.push_back(floor_in_usd * 0.95);
+            xs_floormax.push_back(dt.toMSecsSinceEpoch());
+            ys_floormax.push_back(floor_in_usd * 1.05);
+            
+            uint64_t nTime = dt.toSecsSinceEpoch();
+            if (nTimeMin == 0) nTimeMin = nTime;
+            if (nTimeMax == 0) nTimeMax = nTime;
+            if (nTime < nTimeMin) nTimeMin = nTime;
+            if (nTime > nTimeMax) nTimeMax = nTime;
         }
         
+        {
+            LOCK(cs_main);
+            
+            if ((pindexBest->nTime > nTimeMax) && ((pindexBest->nTime - nTimeMax) > 12*3600)) {
+                dynamicPegPage->setStatusMessage("Algorithm Chart is not live, last record of "+
+                                                 QString::fromStdString(DateTimeStrFormat(nTimeMax)));
+                dynamicPegPage->setAlgorithmVote("disabled");
+                if (walletModel) {
+                    walletModel->setTrackerVote(PEG_VOTE_NONE, 0.2);
+                }
+                return;
+            }
+
+            dynamicPegPage->setStatusMessage("LIVE, last record of "+
+                                             QString::fromStdString(DateTimeStrFormat(nTimeMax)));
+            
+            QVector<double> xs_peg;
+            QVector<double> ys_peg;
+            CBlockIndex * pindex = pindexBest;
+            xs_peg.push_back(uint64_t(pindex->nTime)*1000.);
+            ys_peg.push_back(pindex->nPegSupplyIndex);
+            while(pindex && pindex->nTime > nTimeMin) {
+                if ((pindex->nHeight % 200) == 0) {
+                    xs_peg.push_back(uint64_t(pindex->nTime)*1000.);
+                    ys_peg.push_back(pindex->nPegSupplyIndex);
+                }
+                pindex = pindex->pprev;
+            }
+            dynamicPegPage->curvePeg->setSamples(xs_peg, ys_peg);
+        }
+
+        dynamicPegPage->curvePrice->setSamples(xs_price, ys_price);
+        dynamicPegPage->curveFloor->setSamples(xs_floor, ys_floor);
+        dynamicPegPage->curveFloorMin->setSamples(xs_floormin, ys_floormin);
+        dynamicPegPage->curveFloorMax->setSamples(xs_floormax, ys_floormax);
+        dynamicPegPage->fplot->replot();
         
         if (have_rate) {
             oneBayRateLabel->setText(tr("1 BAY = %1 USD").arg(bay_in_usd));
@@ -1673,6 +1761,7 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
         if (!record_btc.isObject()) return;
         auto record_btc_obj = record_btc.toObject();
         auto record_bay_obj = record_bay.toObject();
+        auto record_day_price = record_btc_obj["last_updated"];
         auto record_btc_price = record_btc_obj["price"];
         auto record_bay_price = record_bay_obj["price"];
         auto record_bay_floor = record_bay_obj["floor"];
@@ -1689,11 +1778,35 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
         if (have_rate) {
             oneBayRateLabel->setText(tr("1 BAY = %1 USD").arg(bay_in_usd));
             oneUsdRateLabel->setText(tr("1 USD = %1 BAY").arg(usd_in_bay));
+
+            {
+                LOCK(cs_main);
+                auto dt = QDateTime::fromString(record_day_price.toString(), Qt::ISODate);
+                uint64_t nTime = dt.toSecsSinceEpoch();
+                
+                if ((pindexBest->nTime > nTime) && ((pindexBest->nTime - nTime) > 12*3600)) {
+                    dynamicPegPage->setStatusMessage("Algorithm URL is not live, last record of "+
+                                                     QString::fromStdString(DateTimeStrFormat(nTime)));
+                    dynamicPegPage->setAlgorithmVote("disabled");
+                    if (walletModel) {
+                        walletModel->setTrackerVote(PEG_VOTE_NONE, 0.2);
+                    }
+                    return;
+                }
+            }
             
             auto record_bay_vote = record_bay_obj["pegvote"];
-            if (!record_bay_vote.isString()) return;
+            if (!record_bay_vote.isString()) {
+                dynamicPegPage->setStatusMessage("Algorithm URL record has no pegvote");
+                dynamicPegPage->setAlgorithmVote("disabled");
+                if (walletModel) {
+                    walletModel->setTrackerVote(PEG_VOTE_NONE, 0.2);
+                }
+                return;
+            }
             
             QString pegvote = record_bay_vote.toString();
+            dynamicPegPage->setAlgorithmVote(pegvote);
             if (walletModel) {
                 if (pegvote == "inflate") {
                     walletModel->setTrackerVote(PEG_VOTE_INFLATE, bay_floor_in_usd);
@@ -1705,6 +1818,14 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
                     walletModel->setTrackerVote(PEG_VOTE_NONE, bay_floor_in_usd);
                 }
             }
+        } 
+        else {
+            dynamicPegPage->setStatusMessage("Algorithm URL record has no rate");
+            dynamicPegPage->setAlgorithmVote("disabled");
+            if (walletModel) {
+                walletModel->setTrackerVote(PEG_VOTE_NONE, 0.2);
+            }
+            return;
         }
     }
     else if (reply->url().path().endsWith("release.json")) {

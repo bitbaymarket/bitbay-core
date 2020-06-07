@@ -12,6 +12,8 @@ namespace Ui {
     class DynamicPegPage;
 }
 class WalletModel;
+class QwtPlot;
+class QwtPlotCurve;
 
 class DynamicPegPage : public QDialog
 {
@@ -21,6 +23,17 @@ public:
     ~DynamicPegPage();
     
     void setWalletModel(WalletModel*);
+
+    QwtPlot * fplot;
+    QwtPlotCurve * curvePrice;
+    QwtPlotCurve * curveFloor;
+    QwtPlotCurve * curveFloorMin;
+    QwtPlotCurve * curveFloorMax;
+    QwtPlotCurve * curvePeg;
+    
+    void setStatusMessage(QString);
+    void setAlgorithmInfo(QString, QString, QString);
+    void setAlgorithmVote(QString);
     
 public slots:
     void updateTimer();

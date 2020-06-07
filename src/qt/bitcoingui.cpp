@@ -1601,7 +1601,7 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
         if (reply->url().path().endsWith("rates1k.json")) {
             dynamicPegPage->setStatusMessage("Algorithm Chart error, "+
                                              reply->errorString());
-            dynamicPegPage->setAlgorithmVote("disabled");
+            dynamicPegPage->setAlgorithmVote("disabled", 0.2);
             if (walletModel) {
                 walletModel->setTrackerVote(PEG_VOTE_NONE, 0.2);
             }
@@ -1609,7 +1609,7 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
         else if (reply->url().path().endsWith("rates.json")) {
             dynamicPegPage->setStatusMessage("Algorithm URL error, "+
                                              reply->errorString());
-            dynamicPegPage->setAlgorithmVote("disabled");
+            dynamicPegPage->setAlgorithmVote("disabled", 0.2);
             if (walletModel) {
                 walletModel->setTrackerVote(PEG_VOTE_NONE, 0.2);
             }
@@ -1699,7 +1699,7 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
             if ((pindexBest->nTime > nTimeMax) && ((pindexBest->nTime - nTimeMax) > 12*3600)) {
                 dynamicPegPage->setStatusMessage("Algorithm Chart is not live, last record of "+
                                                  QString::fromStdString(DateTimeStrFormat(nTimeMax)));
-                dynamicPegPage->setAlgorithmVote("disabled");
+                dynamicPegPage->setAlgorithmVote("disabled", 0.2);
                 if (walletModel) {
                     walletModel->setTrackerVote(PEG_VOTE_NONE, 0.2);
                 }
@@ -1787,7 +1787,7 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
                 if ((pindexBest->nTime > nTime) && ((pindexBest->nTime - nTime) > 12*3600)) {
                     dynamicPegPage->setStatusMessage("Algorithm URL is not live, last record of "+
                                                      QString::fromStdString(DateTimeStrFormat(nTime)));
-                    dynamicPegPage->setAlgorithmVote("disabled");
+                    dynamicPegPage->setAlgorithmVote("disabled", 0.2);
                     if (walletModel) {
                         walletModel->setTrackerVote(PEG_VOTE_NONE, 0.2);
                     }
@@ -1798,7 +1798,7 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
             auto record_bay_vote = record_bay_obj["pegvote"];
             if (!record_bay_vote.isString()) {
                 dynamicPegPage->setStatusMessage("Algorithm URL record has no pegvote");
-                dynamicPegPage->setAlgorithmVote("disabled");
+                dynamicPegPage->setAlgorithmVote("disabled", 0.2);
                 if (walletModel) {
                     walletModel->setTrackerVote(PEG_VOTE_NONE, 0.2);
                 }
@@ -1806,7 +1806,7 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
             }
             
             QString pegvote = record_bay_vote.toString();
-            dynamicPegPage->setAlgorithmVote(pegvote);
+            dynamicPegPage->setAlgorithmVote(pegvote, bay_floor_in_usd);
             if (walletModel) {
                 if (pegvote == "inflate") {
                     walletModel->setTrackerVote(PEG_VOTE_INFLATE, bay_floor_in_usd);
@@ -1821,7 +1821,7 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply *reply)
         } 
         else {
             dynamicPegPage->setStatusMessage("Algorithm URL record has no rate");
-            dynamicPegPage->setAlgorithmVote("disabled");
+            dynamicPegPage->setAlgorithmVote("disabled", 0.2);
             if (walletModel) {
                 walletModel->setTrackerVote(PEG_VOTE_NONE, 0.2);
             }

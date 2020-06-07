@@ -33,7 +33,7 @@ public:
     
     void setStatusMessage(QString);
     void setAlgorithmInfo(QString, QString, QString);
-    void setAlgorithmVote(QString);
+    void setAlgorithmVote(QString, double);
     
 public slots:
     void updateTimer();

@@ -223,18 +223,18 @@ void DynamicPegPage::updateDisplayUnit()
 void DynamicPegPage::setAmounts()
 {
     //int unit = walletModel->getOptionsModel()->getDisplayUnit();
-    double last_peak = pwalletMain->LastPeakPrice();
-    PegVoteType last_vote = pwalletMain->LastAutoVoteType();
-    if (last_vote == PEG_VOTE_DEFLATE)
-        ui->comboVotes->setItemText(0, tr("Automatic (recommended), deflation to %1").arg(last_peak));
-    else if (last_vote == PEG_VOTE_INFLATE)
-        ui->comboVotes->setItemText(0, tr("Automatic (recommended), inflation to %1").arg(last_peak));
-    else if (last_vote == PEG_VOTE_NOCHANGE)
-        ui->comboVotes->setItemText(0, tr("Automatic (recommended), no change to %1").arg(last_peak));
-    else if (last_vote == PEG_VOTE_NONE)
-        ui->comboVotes->setItemText(0, tr("Automatic (recommended), disabled"));
-    else 
-        ui->comboVotes->setItemText(0, tr("Automatic (recommended)"));
+//    double last_peak = pwalletMain->LastPeakPrice();
+//    PegVoteType last_vote = pwalletMain->LastAutoVoteType();
+//    if (last_vote == PEG_VOTE_DEFLATE)
+//        ui->comboVotes->setItemText(0, tr("Automatic (recommended), deflation to %1").arg(last_peak));
+//    else if (last_vote == PEG_VOTE_INFLATE)
+//        ui->comboVotes->setItemText(0, tr("Automatic (recommended), inflation to %1").arg(last_peak));
+//    else if (last_vote == PEG_VOTE_NOCHANGE)
+//        ui->comboVotes->setItemText(0, tr("Automatic (recommended), no change to %1").arg(last_peak));
+//    else if (last_vote == PEG_VOTE_NONE)
+//        ui->comboVotes->setItemText(0, tr("Automatic (recommended), disabled"));
+//    else 
+//        ui->comboVotes->setItemText(0, tr("Automatic (recommended)"));
 }
 
 void DynamicPegPage::setStatusMessage(QString txt)
@@ -253,8 +253,19 @@ void DynamicPegPage::setAlgorithmInfo(QString name, QString url, QString chart)
     twi3->setText(1, chart);
 }
 
-void DynamicPegPage::setAlgorithmVote(QString vote)
+void DynamicPegPage::setAlgorithmVote(QString vote, double bay_floor_in_usd)
 {
+    if (vote == "deflate")
+        ui->comboVotes->setItemText(0, tr("Automatic (recommended), deflation to %1").arg(bay_floor_in_usd));
+    else if (vote == "inflate")
+        ui->comboVotes->setItemText(0, tr("Automatic (recommended), inflation to %1").arg(bay_floor_in_usd));
+    else if (vote == "nochange")
+        ui->comboVotes->setItemText(0, tr("Automatic (recommended), no change to %1").arg(bay_floor_in_usd));
+    else if (vote == "disabled")
+        ui->comboVotes->setItemText(0, tr("Automatic (recommended), disabled"));
+    else 
+        ui->comboVotes->setItemText(0, tr("Automatic (recommended)"));
+    
     auto twi = ui->values->topLevelItem(4); // vote
     twi->setText(1, vote);
 }

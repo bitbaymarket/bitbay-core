@@ -118,7 +118,7 @@ private:
     // peg vote type for staking
     PegVoteType pegVoteType = PEG_VOTE_AUTO;
     PegVoteType trackerVoteType = PEG_VOTE_NONE;
-    PegVoteType lastAutoPegVoteType = PEG_VOTE_NONE;
+    PegVoteType lastAutoPegVoteType = PEG_VOTE_AUTO;
     
     std::vector<double> vBayRates;
     std::vector<double> vBtcRates;

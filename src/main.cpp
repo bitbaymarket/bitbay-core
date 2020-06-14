@@ -1368,7 +1368,8 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb, CPegDB& pegdb)
                 }
             }
             if (!DisconnectUtxo(txdb, pegdb, mapInputs, mapInputsFractions, mapOutputsFractions)) {
-                return error("DisconnectInputs() : DisconnectUtxo failed");
+                // report, but it is not cause to stop/reject for now
+                error("DisconnectInputs() : DisconnectUtxo failed");
             }
         }
     }
@@ -2339,12 +2340,15 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CPegDB& pegdb, CBlockIndex* pindex, bool 
         {
             CTransaction& tx = vtx[i];
             if (!tx.ConnectUtxo(txdb, pindex, i, mapInputs[i], mapInputsFractions[i], mapQueuedFractionsChanges)) {
-                return error("ConnectBlock() : utxo records Write failed");
+                // report, but it is not cause to stop/reject for now
+                error("ConnectBlock() : ConnectUtxo failed");
             }
         }
         if (pindex->nHeight >= nPegStartHeight) {
-            if (!ProcessFrozenQueue(txdb, pegdb, mapQueuedFractionsChanges, pindex, false /*fLoading*/))
-                return error("ConnectBlock() : ConnectFrozenQueue failed");
+            if (!ProcessFrozenQueue(txdb, pegdb, mapQueuedFractionsChanges, pindex, false /*fLoading*/)) {
+                // report, but it is not cause to stop/reject for now
+                error("ConnectBlock() : ConnectFrozenQueue failed");
+            }
         }
     }
     

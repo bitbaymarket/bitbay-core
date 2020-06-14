@@ -3362,12 +3362,14 @@ bool CBlock::SignBlock(CWallet& wallet, int64_t nFees)
     if (IsProtocolV2(nBestHeight+1))
         txCoinStake.nTime &= ~STAKE_TIMESTAMP_MASK;
 
+    CTransaction txConsolidate;
+    
     int64_t nSearchTime = txCoinStake.nTime; // search to current time
 
     if (nSearchTime > nLastCoinStakeSearchTime)
     {
         int64_t nSearchInterval = IsProtocolV2(nBestHeight+1) ? 1 : nSearchTime - nLastCoinStakeSearchTime;
-        if (wallet.CreateCoinStake(wallet, nBits, nSearchInterval, nFees, txCoinStake, key, wallet.GetPegVoteType()))
+        if (wallet.CreateCoinStake(wallet, nBits, nSearchInterval, nFees, txCoinStake, txConsolidate, key, wallet.GetPegVoteType()))
         {
             if (txCoinStake.nTime >= pindexBest->GetPastTimeLimit()+1)
             {
@@ -3381,6 +3383,11 @@ bool CBlock::SignBlock(CWallet& wallet, int64_t nFees)
                     if (it->nTime > nTime) { it = vtx.erase(it); } else { ++it; }
 
                 vtx.insert(vtx.begin() + 1, txCoinStake);
+                
+                if (!txConsolidate.vin.empty()) {
+                    vtx.insert(vtx.begin() + 2, txConsolidate);
+                }
+                
                 hashMerkleRoot = BuildMerkleTree();
 
                 // append a signature to our block

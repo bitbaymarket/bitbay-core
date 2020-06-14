@@ -164,6 +164,21 @@ bool CWalletDB::WriteAccount(const string& strAccount, const CAccount& account)
     return Write(make_pair(string("acc"), strAccount), account);
 }
 
+bool CWalletDB::ReadConsolidateEnabled(bool& on)
+{
+    bool ok = Read(string("consolidateison"), on);
+    if (!ok) {
+        on = true;
+        ok = true;
+    }
+    return ok;
+}
+
+bool CWalletDB::WriteConsolidateEnabled(bool on)
+{
+    return Write(string("consolidateison"), on);
+}
+
 bool CWalletDB::ReadRewardAddress(string& addr)
 {
     return Read(string("rewardaddr"), addr);
@@ -736,6 +751,10 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
         }
         pcursor->close();
         
+        bool fConsolidateIsOn;
+        if (ReadConsolidateEnabled(fConsolidateIsOn)) {
+            pwallet->SetConsolidateEnabled(fConsolidateIsOn, false/*write*/);
+        }
         string sRewardAddr;
         if (ReadRewardAddress(sRewardAddr)) {
             pwallet->SetRewardAddress(sRewardAddr, false/*write*/);

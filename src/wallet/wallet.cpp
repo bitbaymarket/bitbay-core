@@ -26,7 +26,7 @@ using namespace std;
 
 // Settings
 int64_t nTransactionFee = MIN_TX_FEE;
-int64_t nReserveBalance = 0;
+int64_t nNoStakeBalance = 0;
 int64_t nMinimumInputValue = 0;
 
 int64_t gcd(int64_t n,int64_t m) { return m == 0 ? n : gcd(m, n % m); }
@@ -2476,13 +2476,13 @@ uint64_t CWallet::GetStakeWeight() const
     // Choose coins to use
     int64_t nBalance = GetBalance();
 
-    if (nBalance <= nReserveBalance)
+    if (nBalance <= nNoStakeBalance)
         return 0;
 
     set<pair<const CWalletTx*,unsigned int> > setCoins;
     int64_t nValueIn = 0;
 
-    if (!SelectCoinsForStaking(nBalance - nReserveBalance, GetTime(), setCoins, nValueIn))
+    if (!SelectCoinsForStaking(nBalance - nNoStakeBalance, GetTime(), setCoins, nValueIn))
         return 0;
 
     if (setCoins.empty())
@@ -2519,7 +2519,8 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
                               unsigned int nBits, 
                               int64_t nSearchInterval, 
                               int64_t nFees, 
-                              CTransaction& txNew, 
+                              CTransaction& txCoinStake, 
+                              CTransaction& txConsolidate,
                               CKey& key,
                               PegVoteType voteType)
 {
@@ -2528,18 +2529,18 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
     CBigNum bnTargetPerCoinDay;
     bnTargetPerCoinDay.SetCompact(nBits);
 
-    txNew.vin.clear();
-    txNew.vout.clear();
+    txCoinStake.vin.clear();
+    txCoinStake.vout.clear();
 
     // Mark coin stake transaction
     CScript scriptEmpty;
     scriptEmpty.clear();
-    txNew.vout.push_back(CTxOut(0, scriptEmpty));
+    txCoinStake.vout.push_back(CTxOut(0, scriptEmpty));
 
     // Choose coins to use
     int64_t nBalance = GetBalance();
 
-    if (nBalance <= nReserveBalance)
+    if (nBalance <= nNoStakeBalance)
         return false;
 
     vector<const CWalletTx*> vwtxPrev;
@@ -2548,7 +2549,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
     int64_t nValueIn = 0;
 
     // Select coins with suitable depth
-    if (!SelectCoinsForStaking(nBalance - nReserveBalance, txNew.nTime, setCoins, nValueIn))
+    if (!SelectCoinsForStaking(nBalance - nNoStakeBalance, txCoinStake.nTime, setCoins, nValueIn))
         return false;
 
     if (setCoins.empty())
@@ -2557,92 +2558,171 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
     int64_t nCredit = 0;
     CScript scriptPubKeyKernel;
     
+    map<string,int> mapCountForConsolidate;
+    map<string,vector<pair<const CTransaction*,CTxIn>>> mapCollectForConsolidate;
+    
+    bool fKernelFound = false;
     for(const pair<const CWalletTx*, unsigned int> & pcoin : setCoins)
     {
+        COutPoint prevoutStake = COutPoint(pcoin.first->GetHash(), pcoin.second);
         static int nMaxStakeSearchInterval = 60;
-        bool fKernelFound = false;
-        for (unsigned int n=0; n<min(nSearchInterval,(int64_t)nMaxStakeSearchInterval) && !fKernelFound && pindexPrev == pindexBest; n++)
-        {
-            boost::this_thread::interruption_point();
-            // Search backward in time from the given txNew timestamp
-            // Search nSearchInterval seconds back up to nMaxStakeSearchInterval
-            COutPoint prevoutStake = COutPoint(pcoin.first->GetHash(), pcoin.second);
-            int64_t nBlockTime;
-            if (CheckKernel(pindexPrev, nBits, txNew.nTime - n, prevoutStake, &nBlockTime))
+        
+        bool fKernelFoundForCoin = false;
+        if (!fKernelFound) {
+            for (unsigned int n=0; n<min(nSearchInterval,(int64_t)nMaxStakeSearchInterval) && !fKernelFound && pindexPrev == pindexBest; n++)
             {
-                // Found a kernel
-                LogPrint("coinstake", "CreateCoinStake : kernel found\n");
-                vector<valtype> vSolutions;
-                txnouttype whichType;
-                CScript scriptPubKeyOut;
-                scriptPubKeyKernel = pcoin.first->vout[pcoin.second].scriptPubKey;
-                if (!Solver(scriptPubKeyKernel, whichType, vSolutions))
+                boost::this_thread::interruption_point();
+                // Search backward in time from the given txNew timestamp
+                // Search nSearchInterval seconds back up to nMaxStakeSearchInterval
+                int64_t nBlockTime;
+                if (CheckKernel(pindexPrev, nBits, txCoinStake.nTime - n, prevoutStake, &nBlockTime))
                 {
-                    LogPrint("coinstake", "CreateCoinStake : failed to parse kernel\n");
+                    // Found a kernel
+                    LogPrint("coinstake", "CreateCoinStake : kernel found\n");
+                    vector<valtype> vSolutions;
+                    txnouttype whichType;
+                    CScript scriptPubKeyOut;
+                    scriptPubKeyKernel = pcoin.first->vout[pcoin.second].scriptPubKey;
+                    if (!Solver(scriptPubKeyKernel, whichType, vSolutions))
+                    {
+                        LogPrint("coinstake", "CreateCoinStake : failed to parse kernel\n");
+                        break;
+                    }
+                    LogPrint("coinstake", "CreateCoinStake : parsed kernel type=%d\n", whichType);
+                    if (whichType != TX_PUBKEY && whichType != TX_PUBKEYHASH)
+                    {
+                        LogPrint("coinstake", "CreateCoinStake : no support for kernel type=%d\n", whichType);
+                        break;  // only support pay to public key and pay to address
+                    }
+                    if (whichType == TX_PUBKEYHASH) // pay to address type
+                    {
+                        // convert to pay to public key type
+                        if (!keystore.GetKey(uint160(vSolutions[0]), key))
+                        {
+                            LogPrint("coinstake", "CreateCoinStake : failed to get key for kernel type=%d\n", whichType);
+                            break;  // unable to find corresponding public key
+                        }
+                        scriptPubKeyOut << key.GetPubKey() << OP_CHECKSIG;
+                    }
+                    if (whichType == TX_PUBKEY)
+                    {
+                        valtype& vchPubKey = vSolutions[0];
+                        if (!keystore.GetKey(Hash160(vchPubKey), key))
+                        {
+                            LogPrint("coinstake", "CreateCoinStake : failed to get key for kernel type=%d\n", whichType);
+                            break;  // unable to find corresponding public key
+                        }
+    
+                        if (key.GetPubKey() != vchPubKey)
+                        {
+                            LogPrint("coinstake", "CreateCoinStake : invalid key for kernel type=%d\n", whichType);
+                            break; // keys mismatch
+                        }
+    
+                        scriptPubKeyOut = scriptPubKeyKernel;
+                    }
+    
+                    txCoinStake.nTime -= n;
+                    txCoinStake.vin.push_back(CTxIn(pcoin.first->GetHash(), pcoin.second));
+                    nCredit += pcoin.first->vout[pcoin.second].nValue;
+                    vwtxPrev.push_back(pcoin.first);
+                    txCoinStake.vout.push_back(CTxOut(0, scriptPubKeyOut));
+    
+                    LogPrint("coinstake", "CreateCoinStake : added kernel type=%d\n", whichType);
+                    fKernelFoundForCoin = true;
+                    fKernelFound = true;
                     break;
                 }
-                LogPrint("coinstake", "CreateCoinStake : parsed kernel type=%d\n", whichType);
-                if (whichType != TX_PUBKEY && whichType != TX_PUBKEYHASH)
-                {
-                    LogPrint("coinstake", "CreateCoinStake : no support for kernel type=%d\n", whichType);
-                    break;  // only support pay to public key and pay to address
+            }
+        }
+        
+        if (consolidateEnabled && !fKernelFoundForCoin) {
+            if (pcoin.first->vout.size() <= pcoin.second) continue; // fail ref
+            int nRequired;
+            string sAddress;
+            txnouttype type;
+            vector<CTxDestination> addresses;
+            if (ExtractDestinations(pcoin.first->vout[pcoin.second].scriptPubKey, type, addresses, nRequired)) {
+                if (addresses.size()==1) {
+                    sAddress = CBitcoinAddress(addresses.front()).ToString();
                 }
-                if (whichType == TX_PUBKEYHASH) // pay to address type
-                {
-                    // convert to pay to public key type
-                    if (!keystore.GetKey(uint160(vSolutions[0]), key))
-                    {
-                        LogPrint("coinstake", "CreateCoinStake : failed to get key for kernel type=%d\n", whichType);
-                        break;  // unable to find corresponding public key
-                    }
-                    scriptPubKeyOut << key.GetPubKey() << OP_CHECKSIG;
-                }
-                if (whichType == TX_PUBKEY)
-                {
-                    valtype& vchPubKey = vSolutions[0];
-                    if (!keystore.GetKey(Hash160(vchPubKey), key))
-                    {
-                        LogPrint("coinstake", "CreateCoinStake : failed to get key for kernel type=%d\n", whichType);
-                        break;  // unable to find corresponding public key
-                    }
-
-                    if (key.GetPubKey() != vchPubKey)
-                    {
-                        LogPrint("coinstake", "CreateCoinStake : invalid key for kernel type=%d\n", whichType);
-                        break; // keys mismatch
-                    }
-
-                    scriptPubKeyOut = scriptPubKeyKernel;
-                }
-
-                txNew.nTime -= n;
-                txNew.vin.push_back(CTxIn(pcoin.first->GetHash(), pcoin.second));
-                nCredit += pcoin.first->vout[pcoin.second].nValue;
-                vwtxPrev.push_back(pcoin.first);
-                txNew.vout.push_back(CTxOut(0, scriptPubKeyOut));
-
-                LogPrint("coinstake", "CreateCoinStake : added kernel type=%d\n", whichType);
-                fKernelFound = true;
-                break;
+            }
+            if (!sAddress.empty()) {
+                CTxIn txin(pcoin.first->GetHash(), pcoin.second);
+                mapCollectForConsolidate[sAddress].push_back(make_pair(pcoin.first, txin));
+                if (mapCountForConsolidate.find(sAddress) == mapCountForConsolidate.end())
+                    mapCountForConsolidate[sAddress] = 0;
+                mapCountForConsolidate[sAddress]++;
             }
         }
 
-        if (fKernelFound)
+        if (fKernelFound && !consolidateEnabled)
             break; // if kernel is found stop searching
     }
 
-    if (nCredit == 0 || nCredit > nBalance - nReserveBalance)
+    if (nCredit == 0 || nCredit > nBalance - nNoStakeBalance)
         return false;
 
+    // consolidate tx
+    if (consolidateEnabled) {
+        int nCount = 0;
+        string sAddress;
+        for(const pair<string,int>& entry : mapCountForConsolidate) {
+            if (entry.first.empty()) continue;
+            if (entry.second >= nConsolidateMin && entry.second > nCount) {
+                sAddress = entry.first;
+                nCount = entry.second;
+            }
+        }
+        
+        if (!sAddress.empty()) {
+            int nCount = 0;
+            int nCountTodo = mapCollectForConsolidate[sAddress].size();
+            int64_t nValue = 0;
+            vector<const CTransaction*> vConsolidatePrev;
+            for(const pair<const CTransaction*,CTxIn>& entry : mapCollectForConsolidate[sAddress]) {
+                vConsolidatePrev.push_back(entry.first);
+                txConsolidate.vin.push_back(entry.second);
+                nValue += entry.first->vout[entry.second.prevout.n].nValue;
+                nValue -= PEG_MAKETX_FEE_INP_OUT;
+                nFees += PEG_MAKETX_FEE_INP_OUT;
+                nCount++;
+                if (nCount >= nConsolidateMax)
+                    break;
+                if ((nCountTodo - nCount) <5)
+                    break; // keep least 5 inputs
+            }
+            nValue -= PEG_MAKETX_FEE_INP_OUT; // 1out
+            nFees += PEG_MAKETX_FEE_INP_OUT;
+            if (nValue >0) {
+                CScript scriptPubKey;
+                scriptPubKey.SetDestination(CBitcoinAddress(sAddress).Get());
+                txConsolidate.vout.push_back(CTxOut(nValue, scriptPubKey));
+                int nIn = 0;
+                for(const CTransaction* pcoin : vConsolidatePrev)
+                {
+                    if (!SignSignature(*this, *pcoin, txConsolidate, nIn++)) {
+                        error("CreateCoinStake : failed to sign consolidate");
+                        txConsolidate.vin.clear();
+                        break;
+                    }
+                }
+            }
+            else {
+                txConsolidate.vin.clear();
+            }
+        }
+    }
+    
     // Calculate coin age reward
     {
         uint64_t nCoinAge;
         CTxDB txdb("r");
-        if (!txNew.GetCoinAge(txdb, pindexPrev, nCoinAge))
+        if (!txCoinStake.GetCoinAge(txdb, pindexPrev, nCoinAge))
             return error("CreateCoinStake : failed to calculate coin age");
 
         CPegDB pegdb("r");
-        const COutPoint & prevout = txNew.vin.front().prevout;
+        const COutPoint & prevout = txCoinStake.vin.front().prevout;
         auto fkey = uint320(prevout.hash, prevout.n);
         CFractions fractions(vwtxPrev[0]->vout[prevout.n].nValue, CFractions::VALUE);
         if (!pegdb.ReadFractions(fkey, fractions, false /*must_have*/)) {
@@ -2658,7 +2738,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
             scriptPubKey.SetDestination(CBitcoinAddress(supportAddress).Get());
             if (supportPart >0 && supportPart <=100) {
                 int64_t nSupport = (nReward * supportPart) / 100;
-                txNew.vout.push_back(CTxOut(nSupport, scriptPubKey)); // add support
+                txCoinStake.vout.push_back(CTxOut(nSupport, scriptPubKey)); // add support
                 nReward -= nSupport;
             }
         }
@@ -2666,13 +2746,13 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         if (nReward > PEG_MAKETX_VOTE_VALUE &&  !rewardAddress.empty() && CBitcoinAddress(rewardAddress).IsValid()) {
             CScript scriptPubKey;
             scriptPubKey.SetDestination(CBitcoinAddress(rewardAddress).Get());
-            txNew.vout.push_back(CTxOut(nReward, scriptPubKey)); // add reward
+            txCoinStake.vout.push_back(CTxOut(nReward, scriptPubKey)); // add reward
         }
         else {
             nCredit += nReward;
         }
         
-        txNew.vout[1].nValue = nCredit; // return stake
+        txCoinStake.vout[1].nValue = nCredit; // return stake
     }
     
     // Add vote output
@@ -2719,11 +2799,11 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
             if (!CBitcoinAddress(address).IsValid()) {
                 LogPrint("coinstake", "CreateCoinStake : vote address=%s is not valid\n", address);
             } else {
-                txNew.vout.push_back(CTxOut(0, txNew.vout[1].scriptPubKey)); //add vote
+                txCoinStake.vout.push_back(CTxOut(0, txCoinStake.vout[1].scriptPubKey)); //add vote
                 scriptPubKey.SetDestination(CBitcoinAddress(address).Get());
-                txNew.vout[txNew.vout.size()-1].scriptPubKey = scriptPubKey;
-                txNew.vout[txNew.vout.size()-1].nValue = PEG_MAKETX_VOTE_VALUE;
-                txNew.vout[txNew.vout.size()-2].nValue -= PEG_MAKETX_VOTE_VALUE; // from reward
+                txCoinStake.vout[txCoinStake.vout.size()-1].scriptPubKey = scriptPubKey;
+                txCoinStake.vout[txCoinStake.vout.size()-1].nValue = PEG_MAKETX_VOTE_VALUE;
+                txCoinStake.vout[txCoinStake.vout.size()-2].nValue -= PEG_MAKETX_VOTE_VALUE; // from reward
             }
         }
     }
@@ -2732,15 +2812,15 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
     int nIn = 0;
     for(const CWalletTx* pcoin : vwtxPrev)
     {
-        if (!SignSignature(*this, *pcoin, txNew, nIn++))
+        if (!SignSignature(*this, *pcoin, txCoinStake, nIn++))
             return error("CreateCoinStake : failed to sign coinstake");
     }
 
     // Limit size
-    unsigned int nBytes = ::GetSerializeSize(txNew, SER_NETWORK, PROTOCOL_VERSION);
+    unsigned int nBytes = ::GetSerializeSize(txCoinStake, SER_NETWORK, PROTOCOL_VERSION);
     if (nBytes >= MAX_BLOCK_SIZE_GEN/5)
         return error("CreateCoinStake : exceeded coinstake size limit");
-
+    
     // Successfully generated coinstake
     return true;
 }
@@ -3522,6 +3602,30 @@ std::string CWallet::GetRewardAddress() const
 {
     LOCK(cs_wallet); 
     return rewardAddress;
+}
+
+bool CWallet::SetConsolidateEnabled(bool on, bool write_wallet)
+{
+    LOCK(cs_wallet);
+    if (consolidateEnabled == on) {
+        return true;
+    }
+    
+    if (write_wallet) {
+        CWalletDB walletdb(strWalletFile);
+        if (!walletdb.WriteConsolidateEnabled(on)) {
+            return false;
+        }
+    }
+    
+    consolidateEnabled = on; 
+    return true; 
+}
+
+bool CWallet::GetConsolidateEnabled() const
+{
+    LOCK(cs_wallet); 
+    return consolidateEnabled;
 }
 
 bool CWallet::SetSupportEnabled(bool on, bool write_wallet)

@@ -122,6 +122,9 @@ public:
     bool ReadSupportPart(uint32_t& addr);
     bool WriteSupportPart(const uint32_t& addr);
 
+    bool ReadConsolidateEnabled(bool& on);
+    bool WriteConsolidateEnabled(bool on);
+    
 private:
     bool WriteAccountingEntry(const uint64_t nAccEntryNum, const CAccountingEntry& acentry);
 public:

@@ -42,7 +42,7 @@ void OptionsModel::Init()
     fMinimizeOnClose = settings.value("fMinimizeOnClose", false).toBool();
     fCoinControlFeatures = settings.value("fCoinControlFeatures", false).toBool();
     nTransactionFee = settings.value("nTransactionFee").toLongLong();
-    nReserveBalance = settings.value("nReserveBalance").toLongLong();
+    nNoStakeBalance = settings.value("nNoStakeBalance").toLongLong();
     language = settings.value("language", "").toString();
 
     // These are shared with core Bitcoin; we want
@@ -94,7 +94,7 @@ QVariant OptionsModel::data(const QModelIndex & index, int role) const
         case Fee:
             return QVariant((qint64) nTransactionFee);
         case ReserveBalance:
-            return QVariant((qint64) nReserveBalance);
+            return QVariant((qint64) nNoStakeBalance);
         case DisplayUnit:
             return QVariant(nDisplayUnit);
         case Language:
@@ -162,9 +162,9 @@ bool OptionsModel::setData(const QModelIndex & index, const QVariant & value, in
             emit transactionFeeChanged(nTransactionFee);
             break;
         case ReserveBalance:
-            nReserveBalance = value.toLongLong();
-            settings.setValue("nReserveBalance", (qint64) nReserveBalance);
-            emit reserveBalanceChanged(nReserveBalance);
+            nNoStakeBalance = value.toLongLong();
+            settings.setValue("nNoStakeBalance", (qint64) nNoStakeBalance);
+            emit nostakeBalanceChanged(nNoStakeBalance);
             break;
         case DisplayUnit:
             nDisplayUnit = value.toInt();
@@ -196,7 +196,7 @@ qint64 OptionsModel::getTransactionFee()
 
 qint64 OptionsModel::getReserveBalance()
 {
-    return nReserveBalance;
+    return nNoStakeBalance;
 }
 
 bool OptionsModel::getCoinControlFeatures()

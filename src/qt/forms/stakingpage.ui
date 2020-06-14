@@ -364,6 +364,28 @@
              <number>20</number>
             </property>
             <item>
+             <widget class="QCheckBox" name="checkConsolidateCoins">
+              <property name="text">
+               <string>Consolidate coins on stake</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="labelConsolidateCoins">
+              <property name="font">
+               <font>
+                <italic>true</italic>
+               </font>
+              </property>
+              <property name="text">
+               <string>        (add separate transaction to consolidate coins per address)</string>
+              </property>
+             </widget>
+            </item>
+            <item>
              <widget class="QCheckBox" name="checkRewardTo">
               <property name="text">
                <string>Reward to address:</string>
@@ -541,6 +563,7 @@
   </customwidget>
  </customwidgets>
  <tabstops>
+  <tabstop>checkConsolidateCoins</tabstop>
   <tabstop>checkRewardTo</tabstop>
   <tabstop>lineRewardTo</tabstop>
   <tabstop>rewardAddressBookButton</tabstop>

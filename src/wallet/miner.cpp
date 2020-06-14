@@ -173,7 +173,7 @@ unique_ptr<CBlock> CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, i
 
         // This vector will be sorted into a priority queue:
         vector<TxPriority> vecPriority;
-        vecPriority.reserve(mempool.mapTx.size());
+        vecPriority.reserve(mempool.mapTx.size()+1);
         for (map<uint256, CTransaction>::iterator mi = mempool.mapTx.begin(); mi != mempool.mapTx.end(); ++mi)
         {
             CTransaction& tx = (*mi).second;
@@ -241,7 +241,7 @@ unique_ptr<CBlock> CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, i
             else
                 vecPriority.push_back(TxPriority(dPriority, dFeePerKb, &(*mi).second));
         }
-
+        
         // Collect transactions into block
         map<uint256, CTxIndex> mapTestPool;
         MapFractions mapTestFractionsPool;

@@ -98,6 +98,7 @@ StakingPage::StakingPage(QWidget *parent) :
     
     connect(ui->checkRewardTo, SIGNAL(toggled(bool)), this, SLOT(updateRewardActions()));
     connect(ui->checkSupportFund, SIGNAL(toggled(bool)), this, SLOT(updateRewardActions()));
+    connect(ui->checkConsolidateCoins, SIGNAL(toggled(bool)), this, SLOT(updateRewardActions()));
     connect(ui->lineRewardTo, SIGNAL(textChanged(const QString &)), this, SLOT(updateRewardActions()));
     connect(ui->lineSupportTo, SIGNAL(editingFinished()), this, SLOT(updateRewardActions()));
     connect(ui->sliderSupport, SIGNAL(valueChanged(int)), this, SLOT(updateRewardActions()));
@@ -201,6 +202,7 @@ void StakingPage::updateRewardActions()
     pwalletMain->SetSupportEnabled(ui->checkSupportFund->isChecked(), true/*write*/);
     pwalletMain->SetSupportAddress(supportAddress.toStdString(), true/*write*/);
     pwalletMain->SetSupportPart(ui->sliderSupport->value(), true/*write*/);
+    pwalletMain->SetConsolidateEnabled(ui->checkConsolidateCoins->isChecked(), true/*write*/);
 }
 
 void StakingPage::setWalletModel(WalletModel *model)
@@ -239,7 +241,9 @@ void StakingPage::setWalletModel(WalletModel *model)
         QString supportAddr = QString::fromStdString(pwalletMain->GetSupportAddress());
         int supportPart = pwalletMain->GetSupportPart();
         bool supportIsOn = pwalletMain->GetSupportEnabled();
+        bool consolidateIsOn = pwalletMain->GetConsolidateEnabled();
         
+        ui->checkConsolidateCoins->setChecked(consolidateIsOn);
         ui->checkRewardTo->setChecked(!rewardAddr.isEmpty());
         ui->lineRewardTo->setText(rewardAddr);
         ui->checkSupportFund->setChecked(supportIsOn);

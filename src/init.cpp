@@ -615,9 +615,9 @@ bool AppInit2(boost::thread_group& threadGroup)
 #ifdef ENABLE_WALLET
     if (mapArgs.count("-reservebalance")) // ppcoin: reserve balance amount
     {
-        if (!ParseMoney(mapArgs["-reservebalance"], nReserveBalance))
+        if (!ParseMoney(mapArgs["-nostakebalance"], nNoStakeBalance))
         {
-            InitError(_("Invalid amount for -reservebalance=<amount>"));
+            InitError(_("Invalid amount for -nostakebalance=<amount>"));
             return false;
         }
     }

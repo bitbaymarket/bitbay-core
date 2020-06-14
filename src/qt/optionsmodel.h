@@ -57,7 +57,7 @@ private:
 signals:
     void displayUnitChanged(int unit);
     void transactionFeeChanged(qint64);
-    void reserveBalanceChanged(qint64);
+    void nostakeBalanceChanged(qint64);
     void coinControlFeaturesChanged(bool);
 };
 

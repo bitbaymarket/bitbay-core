@@ -2638,6 +2638,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         
         if (consolidateEnabled && !fKernelFoundForCoin) {
             if (pcoin.first->vout.size() <= pcoin.second) continue; // fail ref
+            if (pcoin.first->vout[pcoin.second].nValue > nConsolidateMaxAmount) continue;
             int nRequired;
             string sAddress;
             txnouttype type;
@@ -2689,7 +2690,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
                 nCount++;
                 if (nCount >= nConsolidateMax)
                     break;
-                if ((nCountTodo - nCount) <5)
+                if ((nCountTodo - nCount) < nConsolidateLeast)
                     break; // keep least 5 inputs
             }
             nValue -= PEG_MAKETX_FEE_INP_OUT; // 1out

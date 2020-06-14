@@ -129,8 +129,10 @@ private:
     bool supportEnabled = true;
     uint32_t supportPart;
     bool consolidateEnabled = true;
+    int nConsolidateLeast = 5;
     int nConsolidateMin = 20;
     int nConsolidateMax = 50;
+    int64_t nConsolidateMaxAmount = 10000000000000;
     
 public:
     /// Main wallet lock.

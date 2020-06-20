@@ -67,7 +67,7 @@ private slots:
 };
 
 #define DECORATION_SIZE 64
-#define NUM_ITEMS 10
+#define NUM_ITEMS 12
 
 class TxViewDelegate : public QAbstractItemDelegate
 {

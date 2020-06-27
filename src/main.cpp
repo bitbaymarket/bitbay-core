@@ -2796,6 +2796,7 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const u
     bool fGeneratedStakeModifier = false;
     if (!ComputeNextStakeModifier(pindexNew->pprev, nStakeModifier, fGeneratedStakeModifier))
         return error("AddToBlockIndex() : ComputeNextStakeModifier() failed");
+    
     pindexNew->SetStakeModifier(nStakeModifier, fGeneratedStakeModifier);
     pindexNew->bnStakeModifierV2 = ComputeStakeModifierV2(pindexNew->pprev, IsProofOfWork() ? hash : vtx[1].vin[0].prevout.hash);
 
@@ -2811,10 +2812,10 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const u
     // Write to disk block index
     CTxDB txdb;
     if (!txdb.TxnBegin())
-        return false;
+        return error("AddToBlockIndex() : txdb.TxnBegin() failed");
     txdb.WriteBlockIndex(CDiskBlockIndex(pindexNew));
     if (!txdb.TxnCommit())
-        return false;
+        return error("AddToBlockIndex() : txdb.TxnCommit() failed");
 
     CPegDB pegdb;
 
@@ -2878,7 +2879,7 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const u
     }
     if (hasBetterChainTrust || hasBetterStakerTrust)
         if (!SetBestChain(txdb, pegdb, pindexNew))
-            return false;
+            return error("AddToBlockIndex() : SetBestChain() failed");
 
     if (pindexNew == pindexBest)
     {

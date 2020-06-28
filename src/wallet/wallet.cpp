@@ -2639,6 +2639,12 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         if (consolidateEnabled && !fKernelFoundForCoin) {
             if (pcoin.first->vout.size() <= pcoin.second) continue; // fail ref
             if (pcoin.first->vout[pcoin.second].nValue > nConsolidateMaxAmount) continue;
+            if (pcoin.first->vOutFractions.size() > pcoin.second) {
+                const CFractions & fractions = pcoin.first->vOutFractions[pcoin.second].Ref();
+                if (fractions.nFlags & CFractions::NOTARY_F) continue;
+                if (fractions.nFlags & CFractions::NOTARY_V) continue;
+                if (fractions.nFlags & CFractions::NOTARY_C) continue;
+            }
             int nRequired;
             string sAddress;
             txnouttype type;

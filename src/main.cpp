@@ -29,6 +29,9 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string.hpp>
 
+#include <boost/bind/bind.hpp>
+using namespace boost::placeholders;
+
 using namespace std;
 using namespace boost;
 

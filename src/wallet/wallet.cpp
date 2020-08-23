@@ -2085,6 +2085,8 @@ bool CWallet::CreateTransaction(PegTxType txType,
                 int64_t nValueIn = 0;
                 bool fUseFrozenUnlocked = false;
                 if (!SelectCoins(txType, nTotalValue, wtxNew.nTime, setCoins, nValueIn, fUseFrozenUnlocked, coinControl)) {
+                    nValueIn = 0;
+                    setCoins.clear();
                     fUseFrozenUnlocked = true;
                     if (!SelectCoins(txType, nTotalValue, wtxNew.nTime, setCoins, nValueIn, fUseFrozenUnlocked, coinControl)) {
                         sFailCause = "CT-4, failed to select coins";
@@ -2683,6 +2685,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
         }
         
         if (!sAddress.empty()) {
+            int64_t nConsolidateFees = 0;
             int nCount = 0;
             int nCountTodo = mapCollectForConsolidate[sAddress].size();
             int64_t nValue = 0;
@@ -2692,7 +2695,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
                 txConsolidate.vin.push_back(entry.second);
                 nValue += entry.first->vout[entry.second.prevout.n].nValue;
                 nValue -= PEG_MAKETX_FEE_INP_OUT;
-                nFees += PEG_MAKETX_FEE_INP_OUT;
+                nConsolidateFees += PEG_MAKETX_FEE_INP_OUT;
                 nCount++;
                 if (nCount >= nConsolidateMax)
                     break;
@@ -2700,7 +2703,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
                     break; // keep least 5 inputs
             }
             nValue -= PEG_MAKETX_FEE_INP_OUT; // 1out
-            nFees += PEG_MAKETX_FEE_INP_OUT;
+            nConsolidateFees += PEG_MAKETX_FEE_INP_OUT;
             if (nValue >0) {
                 CScript scriptPubKey;
                 scriptPubKey.SetDestination(CBitcoinAddress(sAddress).Get());
@@ -2714,6 +2717,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore,
                         break;
                     }
                 }
+                nFees += nConsolidateFees; // all ok, add fees
             }
             else {
                 txConsolidate.vin.clear();

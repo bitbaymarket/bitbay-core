@@ -259,6 +259,9 @@ DISTFILES += \
     src/makefile.mingw \
     src/makefile.osx \
     src/makefile.unix \
+    src/leveldb/Makefile \
+    src/leveldb/build_config.mk \
+    src/leveldb/build_detect_platform \
     .travis.yml \
     .appveyor.yml
 

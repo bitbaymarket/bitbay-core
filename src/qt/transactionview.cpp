@@ -161,6 +161,8 @@ void TransactionView::setModel(WalletModel *model)
     this->model = model;
     if(model)
     {
+        connect(model->getTransactionTableModel(), SIGNAL(updateConfirmationsColumns()),
+                this, SLOT(updateConfirmationsColumns()));
         transactionProxyModel = new TransactionFilterProxy(this);
         transactionProxyModel->setSourceModel(model->getTransactionTableModel());
         transactionProxyModel->setDynamicSortFilter(true);
@@ -168,6 +170,7 @@ void TransactionView::setModel(WalletModel *model)
         transactionProxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
 
         transactionProxyModel->setSortRole(Qt::EditRole);
+        transactionProxyModel->setFilterRole(Qt::EditRole);
 
         transactionView->setModel(transactionProxyModel);
         transactionView->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -431,4 +434,12 @@ void TransactionView::focusTransaction(const QModelIndex &idx)
     transactionView->scrollTo(targetIdx);
     transactionView->setCurrentIndex(targetIdx);
     transactionView->setFocus();
+}
+
+void TransactionView::updateConfirmationsColumns()
+{
+    if(!transactionProxyModel)
+        return;
+    transactionProxyModel->updateColumn(TransactionTableModel::Status);
+    transactionProxyModel->updateColumn(TransactionTableModel::ToAddress);
 }

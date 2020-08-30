@@ -37,7 +37,8 @@ HEADERS += \
     $$PWD/netbase.h \
     $$PWD/clientversion.h \
     $$PWD/threadsafety.h \
-    $$PWD/tinyformat.h
+    $$PWD/tinyformat.h \
+    $$PWD/blockindexmap.h \
 
 SOURCES += \
     $$PWD/alert.cpp \
@@ -62,6 +63,7 @@ SOURCES += \
     $$PWD/protocol.cpp \
     $$PWD/noui.cpp \
     $$PWD/kernel.cpp \
+    $$PWD/blockindexmap.cpp \
 
 HEADERS += \
     $$PWD/crypto/pbkdf2.h \

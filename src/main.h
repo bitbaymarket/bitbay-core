@@ -13,6 +13,7 @@
 #include "net.h"
 #include "script.h"
 #include "peg.h"
+#include "blockindexmap.h"
 
 #include <list>
 #include <functional>
@@ -76,7 +77,7 @@ extern void scrypt_1024_1_1_256(const char *input, char *output);
 extern CScript COINBASE_FLAGS;
 extern CCriticalSection cs_main;
 extern CTxMemPool mempool;
-extern std::map<uint256, CBlockIndex*> mapBlockIndex;
+extern CBlockIndexMap mapBlockIndex;
 extern std::set<std::pair<COutPoint, unsigned int> > setStakeSeen;
 extern CBlockIndex* pindexGenesisBlock;
 extern int nStakeMinConfirmations;

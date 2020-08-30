@@ -20,6 +20,7 @@
 #include "ui_interface.h"
 #include "peg.h"
 #include "base58.h"
+#include "blockindexmap.h"
 
 #include <zconf.h>
 #include <zlib.h>
@@ -50,7 +51,7 @@ CCriticalSection cs_main;
 
 CTxMemPool mempool;
 
-map<uint256, CBlockIndex*> mapBlockIndex;
+CBlockIndexMap mapBlockIndex;
 set<pair<COutPoint, unsigned int> > setStakeSeen;
 
 CBigNum bnProofOfStakeLimit(~uint256(0) >> 20);
@@ -2804,7 +2805,7 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos, const u
     pindexNew->bnStakeModifierV2 = ComputeStakeModifierV2(pindexNew->pprev, IsProofOfWork() ? hash : vtx[1].vin[0].prevout.hash);
 
     // Add to mapBlockIndex
-    map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.insert(make_pair(hash, pindexNew)).first;
+    map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.insert(hash, pindexNew).first;
     if (pindexNew->IsProofOfStake())
         setStakeSeen.insert(make_pair(pindexNew->prevoutStake, pindexNew->nStakeTime));
     pindexNew->phashBlock = &((*mi).first);

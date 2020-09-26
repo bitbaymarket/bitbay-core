@@ -341,7 +341,7 @@ void BlockchainPage::openChainMenu(const QPoint & pos)
             return;
 
         CBlock block;
-        auto pblockindex = mapBlockIndex[hash];
+        auto pblockindex = mapBlockIndex.ref(hash);
         block.ReadFromDisk(pblockindex, true);
 
         // todo (extended)
@@ -385,7 +385,7 @@ bool BlockchainPageChainEvents::eventFilter(QObject *obj, QEvent *event)
                 return true;
 
             CBlock block;
-            auto pblockindex = mapBlockIndex[hash];
+            auto pblockindex = mapBlockIndex.ref(hash);
             block.ReadFromDisk(pblockindex, true);
 
             MapFractions mapFractions;
@@ -440,7 +440,7 @@ void BlockchainPage::openBlock(uint256 hash)
     LOCK(cs_main);
     if (mapBlockIndex.find(currentBlock) == mapBlockIndex.end())
         return;
-    CBlockIndex* pblockindex = mapBlockIndex[currentBlock];
+    CBlockIndex* pblockindex = mapBlockIndex.ref(currentBlock);
     if (!pblockindex)
         return;
     showBlockPage();
@@ -519,7 +519,7 @@ void BlockchainPage::openBlockMenu(const QPoint & pos)
             return;
 
         CBlock block;
-        auto pblockindex = mapBlockIndex[hash];
+        auto pblockindex = mapBlockIndex.ref(hash);
         block.ReadFromDisk(pblockindex, true);
 
         MapFractions mapFractions;

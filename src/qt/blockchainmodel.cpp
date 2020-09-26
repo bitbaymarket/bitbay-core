@@ -65,7 +65,7 @@ bool BlockchainModel::getItem(int h) const
     if (priv->cachePoints.contains(h2_point)) {
         start_hash = priv->cachePoints[h2_point];
     }
-    CBlockIndex* pblockindex = mapBlockIndex[start_hash];
+    CBlockIndex* pblockindex = mapBlockIndex.ref(start_hash);
     while (pblockindex->nHeight > h1) {
         if (pblockindex->nHeight % 100 == 0) {
             uint256 bhash = pblockindex->GetBlockHash();

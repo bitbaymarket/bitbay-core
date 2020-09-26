@@ -20,14 +20,14 @@ public:
     
     bool empty() const;
     size_t size() const;
-    size_t count(uint256 hashBlock) const;
+    size_t count(const uint256& hashBlock) const;
     std::map<uint256, CBlockIndex*>::const_iterator begin() const;
     std::map<uint256, CBlockIndex*>::const_iterator end() const;
     std::map<uint256, CBlockIndex*>::iterator begin();
     std::map<uint256, CBlockIndex*>::iterator end();
-    std::map<uint256, CBlockIndex*>::iterator find(uint256 hashBlock);
-    CBlockIndex* operator[](uint256 hashBlock);
-    std::pair<std::map<uint256, CBlockIndex*>::iterator, bool> insert(uint256 hashBlock, CBlockIndex* pindex);
+    std::map<uint256, CBlockIndex*>::iterator find(const uint256& hashBlock);
+    CBlockIndex* ref(const uint256& hashBlock);
+    std::pair<std::map<uint256, CBlockIndex*>::iterator, bool> insert(const uint256& hashBlock, CBlockIndex* pindex);
 };
 
 #endif

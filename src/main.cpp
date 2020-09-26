@@ -3149,7 +3149,7 @@ bool ProcessBlock(CNode* pfrom, CBlock* pblock)
     // Check for duplicate
     uint256 hash = pblock->GetHash();
     if (mapBlockIndex.count(hash))
-        return error("ProcessBlock() : already have block %d %s", mapBlockIndex[hash]->nHeight, hash.ToString());
+        return error("ProcessBlock() : already have block %d %s", mapBlockIndex.ref(hash)->nHeight, hash.ToString());
     if (mapOrphanBlocks.count(hash))
         return error("ProcessBlock() : already have block (orphan) %s", hash.ToString());
 
@@ -4111,7 +4111,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 // In case we are on a very long side-chain, it is possible that we already have
                 // the last block in an inv bundle sent in response to getblocks. Try to detect
                 // this situation and push another getblocks to continue.
-                PushGetBlocks(pfrom, mapBlockIndex[inv.hash], uint256(0));
+                PushGetBlocks(pfrom, mapBlockIndex.ref(inv.hash), uint256(0));
                 if (fDebug)
                     LogPrintf("force request: %s\n", inv.ToString());
             }

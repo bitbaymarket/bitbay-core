@@ -627,7 +627,7 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg)
     }
     if (!mapBlockIndex.count(hashBestChain))
         return error("CTxDB::LoadBlockIndex() : hashBestChain not found in the block index");
-    pindexBest = mapBlockIndex[hashBestChain];
+    pindexBest = mapBlockIndex.ref(hashBestChain);
     nBestHeight = pindexBest->nHeight;
     nBestChainTrust = pindexBest->nChainTrust;
 

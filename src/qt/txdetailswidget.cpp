@@ -335,7 +335,7 @@ void TxDetailsWidget::openTx(uint256 blockhash, uint txidx)
     LOCK(cs_main);
     if (mapBlockIndex.find(blockhash) == mapBlockIndex.end())
         return;
-    CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+    CBlockIndex* pblockindex = mapBlockIndex.ref(blockhash);
     if (!pblockindex)
         return;
 

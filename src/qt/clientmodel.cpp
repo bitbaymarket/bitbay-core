@@ -70,21 +70,21 @@ int ClientModel::getNumBlocks() const
 int ClientModel::getPegSupplyIndex() const
 {
     LOCK(cs_main);
-    CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
+    CBlockIndex* pblockindex = pindexBest;
     return pblockindex->nPegSupplyIndex;
 }
 
 int ClientModel::getPegNextSupplyIndex() const
 {
     LOCK(cs_main);
-    CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
+    CBlockIndex* pblockindex = pindexBest;
     return pblockindex->GetNextIntervalPegSupplyIndex();
 }
 
 int ClientModel::getPegNextNextSupplyIndex() const
 {
     LOCK(cs_main);
-    CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
+    CBlockIndex* pblockindex = pindexBest;
     return pblockindex->GetNextNextIntervalPegSupplyIndex();
 }
 
@@ -97,7 +97,7 @@ int ClientModel::getPegStartBlockNum() const
 boost::tuple<int,int,int> ClientModel::getPegVotes() const
 {
     LOCK(cs_main);
-    CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
+    CBlockIndex* pblockindex = pindexBest;
     return boost::make_tuple(pblockindex->nPegVotesInflate, 
                              pblockindex->nPegVotesDeflate, 
                              pblockindex->nPegVotesNochange);

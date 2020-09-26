@@ -12,15 +12,15 @@ size_t CBlockIndexMap::size() const {
     return mapBlockIndex.size();
 }
 
-size_t CBlockIndexMap::count(uint256 hashBlock) const {
+size_t CBlockIndexMap::count(const uint256& hashBlock) const {
     return mapBlockIndex.count(hashBlock);
 }
 
-std::map<uint256, CBlockIndex*>::iterator CBlockIndexMap::find(uint256 hashBlock) {
+std::map<uint256, CBlockIndex*>::iterator CBlockIndexMap::find(const uint256& hashBlock) {
     return mapBlockIndex.find(hashBlock);
 }
 
-CBlockIndex* CBlockIndexMap::operator[](uint256 hashBlock) {
+CBlockIndex* CBlockIndexMap::ref(const uint256& hashBlock) {
     return mapBlockIndex[hashBlock];
 }
 
@@ -40,6 +40,6 @@ std::map<uint256, CBlockIndex*>::iterator CBlockIndexMap::end() {
     return mapBlockIndex.end();
 }
 
-std::pair<std::map<uint256, CBlockIndex*>::iterator, bool> CBlockIndexMap::insert(uint256 hashBlock, CBlockIndex* pindex) {
+std::pair<std::map<uint256, CBlockIndex*>::iterator, bool> CBlockIndexMap::insert(const uint256& hashBlock, CBlockIndex* pindex) {
     return mapBlockIndex.insert(std::make_pair(hashBlock, pindex));
 }

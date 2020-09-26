@@ -362,9 +362,7 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
 
             // back to nPegStartHeight
             CBlockIndex* pblockindexPegFail = nullptr;
-            CBlockIndex* pblockindex = nullptr;
-            if (mapBlockIndex.find(hashBestChain) != mapBlockIndex.end()) 
-                pblockindex = mapBlockIndex[hashBestChain];
+            CBlockIndex* pblockindex = pindexBest;
             while (pblockindex && pblockindex->nHeight > nPegStartHeight)
                 pblockindex = pblockindex->pprev;
 
@@ -373,7 +371,7 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                    pblockindex->nHeight >= nPegStartHeight && 
                    pblockindex->nHeight <= nBestHeight) {
                 uint256 hash = *pblockindex->phashBlock;
-                pblockindex = mapBlockIndex[hash];
+                pblockindex = mapBlockIndex.ref(hash);
 
                 if (pblockindex->nHeight % 100 == 0) {
                     load_msg(std::string(" process peg fractions: ")+std::to_string(pblockindex->nHeight));

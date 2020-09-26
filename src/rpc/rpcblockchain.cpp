@@ -309,7 +309,7 @@ Value getblock(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
 
     CBlock block;
-    CBlockIndex* pblockindex = mapBlockIndex[hash];
+    CBlockIndex* pblockindex = mapBlockIndex.ref(hash);
     
     if(!block.ReadFromDisk(pblockindex, true)){
         // Block not found on disk. This could be because we have the block
@@ -365,13 +365,13 @@ Value getblockbynumber(const Array& params, bool fHelp)
     LOCK(cs_main);
     
     CBlock block;
-    CBlockIndex* pblockindex = mapBlockIndex[hashBestChain];
+    CBlockIndex* pblockindex = pindexBest;
     while (pblockindex->nHeight > nHeight)
         pblockindex = pblockindex->pprev;
 
     uint256 hash = *pblockindex->phashBlock;
 
-    pblockindex = mapBlockIndex[hash];
+    pblockindex = mapBlockIndex.ref(hash);
     block.ReadFromDisk(pblockindex, true);
 
     MapFractions mapFractions;

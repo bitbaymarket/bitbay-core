@@ -153,7 +153,7 @@ Value getfractions(const Array& params, bool fHelp)
             if (txdb.ReadTxIndex(txhash, txindex)) {
                 txindex.GetHeightInMainChain(&nTxNum, txhash, &blockhash);
                 if (mapBlockIndex.count(blockhash)) {
-                    supply = mapBlockIndex[blockhash]->nPegSupplyIndex;
+                    supply = mapBlockIndex.ref(blockhash)->nPegSupplyIndex;
                 }
             }
         }

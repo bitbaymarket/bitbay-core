@@ -1,6 +1,10 @@
 // Copyright (c) 2018 yshurik
+//
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+//
+// The use in another cyptocurrency project the code is licensed under
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #ifndef BITBAY_PEGOPS_H
 #define BITBAY_PEGOPS_H
@@ -26,7 +30,7 @@ extern bool getpeglevel(
         int                 inp_peg_next_next,
         const std::string & inp_exchange_pegdata64,
         const std::string & inp_pegshift_pegdata64,
-        
+
         std::string &   out_peglevel_hex,
         int64_t     &   out_exchange_liquid,
         int64_t     &   out_exchange_reserve,
@@ -36,7 +40,7 @@ extern bool getpeglevel(
 
 extern bool getpeglevelinfo(
         const std::string & inp_peglevel_hex,
-        
+
         int &           out_version,
         int &           out_cycle_now,
         int &           out_cycle_prev,
@@ -51,7 +55,7 @@ extern bool getpeglevelinfo(
 
 extern bool getpegdatainfo(
         const std::string & inp_pegdata64,
-        
+
         int &           out_version,
         int64_t &       out_value,
         int64_t &       out_liquid,
@@ -77,7 +81,7 @@ extern bool updatepegbalances(
         const std::string & inp_balance_pegdata64,
         const std::string & inp_pegpool_pegdata64,
         const std::string & inp_peglevel_hex,
-        
+
         std::string &   out_balance_pegdata64,
         int64_t     &   out_balance_liquid,
         int64_t     &   out_balance_reserve,
@@ -91,7 +95,7 @@ extern bool movecoins(
         const std::string & inp_dst_pegdata64,
         const std::string & inp_peglevel_hex,
         bool                inp_cross_cycles,
-        
+
         std::string &   out_src_pegdata64,
         int64_t     &   out_src_liquid,
         int64_t     &   out_src_reserve,
@@ -105,7 +109,7 @@ extern bool moveliquid(
         const std::string & inp_src_pegdata64,
         const std::string & inp_dst_pegdata64,
         const std::string & inp_peglevel_hex,
-        
+
         std::string &   out_src_pegdata64,
         int64_t     &   out_src_liquid,
         int64_t     &   out_src_reserve,
@@ -119,7 +123,7 @@ extern bool movereserve(
         const std::string & inp_src_pegdata64,
         const std::string & inp_dst_pegdata64,
         const std::string & inp_peglevel_hex,
-        
+
         std::string &   out_src_pegdata64,
         int64_t     &   out_src_liquid,
         int64_t     &   out_src_reserve,
@@ -131,7 +135,7 @@ extern bool movereserve(
 extern bool removecoins(
         const std::string & inp_from_pegdata64,
         const std::string & inp_remove_pegdata64,
-        
+
         std::string &   out_from_pegdata64,
         int64_t     &   out_from_liquid,
         int64_t     &   out_from_reserve,
@@ -140,7 +144,7 @@ extern bool removecoins(
 extern bool updatetxout(
         const std::string       inp_txout_pegdata64,
         const std::string &     inp_peglevel_hex,
-        
+
         int64_t     &   out_txout_value,
         int64_t     &   out_txout_next_cycle_available_liquid,
         int64_t     &   out_txout_next_cycle_available_reserve,
@@ -160,7 +164,7 @@ extern bool prepareliquidwithdraw(
         int64_t                 inp_amount_with_fee,
         std::string             inp_address,
         const std::string &     inp_peglevel_hex,
-        
+
         std::string &   out_balance_pegdata64,
         int64_t     &   out_balance_liquid,
         int64_t     &   out_balance_reserve,
@@ -184,7 +188,7 @@ extern bool preparereservewithdraw(
         int64_t                 inp_amount_with_fee,
         std::string             inp_address,
         const std::string &     inp_peglevel_hex,
-        
+
         std::string &   out_balance_pegdata64,
         int64_t     &   out_balance_liquid,
         int64_t     &   out_balance_reserve,

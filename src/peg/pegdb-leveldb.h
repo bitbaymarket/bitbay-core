@@ -1,6 +1,8 @@
 // Copyright (c) 2018 yshurik
+//
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #ifndef BITCOIN_PEG_LEVELDB_H
 #define BITCOIN_PEG_LEVELDB_H
 
@@ -209,17 +211,17 @@ public:
 
     bool ReadPegPruneEnabled(bool& fEnabled);
     bool WritePegPruneEnabled(bool fEnabled);
-    
+
     bool ReadPegTxActivated(bool& fActivated);
     bool WritePegTxActivated(bool fActivated);
-    
+
     bool ReadPegBayPeakRate(double& dRate);
     bool WritePegBayPeakRate(double dRate);
-    
+
     bool ReadPegTxId(uint256 txid, uint256& txhash);
     bool WritePegTxId(uint256 txid, uint256 txhash);
     bool RemovePegTxId(uint256 txid);
-    
+
     // load routine
     bool LoadPegData(CTxDB& txdb, LoadMsg load_msg);
 };

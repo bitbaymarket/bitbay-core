@@ -1,6 +1,10 @@
 // Copyright (c) 2018 yshurik
+//
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+//
+// The use in another cyptocurrency project the code is licensed under
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #ifndef BITBAY_PEGSTD_H
 #define BITBAY_PEGSTD_H

@@ -1,6 +1,10 @@
 // Copyright (c) 2018 yshurik
+//
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+//
+// The use in another cyptocurrency project the code is licensed under
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #include <map>
 #include <set>
@@ -104,7 +108,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
             return false;
         }
         const CTxOut & prevtxout = mapInputs[fkey];
-        
+
         int64_t nValue = prevtxout.nValue;
         nValueIn += nValue;
         auto sAddress = toAddress(prevtxout.scriptPubKey);
@@ -118,14 +122,14 @@ bool CalculateStandardFractions(const CTransaction & tx,
         auto frInp = mapInputsFractions[fkey].Std();
         if (frInp.Total() != prevtxout.nValue) {
             std::stringstream ss;
-            ss << "P-I-3: Input fraction " 
-               << prevout.hash.GetHex() << ":" << prevout.n 
+            ss << "P-I-3: Input fraction "
+               << prevout.hash.GetHex() << ":" << prevout.n
                << " total " << frInp.Total()
                << " mismatches prevout value " << prevtxout.nValue;
             sFailCause = ss.str();
             return false;
         }
-        
+
         if (frInp.nFlags & CFractions::NOTARY_F) {
             if (frInp.nLockTime > tx.nTime) {
                 sFailCause = "P-I-4: Frozen input used before time expired";
@@ -139,7 +143,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 return false;
             }
         }
-        
+
         int64_t nReserveIn = 0;
         auto & frReserve = poolReserves[sAddress];
         frReserve += frInp.LowPart(nSupply, &nReserveIn);
@@ -147,7 +151,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
         int64_t nLiquidityIn = 0;
         auto & frLiquidity = poolLiquidity[sAddress];
         frLiquidity += frInp.HighPart(nSupply, &nLiquidityIn);
-        
+
         // check if intend to transfer frozen
         // if so need to do appropriate deductions from pools
         // if there is a notary on same position as input
@@ -171,33 +175,33 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     }
                 }
             }
-            
+
             if (fNotary && (frInp.nFlags & CFractions::NOTARY_C)) {
                 sFailCause = "P-I-N-1: Can not notary for input cold coins";
                 return false;
             }
-            
+
             if (frInp.nFlags & CFractions::NOTARY_C) {
-                // input is cold, 
+                // input is cold,
                 // it can return back to original address
                 // or go to any address but then get into frozen state
                 unsigned int nOutIndex = i; // same index as input
                 int64_t nValueOut = tx.vout[size_t(nOutIndex)].nValue;
                 string sOutAddress = toAddress(tx.vout[size_t(nOutIndex)].scriptPubKey);
                 auto & frozenTxOut = poolFrozen[nOutIndex];
-                
+
                 if (frozenTxOut.nValue >0 || frozenTxOut.fractions.Total() != 0) {
                     sFailCause = "P-I-C-1: Cold notary output has already assigned value";
                     return false;
                 }
-                
+
                 CFractions frOut = frInp.RatioPart(nValueOut);
                 frozenTxOut.nValue = nValueOut;
                 frozenTxOut.fractions += frOut;
                 frozenTxOut.fractions.nLockTime = 0;
                 frozenTxOut.fIsColdOutput = true;
-                
-                if (frInp.sReturnAddr == sOutAddress) { 
+
+                if (frInp.sReturnAddr == sOutAddress) {
                     // no mark already on frozenTxOut.fractions
                 } else {
                     if (!frozenTxOut.fractions.SetMark(CFractions::MARK_COLD_TO_FROZEN, CFractions::NOTARY_F, nTime)) {
@@ -205,7 +209,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                         return false;
                     }
                 }
-                
+
                 // deduct whole frInp - not frOut
                 // the diff can go only to fee fractions
                 int64_t nReserveDeduct = 0;
@@ -221,7 +225,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
             bool fNotaryV = boost::starts_with(sNotary, "**V**");
             bool fNotaryL = boost::starts_with(sNotary, "**L**");
             bool fNotaryC = boost::starts_with(sNotary, "**C**");
-            
+
             // #NOTE5
             if (fNotary && (fNotaryF || fNotaryV || fNotaryL || fNotaryC)) {
                 bool fSharedFreeze = false;
@@ -230,12 +234,12 @@ bool CalculateStandardFractions(const CTransaction & tx,
                 set<long> setFrozenIndexes;
                 vector<string> vOutputArgs;
                 boost::split(vOutputArgs, sOutputDef, boost::is_any_of(":"));
-                
+
                 if (fNotaryC && vOutputArgs.size() != 1) {
                     sFailCause = "P-I-N-2: Cold notary: refer more than one output";
                     return false;
                 }
-                
+
                 for(string sOutputArg : vOutputArgs) {
                     char * pEnd = nullptr;
                     long nFrozenIndex = strtol(sOutputArg.c_str(), &pEnd, 0);
@@ -248,15 +252,15 @@ bool CalculateStandardFractions(const CTransaction & tx,
                         sFailCause = "P-I-N-4: Freeze notary: output refers itself";
                         return false;
                     }
-                    
+
                     int64_t nFrozenValueOut = tx.vout[size_t(nFrozenIndex)].nValue;
                     auto & frozenTxOut = poolFrozen[nFrozenIndex];
-                    
+
                     if (frozenTxOut.fIsColdOutput) {
                         sFailCause = "P-I-N-5: Output already referenced as cold";
                         return false;
                     }
-                    
+
                     frozenTxOut.nValue = nFrozenValueOut;
                     frozenTxOut.sAddress = sAddress;
                     bool fMarkSet = false;
@@ -271,12 +275,12 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     vFrozenIndexes.push_back(nFrozenIndex);
                     setFrozenIndexes.insert(nFrozenIndex);
                 }
-                
+
                 if (vOutputArgs.size() > 1) {
                     fFreezeAll = true;
                     fSharedFreeze = true;
                 }
-                
+
                 if (vFrozenIndexes.size() == 2) {
                     long nFrozenIndex1 = vFrozenIndexes.front();
                     long nFrozenIndex2 = vFrozenIndexes.back();
@@ -287,13 +291,13 @@ bool CalculateStandardFractions(const CTransaction & tx,
                     frozenTxOut.nFairWithdrawFromEscrowIndex1 = nFrozenIndex1;
                     frozenTxOut.nFairWithdrawFromEscrowIndex2 = nFrozenIndex2;
                 }
-                
+
                 if (vFrozenIndexes.size() == 1) {
                     long nFrozenIndex = vFrozenIndexes.front();
-                
+
                     int64_t nFrozenValueOut = tx.vout[size_t(nFrozenIndex)].nValue;
                     auto & frozenTxOut = poolFrozen[nFrozenIndex];
-                    
+
                     if (fNotaryF && nReserveIn < nFrozenValueOut) {
                         fFreezeAll = true;
                         fSharedFreeze = true;
@@ -310,7 +314,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                         sFailCause = "P-I-N-8: Cold notary: not enough input value";
                         return false;
                     }
-    
+
                     // deductions if not shared freeze
                     if (!fSharedFreeze) {
                         if (fNotaryF) {
@@ -442,15 +446,15 @@ bool CalculateStandardFractions(const CTransaction & tx,
                         if (poolFrozen.size()==2) {
                             long nIndex1 = poolFrozen[i].nFairWithdrawFromEscrowIndex1;
                             long nIndex2 = poolFrozen[i].nFairWithdrawFromEscrowIndex2;
-                            if (nIndex1 <0 || nIndex2 <0 || 
-                                size_t(nIndex1) >= n_vout || 
+                            if (nIndex1 <0 || nIndex2 <0 ||
+                                size_t(nIndex1) >= n_vout ||
                                 size_t(nIndex2) >= n_vout) {
                                 sFailCause = "P-O-N-3: Wrong refering output for fair withdraw from escrow";
                                 fFailedPegOut = true;
                                 break;
                             }
                             // Making an fair withdraw of reserves funds from escrow.
-                            // Takes proportionally less from input address to freeze into 
+                            // Takes proportionally less from input address to freeze into
                             // first output - to leave fair amount of reserve for second.
                             int64_t nValue1 = poolFrozen[nIndex1].nValue;
                             int64_t nValue2 = poolFrozen[nIndex2].nValue;
@@ -466,7 +470,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
                             }
                         }
                     }
-                    
+
                     for(const string & sAddress : vAddresses) {
                         if (poolReserves.count(sAddress) == 0) continue;
                         auto & frReserve = poolReserves[sAddress];
@@ -603,7 +607,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
         sFailCause = "P-G-3: Total mismatch on fee fractions";
         fFailedPegOut = true;
     }
-    
+
     if (fFailedPegOut) {
         // remove failed fractions from pool
         auto fkey = uint320(tx.GetHash(), nLatestPegOut);
@@ -615,7 +619,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
     }
 
     feesFractions += txFeeFractions;
-    
+
     // now all outputs are ready, place them as inputs for next tx in the list
     for (unsigned int i = 0; i < n_vout; i++)
     {
@@ -631,19 +635,19 @@ bool CalculateStandardFractions(const CTransaction & tx,
 bool CFractions::SetMark(MarkAction action, uint32_t nMark, uint64_t nTime)
 {
     uint32_t nNewFlags = nFlags | nMark;
-    
+
     int nMarks = 0;
     if (nNewFlags & CFractions::NOTARY_F) nMarks++;
     if (nNewFlags & CFractions::NOTARY_V) nMarks++;
     if (nNewFlags & CFractions::NOTARY_L) nMarks++;
     if (nNewFlags & CFractions::NOTARY_C) nMarks++;
-    
+
     if (nMarks > 1) { /* marks are crossing */
         return false;
     }
-    
+
     nFlags = nNewFlags;
-    
+
     if (action == MARK_SET) {
         if (nFlags & CFractions::NOTARY_F) {
             nLockTime = nTime + Params().PegFrozenTime();
@@ -664,7 +668,7 @@ bool CFractions::SetMark(MarkAction action, uint32_t nMark, uint64_t nTime)
     else if (action == MARK_COLD_TO_FROZEN) {
         nLockTime = nTime + 4 * Params().PegFrozenTime();
     }
-    
+
     return true;
 }
 

@@ -1,6 +1,10 @@
 // Copyright (c) 2018 yshurik
+//
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+//
+// The use in another cyptocurrency project the code is licensed under
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #ifndef BITBAY_PEGOPSP_H
 #define BITBAY_PEGOPSP_H
@@ -29,7 +33,7 @@ extern bool getpeglevel(
         int                 nPegNextNext,
         const CPegData &    pdExchange,
         const CPegData &    pdPegShift,
-        
+
         CPegLevel &     peglevel,
         CPegData &      pdPegPool,
         std::string &   sErr);
@@ -38,7 +42,7 @@ extern bool updatepegbalances(
         CPegData &          pdBalance,
         CPegData &          pdPegPool,
         const CPegLevel &   peglevelNew,
-        
+
         std::string &   sErr);
 
 extern bool movecoins(
@@ -78,7 +82,7 @@ extern bool prepareliquidwithdraw(
         int64_t                 nAmountWithFee,
         std::string             sAddress,
         const CPegLevel &       peglevel,
-        
+
         CPegData &              pdRequested,
         CPegData &              pdProcessed,
         std::string &           withdrawIdXch,
@@ -104,7 +108,7 @@ extern bool preparereservewithdraw(
         int64_t                 nAmountWithFee,
         std::string             sAddress,
         const CPegLevel &       peglevel,
-        
+
         CPegData &              pdRequested,
         CPegData &              pdProcessed,
         std::string &           withdrawIdXch,

@@ -1,6 +1,10 @@
 // Copyright (c) 2018 yshurik
+//
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+//
+// The use in another cyptocurrency project the code is licensed under
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #include <map>
 #include <set>
@@ -82,12 +86,12 @@ bool CalculateStakingFractions_testnet200k(const CTransaction & tx,
         sFailCause = "More than one input";
         return false;
     }
-    
+
     if (n_vout > 8) {
         sFailCause = "More than 8 outputs";
         return false;
     }
-    
+
     int64_t nValueIn = 0;
     int64_t nReservesTotal =0;
     int64_t nLiquidityTotal =0;
@@ -98,7 +102,7 @@ bool CalculateStakingFractions_testnet200k(const CTransaction & tx,
     int nSupply = pindexBlock->nPegSupplyIndex;
     string sInputAddress;
     CFractions frInp(0, CFractions::STD);
-    
+
     // only one input
     {
         unsigned int i = 0;
@@ -150,21 +154,21 @@ bool CalculateStakingFractions_testnet200k(const CTransaction & tx,
         sFailCause = "PI05: No enough funds returned to input address";
         return false;
     }
-    
+
     CFractions frCommonLiquidity(0, CFractions::STD);
     for(const auto & item : poolLiquidity) {
         frCommonLiquidity += item.second;
     }
 
     CFractions fStakeReward(nCalculatedStakeRewardWithoutFees, CFractions::STD);
-    
+
     frCommonLiquidity += fStakeReward.HighPart(nSupply, &nLiquidityTotal);
     frCommonLiquidity += feesFractions.HighPart(nSupply, &nLiquidityTotal);
 
     auto & frInputReserve = poolReserves[sInputAddress];
     frInputReserve += fStakeReward.LowPart(nSupply, &nReservesTotal);
     frInputReserve += feesFractions.LowPart(nSupply, &nReservesTotal);
-    
+
     int64_t nValueOut = 0;
     int64_t nCommonLiquidity = nLiquidityTotal;
 
@@ -180,7 +184,7 @@ bool CalculateStakingFractions_testnet200k(const CTransaction & tx,
 
         auto fkey = uint320(tx.GetHash(), i);
         auto & frOut = mapTestFractionsPool[fkey];
-        
+
         string sNotary;
         bool fNotary = false;
         auto sAddress = toAddress(tx.vout[i].scriptPubKey, &fNotary, &sNotary);
@@ -196,7 +200,7 @@ bool CalculateStakingFractions_testnet200k(const CTransaction & tx,
                 frOut.nLockTime = frInp.nLockTime;
             }
         }
-        
+
         if (poolReserves.count(sAddress)) { // to reserve
             int64_t nValueLeft = nValue;
             auto & frReserve = poolReserves[sAddress];
@@ -250,7 +254,7 @@ bool CalculateStakingFractions_testnet200k(const CTransaction & tx,
             }
         }
     }
-    
+
     if (!fFailedPegOut) {
         // lets do some extra checks for totals
         for (unsigned int i = 0; i < n_vout; i++)

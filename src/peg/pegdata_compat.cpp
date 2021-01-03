@@ -1,6 +1,10 @@
 // Copyright (c) 2018 yshurik
+//
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+//
+// The use in another cyptocurrency project the code is licensed under
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #include "pegdata.h"
 
@@ -69,9 +73,9 @@ bool CFractions::Unpack2(CDataStream& inp)
         nFlags = nSerFlags | STD;
     }
     nFlags &= SER_MASK;
-    
+
     inp >> sReturnAddr;
-    
+
     return true;
 }
 
@@ -124,10 +128,10 @@ bool CPegData::Unpack2(CDataStream & finp) {
         if (!peglevel.Unpack1(finp)) return false;
         finp >> nReserve;
         finp >> nLiquid;
-        
+
         // match total
         if ((nReserve+nLiquid) != fractions.Total()) return false;
-        
+
         // validate liquid/reserve match peglevel
         int nSupplyEffective = peglevel.nSupply+peglevel.nShift;
         bool fPartial = peglevel.nShiftLastPart >0 && peglevel.nShiftLastTotal >0;
@@ -148,7 +152,7 @@ bool CPegData::Unpack2(CDataStream & finp) {
     catch (std::exception &) {
         return false;
     }
-    
+
     fractions = fractions.Std();
     return true;
 }
@@ -159,10 +163,10 @@ bool CPegData::Unpack1(CDataStream & finp) {
         if (!peglevel.Unpack1(finp)) return false;
         finp >> nReserve;
         finp >> nLiquid;
-        
+
         // match total
         if ((nReserve+nLiquid) != fractions.Total()) return false;
-        
+
         // validate liquid/reserve match peglevel
         int nSupplyEffective = peglevel.nSupply+peglevel.nShift;
         bool fPartial = peglevel.nShiftLastPart >0 && peglevel.nShiftLastTotal >0;
@@ -183,7 +187,7 @@ bool CPegData::Unpack1(CDataStream & finp) {
     catch (std::exception &) {
         return false;
     }
-    
+
     fractions = fractions.Std();
     return true;
 }

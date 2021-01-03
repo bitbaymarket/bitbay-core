@@ -1,6 +1,10 @@
 // Copyright (c) 2018 yshurik
+//
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+//
+// The use in another cyptocurrency project the code is licensed under
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #include "pegopsp.h"
 #include "pegdata.h"
@@ -10,7 +14,7 @@
 #include <set>
 #include <cstdint>
 #include <utility>
-#include <algorithm> 
+#include <algorithm>
 #include <type_traits>
 #include <iostream>
 
@@ -42,13 +46,13 @@ bool getpeglevel(
         int                 nPegNextNext,
         const CPegData &    pdExchange,
         const CPegData &    pdPegShift,
-        
+
         CPegLevel &     peglevel,
         CPegData &      pdPegPool,
         std::string &   sErr)
 {
     sErr.clear();
-    
+
     pdPegPool = CPegData();
     // exchange peglevel, should have +buffer values
     pdPegPool.peglevel = CPegLevel(nCycleNow,
@@ -75,7 +79,7 @@ bool updatepegbalances(
         CPegData &          pdBalance,
         CPegData &          pdPegPool,
         const CPegLevel &   peglevelNew,
-        
+
         std::string &   sErr)
 {
     sErr.clear();
@@ -136,7 +140,7 @@ bool updatepegbalances(
         return false;
     }
     bool fPartial = peglevelNew.nShiftLastPart >0 && peglevelNew.nShiftLastTotal >0;
-    
+
     int nLastIdx = nSupplyEffective;
     if (fPartial) {
 
@@ -223,17 +227,17 @@ bool updatepegbalances(
         sErr = ss.str();
         return false;
     }
-    
+
     // match total
     if ((pdBalance.nReserve+pdBalance.nLiquid) != pdBalance.fractions.Total()) {
         std::stringstream ss;
-        ss << "Balance mimatch liquid+reserve after update " 
+        ss << "Balance mimatch liquid+reserve after update "
            << pdBalance.nLiquid << "+" << pdBalance.nReserve
            << " vs " << pdBalance.fractions.Total();
         sErr = ss.str();
         return false;
     }
-    
+
     // validate liquid/reserve match peglevel
     if (fPartial) {
         int nSupplyEffective = peglevelNew.nSupply + peglevelNew.nShift +1;
@@ -241,18 +245,18 @@ bool updatepegbalances(
         int64_t nReserveWithoutPartial = pdBalance.fractions.Low(nSupplyEffective-1);
         if (pdBalance.nLiquid < nLiquidWithoutPartial) {
             std::stringstream ss;
-            ss << "Balance liquid less than without partial after update " 
-               << pdBalance.nLiquid 
-               << " vs " 
+            ss << "Balance liquid less than without partial after update "
+               << pdBalance.nLiquid
+               << " vs "
                << nLiquidWithoutPartial;
             sErr = ss.str();
             return false;
         }
         if (pdBalance.nReserve < nReserveWithoutPartial) {
             std::stringstream ss;
-            ss << "Balance reserve less than without partial after update " 
-               << pdBalance.nReserve 
-               << " vs " 
+            ss << "Balance reserve less than without partial after update "
+               << pdBalance.nReserve
+               << " vs "
                << nReserveWithoutPartial;
             sErr = ss.str();
             return false;
@@ -264,18 +268,18 @@ bool updatepegbalances(
         int64_t nReserveCalc = pdBalance.fractions.Low(nSupplyEffective);
         if (pdBalance.nLiquid != nLiquidCalc) {
             std::stringstream ss;
-            ss << "Balance liquid mismatch calculated after update " 
-               << pdBalance.nLiquid 
-               << " vs " 
+            ss << "Balance liquid mismatch calculated after update "
+               << pdBalance.nLiquid
+               << " vs "
                << nLiquidCalc;
             sErr = ss.str();
             return false;
         }
         if (pdBalance.nReserve != nReserveCalc) {
             std::stringstream ss;
-            ss << "Balance reserve mismatch calculated after update " 
-               << pdBalance.nReserve 
-               << " vs " 
+            ss << "Balance reserve mismatch calculated after update "
+               << pdBalance.nReserve
+               << " vs "
                << nReserveCalc;
             sErr = ss.str();
             return false;
@@ -286,7 +290,7 @@ bool updatepegbalances(
     pdPegPool.nLiquid = nPegPoolValue - pdPegPool.nReserve;
     pdPegPool.nId++;
     pdBalance.nId = pdPegPool.nId;
-   
+
     return true;
 }
 
@@ -357,33 +361,33 @@ bool movecoins(
 
     if (pdSrc.fractions.Total() != (pdSrc.nLiquid+pdSrc.nReserve)) {
         std::stringstream ss;
-        ss << "Mismatch total " 
+        ss << "Mismatch total "
            << pdSrc.fractions.Total()
-           << " vs liquid/reserve 'src' values " 
+           << " vs liquid/reserve 'src' values "
            << " L:" << pdSrc.nLiquid
            << " R:" << pdSrc.nReserve;
         sErr = ss.str();
         return false;
     }
-    
+
     if (pdDst.fractions.Total() != (pdDst.nLiquid+pdDst.nReserve)) {
         std::stringstream ss;
-        ss << "Mismatch total " 
+        ss << "Mismatch total "
            << pdDst.fractions.Total()
-           << " vs liquid/reserve 'src' values " 
+           << " vs liquid/reserve 'src' values "
            << " L:" << pdDst.nLiquid
            << " R:" << pdDst.nReserve;
         sErr = ss.str();
         return false;
     }
-    
+
     if (pdSrc.peglevel != peglevel) {
         pdSrc.peglevel = peglevel;
     }
     if (pdDst.peglevel != peglevel) {
         pdDst.peglevel = peglevel;
     }
-    
+
     return true;
 }
 
@@ -494,29 +498,29 @@ bool moveliquid(
         sErr = "Negative detected in 'src";
         return false;
     }
-    
+
     if (pdSrc.fractions.Total() != (pdSrc.nLiquid+pdSrc.nReserve)) {
         std::stringstream ss;
-        ss << "Mismatch total " 
+        ss << "Mismatch total "
            << pdSrc.fractions.Total()
-           << " vs liquid/reserve 'src' values " 
+           << " vs liquid/reserve 'src' values "
            << " L:" << pdSrc.nLiquid
            << " R:" << pdSrc.nReserve;
         sErr = ss.str();
         return false;
     }
-    
+
     if (pdDst.fractions.Total() != (pdDst.nLiquid+pdDst.nReserve)) {
         std::stringstream ss;
-        ss << "Mismatch total " 
+        ss << "Mismatch total "
            << pdDst.fractions.Total()
-           << " vs liquid/reserve 'src' values " 
+           << " vs liquid/reserve 'src' values "
            << " L:" << pdDst.nLiquid
            << " R:" << pdDst.nReserve;
         sErr = ss.str();
         return false;
     }
-    
+
     return true;
 }
 
@@ -567,7 +571,7 @@ bool movereserve(
         sErr = ss.str();
         return false;
     }
-    
+
     if (pdSrc.nId != 0 && pdDst.nId != 0 && pdSrc.nId == pdDst.nId) {
         std::stringstream ss;
         ss << "Detected move between same user src id:" << pdSrc.nId
@@ -618,26 +622,26 @@ bool movereserve(
 
     if (pdSrc.fractions.Total() != (pdSrc.nLiquid+pdSrc.nReserve)) {
         std::stringstream ss;
-        ss << "Mismatch total " 
+        ss << "Mismatch total "
            << pdSrc.fractions.Total()
-           << " vs liquid/reserve 'src' values " 
+           << " vs liquid/reserve 'src' values "
            << " L:" << pdSrc.nLiquid
            << " R:" << pdSrc.nReserve;
         sErr = ss.str();
         return false;
     }
-    
+
     if (pdDst.fractions.Total() != (pdDst.nLiquid+pdDst.nReserve)) {
         std::stringstream ss;
-        ss << "Mismatch total " 
+        ss << "Mismatch total "
            << pdDst.fractions.Total()
-           << " vs liquid/reserve 'src' values " 
+           << " vs liquid/reserve 'src' values "
            << " L:" << pdDst.nLiquid
            << " R:" << pdDst.nReserve;
         sErr = ss.str();
         return false;
     }
-    
+
     return true;
 }
 
@@ -656,8 +660,8 @@ public:
     CFractions  fractions;
 
     CCoinToUse() : i(0),nValue(0),nAvailableValue(0),nCycle(0) {}
-    
-    friend bool operator<(const CCoinToUse &a, const CCoinToUse &b) { 
+
+    friend bool operator<(const CCoinToUse &a, const CCoinToUse &b) {
         if (a.txhash < b.txhash) return true;
         if (a.txhash == b.txhash && a.i < b.i) return true;
         if (a.txhash == b.txhash && a.i == b.i && a.nValue < b.nValue) return true;
@@ -666,7 +670,7 @@ public:
         if (a.txhash == b.txhash && a.i == b.i && a.nValue == b.nValue && a.nAvailableValue == b.nAvailableValue && a.scriptPubKey == b.scriptPubKey && a.nCycle < b.nCycle) return true;
         return false;
     }
-    
+
     IMPLEMENT_SERIALIZE
     (
         READWRITE(txhash);
@@ -677,28 +681,28 @@ public:
     )
 };
 
-static bool sortByAddress(const CCoinToUse &lhs, const CCoinToUse &rhs) { 
+static bool sortByAddress(const CCoinToUse &lhs, const CCoinToUse &rhs) {
     CScript lhs_script = lhs.scriptPubKey;
     CScript rhs_script = rhs.scriptPubKey;
-    
+
     CTxDestination lhs_dst;
     CTxDestination rhs_dst;
     bool lhs_ok1 = ExtractDestination(lhs_script, lhs_dst);
     bool rhs_ok1 = ExtractDestination(rhs_script, rhs_dst);
-    
+
     if (!lhs_ok1 || !rhs_ok1) {
-        if (lhs_ok1 == rhs_ok1) 
+        if (lhs_ok1 == rhs_ok1)
             return lhs_script < rhs_script;
         return lhs_ok1 < rhs_ok1;
     }
-    
+
     string lhs_addr = CBitcoinAddress(lhs_dst).ToString();
     string rhs_addr = CBitcoinAddress(rhs_dst).ToString();
-    
+
     return lhs_addr < rhs_addr;
 }
 
-static bool sortByDestination(const CTxDestination &lhs, const CTxDestination &rhs) { 
+static bool sortByDestination(const CTxDestination &lhs, const CTxDestination &rhs) {
     string lhs_addr = CBitcoinAddress(lhs).ToString();
     string rhs_addr = CBitcoinAddress(rhs).ToString();
     return lhs_addr < rhs_addr;
@@ -727,7 +731,7 @@ static bool computeTxPegForNextCycle(const CTransaction & rawTx,
         if (!mapAllOutputs.count(fkey)) {
             return false;
         }
-        
+
         const CCoinToUse& coin = mapAllOutputs[fkey];
         CTxOut out(coin.nValue, coin.scriptPubKey);
         mapInputs[fkey] = out;
@@ -771,7 +775,7 @@ static void loadMaintenance(const string & data, CFractions & frMaintenance) {
     }
 }
 
-static void saveMaintenance(string & data, 
+static void saveMaintenance(string & data,
                             const CFractions & fractions,
                             const CPegLevel & peglevel) {
     CPegData pd;
@@ -794,7 +798,7 @@ static void saveMaintenance(string & data,
             return;
         }
     }
-    
+
     if (!data.empty()) {
         data += ",";
     }
@@ -824,7 +828,7 @@ bool prepareliquidwithdraw(
                 std::string,
                 CPegData,
                 std::string>> &    txouts,
-        
+
         std::string &   sErr) {
 
     CBitcoinAddress address(sAddress);
@@ -834,15 +838,15 @@ bool prepareliquidwithdraw(
         sErr = ss.str();
         return false;
     }
-    
+
     if (txins.size() > 30) {
         sErr = "Too much inputs for withdraw (max=30 liquid)";
         return false;
     }
-    
+
     CFractions frMaintenance(0, CFractions::STD);
     loadMaintenance(pdPegShift.fractions.sReturnAddr, frMaintenance);
-    
+
     if (nAmountWithFee <0) {
         std::stringstream ss;
         ss << "Requested to withdraw negative " << nAmountWithFee;
@@ -855,7 +859,7 @@ bool prepareliquidwithdraw(
         sErr = ss.str();
         return false;
     }
-    
+
     if (!peglevel_exchange.IsValid()) {
         sErr = "Not valid peglevel";
         return false;
@@ -868,7 +872,7 @@ bool prepareliquidwithdraw(
                            peglevel_exchange.nSupply - peglevel_exchange.nBuffer,
                            peglevel_exchange.nSupplyNext - peglevel_exchange.nBuffer,
                            peglevel_exchange.nSupplyNextNext - peglevel_exchange.nBuffer);
-    
+
     if (!pdBalance.IsValid()) {
         sErr = "Not valid 'balance' pegdata";
         return false;
@@ -881,7 +885,7 @@ bool prepareliquidwithdraw(
         sErr = "Not valid 'pegshift' pegdata";
         return false;
     }
-    
+
     if (pdBalance.peglevel.nCycle != peglevel_exchange.nCycle) {
         sErr = "Balance has other cycle than peglevel";
         return false;
@@ -889,20 +893,20 @@ bool prepareliquidwithdraw(
 
     if (nAmountWithFee > pdBalance.nLiquid) {
         std::stringstream ss;
-        ss << "Not enough liquid " << pdBalance.nLiquid 
+        ss << "Not enough liquid " << pdBalance.nLiquid
            << " on 'balance' to withdraw " << nAmountWithFee;
         sErr = ss.str();
         return false;
     }
-    
+
     int nSupplyEffective = peglevel_exchange.nSupply + peglevel_exchange.nShift;
     bool fPartial = peglevel_exchange.nShiftLastPart >0 && peglevel_exchange.nShiftLastTotal >0;
     if (fPartial) {
         nSupplyEffective++;
     }
-    
+
     CFractions frBalanceLiquid = pdBalance.fractions.HighPart(nSupplyEffective, nullptr);
-    
+
     if (fPartial) {
         int64_t nPartialLiquid = pdBalance.nLiquid - frBalanceLiquid.Total();
         if (nPartialLiquid < 0) {
@@ -911,10 +915,10 @@ bool prepareliquidwithdraw(
             sErr = ss.str();
             return false;
         }
-        
+
         frBalanceLiquid.f[nSupplyEffective-1] = nPartialLiquid;
     }
-    
+
     if (frBalanceLiquid.Total() < nAmountWithFee) {
         std::stringstream ss;
         ss << "Not enough liquid(1) " << frBalanceLiquid.Total()
@@ -922,7 +926,7 @@ bool prepareliquidwithdraw(
         sErr = ss.str();
         return false;
     }
-    
+
     CFractions frAmount = frBalanceLiquid.RatioPart(nAmountWithFee);
     CFractions frRequested = frAmount;
 
@@ -930,25 +934,25 @@ bool prepareliquidwithdraw(
     int64_t nLeftAmount = nAmountWithFee;
 
     map<uint320,CCoinToUse> mapAllOutputs;
-    
+
     CBasicKeyStore keyStore;
-    
+
     int i =0;
     for(const std::tuple<string,CPegData,string> & txin : txins) {
         string txhash_nout = std::get<0>(txin);
         const CPegData & pdTxin = std::get<1>(txin);
         string privkeybip32 = std::get<2>(txin);
-        
+
         if (privkeybip32.empty()) {
             std::stringstream ss;
             ss << "Txout bip32 key is empty, idx=" << i;
             sErr = ss.str();
             return false;
         }
-        
+
         vector<string> vTxoutArgs;
         boost::split(vTxoutArgs, txhash_nout, boost::is_any_of(":"));
-        
+
         if (vTxoutArgs.size() != 2) {
             std::stringstream ss;
             ss << "Txout is not recognized, format txhash:nout, idx=" << i;
@@ -966,10 +970,10 @@ bool prepareliquidwithdraw(
         }
         uint256 txhash;
         txhash.SetHex(sTxid);
-        
+
         auto fkey = uint320(txhash, nout);
         int64_t nAvailableLiquid = pdTxin.fractions.High(peglevel_net.nSupplyNext);
-        
+
         CCoinToUse coin;
         coin.i = nout;
         coin.txhash = txhash;
@@ -982,9 +986,9 @@ bool prepareliquidwithdraw(
         coin.fractions = pdTxin.fractions;
         vCoins.push_back(coin);
         mapAllOutputs[fkey] = coin;
-        
+
         nLeftAmount -= nAvailableLiquid;
-        
+
         CBitcoinExtKey b58keyDecodeCheck(privkeybip32);
         CExtKey privKey = b58keyDecodeCheck.GetKey();
         if (!privKey.key.IsValid()) {
@@ -1000,17 +1004,17 @@ bool prepareliquidwithdraw(
             sErr = ss.str();
             return false;
         }
-        
+
         if (!keyStore.AddKeyPubKey(privKey.key, pubKey.pubkey)) {
             std::stringstream ss;
             ss << "Failed to add key/pubkey, idx=" << i;
             sErr = ss.str();
             return false;
         }
-        
+
         i++;
     }
-    
+
     // check enough coins in inputs
     if (nLeftAmount > 0) {
         std::stringstream ss;
@@ -1022,12 +1026,12 @@ bool prepareliquidwithdraw(
 
     int64_t nFeeRet = 1000000 /*common fee deducted from user amount, 1M*/;
     int64_t nAmount = nAmountWithFee - nFeeRet;
-    
+
     vector<pair<CScript, int64_t> > vecSend;
     CScript scriptPubKey;
     scriptPubKey.SetDestination(address.Get());
     vecSend.push_back(make_pair(scriptPubKey, nAmount));
-    
+
     int64_t nValue = 0;
     for(const pair<CScript, int64_t>& s : vecSend) {
         if (nValue < 0)
@@ -1038,13 +1042,13 @@ bool prepareliquidwithdraw(
     size_t nNumInputs = 1;
 
     CTransaction rawTx;
-    
+
     nNumInputs = vCoins.size();
     if (!nNumInputs) return false;
-    
+
     // Inputs to be sorted by address
     sort(vCoins.begin(), vCoins.end(), sortByAddress);
-    
+
     // Collect input addresses
     // Prepare maps for input,available,take
     set<CTxDestination> setInputAddresses;
@@ -1057,7 +1061,7 @@ bool prepareliquidwithdraw(
         CTxDestination address;
         if(!ExtractDestination(coin.scriptPubKey, address))
             continue;
-        
+
         setInputAddresses.insert(address); // sorted due to vCoins
         mapBip32Keys[address] = coin.privkeybip32;
         mapAvailableValuesAt[address] = 0;
@@ -1079,12 +1083,12 @@ bool prepareliquidwithdraw(
         int64_t& nValueInputAt = mapInputValuesAt[address];
         nValueInputAt += coin.nValue;
     }
-            
+
     // vouts to the payees
     for(const pair<CScript, int64_t>& s : vecSend) {
         rawTx.vout.push_back(CTxOut(s.second, s.first));
     }
-    
+
     // Available values - liquidity
     // Compute values to take from each address (liquidity is common)
     int64_t nValueLeft = nValue;
@@ -1101,7 +1105,7 @@ bool prepareliquidwithdraw(
         nValueTakeAt += nValueTake;
         nValueLeft -= nValueTake;
     }
-    
+
     // Calculate change (minus fee, notary and part taken from change)
     int64_t nTakeFromChangeLeft = nFeeRet+1;
     map<CTxDestination, int> mapChangeOutputs;
@@ -1124,7 +1128,7 @@ bool prepareliquidwithdraw(
         mapChangeOutputs[address] = rawTx.vout.size();
         rawTx.vout.push_back(CTxOut(nValueChange, scriptPubKey));
     }
-    
+
     // Fill vin
     for(const CCoinToUse& coin : vCoins) {
         rawTx.vin.push_back(CTxIn(coin.txhash,coin.i));
@@ -1153,7 +1157,7 @@ bool prepareliquidwithdraw(
         }
         rawTx.vout.push_back(CTxOut(1, scriptPubKey));
     }
-    
+
     // locktime to next interval
     rawTx.nLockTime = (peglevel_net.nCycle+1) * Params().PegInterval(Params().nPegIntervalProbeHeight) -1;
 
@@ -1165,18 +1169,18 @@ bool prepareliquidwithdraw(
                                   sErr)) {
         return false;
     }
-    
+
     // for liquid just first output
     if (!mapTxOutputFractionsSkip.count(0)) {
         sErr = "No withdraw fractions";
         return false;
     }
-    
+
     // Now all inputs and outputs are know, calculate network fee
     int64_t nFeeNetwork = 200000 + 10000 * (rawTx.vin.size() + rawTx.vout.size());
     int64_t nFeeMaintenance = nFeeRet - nFeeNetwork;
     int64_t nFeeMaintenanceLeft = nFeeMaintenance;
-    // Maintenance fee recorded in provided_outputs 
+    // Maintenance fee recorded in provided_outputs
     // It is returned - distributed over 'change' outputs
     // First if we can use existing change
     for (const CTxDestination& address : vInputAddresses) {
@@ -1214,7 +1218,7 @@ bool prepareliquidwithdraw(
     }
     // Can you for maintenance (is not all nFeeMaintenanceLeft consumed):
     nFeeMaintenance -= nFeeMaintenanceLeft;
-    
+
     // Recalculate peg to update mapTxOutputFractions
     CFractions feesFractionsNet(0, CFractions::STD);
     map<int, CFractions> mapTxOutputFractions;
@@ -1225,13 +1229,13 @@ bool prepareliquidwithdraw(
     }
     CFractions frFeesMaintenance = feesFractionsCommon - feesFractionsNet;
     frMaintenance += frFeesMaintenance;
-    
+
     // for liquid just first output
     if (!mapTxOutputFractions.count(0)) {
         sErr = "No withdraw fractions (2)";
         return false;
     }
-    
+
     // signing the transaction to get it ready for broadcast
     int nIn = 0;
     for(const CCoinToUse& coin : vCoins) {
@@ -1259,47 +1263,47 @@ bool prepareliquidwithdraw(
         sErr = ss.str();
         return false;
     }
-    
+
     // save txouts
     string sTxhash = rawTx.GetHash().GetHex();
     // skip 0 (withdraw) and last (xch id)
-    for (size_t i=1; i< rawTx.vout.size()-1; i++) { 
+    for (size_t i=1; i< rawTx.vout.size()-1; i++) {
         string txout = sTxhash+":"+std::to_string(i);
         CPegData pdTxout;
         pdTxout.fractions = mapTxOutputFractions[i];
         pdTxout.fractions.sReturnAddr = HexStr(
-            rawTx.vout[i].scriptPubKey.begin(), 
+            rawTx.vout[i].scriptPubKey.begin(),
             rawTx.vout[i].scriptPubKey.end()
         );
         pdTxout.peglevel = peglevel_exchange;
         pdTxout.nLiquid = pdTxout.fractions.High(peglevel_exchange);
         pdTxout.nReserve = pdTxout.fractions.Low(peglevel_exchange);
-        
+
         CTxDestination address;
         if(!ExtractDestination(rawTx.vout[i].scriptPubKey, address))
             continue;
         string privkeybip32 = mapBip32Keys[address];
         if (privkeybip32.empty())
             continue;
-        
+
         txouts.push_back(std::make_tuple(txout, pdTxout, privkeybip32));
     }
-    
+
     pdBalance.fractions -= frRequested;
     pdExchange.fractions -= frRequested;
     pdPegShift.fractions += (frRequested - frProcessed);
     saveMaintenance(pdPegShift.fractions.sReturnAddr,
-                    frMaintenance, 
+                    frMaintenance,
                     peglevel_net);
-    
+
     pdBalance.nLiquid -= nAmountWithFee;
-    
+
     // consume liquid part of pegshift by balance
     // as computation were completed by pegnext it may use fractions
     // of current reserves - at current supply not to consume these fractions
-//    consumeliquidpegshift(pdBalance.fractions, 
-//                          pdExchange.fractions, 
-//                          pdPegShift.fractions, 
+//    consumeliquidpegshift(pdBalance.fractions,
+//                          pdExchange.fractions,
+//                          pdPegShift.fractions,
 //                          peglevel_exchange);
 
     pdExchange.peglevel = peglevel_exchange;
@@ -1317,13 +1321,13 @@ bool prepareliquidwithdraw(
     pdRequested.peglevel = peglevel_exchange;
     pdRequested.nLiquid = pdRequested.fractions.High(peglevel_exchange);
     pdRequested.nReserve = pdRequested.fractions.Low(peglevel_exchange);
-    
+
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << rawTx;
-    
+
     rawtxstr = HexStr(ss.begin(), ss.end());
     withdrawTxout = sTxhash+":0"; // first
-    
+
     return true;
 }
 
@@ -1350,7 +1354,7 @@ bool preparereservewithdraw(
                 std::string,
                 CPegData,
                 std::string>> & txouts,
-        
+
         std::string &   sErr) {
 
     CBitcoinAddress address(sAddress);
@@ -1360,15 +1364,15 @@ bool preparereservewithdraw(
         sErr = ss.str();
         return false;
     }
-    
+
     if (txins.size() > 20) {
         sErr = "Too much inputs for withdraw (max=20 reserve)";
         return false;
     }
-    
+
     CFractions frMaintenance(0, CFractions::STD);
     loadMaintenance(pdPegShift.fractions.sReturnAddr, frMaintenance);
-    
+
     if (nAmountWithFee <0) {
         std::stringstream ss;
         ss << "Requested to withdraw negative " << nAmountWithFee;
@@ -1381,7 +1385,7 @@ bool preparereservewithdraw(
         sErr = ss.str();
         return false;
     }
-    
+
     if (!peglevel_exchange.IsValid()) {
         sErr = "Not valid peglevel";
         return false;
@@ -1394,7 +1398,7 @@ bool preparereservewithdraw(
                            peglevel_exchange.nSupply - peglevel_exchange.nBuffer,
                            peglevel_exchange.nSupplyNext - peglevel_exchange.nBuffer,
                            peglevel_exchange.nSupplyNextNext - peglevel_exchange.nBuffer);
-    
+
     if (!pdBalance.IsValid()) {
         sErr = "Not valid 'balance' pegdata";
         return false;
@@ -1407,7 +1411,7 @@ bool preparereservewithdraw(
         sErr = "Not valid 'pegshift' pegdata";
         return false;
     }
-    
+
     if (pdBalance.peglevel.nCycle != peglevel_exchange.nCycle) {
         sErr = "Balance has other cycle than peglevel";
         return false;
@@ -1415,17 +1419,17 @@ bool preparereservewithdraw(
 
     if (nAmountWithFee > pdBalance.nReserve) {
         std::stringstream ss;
-        ss << "Not enough reserve " << pdBalance.nReserve 
+        ss << "Not enough reserve " << pdBalance.nReserve
            << " on 'balance' to withdraw " << nAmountWithFee;
         sErr = ss.str();
         return false;
     }
-    
+
     int nSupplyEffective = peglevel_exchange.nSupply + peglevel_exchange.nShift;
     bool fPartial = peglevel_exchange.nShiftLastPart >0 && peglevel_exchange.nShiftLastTotal >0;
-    
+
     CFractions frBalanceReserve = pdBalance.fractions.LowPart(nSupplyEffective, nullptr);
-    
+
     if (fPartial) {
         int64_t nPartialReserve = pdBalance.nReserve - frBalanceReserve.Total();
         if (nPartialReserve < 0) {
@@ -1434,10 +1438,10 @@ bool preparereservewithdraw(
             sErr = ss.str();
             return false;
         }
-        
+
         frBalanceReserve.f[nSupplyEffective] = nPartialReserve;
     }
-    
+
     if (frBalanceReserve.Total() < nAmountWithFee) {
         std::stringstream ss;
         ss << "Not enough reserve(1) " << frBalanceReserve.Total()
@@ -1445,7 +1449,7 @@ bool preparereservewithdraw(
         sErr = ss.str();
         return false;
     }
-    
+
     CFractions frAmount = frBalanceReserve.RatioPart(nAmountWithFee);
     CFractions frRequested = frAmount;
 
@@ -1453,25 +1457,25 @@ bool preparereservewithdraw(
     int64_t nLeftAmount = nAmountWithFee;
 
     map<uint320,CCoinToUse> mapAllOutputs;
-    
+
     CBasicKeyStore keyStore;
-    
+
     int i =0;
     for(const std::tuple<string,CPegData,string> & txin : txins) {
         string txhash_nout = std::get<0>(txin);
         const CPegData & pdTxin = std::get<1>(txin);
         string privkeybip32 = std::get<2>(txin);
-        
+
         if (privkeybip32.empty()) {
             std::stringstream ss;
             ss << "Txout bip32 key is empty, idx=" << i;
             sErr = ss.str();
             return false;
         }
-        
+
         vector<string> vTxoutArgs;
         boost::split(vTxoutArgs, txhash_nout, boost::is_any_of(":"));
-        
+
         if (vTxoutArgs.size() != 2) {
             std::stringstream ss;
             ss << "Txout is not recognized, format txhash:nout, idx=" << i;
@@ -1489,10 +1493,10 @@ bool preparereservewithdraw(
         }
         uint256 txhash;
         txhash.SetHex(sTxid);
-        
+
         auto fkey = uint320(txhash, nout);
         int64_t nAvailableReserve = pdTxin.fractions.Low(peglevel_exchange.nSupplyNext);
-        
+
         CCoinToUse coin;
         coin.i = nout;
         coin.txhash = txhash;
@@ -1505,10 +1509,10 @@ bool preparereservewithdraw(
         coin.fractions = pdTxin.fractions;
         vCoins.push_back(coin);
         mapAllOutputs[fkey] = coin;
-        
+
         // for withdrawing can use liquid coins too
         nLeftAmount -= coin.nValue;
-        
+
         CBitcoinExtKey b58keyDecodeCheck(privkeybip32);
         CExtKey privKey = b58keyDecodeCheck.GetKey();
         if (!privKey.key.IsValid()) {
@@ -1524,17 +1528,17 @@ bool preparereservewithdraw(
             sErr = ss.str();
             return false;
         }
-        
+
         if (!keyStore.AddKeyPubKey(privKey.key, pubKey.pubkey)) {
             std::stringstream ss;
             ss << "Failed to add key/pubkey, idx=" << i;
             sErr = ss.str();
             return false;
         }
-        
+
         i++;
     }
-    
+
     // check enough coins in inputs
     if (nLeftAmount > 0) {
         std::stringstream ss;
@@ -1546,12 +1550,12 @@ bool preparereservewithdraw(
 
     int64_t nFeeRet = 1000000 /*common fee deducted from user amount, 1M*/;
     int64_t nAmount = nAmountWithFee - nFeeRet;
-    
+
     vector<pair<CScript, int64_t> > vecSend;
     CScript scriptPubKey;
     scriptPubKey.SetDestination(address.Get());
     vecSend.push_back(make_pair(scriptPubKey, nAmount));
-    
+
     int64_t nValue = 0;
     for(const pair<CScript, int64_t>& s : vecSend) {
         if (nValue < 0)
@@ -1562,13 +1566,13 @@ bool preparereservewithdraw(
     size_t nNumInputs = 1;
 
     CTransaction rawTx;
-    
+
     nNumInputs = vCoins.size();
     if (!nNumInputs) return false;
-    
+
     // Inputs to be sorted by address
     sort(vCoins.begin(), vCoins.end(), sortByAddress);
-    
+
     // Collect input addresses
     // Prepare maps for input,available,take
     set<CTxDestination> setInputAddresses;
@@ -1582,7 +1586,7 @@ bool preparereservewithdraw(
         CTxDestination address;
         if(!ExtractDestination(coin.scriptPubKey, address))
             continue;
-        
+
         setInputAddresses.insert(address); // sorted due to vCoins
         mapBip32Keys[address] = coin.privkeybip32;
         mapAvailableValuesAt[address] = 0;
@@ -1604,7 +1608,7 @@ bool preparereservewithdraw(
         int64_t& nValueInputAt = mapInputValuesAt[address];
         nValueInputAt += coin.nValue;
     }
-    
+
     // Notations for frozen **F**
     {
         // prepare indexes to freeze
@@ -1654,24 +1658,24 @@ bool preparereservewithdraw(
             int64_t nValueToTake = nValueLeft;
             if (nValueToTake > nValueLeftAt)
                 nValueToTake = nValueLeftAt;
-            
+
             nValueTakeAt += nValueToTake;
             nValueLeft -= nValueToTake;
-            
+
             if (nValueLeft == 0) break;
         }
         // if nValueLeft is left - need to be taken from change (liquidity)
         nValueToTakeFromChange += nValueLeft;
     }
-    
+
     // vouts to the payees
     for(const pair<CScript, int64_t>& s : vecSend) {
         rawTx.vout.push_back(CTxOut(s.second, s.first));
     }
-    
+
     // Available values - reserves per address
     // vecSend - outputs to be frozen reserve parts
-    
+
     // Prepare order of inputs
     // For **F** the first is referenced (last input) then others are sorted
     vector<CTxDestination> vAddressesForFrozen;
@@ -1681,7 +1685,7 @@ bool preparereservewithdraw(
         if (address == addressFrozenRef) continue;
         vAddressesForFrozen.push_back(address);
     }
-    
+
     // Follow outputs and compute taken values
     for(const pair<CScript, int64_t>& s : vecSend) {
         int64_t nValueLeft = s.second;
@@ -1697,13 +1701,13 @@ bool preparereservewithdraw(
 
             nValueTakeAt += nValueToTake;
             nValueLeft -= nValueToTake;
-            
+
             if (nValueLeft == 0) break;
         }
         // if nValueLeft is left then is taken from change (liquidity)
         nValueToTakeFromChange += nValueLeft;
     }
-    
+
     // Calculate change (minus fee, notary and part taken from change)
     int64_t nTakeFromChangeLeft = nValueToTakeFromChange + nFeeRet +1;
     map<CTxDestination, int> mapChangeOutputs;
@@ -1726,7 +1730,7 @@ bool preparereservewithdraw(
         mapChangeOutputs[address] = rawTx.vout.size();
         rawTx.vout.push_back(CTxOut(nValueChange, scriptPubKey));
     }
-    
+
     // Fill vin
     for(const CCoinToUse& coin : vCoins) {
         rawTx.vin.push_back(CTxIn(coin.txhash,coin.i));
@@ -1756,7 +1760,7 @@ bool preparereservewithdraw(
         }
         rawTx.vout.push_back(CTxOut(1, scriptPubKey));
     }
-    
+
     // locktime to next interval
     rawTx.nLockTime = (peglevel_net.nCycle+1) * Params().PegInterval(Params().nPegIntervalProbeHeight) -1;
 
@@ -1768,18 +1772,18 @@ bool preparereservewithdraw(
                                   sErr)) {
         return false;
     }
-    
+
     // first out after F notations (same num as size inputs)
     if (!mapTxOutputFractionsSkip.count(rawTx.vin.size())) {
         sErr = "No withdraw fractions";
         return false;
     }
-    
+
     // Now all inputs and outputs are know, calculate network fee
     int64_t nFeeNetwork = 200000 + 10000 * (rawTx.vin.size() + rawTx.vout.size());
     int64_t nFeeMaintenance = nFeeRet - nFeeNetwork;
     int64_t nFeeMaintenanceLeft = nFeeMaintenance;
-    // Maintenance fee recorded in provided_outputs 
+    // Maintenance fee recorded in provided_outputs
     // It is returned - distributed over 'change' outputs
     // First if we can use existing change
     for (const CTxDestination& address : vInputAddresses) {
@@ -1817,7 +1821,7 @@ bool preparereservewithdraw(
     }
     // Can you for maintenance (is not all nFeeMaintenanceLeft consumed):
     nFeeMaintenance -= nFeeMaintenanceLeft;
-    
+
     // Recalculate peg to update mapTxOutputFractions
     CFractions feesFractionsNet(0, CFractions::STD);
     map<int, CFractions> mapTxOutputFractions;
@@ -1828,13 +1832,13 @@ bool preparereservewithdraw(
     }
     CFractions frFeesMaintenance = feesFractionsCommon - feesFractionsNet;
     frMaintenance += frFeesMaintenance;
-    
+
     // first out after F notations (same num as size inputs)
     if (!mapTxOutputFractions.count(rawTx.vin.size())) {
         sErr = "No withdraw fractions (2)";
         return false;
     }
-    
+
     // signing the transaction to get it ready for broadcast
     int nIn = 0;
     for(const CCoinToUse& coin : vCoins) {
@@ -1863,47 +1867,47 @@ bool preparereservewithdraw(
         sErr = ss.str();
         return false;
     }
-    
+
     // save txouts
     string sTxhash = rawTx.GetHash().GetHex();
     // skip F and first (withdraw) and last (xch id)
-    for (size_t i=rawTx.vin.size()+1; i< rawTx.vout.size()-1; i++) { 
+    for (size_t i=rawTx.vin.size()+1; i< rawTx.vout.size()-1; i++) {
         string txout = sTxhash+":"+std::to_string(i);
         CPegData pdTxout;
         pdTxout.fractions = mapTxOutputFractions[i];
         pdTxout.fractions.sReturnAddr = HexStr(
-            rawTx.vout[i].scriptPubKey.begin(), 
+            rawTx.vout[i].scriptPubKey.begin(),
             rawTx.vout[i].scriptPubKey.end()
         );
         pdTxout.peglevel = peglevel_exchange;
         pdTxout.nLiquid = pdTxout.fractions.High(peglevel_exchange);
         pdTxout.nReserve = pdTxout.fractions.Low(peglevel_exchange);
-        
+
         CTxDestination address;
         if(!ExtractDestination(rawTx.vout[i].scriptPubKey, address))
             continue;
         string privkeybip32 = mapBip32Keys[address];
         if (privkeybip32.empty())
             continue;
-        
+
         txouts.push_back(std::make_tuple(txout, pdTxout, privkeybip32));
     }
-    
+
     pdBalance.fractions -= frRequested;
     pdExchange.fractions -= frRequested;
     pdPegShift.fractions += (frRequested - frProcessed);
     saveMaintenance(pdPegShift.fractions.sReturnAddr,
-                    frMaintenance, 
+                    frMaintenance,
                     peglevel_net);
-    
+
     pdBalance.nReserve -= nAmountWithFee;
-    
+
     // consume reserve part of pegshift by balance
     // as computation were completed by pegnext it may use fractions
     // of current liquid - at current supply not to consume these fractions
-//    consumereservepegshift(pdBalance.fractions, 
-//                           pdExchange.fractions, 
-//                           pdPegShift.fractions, 
+//    consumereservepegshift(pdBalance.fractions,
+//                           pdExchange.fractions,
+//                           pdPegShift.fractions,
 //                           peglevel_exchange);
 
     pdExchange.peglevel = peglevel_exchange;
@@ -1921,13 +1925,13 @@ bool preparereservewithdraw(
     pdRequested.peglevel = peglevel_exchange;
     pdRequested.nLiquid = pdRequested.fractions.High(peglevel_exchange);
     pdRequested.nReserve = pdRequested.fractions.Low(peglevel_exchange);
-    
+
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << rawTx;
-    
+
     rawtxstr = HexStr(ss.begin(), ss.end());
     withdrawTxout = sTxhash+":"+std::to_string(rawTx.vin.size());
-    
+
     return true;
 }
 

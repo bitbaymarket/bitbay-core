@@ -1,6 +1,10 @@
 // Copyright (c) 2018 yshurik
+//
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+//
+// The use in another cyptocurrency project the code is licensed under
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #include <map>
 #include <set>
@@ -8,7 +12,7 @@
 #include <type_traits>
 #include <fstream>
 #include <utility>
-#include <algorithm> 
+#include <algorithm>
 
 #include <boost/version.hpp>
 #include <boost/filesystem.hpp>
@@ -97,7 +101,7 @@ bool CalculateBlockPegIndex(CBlockIndex* pindex)
         pindex->nPegSupplyIndex =0;
         return true;
     }
-    
+
     pindex->nPegSupplyIndex = pindex->pprev->GetNextBlockPegSupplyIndex();
     return true;
 }
@@ -106,7 +110,7 @@ int CBlockIndex::GetNextBlockPegSupplyIndex() const
 {
     int nNextHeight = nHeight+1;
     int nPegInterval = Params().PegInterval(nNextHeight);
-    
+
     if (nNextHeight < nPegStartHeight) {
         return 0;
     }
@@ -132,7 +136,7 @@ int CBlockIndex::GetNextIntervalPegSupplyIndex() const
     if (nHeight < nPegStartHeight) {
         return 0;
     }
-    
+
     int nPegInterval = Params().PegInterval(nHeight);
     int nCurrentInterval = nHeight / nPegInterval;
     int nCurrentIntervalStart = nCurrentInterval * nPegInterval;
@@ -155,7 +159,7 @@ int CBlockIndex::GetNextNextIntervalPegSupplyIndex() const
     if (nHeight < nPegStartHeight) {
         return 0;
     }
-    
+
     int nPegInterval = Params().PegInterval(nHeight);
     int nCurrentInterval = nHeight / nPegInterval;
     int nCurrentIntervalStart = nCurrentInterval * nPegInterval;
@@ -180,7 +184,7 @@ int CBlockIndex::ComputeNextPegSupplyIndex(int nPegBase,
     auto usevotesindex = back2interval;
     auto prevvotesindex = back3interval;
     int nNextPegSupplyIndex = nPegBase;
-    
+
     int inflate = usevotesindex->nPegVotesInflate;
     int deflate = usevotesindex->nPegVotesDeflate;
     int nochange = usevotesindex->nPegVotesNochange;
@@ -206,14 +210,14 @@ int CBlockIndex::ComputeNextPegSupplyIndex(int nPegBase,
     // less min
     else if (nNextPegSupplyIndex <0)
         nNextPegSupplyIndex = 0;
-    
+
     return nNextPegSupplyIndex;
 }
 
 int CalculatePegVotes(const CFractions & fractions, int nPegSupplyIndex)
 {
     int nVotes=1;
-    
+
     int64_t nReserveWeight=0;
     int64_t nLiquidWeight=0;
 
@@ -242,14 +246,14 @@ int CalculatePegVotes(const CFractions & fractions, int nPegSupplyIndex)
     else if (nLiquidWeight > (nReserveWeight*2)) {
         nVotes = 2*nWeightMultiplier;
     }
-    
+
     return nVotes;
 }
 
 bool CalculateBlockPegVotes(const CBlock & cblock, CBlockIndex* pindex, CPegDB& pegdb)
 {
     int nPegInterval = Params().PegInterval(pindex->nHeight);
-    
+
     if (!cblock.IsProofOfStake() || pindex->nHeight < nPegStartHeight) {
         pindex->nPegVotesInflate =0;
         pindex->nPegVotesDeflate =0;
@@ -385,7 +389,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
 {
     MapPrevOut mapInputs;
     size_t n_vin = tx.vin.size();
-        
+
     if (tx.IsCoinBase()) n_vin = 0;
     for (unsigned int i = 0; i < n_vin; i++)
     {
@@ -399,7 +403,7 @@ bool CalculateStandardFractions(const CTransaction & tx,
         auto fkey = uint320(prevout.hash, prevout.n);
         mapInputs[fkey] = txPrev.vout[prevout.n];
     }
-    
+
     return CalculateStandardFractions(tx,
                                       nSupply,
                                       nTime,
@@ -458,7 +462,7 @@ bool CalculateStakingFractions(const CTransaction & tx,
                         sFailCause);
         }
     }
-    
+
     return CalculateStakingFractions_v2(
                 tx,
                 pindexBlock,
@@ -490,17 +494,17 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
         sFailCause = "More than one input";
         return false;
     }
-    
+
     if (n_vout > 8) {
         sFailCause = "More than 8 outputs";
         return false;
     }
-    
+
     int64_t nValueStakeIn = 0;
     CFractions frStake(0, CFractions::STD);
 
     string sInputAddress;
-    
+
     // only one input
     {
         unsigned int i = 0;
@@ -513,7 +517,7 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
 
         int64_t nValue = txPrev.vout[prevout.n].nValue;
         nValueStakeIn = nValue;
-        
+
         auto sAddress = toAddress(txPrev.vout[prevout.n].scriptPubKey);
         sInputAddress = sAddress;
 
@@ -529,7 +533,7 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
             return false;
         }
     }
-    
+
     //stake_addr_stats[sInputAddress]++;
 
     // Check funds to be returned to same address
@@ -544,52 +548,52 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
         sFailCause = "No enough funds returned to input address";
         return false;
     }
-    
+
     CFractions frReward(nCalculatedStakeRewardWithoutFees, CFractions::STD);
     frReward += feesFractions;
-    
+
     int64_t nValueRewardLeft = frReward.Total();
-    
+
     bool fFailedPegOut = false;
     unsigned int nStakeOut = 0;
 
-    // Transfer mark and set stake output 
+    // Transfer mark and set stake output
     for (unsigned int i = 0; i < n_vout; i++)
     {
         int64_t nValue = tx.vout[i].nValue;
-        
+
         auto fkey = uint320(tx.GetHash(), i);
         auto & frOut = mapTestFractionsPool[fkey];
-        
+
         string sNotary;
         bool fNotary = false;
         auto sAddress = toAddress(tx.vout[i].scriptPubKey, &fNotary, &sNotary);
-        
+
         // first output returning on same address and greater or equal stake value
         if (nValue >= nValueStakeIn && sInputAddress == sAddress) {
-            
+
             if (nValue > (nValueStakeIn + nValueRewardLeft)) {
                 sFailCause = "P-O-1: No enough coins for stake output";
                 fFailedPegOut = true;
             }
-            
+
             int64_t nValueToTake = nValue;
             int64_t nStakeToTake = nValue;
-            
+
             if (nStakeToTake > nValueStakeIn) {
                 nStakeToTake = nValueStakeIn;
             }
-            
+
             // first take whole stake input
             nValueToTake -= nStakeToTake;
             frOut = frStake;
-            
+
             // leftover value take from reward
             if (nValueToTake >0) {
                 nValueRewardLeft -= nValueToTake;
                 frReward.MoveRatioPartTo(nValueToTake, frOut);
             }
-            
+
             // transfer marks and locktime
             if (frStake.nFlags & CFractions::NOTARY_F) {
                 if (!frOut.SetMark(CFractions::MARK_TRANSFER, CFractions::NOTARY_F, frStake.nLockTime)) {
@@ -609,26 +613,26 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
                     fFailedPegOut = true;
                 }
             }
-            
+
             nStakeOut = i;
             break;
         }
     }
-    
+
     if (fFailedPegOut) {
         return false;
     }
-    
+
     if (nStakeOut == 0 && !fFailedPegOut) {
         sFailCause = "P-O-5: No stake funds returned to input address";
         fFailedPegOut = true;
     }
-    
+
     // Calculation of outputs
     for (unsigned int i = 0; i < n_vout; i++)
     {
         int64_t nValue = tx.vout[i].nValue;
-        
+
         if (i == nStakeOut) {
             // already calculated and marked
             continue;
@@ -642,11 +646,11 @@ bool CalculateStakingFractions_v2(const CTransaction & tx,
             fFailedPegOut = true;
             break;
         }
-        
+
         frReward.MoveRatioPartTo(nValue, frOut);
         nValueRewardLeft -= nValue;
     }
-    
+
     if (!fFailedPegOut) {
         // lets do some extra checks for totals
         for (unsigned int i = 0; i < n_vout; i++)
@@ -687,25 +691,25 @@ void PrunePegForBlock(const CBlock& blockprune, CPegDB& pegdb)
             auto fkey = uint320(prevout.hash, prevout.n);
             pegdb.Erase(fkey);
         }
-        if (!tx.IsCoinStake()) 
+        if (!tx.IsCoinStake())
             continue;
-        
+
         uint256 txhash = tx.GetHash();
         for (size_t j=0; j< tx.vout.size(); j++) {
             auto fkey = uint320(txhash, j);
-            
+
             CTxOut out = tx.vout[j];
-    
+
             if (out.nValue == 0) {
                 pegdb.Erase(fkey);
                 continue;
             }
-            
+
             const CScript& scriptPubKey = out.scriptPubKey;
             txnouttype type;
             vector<CTxDestination> addresses;
             int nRequired;
-    
+
             if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
                 opcodetype opcode1;
                 vector<unsigned char> vch1;
@@ -718,7 +722,7 @@ void PrunePegForBlock(const CBlock& blockprune, CPegDB& pegdb)
                 }
                 continue;
             }
-    
+
             bool voted = false;
             for(const CTxDestination& addr : addresses) {
                 std::string str_addr = CBitcoinAddress(addr).ToString();
@@ -726,9 +730,9 @@ void PrunePegForBlock(const CBlock& blockprune, CPegDB& pegdb)
                 else if (str_addr == Params().PegDeflateAddr()) { voted = true; }
                 else if (str_addr == Params().PegNochangeAddr()) { voted = true; }
             }
-            if (!voted) 
+            if (!voted)
                 continue;
-            
+
             pegdb.Erase(fkey);
         }
     }

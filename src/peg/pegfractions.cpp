@@ -1,6 +1,10 @@
 // Copyright (c) 2018 yshurik
+//
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+//
+// The use in another cyptocurrency project the code is licensed under
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #include "pegdata.h"
 
@@ -8,7 +12,7 @@
 #include <set>
 #include <cstdint>
 #include <utility>
-#include <algorithm> 
+#include <algorithm>
 #include <type_traits>
 
 #include <boost/multiprecision/cpp_int.hpp>
@@ -148,7 +152,7 @@ bool CFractions::Unpack(CDataStream& inp)
     inp >> nSerFlags;
     inp >> nLockTime;
     inp >> sReturnAddr;
-    
+
     if (nSerFlags & SER_VALUE) {
         nFlags = nSerFlags | VALUE;
         inp >> f[0];
@@ -184,7 +188,7 @@ bool CFractions::Unpack(CDataStream& inp)
         nFlags = nSerFlags | STD;
     }
     nFlags &= SER_MASK;
-        
+
     return true;
 }
 
@@ -213,7 +217,7 @@ CFractions CFractions::Std() const
     return fstd;
 }
 
-bool CFractions::IsPositive() const 
+bool CFractions::IsPositive() const
 {
     if (nFlags & VALUE)
         return true;
@@ -225,7 +229,7 @@ bool CFractions::IsPositive() const
     return true;
 }
 
-bool CFractions::IsNegative() const 
+bool CFractions::IsNegative() const
 {
     if (nFlags & VALUE)
         return false;
@@ -282,13 +286,13 @@ int64_t CFractions::Low(const CPegLevel & peglevel) const
     int to = peglevel.nSupply + peglevel.nShift;
     if (to <0) return 0;
     if (to >= PEG_SIZE) return 0;
-    
-    if (peglevel.nShiftLastPart >0 && 
+
+    if (peglevel.nShiftLastPart >0 &&
         peglevel.nShiftLastTotal >0) {
         // partial value to use
         int64_t v = f[to];
-        int64_t vpart = ::RatioPart(v, 
-                                    peglevel.nShiftLastPart, 
+        int64_t vpart = ::RatioPart(v,
+                                    peglevel.nShiftLastPart,
                                     peglevel.nShiftLastTotal);
         if (vpart < v) vpart++; // better rounding
         nValue += vpart;
@@ -297,7 +301,7 @@ int64_t CFractions::Low(const CPegLevel & peglevel) const
     for(int i=0;i<to;i++) {
         nValue += f[i];
     }
-    
+
     return nValue;
 }
 
@@ -310,23 +314,23 @@ int64_t CFractions::High(const CPegLevel & peglevel) const
     int from = peglevel.nSupply + peglevel.nShift;
     if (from <0) return 0;
     if (from >= PEG_SIZE) return 0;
-            
-    if (peglevel.nShiftLastPart >0 && 
+
+    if (peglevel.nShiftLastPart >0 &&
         peglevel.nShiftLastTotal >0) {
         // partial value to use
         int64_t v = f[from];
-        int64_t vpart = ::RatioPart(v, 
-                                    peglevel.nShiftLastPart, 
+        int64_t vpart = ::RatioPart(v,
+                                    peglevel.nShiftLastPart,
                                     peglevel.nShiftLastTotal);
         if (vpart < v) vpart++; // better rounding
         nValue += (v - vpart);
         from++;
     }
-    
+
     for(int i=from;i<PEG_SIZE;i++) {
         nValue += f[i];
     }
-    
+
     return nValue;
 }
 
@@ -335,7 +339,7 @@ int64_t CFractions::NChange(const CPegLevel & peglevel) const
     CPegLevel peglevel_next = peglevel;
     peglevel_next.nSupply = peglevel_next.nSupplyNext;
     peglevel_next.nSupplyNext = peglevel_next.nSupplyNextNext;
-    
+
     int64_t nValueSrc = High(peglevel);
     int64_t nValueDst = High(peglevel_next);
     return nValueDst - nValueSrc;
@@ -352,7 +356,7 @@ int16_t CFractions::HLI() const
 {
     if (nFlags & VALUE)
         return Std().HLI();
-        
+
     int64_t half = 0;
     int64_t total = Total();
     if (total ==0) {
@@ -394,7 +398,7 @@ CFractions CFractions::Positive(int64_t* total) const
     }
     CFractions frPositive(0, CFractions::STD);
     for(int i=0; i<PEG_SIZE; i++) {
-        if (f[i] <=0) continue; 
+        if (f[i] <=0) continue;
         frPositive.f[i] = f[i];
         if (total) *total += f[i];
     }
@@ -407,7 +411,7 @@ CFractions CFractions::Negative(int64_t* total) const
     }
     CFractions frNegative(0, CFractions::STD);
     for(int i=0; i<PEG_SIZE; i++) {
-        if (f[i] >=0) continue; 
+        if (f[i] >=0) continue;
         frNegative.f[i] = f[i];
         if (total) *total += f[i];
     }
@@ -445,24 +449,24 @@ CFractions CFractions::LowPart(const CPegLevel & peglevel, int64_t* total) const
     if ((nFlags & STD) == 0) {
         return Std().LowPart(peglevel, total);
     }
-    
+
     CFractions frLowPart(0, CFractions::STD);
-    
+
     int to = peglevel.nSupply + peglevel.nShift;
-    if (to >=0 && 
-            to <PEG_SIZE && 
-            peglevel.nShiftLastPart >0 && 
+    if (to >=0 &&
+            to <PEG_SIZE &&
+            peglevel.nShiftLastPart >0 &&
             peglevel.nShiftLastTotal >0) {
         // partial value to use
         int64_t v = f[to];
-        int64_t vpart = ::RatioPart(v, 
-                                    peglevel.nShiftLastPart, 
+        int64_t vpart = ::RatioPart(v,
+                                    peglevel.nShiftLastPart,
                                     peglevel.nShiftLastTotal);
         if (vpart < v) vpart++;
         frLowPart.f[to] = vpart;
         if (total) *total += vpart;
     }
-    
+
     for(int i=0; i<to; i++) {
         if (total) *total += f[i];
         frLowPart.f[i] = f[i];
@@ -474,25 +478,25 @@ CFractions CFractions::HighPart(const CPegLevel & peglevel, int64_t* total) cons
     if ((nFlags & STD) == 0) {
         return Std().HighPart(peglevel, total);
     }
-    
+
     CFractions frHighPart(0, CFractions::STD);
-    
+
     int from = peglevel.nSupply + peglevel.nShift;
-    if (from >=0 && 
-            from <PEG_SIZE && 
-            peglevel.nShiftLastPart >0 && 
+    if (from >=0 &&
+            from <PEG_SIZE &&
+            peglevel.nShiftLastPart >0 &&
             peglevel.nShiftLastTotal >0) {
         // partial value to use
         int64_t v = f[from];
-        int64_t vpart = ::RatioPart(v, 
-                                    peglevel.nShiftLastPart, 
+        int64_t vpart = ::RatioPart(v,
+                                    peglevel.nShiftLastPart,
                                     peglevel.nShiftLastTotal);
         if (vpart < v) vpart++;
         frHighPart.f[from] = (v - vpart);
         if (total) *total += (v - vpart);
         from++;
     }
-    
+
     for(int i=from; i<PEG_SIZE; i++) {
         if (total) *total += f[i];
         frHighPart.f[i] = f[i];
@@ -500,39 +504,39 @@ CFractions CFractions::HighPart(const CPegLevel & peglevel, int64_t* total) cons
     return frHighPart;
 }
 
-CFractions CFractions::MidPart(const CPegLevel & peglevel_low, 
+CFractions CFractions::MidPart(const CPegLevel & peglevel_low,
                                const CPegLevel & peglevel_high) const
 {
     int from = peglevel_low.nSupply + peglevel_low.nShift;
     int to = peglevel_high.nSupply + peglevel_high.nShift;
-    
+
     if (from != to) {
         return HighPart(peglevel_low, nullptr).LowPart(peglevel_high, nullptr);
     }
-    
+
     // same supply, different partial ratio
     CFractions mid(0, STD);
     int one = from;
     int64_t v = f[one];
     int64_t vone = f[one];
-    
-    if (peglevel_low.nShiftLastPart >0 && 
+
+    if (peglevel_low.nShiftLastPart >0 &&
         peglevel_low.nShiftLastTotal >0) {
-        int64_t vpart = ::RatioPart(vone, 
-                                    peglevel_low.nShiftLastPart, 
+        int64_t vpart = ::RatioPart(vone,
+                                    peglevel_low.nShiftLastPart,
                                     peglevel_low.nShiftLastTotal);
         v -= vpart;
     }
 
-    if (peglevel_high.nShiftLastPart >0 && 
+    if (peglevel_high.nShiftLastPart >0 &&
         peglevel_high.nShiftLastTotal >0) {
-        int64_t vpart = ::RatioPart(vone, 
-                                    peglevel_high.nShiftLastPart, 
+        int64_t vpart = ::RatioPart(vone,
+                                    peglevel_high.nShiftLastPart,
                                     peglevel_high.nShiftLastTotal);
         if (vpart < vone) vpart++;
         v -= (vone - vpart);
     }
-    
+
     mid.f[from] = v;
     return mid;
 }
@@ -559,7 +563,7 @@ CFractions CFractions::RatioPart(int64_t nPartValue) const {
     int adjust_from = PEG_SIZE;
     for(int i=0; i<PEG_SIZE; i++) {
         int64_t v = f[i];
-        
+
         if (v != 0 && i < adjust_from) {
             adjust_from = i;
         }
@@ -587,12 +591,12 @@ CFractions CFractions::RatioPart(int64_t nPartValue) const {
 
         nPartValueSum += fPart.f[i];
     }
-    
+
     if (nPartValueSum == nPartValue)
         return fPart;
     if (nPartValueSum > nPartValue)
         return fPart; // todo:peg: validate if possible
-    
+
     int idx = adjust_from;
     int64_t nAdjustValue = nPartValue - nPartValueSum;
     while(nAdjustValue >0) {
@@ -606,7 +610,7 @@ CFractions CFractions::RatioPart(int64_t nPartValue) const {
             idx = adjust_from;
         }
     }
-    
+
     return fPart;
 }
 
@@ -616,7 +620,7 @@ CFractions CFractions::RatioPart(int64_t nPartValue) const {
  *  #NOTE8
  */
 int64_t CFractions::MoveRatioPartTo(int64_t nValueToMove,
-                                    CFractions& b) 
+                                    CFractions& b)
 {
     int64_t nTotalValue = Total();
     int64_t nPartValue = nValueToMove;
@@ -625,19 +629,19 @@ int64_t CFractions::MoveRatioPartTo(int64_t nValueToMove,
         return nValueToMove;
     if (nValueToMove == 0)
         return 0;
-    
+
     if ((nFlags & STD) == 0)
         ToStd();
     if ((b.nFlags & STD) == 0)
         b.ToStd();
-    
+
     if (nPartValue >= nTotalValue) {
         nPartValue = nTotalValue;
         b += *this; // move all
         for(int i=0; i<PEG_SIZE; i++) f[i] = 0; // taken all
         return nValueToMove - nPartValue;
     }
-    
+
     int64_t nPartValueSum = 0;
     int adjust_from = PEG_SIZE;
     for(int i=0; i<PEG_SIZE; i++) {
@@ -646,7 +650,7 @@ int64_t CFractions::MoveRatioPartTo(int64_t nValueToMove,
         if (v != 0 && i < adjust_from) {
             adjust_from = i;
         }
-        
+
         bool has_overflow = false;
         if (std::is_same<int64_t,long>()) {
             long m_test;
@@ -659,7 +663,7 @@ int64_t CFractions::MoveRatioPartTo(int64_t nValueToMove,
         }
 
         int64_t vp = 0;
-        
+
         if (has_overflow) {
             multiprecision::uint128_t v128(v);
             multiprecision::uint128_t part128(nPartValue);
@@ -674,12 +678,12 @@ int64_t CFractions::MoveRatioPartTo(int64_t nValueToMove,
         b.f[i] += vp;
         f[i] -= vp;
     }
-    
+
     if (nPartValueSum == nPartValue)
         return 0;
     if (nPartValueSum > nPartValue)
         return 0; // todo:peg: validate if possible
-    
+
     int idx = adjust_from;
     int64_t nAdjustValue = nPartValue - nPartValueSum;
     while(nAdjustValue >0) {
@@ -693,7 +697,7 @@ int64_t CFractions::MoveRatioPartTo(int64_t nValueToMove,
             idx = adjust_from;
         }
     }
-    
+
     return 0;
 }
 
@@ -753,15 +757,15 @@ double CFractions::Distortion(const CFractions& b) const
 {
     int64_t nTotalA = Total();
     int64_t nTotalB = b.Total();
-    
+
     if (nTotalA == nTotalB) {
-        
+
         if (nTotalA == 0) {
             return 0;
         }
-        
+
         int64_t nDiff = 0;
-        
+
         for(int i=0; i<PEG_SIZE; i++) {
             int64_t va = f[i];
             int64_t vb = b.f[i];
@@ -769,28 +773,28 @@ double CFractions::Distortion(const CFractions& b) const
                 nDiff += (va - vb);
             }
         }
-        
+
         return double(nDiff) / double(nTotalA);
     }
-    
+
     else if (nTotalA < nTotalB) {
         if (nTotalA == 0) {
             return nTotalB; // does not make sense to scale
         }
-        
+
         CFractions b1 = b.RatioPart(nTotalA);
         return Distortion(b1);
     }
-    
+
     else if (nTotalA > nTotalB) {
         if (nTotalB == 0) {
             return nTotalA; // does not make sense to scale
         }
-        
+
         CFractions a1 = RatioPart(nTotalB);
         return a1.Distortion(b);
     }
-    
+
     return 0;
 }
 

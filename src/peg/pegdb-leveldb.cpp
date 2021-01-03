@@ -1,5 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2018 yshurik
 // Distributed under the MIT/X11 software license, see the accompanying
 // file license.txt or http://www.opensource.org/licenses/mit-license.php.
 
@@ -273,7 +274,7 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
         if (nTxHeight >0) {
             if (nTxHeight < nBestHeight - 100) {
                 LogPrintf("LoadPegData() : peg activation tx is deep: %d\n", nBestHeight - nTxHeight);
-                int nPegToStart = ((nTxHeight+500)/1000 +1) * 1000; 
+                int nPegToStart = ((nTxHeight+500)/1000 +1) * 1000;
                 nPegStartHeight = nPegToStart;
                 fPegIsActivatedViaTx = true;
                 LogPrintf("LoadPegData() : peg to start: %d\n", nPegToStart);
@@ -289,7 +290,7 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
             }
         }
     }
-    
+
     // #NOTE13
     {
         int nPegStartHeightStored = 0;
@@ -319,12 +320,12 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
         if (!SetBlocksIndexesReadyForPeg(txdb, load_msg))
             return error("LoadPegData() : SetBlocksIndexesReadyForPeg failed");
     }
-    
+
     bool fPegPruneEnabled = true;
     if (!txdb.ReadPegPruneEnabled(fPegPruneEnabled)) {
         fPegPruneEnabled = true;
     }
-    
+
     { // all is ready, store nPegStartHeight
         if (!txdb.TxnBegin())
             return error("WriteBlockIndexIsPegReady() : TxnBegin failed");
@@ -345,17 +346,17 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
 
         bool fPegCheck3 = false;
         txdb.ReadPegCheck(PEG_DB_CHECK_ON_FORK, fPegCheck3);
-        
+
         bool fPegPruneStored = true;
         if (!pegdb.ReadPegPruneEnabled(fPegPruneStored)) {
             fPegPruneStored = true;
         }
-        
+
         int nPegStartHeightStored = 0;
         pegdb.ReadPegStartHeight(nPegStartHeightStored);
-        if (nPegStartHeightStored != nPegStartHeight 
-                || fPegPruneStored != fPegPruneEnabled 
-                || !fPegCheck1 
+        if (nPegStartHeightStored != nPegStartHeight
+                || fPegPruneStored != fPegPruneEnabled
+                || !fPegCheck1
                 || !fPegCheck2
                 || !fPegCheck3) {
             // reprocess from nPegStartHeight
@@ -367,8 +368,8 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                 pblockindex = pblockindex->pprev;
 
             CBlock block;
-            while (pblockindex && 
-                   pblockindex->nHeight >= nPegStartHeight && 
+            while (pblockindex &&
+                   pblockindex->nHeight >= nPegStartHeight &&
                    pblockindex->nHeight <= nBestHeight) {
                 uint256 hash = *pblockindex->phashBlock;
                 pblockindex = mapBlockIndex.ref(hash);
@@ -380,10 +381,10 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                 // at very beginning have peg supply index
                 if (!CalculateBlockPegIndex(pblockindex))
                     return error("CalculateBlockPegIndex() : failed supply index computation");
-                
+
                 if (!block.ReadFromDisk(pblockindex, true))
                     return error("ReadFromDisk() : block read failed");
-                
+
                 int64_t nFees = 0;
                 int64_t nStakeReward = 0;
                 CFractions feesFractions;
@@ -395,24 +396,24 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                     map<uint256, CTxIndex> mapUnused;
                     string sPegFailCause;
                     bool fInvalid = false;
-                    if (!tx.FetchInputs(txdb, pegdb, 
-                                   mapUnused, mapQueuedFractionsChanges, 
-                                   false, false, 
-                                   mapInputs, mapInputsFractions, 
+                    if (!tx.FetchInputs(txdb, pegdb,
+                                   mapUnused, mapQueuedFractionsChanges,
+                                   false, false,
+                                   mapInputs, mapInputsFractions,
                                    fInvalid))
                         return error("LoadBlockIndex() : FetchInputs/pegdb failed");
 
                     int64_t nTxValueIn = tx.GetValueIn(mapInputs);
                     int64_t nTxValueOut = tx.GetValueOut();
-                    
+
                     if (!tx.IsCoinStake())
                         nFees += nTxValueIn - nTxValueOut;
                     if (tx.IsCoinStake())
                         nStakeReward = nTxValueOut - nTxValueIn;
 
                     if (tx.IsCoinStake()) continue;
-                    
-                    bool peg_ok = CalculateStandardFractions(tx, 
+
+                    bool peg_ok = CalculateStandardFractions(tx,
                                                              pblockindex->nPegSupplyIndex,
                                                              pblockindex->nTime,
                                                              mapInputs, mapInputsFractions,
@@ -447,25 +448,25 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                     if (n_vin < 1) {
                         return error((std::string("LoadBlockIndex() : pegdb failed: less than one input in stake: ")+std::to_string(pblockindex->nHeight)).c_str());
                     }
-                    
+
                     uint64_t nCoinAge = 0;
                     if (!tx.GetCoinAge(txdb, pblockindex->pprev, nCoinAge)) {
                         return error("LoadBlockIndex() : pegdb: GetCoinAge() failed");
                     }
-                    
+
                     const COutPoint & prevout = tx.vin[0].prevout;
                     auto fkey = uint320(prevout.hash, prevout.n);
                     if (mapInputsFractions.find(fkey) == mapInputsFractions.end()) {
                         return error("LoadBlockIndex() : pegdb failed: no input fractions found");
                     }
-                    
+
                     int64_t nCalculatedStakeReward = GetProofOfStakeReward(
-                                pblockindex->pprev, nCoinAge, nFees, 
+                                pblockindex->pprev, nCoinAge, nFees,
                                 mapInputsFractions[fkey]);
                     int64_t nStakeRewardWithoutFees = GetProofOfStakeReward(
-                                pblockindex->pprev, nCoinAge, 0 /*fees*/, 
+                                pblockindex->pprev, nCoinAge, 0 /*fees*/,
                                 mapInputsFractions[fkey]);
-                    
+
                     if (nStakeReward > nCalculatedStakeReward) {
                         pblockindexPegFail = pblockindex;
                     }
@@ -486,14 +487,14 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                 if (pblockindexPegFail) {
                     break;
                 }
-                
+
                 // Write queued fractions changes
                 for (MapFractions::iterator mi = mapQueuedFractionsChanges.begin(); mi != mapQueuedFractionsChanges.end(); ++mi)
                 {
                     if (!pegdb.WriteFractions((*mi).first, (*mi).second))
                         return error("LoadBlockIndex() : pegdb Write failed");
                 }
-                
+
                 if (fPegPruneEnabled) {
                     // Prune old spent fractions, back to index
                     int nHeightPrune = pblockindex->nHeight-PEG_PRUNE_INTERVAL;
@@ -503,24 +504,24 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
                             pindexprune = pindexprune->pprev;
                         if (pindexprune) {
                             CBlock blockprune;
-                            if (blockprune.ReadFromDisk(pindexprune->nFile, 
-                                                        pindexprune->nBlockPos, 
+                            if (blockprune.ReadFromDisk(pindexprune->nFile,
+                                                        pindexprune->nBlockPos,
                                                         true /*vtx*/)) {
                                 PrunePegForBlock(blockprune, pegdb);
                             }
                         }
                     }
                 }
-                
+
                 if (!CalculateBlockPegVotes(block, pblockindex, pegdb))
                     return error("CalculateBlockPegVotes() : failed");
-                
+
                 if (!txdb.WriteBlockIndex(CDiskBlockIndex(pblockindex)))
                     return error("WriteBlockIndex() : write failed");
-                
+
                 pblockindex = pblockindex->pnext;
             }
-            
+
             if (!txdb.WritePegCheck(PEG_DB_CHECK1, true))
                 return error("WritePegCheck() : flag1 write failed");
 
@@ -529,16 +530,16 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
 
             if (!txdb.WritePegCheck(PEG_DB_CHECK_ON_FORK, true))
                 return error("WritePegCheck() : flag3 write failed");
-            
+
             if (!pegdb.WritePegStartHeight(nPegStartHeight))
                 return error("WritePegStartHeight() : peg start write failed");
-            
+
             if (!pegdb.WritePegTxActivated(fPegIsActivatedViaTx))
                 return error("WritePegTxActivated() : peg txactivated write failed");
-            
+
             if (!pegdb.WritePegPruneEnabled(fPegPruneEnabled))
                 return error("WritePegPruneEnabled() : peg prune flag write failed");
-            
+
             if (pblockindexPegFail) {
                 auto pindexFork = pblockindexPegFail->pprev;
                 if (pindexFork)
@@ -556,7 +557,7 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
             }
         }
     }
-    
+
 //    ofstream myfile;
 //    myfile.open ("/home/alex/addrs.txt");
 //    for(auto it = stake_addr_stats.begin(); it != stake_addr_stats.end(); it++) {
@@ -566,6 +567,6 @@ bool CPegDB::LoadPegData(CTxDB& txdb, LoadMsg load_msg)
 //               << std::endl;
 //    }
 //    myfile.close();
-      
+
     return true;
 }

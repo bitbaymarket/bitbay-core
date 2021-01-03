@@ -1,6 +1,10 @@
 // Copyright (c) 2018 yshurik
+//
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+//
+// The use in another cyptocurrency project the code is licensed under
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #ifndef BITBAY_PEGDATA_H
 #define BITBAY_PEGDATA_H
@@ -56,21 +60,21 @@ public:
               int supply,
               int supply_next,
               int supply_next_next,
-              const CFractions & fractions, 
+              const CFractions & fractions,
               const CFractions & distortion);
     CPegLevel(std::string);
     CPegLevel();
-    
+
     friend bool operator<(const CPegLevel &a, const CPegLevel &b);
     friend bool operator==(const CPegLevel &a, const CPegLevel &b);
     friend bool operator!=(const CPegLevel &a, const CPegLevel &b);
-    
+
     bool IsValid() const;
     bool HasShift() const { return nShift != 0 || nShiftLastPart != 0; }
     bool Pack(CDataStream &) const;
     bool Unpack(CDataStream &);
     std::string ToString() const;
-    
+
 private:
     friend class CPegData;
     bool Unpack1(CDataStream &);
@@ -131,7 +135,7 @@ public:
 
     int64_t MoveRatioPartTo(int64_t nPartValue,
                             CFractions& b);
-    
+
     void ToDeltas(int64_t* deltas) const;
     void FromDeltas(const int64_t* deltas);
 
@@ -148,7 +152,7 @@ public:
     bool IsNegative() const;
 
     bool SetMark(MarkAction, uint32_t nMark, uint64_t nTime);
-    
+
 private:
     void ToStd();
     friend class CPegData;
@@ -162,20 +166,20 @@ class CPegData {
 public:
     CPegData() {}
     CPegData(std::string);
-    
+
     bool IsValid() const;
-    
+
     int64_t     nVersion    = 1;
     CFractions  fractions;
     CPegLevel   peglevel;
     int64_t     nLiquid     = 0;
     int64_t     nReserve    = 0;
     int32_t     nId         = 0;
-    
+
     bool Pack(CDataStream &) const;
     bool Unpack(CDataStream &);
     std::string ToString() const;
-    
+
 private: // compat
     bool Unpack1(CDataStream &);
     bool Unpack2(CDataStream &);

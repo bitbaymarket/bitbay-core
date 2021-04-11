@@ -20,6 +20,7 @@ LIBS += -L/usr/local/opt/miniupnpc/lib
 LIBS += -L/usr/local/opt/qrencode/lib
 
 QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.9
+QMAKE_MAC_SDK = macosx10.13
 
 LIBS += -framework Foundation -framework ApplicationServices -framework AppKit
 DEFINES += MAC_OSX MSG_NOSIGNAL=0

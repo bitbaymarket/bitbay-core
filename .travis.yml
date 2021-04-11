@@ -68,7 +68,7 @@ matrix:
         - DEPLOY_FILE=testnet-bitbay-wallet-qt_win64.zip
         - ARCH="testnet-qtwallet-win64"
     - os: osx
-      osx_image: xcode9.4
+      osx_image: xcode10.1
       compiler: clang
       env:
         - DEPLOY_FILE=testnet-bitbay-wallet-qt_mac.zip
@@ -122,13 +122,13 @@ matrix:
         - DEPLOY_FILE=bitbayd_win64.zip
         - ARCH="bitbayd-win64"
     - os: osx
-      osx_image: xcode9.4
+      osx_image: xcode10.1
       compiler: clang
       env:
         - DEPLOY_FILE=bitbay-wallet-qt_mac.zip
         - ARCH="qtwallet-mac64"
     - os: osx
-      osx_image: xcode9.4
+      osx_image: xcode10.1
       compiler: clang
       env:
         - DEPLOY_FILE=bitbayd_mac.zip
@@ -191,8 +191,8 @@ install:
     brew install boost || echo -                                ;
     brew install openssl || echo -                              ;
     brew install miniupnpc                                      &&
-    brew install qt                                             &&
-    brew link --force qt                                        &&
+    brew install qt@5                                           &&
+    brew link --force qt@5                                      &&
     brew install qrencode                                       &&
     cd "$TRAVIS_BUILD_DIR"                                      &&
     curl -fsSL -o db-4.8.30.NC.tar.gz \
@@ -250,8 +250,8 @@ install:
     brew install boost || echo -                                ;
     brew install openssl || echo -                              ;
     brew install miniupnpc                                      &&
-    brew install qt                                             &&
-    brew link --force qt                                        &&
+    brew install qt@5                                           &&
+    brew link --force qt@5                                      &&
     brew install qrencode                                       &&
     cd "$TRAVIS_BUILD_DIR"                                      &&
     curl -fsSL -o db-4.8.30.NC.tar.gz \
@@ -277,8 +277,8 @@ install:
     brew install boost || echo -                                ;
     brew install openssl || echo -                              ;
     brew install miniupnpc                                      &&
-    brew install qt                                             &&
-    brew link --force qt                                        &&
+    brew install qt@5                                           &&
+    brew link --force qt@5                                      &&
     brew install qrencode                                       &&
     cd "$TRAVIS_BUILD_DIR"                                      &&
     curl -fsSL -o db-4.8.30.NC.tar.gz \

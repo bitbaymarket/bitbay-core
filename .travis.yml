@@ -190,6 +190,7 @@ install:
     #brew doctor || echo -                                       ;
     brew install boost || echo -                                ;
     brew install openssl || echo -                              ;
+    brew upgrade openssl@1.1 || echo -                              ;
     brew install miniupnpc                                      &&
     brew install qt@5                                           &&
     brew link --force qt@5                                      &&
@@ -249,6 +250,7 @@ install:
     #brew doctor || echo -                                       ;
     brew install boost || echo -                                ;
     brew install openssl || echo -                              ;
+    brew upgrade openssl@1.1 || echo -                              ;
     brew install miniupnpc                                      &&
     brew install qt@5                                           &&
     brew link --force qt@5                                      &&
@@ -276,6 +278,7 @@ install:
     #brew doctor || echo -                                       ;
     brew install boost || echo -                                ;
     brew install openssl || echo -                              ;
+    brew upgrade openssl@1.1 || echo -                              ;
     brew install miniupnpc                                      &&
     brew install qt@5                                           &&
     brew link --force qt@5                                      &&

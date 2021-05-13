@@ -11,7 +11,7 @@
 #include "uint256.h"
 
 
-static const int nCheckpointSpan = 500;
+static const int nCheckpointSpan = 5000;
 
 namespace Checkpoints
 {
@@ -94,6 +94,13 @@ namespace Checkpoints
         ( 2600000, uint256("0x97e04e05583f352f23a99c95bef4505696790ace8ded7799affd5aea10e35b49"))
         ( 2650000, uint256("0xba3ba267ed16b4591315228e5e8eee60cb6e9c2be72e998ca4922c3724f2e27c"))
         ( 2700000, uint256("0x8770fe1f5e5f4808041b92e18a49042a07f3c33ce14386ebf733772a2eb36154"))
+        ( 2750000, uint256("0x2d322382f5cc65a99eac3b9c8299c3da9c4e3e236ce68c2597d227762788680e"))
+        ( 2800000, uint256("0x7c5fd71b1db60d25c777c73a4a70da56a1e5ebb2f0e153d13c60818f562fd37d"))
+        ( 2850000, uint256("0x041892d5c4fadf34a8211cd6c6bb1413b1f47d54644a8425c88212d57c7f7cf0"))
+        ( 2900000, uint256("0xb8cbdf2542196e1c6ecf59bf23c5ed335623d780024f23eb58ec5b3838061800"))
+        ( 2950000, uint256("0xd945ba7e771732932e964d9a1e13072bb3e85a73e8184c7cff2e00395cbcd0c4"))
+        ( 3000000, uint256("0x492dfc7ea510372648b408bb15e7b062836a632f649f0cbade636dc5788cbbf1"))
+        ( 3050000, uint256("0xf227dfc3c12a18720f7b6a5a01e6928695fd58db504a14aa0fb5f5dc0dbefef4"))
     ;
 
     // TestNet has no checkpoints

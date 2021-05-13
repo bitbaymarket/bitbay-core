@@ -982,36 +982,11 @@ script:
 deploy:
   - provider: releases
     api_key:
-      secure: lrfnBmKu3O3SYrvrygaJLSEIiNBVgL0BdP/RoxY7ohOPMRS0RdEAJvKsrJiSG/bUzpM4IWxLj7c6kSgAONqrBHU25iG3NRX/DRUnlCocy8dHGm3dRubtqyM7cBhdoruwp5BDOuYmsVyyDaS4DHmJi/5VVzKsdu+B2LhGImvUlOZiDsiv602WLr3wPw6Brjj1lSFe9Iuy3RaLqF6JIcnDSjW0asHisAFT3BbuJ5wLBw0FvPvv9USaEahgBvnbqNRGtvL8xOlCX0pynSxxnfxzk4dcNzBmjevSIWwrmqaCi2JV6Kgz1o3Xtz8C6GdQ3b9toJA5ECPnIiurzZXgBpDVJrUWR/EO4PHXQXm7seXAPHMyS69Erc1PzwQfIbhxF//zAVQPaG+Fxh49dlXCqU37i8cleHNg2357X00O4ujmDUqIiqj/GYUo68jSaHG0yNc/wPlO4IRHS0vmSNJww8xawB/WA5FCN1DWw0Od/DhRldpy5Qr8mAPW7mOPFtrEsS9pii//3hApcrGZEyJgJie4GKFv2XgcWNsqF4hTrvCniZ05su0ZaDzHSQja6U5eeruNnuRTIrI+88kKF6DKPbAggufGJD8ZL/w/4r4a7nkA391iFs4/MUb5nGLBDJbeX/6/e9IPrhyjdLUszpDjFGc+NUV5XiQ8h4COi5folRe23DI=
+      secure: Zu9/1UGxOw/FRCKvFPPt4jBWcptbtKlZ0gLy/eePo0xVc4hq1k15H8ppRcKbaNGLANCTTM95/j2g/6Cw67Bzl6Tv+6NGHNjDQ0PfiJtfsQ7DrMuwi/YuB3F7CUa7vWzATEdEhoRGrOsOB0i+lqJmkWq48vEe0DzuY3vSYd4enDfU1QJZslXE1/Do/Ur6A8nJtMomPSzauHKUB3aY7UKD9Z2BbrUpC7SG9+ZBhrnpcggyMpEnP2VOd10PzrF4dO1NGq/ztyYHN0aCPMV4UFkP6MUvQBPkNiDwGwXluBj3veuffN9NOWdMl/BgrkZWItGxCNgeBpjS2u/Clegir5Pnh7mw3JNKpbt9H0yKTyWPgXZXQIs9oNO39rZYS9nRi1yY+bzcfOY7KWazb356gd/upijlDkJqAJn77J192lHflZa/fi8pSSAF46Qvf+7relEKcnVnVmA8/M7ahnzTgJ1rtZOeuySg7aD/Zz/rRVNZeYyW0uDBZ/bwwRtazw+7YeAEbwWBGBUIRHSWv3Ol8nf5DicXkKMKhfTpFE/GhgX/WBmS5fet7tYXtcIbqc5A5tUhbaeQU5rlajLAqWDgTt67MEroJhVe1+JsCO2obi03MlkQgS+04b8rnrPP48F2XqhXVrswtRZMLAkwa0ldob6jhIw7Th0A8LuiuLStKtgDM4M=
     file: $TRAVIS_BUILD_DIR/$DEPLOY_FILE
     skip_cleanup: true
     on:
       tags: true
       repo: bitbaymarket/bitbay-core
 
-  - provider: releases
-    api_key:
-      secure: pLwB88n+hu56NAojvbdCcbzf80LiWKNAD4jlpQdXLisM/9pFQlyjZGo1mwyY7Sy4DuouCWkoWB895flsnBH2sVQzeJhXE9Jb3cTx8VGMlOTTeMqDcJJSswTpqf8MBXwQKAVOjhQIRBDZ27q/5+KRT3TaK9MrNmW2ul+PaGI1PWGvq5Qer9wNgqGIf9sDHIPhdG46YNa9eXzdq/e8xpD6kUxUWFoSx8w6w8mBAGXcKCpxZQqEZs1V9HUDo+a+x69fJFiA8qN9OsfbIeN7NG22/2Ahw9SUw/nYa5JLokbLLFG5wIpKh4u8/7zFTOuWiHz+A64kLaanlMjIM1otz1aS3/iOsd6LZ7bhtTCLYGMsjvGnkhlXwO45hdUHz5YeTY4/oM6yC8mB5VYvPiSsTtgu/C9brydo2a6KXc6yfYkHjEX0AD5E4QwnZAVAyjsIP+0jR+0Ljs3Nh/VfU16kBclIj6lnv2sjYxetMgPkk29HlelUEa/WL/IUhWzlL1/M2a2vwI/aCg3c7niLmmYLIo1dd8pt0GVxfqQVVGGGHXOH9LyCR4x3A6wZKaLDEKc8VArWJl+jRtqltrrxQuY9W8Vw7pbphgeORpoOVZ3lbWZrhr5aiMicYEPHYJ7Yd7bItLxX8wiyMdkK13cgLU9z6s24SVqK5cxgsbnANM1LEIfwPjA=
-    file: $TRAVIS_BUILD_DIR/$DEPLOY_FILE
-    skip_cleanup: true
-    on:
-      tags: true
-      repo: yshurik/BitBay
 
-  - provider: releases
-    api_key:
-      secure: hrs2GuAfxrKtREvbs+IJIovABbR4dyMqh47Z/73lup+d8NwMQLzIHW7q1YGJ6T6YznUgL7IZyY4JvRXdIGk+OazToWWbu0uyzM4tx5iRabsGGvnlev8O4UcAMBNgZDavIxYApH4zJq2hyew8BC7fSKHLDSpVBOfThEea4tOEUs+3389bCBi99K1LW97Pwt+jWYmqfkNlPZOgLJh3yIIOL7t1Yz1HizGI1b44JpkvYX0zSuDl5FBqQTOtkWX4BWy8wdJPqYeH4GHRgla+sPIRVIjW7/ktgP4WNJSn+5YOwz0yKMhbAwZZIvHM5Ncb0pDjpPitIF6jiriuvWH7Far1G7GqiNfk2WZAZ6pzs7Gy4H4ikPqJDwHsVR5S52fneFtm8F4fP5b/DfyVFhqRf/BPJt+68587KV6W65Gy/+ZogLchu295cEfBOB6ytKPzNVMje6p+LswmY+kmYk1iWIcPyansbPGLJFUeura0dr6ykp717LBC1MHgvW0Ok5qYbCu51gIhfQd+Xz+OemeJwYQ+OZa5cOZE+FtV2XKmLjgy1J1iafqiOLeV+eLPkAUrLqxykwTBsTZrr1xQIEtHGMsR3/w7bLjWkB4O+iVC27mlOpslMDOlhQaF6IyrUQoYhQr6RrYTvbTOWIQBSdMCvKOj8kXkLjCbXM0lYQTy3WXiml0=
-    file: $TRAVIS_BUILD_DIR/$DEPLOY_FILE
-    skip_cleanup: true
-    on:
-      tags: true
-      repo: dzimbeck/BitBay
-
-  - provider: releases
-    api_key:
-      secure: eyysIEcHE0Z6jQ48ayn/ZZvLaMNl51eCwpYN2ZnM+mdpS3BiAXyrdT9EGN72/xeVpcqN1V35dh243xDFvq+JKWjhtlyOz5fuWoWF8CcHtAuh+SQiyVwnNuXMW9Nw8QUXoD/flfVXATVhTyUTsLb8xh1rqZAsIgOG5INhg8lW3yqEbtkWypbiN1e3bzkAOjWXrUd6Pb4tQZhCKHiJo6YRortOQtMR+FPSamWUHD8o1nzBMO5Y6vE5SLgstx1FoZrAl4PpcQHOhVkSGSKRn2zUcQwR8QEqYLjeq2coNAhYBPlYxXkyibchXsjzCRlGvFYAo4Q3UglFLMvAsnMGJTQn8RL3itCfPK3hiMQ098Zyfq1O98dYgMzSSEOCyBG070uViQ3pR9/p1dLi1Hc58ETqS3TvS10dWpSvPxaMVT4onfD3I/z/AIptxW9ffYZFEtoeDETChF+Kn7mPKRCeA7Omjgx8gsOKgz/5Bdh5XjUVLFY1IxgnEVjDHCuwFRYLhFvKl3Bnk64SQe4kIRyItBJwPqai6OAT+AXU5RkQRJ/D2v6oLXZiMo4T/XFFkoS+yg7mQVIyCjZ5/uuk0Qc9FTspABf0tDTYG0dmQHxGXkRuSbjTHqrGyTLfIfVNX/m/CoiKEkD+hWtPf88B1HtuOud6RH2k8s3M1pCIsjgv9yPTfMc=
-    file: $TRAVIS_BUILD_DIR/$DEPLOY_FILE
-    skip_cleanup: true
-    on:
-      tags: true
-      repo: yshurik/bitbay-core-peg

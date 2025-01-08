@@ -6,12 +6,12 @@
 #include <QPointer>
 #include <vector>
 #include "bignum.h"
-#include "peg.h"
 #include "net.h"
+#include "peg.h"
 
 Q_DECLARE_METATYPE(uint256);
 Q_DECLARE_METATYPE(CFractions);
 Q_DECLARE_METATYPE(CNodeShortStat);
 Q_DECLARE_METATYPE(CNodeShortStats);
 
-#endif // METATYPES_H
+#endif  // METATYPES_H

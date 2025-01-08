@@ -21,8 +21,8 @@ class CAddress;
 class CBlock;
 
 struct CDNSSeedData {
-    string name, host;
-    CDNSSeedData(const string &strName, const string &strHost) : name(strName), host(strHost) {}
+	string name, host;
+	CDNSSeedData(const string& strName, const string& strHost) : name(strName), host(strHost) {}
 };
 
 /**
@@ -32,94 +32,95 @@ struct CDNSSeedData {
  * a regression test mode which is intended for private networks only. It has
  * minimal difficulty to ensure that blocks can be found instantly.
  */
-class CChainParams
-{
+class CChainParams {
 public:
-    enum Network {
-        MAIN,
-        TESTNET,
-        REGTEST,
+	enum Network {
+		MAIN,
+		TESTNET,
+		REGTEST,
 
-        MAX_NETWORK_TYPES
-    };
+		MAX_NETWORK_TYPES
+	};
 
-    enum Base58Type {
-        PUBKEY_ADDRESS,
-        SCRIPT_ADDRESS,
-        SECRET_KEY,
-        EXT_PUBLIC_KEY,
-        EXT_SECRET_KEY,
+	enum Base58Type {
+		PUBKEY_ADDRESS,
+		SCRIPT_ADDRESS,
+		SECRET_KEY,
+		EXT_PUBLIC_KEY,
+		EXT_SECRET_KEY,
 
-        MAX_BASE58_TYPES
-    };
+		MAX_BASE58_TYPES
+	};
 
-    const uint256& HashGenesisBlock() const { return hashGenesisBlock; }
-    const MessageStartChars& MessageStart() const { return pchMessageStart; }
-    const vector<unsigned char>& AlertKey() const { return vAlertPubKey; }
-    int GetDefaultPort() const { return nDefaultPort; }
-    const CBigNum& ProofOfWorkLimit() const { return bnProofOfWorkLimit; }
-    int MaxReorganizationDepth() const { return nMaxReorganizationDepth; }
-    int SubsidyHalvingInterval() const { return nSubsidyHalvingInterval; }
-    virtual const CBlock& GenesisBlock() const = 0;
-    virtual bool RequireRPCPassword() const { return true; }
-    const string& DataDir() const { return strDataDir; }
-    virtual Network NetworkID() const = 0;
-    const vector<CDNSSeedData>& DNSSeeds() const { return vSeeds; }
-    const std::vector<unsigned char> &Base58Prefix(Base58Type type) const { return base58Prefixes[type]; }
-    virtual const vector<CAddress>& FixedSeeds() const = 0;
-    int RPCPort() const { return nRPCPort; }
-    int LastPOWBlock() const { return nLastPOWBlock; }
-    
-    string PegInflateAddr() const { return sPegInflateAddr; }
-    string PegDeflateAddr() const { return sPegDeflateAddr; }
-    string PegNochangeAddr()  const { return sPegNochangeAddr; }
-    
-    int PegFrozenTime() const { return nPegFrozenTime; }
-    int PegVFrozenTime() const { return nPegVFrozenTime; }
-    
-    int nPegIntervalProbeHeight = 100000;
-    virtual int PegInterval(int /*nHeight*/) const { return nPegInterval; } 
-    uint256 PegActivationTxhash() const { return hashPegActivationTx; }
-    
-    std::set<string> sTrustedStakers;
-    
+	const uint256&               HashGenesisBlock() const { return hashGenesisBlock; }
+	const MessageStartChars&     MessageStart() const { return pchMessageStart; }
+	const vector<unsigned char>& AlertKey() const { return vAlertPubKey; }
+	int                          GetDefaultPort() const { return nDefaultPort; }
+	const CBigNum&               ProofOfWorkLimit() const { return bnProofOfWorkLimit; }
+	int                          MaxReorganizationDepth() const { return nMaxReorganizationDepth; }
+	int                          SubsidyHalvingInterval() const { return nSubsidyHalvingInterval; }
+	virtual const CBlock&        GenesisBlock() const = 0;
+	virtual bool                 RequireRPCPassword() const { return true; }
+	const string&                DataDir() const { return strDataDir; }
+	virtual Network              NetworkID() const = 0;
+	const vector<CDNSSeedData>&  DNSSeeds() const { return vSeeds; }
+	const std::vector<unsigned char>& Base58Prefix(Base58Type type) const {
+		return base58Prefixes[type];
+	}
+	virtual const vector<CAddress>& FixedSeeds() const = 0;
+	int                             RPCPort() const { return nRPCPort; }
+	int                             LastPOWBlock() const { return nLastPOWBlock; }
+
+	string PegInflateAddr() const { return sPegInflateAddr; }
+	string PegDeflateAddr() const { return sPegDeflateAddr; }
+	string PegNochangeAddr() const { return sPegNochangeAddr; }
+
+	int PegFrozenTime() const { return nPegFrozenTime; }
+	int PegVFrozenTime() const { return nPegVFrozenTime; }
+
+	int         nPegIntervalProbeHeight = 100000;
+	virtual int PegInterval(int /*nHeight*/) const { return nPegInterval; }
+	uint256     PegActivationTxhash() const { return hashPegActivationTx; }
+
+	std::set<string> sTrustedStakers;
+
 protected:
-    CChainParams() {}
+	CChainParams() {}
 
-    uint256 hashGenesisBlock;
-    MessageStartChars pchMessageStart;
-    // Raw pub key bytes for the broadcast alert signing key.
-    vector<unsigned char> vAlertPubKey;
-    int nDefaultPort;
-    int nRPCPort;
-    CBigNum bnProofOfWorkLimit;
-    int nMaxReorganizationDepth;
-    int nSubsidyHalvingInterval;
-    string strDataDir;
-    vector<CDNSSeedData> vSeeds;
-    std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
-    int nLastPOWBlock;
-    
-    string sPegInflateAddr;
-    string sPegDeflateAddr;
-    string sPegNochangeAddr;
-    
-    int nPegFrozenTime;
-    int nPegVFrozenTime;
-    
-    int nPegInterval;
-    uint256 hashPegActivationTx;
+	uint256           hashGenesisBlock;
+	MessageStartChars pchMessageStart;
+	// Raw pub key bytes for the broadcast alert signing key.
+	vector<unsigned char>      vAlertPubKey;
+	int                        nDefaultPort;
+	int                        nRPCPort;
+	CBigNum                    bnProofOfWorkLimit;
+	int                        nMaxReorganizationDepth;
+	int                        nSubsidyHalvingInterval;
+	string                     strDataDir;
+	vector<CDNSSeedData>       vSeeds;
+	std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
+	int                        nLastPOWBlock;
+
+	string sPegInflateAddr;
+	string sPegDeflateAddr;
+	string sPegNochangeAddr;
+
+	int nPegFrozenTime;
+	int nPegVFrozenTime;
+
+	int     nPegInterval;
+	uint256 hashPegActivationTx;
 };
 
 /**
  * Return the currently selected parameters. This won't change after app startup
  * outside of the unit tests.
  */
-const CChainParams &Params();
+const CChainParams& Params();
 
 /**
-  * Init for main, test and regtest params
-  */
+ * Init for main, test and regtest params
+ */
 void InitParamsOnStart();
 
 /** Sets the params returned by Params() to those for the given network. */
@@ -132,8 +133,8 @@ void SelectParams(CChainParams::Network network);
 bool SelectParamsFromCommandLine();
 
 inline bool TestNet() {
-    // Note: it's deliberate that this returns "false" for regression test mode.
-    return Params().NetworkID() == CChainParams::TESTNET;
+	// Note: it's deliberate that this returns "false" for regression test mode.
+	return Params().NetworkID() == CChainParams::TESTNET;
 }
 
 #endif

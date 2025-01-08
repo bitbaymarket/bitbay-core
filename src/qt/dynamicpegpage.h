@@ -5,52 +5,51 @@
 #ifndef DynamicPegPage_H
 #define DynamicPegPage_H
 
-#include <QDialog>
 #include <QDateTime>
+#include <QDialog>
 
 namespace Ui {
-    class DynamicPegPage;
+class DynamicPegPage;
 }
 class WalletModel;
 class QwtPlot;
 class QwtPlotCurve;
 
-class DynamicPegPage : public QDialog
-{
-    Q_OBJECT
+class DynamicPegPage : public QDialog {
+	Q_OBJECT
 public:
-    explicit DynamicPegPage(QWidget *parent = nullptr);
-    ~DynamicPegPage();
-    
-    void setWalletModel(WalletModel*);
+	explicit DynamicPegPage(QWidget* parent = nullptr);
+	~DynamicPegPage();
 
-    QwtPlot * fplot;
-    QwtPlotCurve * curvePrice;
-    QwtPlotCurve * curveFloor;
-    QwtPlotCurve * curveFloorMin;
-    QwtPlotCurve * curveFloorMax;
-    QwtPlotCurve * curvePeg;
-    
-    void setStatusMessage(QString);
-    void setAlgorithmInfo(QString, QString, QString);
-    void setAlgorithmVote(QString, double);
-    
+	void setWalletModel(WalletModel*);
+
+	QwtPlot*      fplot;
+	QwtPlotCurve* curvePrice;
+	QwtPlotCurve* curveFloor;
+	QwtPlotCurve* curveFloorMin;
+	QwtPlotCurve* curveFloorMax;
+	QwtPlotCurve* curvePeg;
+
+	void setStatusMessage(QString);
+	void setAlgorithmInfo(QString, QString, QString);
+	void setAlgorithmVote(QString, double);
+
 public slots:
-    void updateTimer();
-    
+	void updateTimer();
+
 private slots:
-    void updatePegVoteType();
-    void updateDisplayUnit();
-    void setAmounts();
-    
+	void updatePegVoteType();
+	void updateDisplayUnit();
+	void setAmounts();
+
 private:
-    Ui::DynamicPegPage *ui;
-    QTimer* pollTimer;
-    
-    WalletModel* walletModel;
-    
-    int lastPegVoteType = 0;
-    QDateTime lastPegVoteTypeChanged;
+	Ui::DynamicPegPage* ui;
+	QTimer*             pollTimer;
+
+	WalletModel* walletModel;
+
+	int       lastPegVoteType = 0;
+	QDateTime lastPegVoteTypeChanged;
 };
 
-#endif // DynamicPegPage_H
+#endif  // DynamicPegPage_H

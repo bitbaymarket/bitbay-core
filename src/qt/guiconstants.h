@@ -31,4 +31,4 @@ static const int MAX_URI_LENGTH = 255;
 /* QRCodeDialog -- size of exported QR Code image */
 #define EXPORT_IMAGE_SIZE 256
 
-#endif // GUICONSTANTS_H
+#endif  // GUICONSTANTS_H

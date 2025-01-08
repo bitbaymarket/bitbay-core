@@ -5,13 +5,13 @@
 #ifndef BITBAY_PEG_H
 #define BITBAY_PEG_H
 
-#include <list>
 #include <functional>
+#include <list>
 
 #include "bignum.h"
-#include "tinyformat.h"
 #include "pegdata.h"
 #include "pegstd.h"
+#include "tinyformat.h"
 
 class CTxDB;
 class CPegDB;
@@ -23,42 +23,38 @@ class CTransaction;
 class CPegLevel;
 class CFractions;
 typedef std::map<uint256, std::pair<CTxIndex, CTransaction> > MapPrevTx;
-typedef std::map<uint320, CTxOut> MapPrevOut;
+typedef std::map<uint320, CTxOut>                             MapPrevOut;
 
-extern int nPegStartHeight;
-extern int nPegMaxSupplyIndex;
+extern int  nPegStartHeight;
+extern int  nPegMaxSupplyIndex;
 extern bool fPegIsActivatedViaTx;
 
 // functors for messagings
-typedef std::function<void(const std::string &)> LoadMsg;
+typedef std::function<void(const std::string&)> LoadMsg;
 
-bool SetBlocksIndexesReadyForPeg(CTxDB & ctxdb,
-                                 LoadMsg load_msg);
+bool SetBlocksIndexesReadyForPeg(CTxDB& ctxdb, LoadMsg load_msg);
 bool CalculateBlockPegIndex(CBlockIndex* pindex);
-bool CalculateBlockPegVotes(const CBlock & cblock,
-                            CBlockIndex* pindex,
-                            CPegDB& pegdb);
-int CalculatePegVotes(const CFractions & fractions, 
-                      int nPegSupplyIndex);
+bool CalculateBlockPegVotes(const CBlock& cblock, CBlockIndex* pindex, CPegDB& pegdb);
+int  CalculatePegVotes(const CFractions& fractions, int nPegSupplyIndex);
 
-bool CalculateStandardFractions(const CTransaction & tx,
-                                int nSupply,
-                                unsigned int nTime,
-                                MapPrevTx & inputs,
-                                MapFractions& finputs,
-                                MapFractions& mapTestFractionsPool,
-                                CFractions& feesFractions,
-                                std::string& sPegFailCause);
+bool CalculateStandardFractions(const CTransaction& tx,
+                                int                 nSupply,
+                                unsigned int        nTime,
+                                MapPrevTx&          inputs,
+                                MapFractions&       finputs,
+                                MapFractions&       mapTestFractionsPool,
+                                CFractions&         feesFractions,
+                                std::string&        sPegFailCause);
 
-bool CalculateStakingFractions(const CTransaction & tx,
-                               const CBlockIndex* pindexBlock,
-                               MapPrevTx & inputs,
-                               MapFractions& finputs,
+bool CalculateStakingFractions(const CTransaction&          tx,
+                               const CBlockIndex*           pindexBlock,
+                               MapPrevTx&                   inputs,
+                               MapFractions&                finputs,
                                std::map<uint256, CTxIndex>& mapTestPool,
-                               MapFractions& mapTestFractionsPool,
-                               const CFractions& feesFractions,
-                               int64_t nCalculatedStakeRewardWithoutFees,
-                               std::string& sPegFailCause);
+                               MapFractions&                mapTestFractionsPool,
+                               const CFractions&            feesFractions,
+                               int64_t                      nCalculatedStakeRewardWithoutFees,
+                               std::string&                 sPegFailCause);
 void PrunePegForBlock(const CBlock&, CPegDB&);
 
 #endif

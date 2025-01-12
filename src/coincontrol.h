@@ -17,7 +17,7 @@ public:
 
 	bool HasSelected() const { return (setSelected.size() > 0); }
 
-	bool IsSelected(const uint256& hash, unsigned int n) const {
+	bool IsSelected(const uint256& hash, uint32_t n) const {
 		COutPoint outpt(hash, n);
 		return (setSelected.count(outpt) > 0);
 	}

@@ -57,21 +57,17 @@ Value getstakesubsidy(const Array& params, bool fHelp) {
 
 	vector<unsigned char> txData(ParseHex(params[0].get_str()));
 	CDataStream           ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
-	CTransaction          tx;
+	CTransaction          tx_coin_stake;
 	try {
-		ssData >> tx;
+		ssData >> tx_coin_stake;
 	} catch (std::exception& e) {
 		throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
 	}
 
-	uint64_t nCoinAge;
-	CTxDB    txdb("r");
-	if (!tx.GetCoinAge(txdb, pindexBest, nCoinAge))
-		throw JSONRPCError(RPC_MISC_ERROR, "GetCoinAge failed");
-
+	CTxDB            txdb("r");
 	CTxIndex         txindex;
 	CTransaction     txPrev;
-	const COutPoint& prevout = tx.vin.front().prevout;
+	const COutPoint& prevout = tx_coin_stake.vin.front().prevout;
 	if (!txdb.ReadTxIndex(prevout.hash, txindex))
 		throw JSONRPCError(RPC_MISC_ERROR, "ReadTxIndex prev tx failed");
 	if (!txPrev.ReadFromDisk(txindex.pos))
@@ -84,7 +80,11 @@ Value getstakesubsidy(const Array& params, bool fHelp) {
 		throw JSONRPCError(RPC_MISC_ERROR, "pegdb.ReadFractions/Unpack prev tx fractions failed");
 	}
 
-	return (uint64_t)GetProofOfStakeReward(pindexBest, nCoinAge, 0, fractions);
+	int64_t nReward = 0;
+	if (!GetProofOfStakeReward(txdb, tx_coin_stake, pindexBest, 0, fractions, nReward))
+		throw JSONRPCError(RPC_MISC_ERROR, "GetProofOfStakeReward failed");
+
+	return (uint64_t)nReward;
 }
 
 Value getmininginfo(const Array& params, bool fHelp) {
@@ -183,7 +183,7 @@ Value checkkernel(const Array& params, bool fHelp) {
 
 	COutPoint    kernel;
 	CBlockIndex* pindexPrev = pindexBest;
-	unsigned int nBits      = GetNextTargetRequired(pindexPrev, true);
+	uint32_t     nBits      = GetNextTargetRequired(pindexPrev, true);
 	int64_t      nTime      = GetAdjustedTime();
 	nTime &= ~STAKE_TIMESTAMP_MASK;
 
@@ -267,7 +267,7 @@ Value getworkex(const Array& params, bool fHelp) {
 
 	if (params.size() == 0) {
 		// Update block
-		static unsigned int       nTransactionsUpdatedLast;
+		static uint32_t           nTransactionsUpdatedLast;
 		static CBlockIndex*       pindexPrev;
 		static int64_t            nStart;
 		static unique_ptr<CBlock> pblock;
@@ -295,7 +295,7 @@ Value getworkex(const Array& params, bool fHelp) {
 		pblock->nNonce = 0;
 
 		// Update nExtraNonce
-		static unsigned int nExtraNonce = 0;
+		static uint32_t nExtraNonce = 0;
 		IncrementExtraNonce(pblock.get(), pindexPrev, nExtraNonce);
 
 		// Save
@@ -345,7 +345,7 @@ Value getworkex(const Array& params, bool fHelp) {
 
 		// Byte reverse
 		for (int i = 0; i < 128 / 4; i++)
-			((unsigned int*)pdata)[i] = ByteReverse(((unsigned int*)pdata)[i]);
+			((uint32_t*)pdata)[i] = ByteReverse(((uint32_t*)pdata)[i]);
 
 		// Get saved block
 		if (!mapNewBlock.count(pdata->hashMerkleRoot))
@@ -396,7 +396,7 @@ Value getwork(const Array& params, bool fHelp) {
 
 	if (params.size() == 0) {
 		// Update block
-		static unsigned int       nTransactionsUpdatedLast;
+		static uint32_t           nTransactionsUpdatedLast;
 		static CBlockIndex*       pindexPrev;
 		static int64_t            nStart;
 		static unique_ptr<CBlock> pblock;
@@ -433,7 +433,7 @@ Value getwork(const Array& params, bool fHelp) {
 		pblock->nNonce = 0;
 
 		// Update nExtraNonce
-		static unsigned int nExtraNonce = 0;
+		static uint32_t nExtraNonce = 0;
 		IncrementExtraNonce(pblock.get(), pindexPrev, nExtraNonce);
 
 		// Save
@@ -463,7 +463,7 @@ Value getwork(const Array& params, bool fHelp) {
 
 		// Byte reverse
 		for (int i = 0; i < 128 / 4; i++)
-			((unsigned int*)pdata)[i] = ByteReverse(((unsigned int*)pdata)[i]);
+			((uint32_t*)pdata)[i] = ByteReverse(((uint32_t*)pdata)[i]);
 
 		// Get saved block
 		if (!mapNewBlock.count(pdata->hashMerkleRoot))
@@ -528,7 +528,7 @@ Value getblocktemplate(const Array& params, bool fHelp) {
 		throw JSONRPCError(RPC_MISC_ERROR, "No more PoW blocks");
 
 	// Update block
-	static unsigned int       nTransactionsUpdatedLast;
+	static uint32_t           nTransactionsUpdatedLast;
 	static CBlockIndex*       pindexPrev;
 	static int64_t            nStart;
 	static unique_ptr<CBlock> pblock;
@@ -558,11 +558,15 @@ Value getblocktemplate(const Array& params, bool fHelp) {
 	pblock->UpdateTime(pindexPrev);
 	pblock->nNonce = 0;
 
-	Array                 transactions;
-	map<uint256, int64_t> setTxIndex;
-	int                   i = 0;
-	CTxDB                 txdb("r");
-	CPegDB                pegdb("r");
+	Array                    transactions;
+	map<uint256, int64_t>    setTxIndex;
+	int                      i = 0;
+	CTxDB                    txdb("r");
+	CPegDB                   pegdb("r");
+	map<string, CBridgeInfo> bridges;
+	pindexBest->ReadBridges(pegdb, bridges);
+	auto fnMerkleIn = [&](string hash) { return pindexBest->ReadMerkleIn(pegdb, hash); };
+
 	for (CTransaction& tx : pblock->vtx) {
 		uint256 txHash     = tx.GetHash();
 		setTxIndex[txHash] = i++;
@@ -583,8 +587,10 @@ Value getblocktemplate(const Array& params, bool fHelp) {
 		map<uint256, CTxIndex> mapUnused;
 		MapFractions           mapFractionsUnused;
 		bool                   fInvalid = false;
-		if (tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs,
-		                   mapInputsFractions, fInvalid)) {
+		if (tx.FetchInputs(txdb, pegdb, pindexBest->nHeight, false, bridges, fnMerkleIn, mapUnused,
+						   mapFractionsUnused, false /*is block*/, false /*is miner*/,
+		                   pblock->nTime, false /*skip pruned*/, mapInputs, mapInputsFractions,
+		                   fInvalid)) {
 			entry.push_back(Pair("fee", (int64_t)(tx.GetValueIn(mapInputs) - tx.GetValueOut())));
 
 			Array deps;

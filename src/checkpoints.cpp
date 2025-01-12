@@ -10,7 +10,7 @@
 #include "txdb.h"
 #include "uint256.h"
 
-static const int nCheckpointSpan = 5000;
+static const int nCheckpointSpan = 1500;
 
 namespace Checkpoints {
 typedef std::map<int, uint256> MapCheckpoints;
@@ -169,17 +169,108 @@ static MapCheckpoints mapCheckpoints = boost::assign::map_list_of(
         3000000,
         uint256("0x492dfc7ea510372648b408bb15e7b062836a632f649f0cbade636dc5788cbbf1"))(
         3050000,
-        uint256("0xf227dfc3c12a18720f7b6a5a01e6928695fd58db504a14aa0fb5f5dc0dbefef4"));
+        uint256("0xf227dfc3c12a18720f7b6a5a01e6928695fd58db504a14aa0fb5f5dc0dbefef4"))(
+        3100000,
+        uint256("0x3bb847ddc73c3faea627c9007e80be79fab66e6a127e315531b012afb3b10d28"))(
+        3150000,
+        uint256("0x5c37869bcd56dbe4b97441af8ac740d39d3c3f852e678f5946ae02bb3ce40e3c"))(
+        3200000,
+        uint256("0xb239e2cfc14ea47cfb009a514b98483f070b2525dab9b92b58aa142575e6c7e0"))(
+        3250000,
+        uint256("0x19e7e5796e5a5d1979328424d0ec51833799738d9c0426a73b36d4c10fd3f41d"))(
+        3300000,
+        uint256("0x16d7714d7c3975d1e1cb0cdc9a2804e0a7655d97968b31f41de68dc14f2e327d"))(
+        3350000,
+        uint256("0xb8ddaf3d4ecb2f3667560cb1e2158fb85892aaa7c96d741f97aaa75449657659"))(
+        3400000,
+        uint256("0xbbd877efe5f6c8518d4a7f6cedc7852b9cc01344e59e11b8acdd0b651fd13ff2"))(
+        3450000,
+        uint256("0x40fe6f222945ba4cb495444d5629374a406a2df540a2c8097fda607a9f633a14"))(
+        3500000,
+        uint256("0x2da38f3dc13e96b23b0b892185d002f5b21e799a032f3d20729c14f839e4eff2"))(
+        3550000,
+        uint256("0x7a0df19b4cc641c3bb06607341bddb1d17548a0f7a7e73883524a2e57dd3ad89"))(
+        3600000,
+        uint256("0xee3eb9a9969e10da71175d1497bfe11f2eb0b0135aca92552790f472940b1d97"))(
+        3650000,
+        uint256("0x6c517a01b270374d17fed0acd8e5e1f2601b222e849f93676962def144274141"))(
+        3700000,
+        uint256("0x86032d4f5f2f2798d58f46c2bc79dbabc95a315c69faa80f9b6689c2a86ffab9"))(
+        3750000,
+        uint256("0x1f09402e6bce59d30aa442f1b66d463e55fc9ae8194fc48149d9e32f5a4b0cb4"))(
+        3800000,
+        uint256("0x4673390a443f6110858ce6cf73b3f1136bca8673743209ebcdbd4279cfe94d6c"))(
+        3850000,
+        uint256("0x6ba66fdca0b16a7ad8c903231fca1ba20fecf90f33800fd88d710fcc28ce0177"))(
+        3900000,
+        uint256("0x1cfad64998608d9f978dd971c6efe488878e8af045ce9fa54c9d9b32badc5525"))(
+        3950000,
+        uint256("0x3cdfa9370d355ddac6e99f717f02841b94ce2f4cc5948d6481e7db9fb63d7c0e"))(
+        4000000,
+        uint256("0x8a39a74dab58ec480b14bf192f168713f62dbd377411673ca7e52685cd8836b9"))(
+        4050000,
+        uint256("0x10a99d54bcd95335d05f7cf694a4f5bf866c22646442ff7250d02e407eb3bbe1"))(
+        4100000,
+        uint256("0xb002e7a046c79074c80bf087d6a9cc76e999d66eb65a4addb8e3a94286d766bf"))(
+        4150000,
+        uint256("0x9e4881f073d4e756eed13078c54aea0158c36e51c738e835809e0728297bb28b"))(
+        4200000,
+        uint256("0xebfd5759bad5a16bc4c2bb8d1a5ed6a68361bb5a7545d0d7e1dd3379b98b9ee0"))(
+        4250000,
+        uint256("0xaf97393163e27beddd85c28649fa147e12ff42ce190eb83648f34f5a8c8c8d5d"))(
+        4300000,
+        uint256("0xce42044965719fd8bf710a6d39e8d8a1d2a717098688af1d397d712fb543bb42"))(
+        4350000,
+        uint256("0x19ca496ab126268f98b3f9afe2e3ac9e6c49a398c842ad0eac5a767216d6840c"))(
+        4400000,
+        uint256("0x91046a374edb24f9cc3d2f233589e27e7c24dfa86703c6be949cfef838e44af5"))(
+        4450000,
+        uint256("0x3677cd760eebb4c57e256772099cc6c55ca461a8eefc6bf494e9beb3d717dcc9"))(
+        4500000,
+        uint256("0x18bae9fd91d8e833afcf53a171fa44df2e01a50b0d92e4609c0eacd645f35d12"))(
+        4550000,
+        uint256("0xe33b44c668ba85cadf925d3ba70a267de62a31cc0cdb804e7b8fda34dc9209fd"))(
+        4600000,
+        uint256("0x748ef872052ae5d7a6bc3590ac9bf869187554bda99ecf4cb39db6d4789241ad"))(
+        4650000,
+        uint256("0xeeae0501ce501ac7371873cdbe53d7703f018311657099a2ff97f8f215e7f95a"))(
+        4700000,
+        uint256("0x3e3524762f6a2ca501d0906a9f6100ae2305e94a756aa5ade503088f6f8fc4d4"))(
+        4750000,
+        uint256("0x1bee031bb398f1411db0d11a49dd91e65f95b38d865485048623db13bf01f9f4")
 
-// TestNet has no checkpoints
-static MapCheckpoints mapCheckpointsTestnet;
+    );
+
+static MapCheckpoints mapFailspoints = boost::assign::map_list_of(
+    20001,
+    uint256("0xd1dd921b61df2b6c27e5d3cffd39ab725e58a1fbea197d0ba3d25599522f8a8e"));
+
+// TestNet checkpoints
+static MapCheckpoints mapCheckpointsTestnet = boost::assign::map_list_of(
+    20000,
+    uint256("0x0edb7e77aba40a85862f999f8379fae959c363ecefeac5e9ac00eb3250532409"));
+
+static MapCheckpoints mapFailspointsTestnet = boost::assign::map_list_of(
+    20001,
+    uint256("0xd1dd921b61df2b6c27e5d3cffd39ab725e58a1fbea197d0ba3d25599522f8a8e"));
 
 bool CheckHardened(int nHeight, const uint256& hash) {
 	MapCheckpoints& checkpoints = (TestNet() ? mapCheckpointsTestnet : mapCheckpoints);
+	MapCheckpoints& failspoints = (TestNet() ? mapFailspointsTestnet : mapFailspoints);
 
+	// failpoint check
+	{
+		MapCheckpoints::const_iterator i = failspoints.find(nHeight);
+		if (i != checkpoints.end()) {
+			if (hash == i->second)
+				return false;
+		}
+	}
+	// checkpoint check
 	MapCheckpoints::const_iterator i = checkpoints.find(nHeight);
 	if (i == checkpoints.end())
 		return true;
+
 	return hash == i->second;
 }
 
@@ -210,8 +301,8 @@ CBlockIndex* GetLastCheckpoint(const std::map<uint256, CBlockIndex*>& mapBlockIn
 const CBlockIndex* AutoSelectSyncCheckpoint() {
 	const CBlockIndex* pindex = pindexBest;
 	// Search backward for a block within max span and maturity window
-	while (pindex->pprev && pindex->nHeight + nCheckpointSpan > pindexBest->nHeight)
-		pindex = pindex->pprev;
+	while (pindex->Prev() && pindex->nHeight + nCheckpointSpan > pindexBest->nHeight)
+		pindex = pindex->Prev();
 	return pindex;
 }
 
@@ -225,12 +316,24 @@ bool CheckSync(int nHeight) {
 }
 
 std::vector<int> GetCheckpointsHeights() {
-	std::vector<int>         vHeights;
-	MapCheckpoints&          checkpoints = (TestNet() ? mapCheckpointsTestnet : mapCheckpoints);
-	MapCheckpoints::iterator it          = checkpoints.begin();
+	std::set<int>    sHeight;
+	std::vector<int> vHeights;
+	MapCheckpoints&  checkpoints = (TestNet() ? mapCheckpointsTestnet : mapCheckpoints);
+	MapCheckpoints&  failspoints = (TestNet() ? mapFailspointsTestnet : mapFailspoints);
+	{
+		MapCheckpoints::iterator it = failspoints.begin();
+		while (it != failspoints.end()) {
+			sHeight.insert(it->first);
+			it++;
+		}
+	}
+	MapCheckpoints::iterator it = checkpoints.begin();
 	while (it != checkpoints.end()) {
-		vHeights.push_back(it->first);
+		sHeight.insert(it->first);
 		it++;
+	}
+	for (auto& it : sHeight) {
+		vHeights.push_back(it);
 	}
 	return vHeights;
 }

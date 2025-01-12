@@ -102,7 +102,7 @@ CAddrInfo* CAddrMan::Create(const CAddress& addr, const CNetAddr& addrSource, in
 	return &mapInfo[nId];
 }
 
-void CAddrMan::SwapRandom(unsigned int nRndPos1, unsigned int nRndPos2) {
+void CAddrMan::SwapRandom(uint32_t nRndPos1, uint32_t nRndPos2) {
 	if (nRndPos1 == nRndPos2)
 		return;
 
@@ -223,7 +223,7 @@ void CAddrMan::Good_(const CService& addr, int64_t nTime) {
 	// find a bucket it is in now
 	int nRnd     = GetRandInt(ADDRMAN_NEW_BUCKET_COUNT);
 	int nUBucket = -1;
-	for (unsigned int n = 0; n < ADDRMAN_NEW_BUCKET_COUNT; n++) {
+	for (uint32_t n = 0; n < ADDRMAN_NEW_BUCKET_COUNT; n++) {
 		int nB    = (n + nRnd) % ADDRMAN_NEW_BUCKET_COUNT;
 		int nBpos = info.GetBucketPosition(nKey, true, nB);
 		if (vvNew[nB][nBpos] == nId) {
@@ -451,12 +451,12 @@ int CAddrMan::Check_() {
 #endif
 
 void CAddrMan::GetAddr_(std::vector<CAddress>& vAddr) {
-	unsigned int nNodes = ADDRMAN_GETADDR_MAX_PCT * vRandom.size() / 100;
+	uint32_t nNodes = ADDRMAN_GETADDR_MAX_PCT * vRandom.size() / 100;
 	if (nNodes > ADDRMAN_GETADDR_MAX)
 		nNodes = ADDRMAN_GETADDR_MAX;
 
 	// gather a list of random nodes, skipping those of low quality
-	for (unsigned int n = 0; n < vRandom.size(); n++) {
+	for (uint32_t n = 0; n < vRandom.size(); n++) {
 		if (vAddr.size() >= nNodes)
 			break;
 

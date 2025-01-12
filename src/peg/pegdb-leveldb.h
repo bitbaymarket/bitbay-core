@@ -77,7 +77,7 @@ protected:
 		// Unserialize value
 		try {
 			CDataStream ssValue(strValue.data(), strValue.data() + strValue.size(), SER_DISK,
-			                    CLIENT_VERSION);
+								CLIENT_VERSION);
 			ssValue >> value;
 		} catch (std::exception& e) {
 			return false;
@@ -208,6 +208,93 @@ public:
 
 	// load routine
 	bool LoadPegData(CTxDB& txdb, LoadMsg load_msg);
+
+	// inits
+	bool TrustedStakers1Init();
+	bool TrustedStakers2Init();
+	bool ProposalConsensusInit();
+	bool BridgesInit();
+	bool MerklesInit();
+	bool TimeLockPassesInit();
+
+	// not use "cycle" but blockhash
+	bool ReadCycleStateHash(uint256                           bhash_cycle,
+							CChainParams::AcceptedStatesTypes typ,
+							uint256&                          hash);
+	bool WriteCycleStateHash(uint256                           bhash_cycle,
+							 CChainParams::AcceptedStatesTypes typ,
+							 const uint256&                    hash);
+
+	bool ReadCycleStateData1(const uint256& hash, std::set<string>& results);
+	bool WriteCycleStateData1(const std::set<string>& datas, uint256& written_hash);
+
+	bool ReadCycleStateData2(uint256& hash, std::map<int, CChainParams::ConsensusVotes>& datas);
+	bool WriteCycleStateData2(const std::map<int, CChainParams::ConsensusVotes>& datas,
+							  uint256&                                           written_hash);
+
+	bool ReadCycleStateData3(uint256& hash, std::map<std::string, std::vector<string>>& datas);
+	bool WriteCycleStateData3(const std::map<std::string, std::vector<string>>& datas,
+							  uint256&                                          written_hash);
+
+	bool AppendCycleStateMapItem1(const uint256&     block_hash,
+								  const std::string& map_id,
+								  uint256            map_end,
+								  const std::string& map_item_key,
+								  const std::string& map_item_data,
+								  uint256&           written_hash);
+	bool ReadMapItemBlockHash1(const std::string& map_id,
+							   const std::string& map_item_key,
+							   uint256&           block_hash);
+	bool ReadMapItemData1(const std::string& map_id,
+						  const std::string& map_item_key,
+						  std::string&       data);
+	bool ReadMapItem1(const uint256&     map_item_shash,
+					  const std::string& map_id,
+					  int&               map_item_index,
+					  std::string&       map_item_key,
+					  uint256&           map_prev_shash,
+					  std::string&       map_item_data);
+
+	bool ReadCycleProposals(const uint256& bhash_cycle, std::set<string>& datas);
+	bool WriteCycleProposals(const uint256& bhash_cycle, const std::set<string>& datas);
+
+	bool ReadProposal(const std::string& proposal_hash, std::vector<std::string>& datas);
+	bool WriteProposal(const std::string& proposal_phash, const std::vector<std::string>& datas);
+
+	bool ReadProposalBlockVotes(const uint256&         bhash,
+								const std::string&     phash,
+								std::set<std::string>& datas);
+	bool WriteProposalBlockVotes(const uint256&               bhash,
+								 const std::string&           phash,
+								 const std::set<std::string>& datas);
+
+	bool ReadProposalBlockVoteStaker(const std::string& txoutid, std::string& staker_addr);
+	bool WriteProposalBlockVoteStaker(const std::string& txoutid, const std::string& staker_addr);
+
+	bool ReadBlockBurnsToBridge(const uint256&         bhash,
+								const std::string&     br_hash,
+								std::set<std::string>& datas);
+	bool WriteBlockBurnsToBridge(const uint256&               bhash,
+								 const std::string&           br_hash,
+								 const std::set<std::string>& datas);
+
+	bool ReadBridgeCycleBridgeHashes(const uint256& bcycle_hash, std::set<std::string>& br_hashes);
+	bool WriteBridgeCycleBridgeHashes(const uint256&               bcycle_hash,
+									  const std::set<std::string>& br_hashes);
+
+	bool ReadBridgeCycleBurnsToBridge(const uint256&         bcycle_hash,
+									  const std::string&     br_hash,
+									  std::set<std::string>& datas);
+	bool WriteBridgeCycleBurnsToBridge(const uint256&               bcycle_hash,
+									   const std::string&           br_hash,
+									   const std::set<std::string>& datas);
+
+	bool ReadBridgeCycleMerkle(const uint256&     bcycle_hash,
+							   const std::string& br_hash,
+							   std::string&       merkle_data);
+	bool WriteBridgeCycleMerkle(const uint256&     bcycle_hash,
+								const std::string& br_hash,
+								const std::string& merkle_data);
 };
 
 #endif  // BITCOIN_PEG_LEVELDB_H

@@ -4,7 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 //
 // The use in another cyptocurrency project the code is licensed under
-// Coinleft Public License for BitBay. See https://bitbay.market/Coinleft-Public-License-v1.pdf
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #include "pegdata.h"
 #include "utilstrencodings.h"
@@ -16,6 +16,9 @@
 #include <type_traits>
 #include <utility>
 
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/split.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include <zconf.h>
@@ -66,7 +69,7 @@ CPegData::CPegData(std::string pegdata64) {
 		if (!ok) {
 			// try prev versions
 			CDataStream finp(pegdata.data(), pegdata.data() + pegdata.size(), SER_DISK,
-			                 CLIENT_VERSION);
+							 CLIENT_VERSION);
 			ok = Unpack1(finp);
 
 			if (!ok) {
@@ -143,4 +146,33 @@ std::string CPegData::ToString() const {
 	CDataStream fout(SER_NETWORK, CLIENT_VERSION);
 	Pack(fout);
 	return EncodeBase64(fout.str());
+}
+
+std::string CMerkleInfo::Serialize() const {
+	string data;
+	data += EncodeBase64(hash);
+	data += ":";
+	data += EncodeBase64(bridge);
+	data += ":";
+	data += EncodeBase64(brhash);
+	data += ":";
+	data += std::to_string(amount);
+	data += ":";
+	data += std::to_string(ntime);
+	return EncodeBase64(data);
+}
+
+CMerkleInfo::CMerkleInfo() : amount(0), ntime(0) {}
+
+CMerkleInfo::CMerkleInfo(std::string data) : amount(0), ntime(0) {
+	string         unpack1 = DecodeBase64(data);
+	vector<string> args;
+	boost::split(args, unpack1, boost::is_any_of(":"));
+	if (args.size() == 5) {
+		hash   = DecodeBase64(args[0]);
+		bridge = DecodeBase64(args[1]);
+		brhash = DecodeBase64(args[2]);
+		amount = strtoll(args[3].c_str(), 0, 0);
+		ntime  = strtoll(args[4].c_str(), 0, 0);
+	}
 }

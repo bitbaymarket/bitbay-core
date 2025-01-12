@@ -183,10 +183,10 @@ void SendCoinsDialog::on_sendButton_clicked() {
 	// Format confirmation message
 	QStringList formatted;
 	foreach (const SendCoinsRecipient& rcp, recipients) {
-		formatted.append(tr("<b>%1</b> to %2 (%3)")
+		formatted.append(tr("<b>%1</b> to %2 (%3 %4)")
 		                     .arg(BitcoinUnits::formatWithUnit(
 		                              model->getOptionsModel()->getDisplayUnit(), rcp.amount),
-		                          Qt::escape(rcp.label), rcp.address));
+		                          Qt::escape(rcp.label), rcp.network, rcp.address));
 	}
 
 	fNewRecipientAllowed = false;
@@ -322,6 +322,7 @@ void SendCoinsDialog::txPreviewButtonClicked() {
 	}
 
 	CWalletTx wtx;
+	wtx.nTime  = GetAdjustedTime();
 	sendstatus = model->sendCoinsTest(wtx, recipients, nTxType, coinControl, sFailCause);
 
 	if (!sFailCause.empty()) {
@@ -389,11 +390,12 @@ void SendCoinsDialog::txPreviewButtonClicked() {
 			vbox->addWidget(buttonBox);
 			dlg.setLayout(vbox);
 
-			int nPegInterval = Params().PegInterval(nBestHeight);
+			int nPegInterval = Params().PegInterval();
 			int nCycle       = nBestHeight / nPegInterval;
 
 			txdetails->openTx(wtx, nullptr, 0, nCycle, model->getPegSupplyIndex(),
-			                  model->getPegSupplyNIndex(), model->getPegSupplyNNIndex(), wtx.nTime);
+			                  model->getPegSupplyNIndex(), model->getPegSupplyNNIndex(),
+			                  GetAdjustedTime());
 			dlg.resize(1400, 800);
 			dlg.exec();
 			break;

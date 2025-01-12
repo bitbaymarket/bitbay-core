@@ -10,6 +10,12 @@
 #include "rpcserver.h"
 #include "ui_interface.h"
 
+#include <ethc/abi.h>
+#include <ethc/account.h>
+#include <ethc/address.h>
+#include <ethc/hex.h>
+#include <ethc/keccak256.h>
+
 #include <boost/algorithm/string.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/variant/get.hpp>
@@ -70,7 +76,7 @@ std::string static EncodeDumpString(const std::string& str) {
 
 std::string DecodeDumpString(const std::string& str) {
 	std::stringstream ret;
-	for (unsigned int pos = 0; pos < str.length(); pos++) {
+	for (uint32_t pos = 0; pos < str.length(); pos++) {
 		unsigned char c = str[pos];
 		if (c == '%' && pos + 2 < str.length()) {
 			c = (((str[pos + 1] >> 6) * 9 + ((str[pos + 1] - '0') & 15)) << 4) |
@@ -102,10 +108,11 @@ Value importprivkey(const Array& params, bool fHelp) {
 	if (fHelp || params.size() < 1 || params.size() > 3)
 		throw runtime_error(
 		    "importprivkey <bitbayprivkey> [label] [rescan=true]\n"
-		    "Adds a private key (as returned by dumpprivkey) to your wallet.");
+			"importprivkey <evmprivkey> [label] [rescan=true]\n"
+			"Adds a private key (as returned by dumpprivkey) to your wallet.");
 
-	string strSecret = params[0].get_str();
-	string strLabel  = "";
+	string strPrivkey = params[0].get_str();
+	string strLabel   = "";
 	if (params.size() > 1)
 		strLabel = params[1].get_str();
 
@@ -113,6 +120,127 @@ Value importprivkey(const Array& params, bool fHelp) {
 	bool fRescan = true;
 	if (params.size() > 2)
 		fRescan = params[2].get_bool();
+
+	if (boost::starts_with(strPrivkey, "0x")) {  // evm privkey
+		char* privkeyhex_cstr = new char[strPrivkey.length() + 1];
+		strcpy(privkeyhex_cstr, strPrivkey.c_str());
+		uint8_t* privkey_bin_data;
+		int      len_privkey_bin =
+			eth_hex_to_bytes(&privkey_bin_data, privkeyhex_cstr, strPrivkey.length());
+		if (len_privkey_bin != 32) {
+			delete[] privkeyhex_cstr;
+			if (len_privkey_bin > 0)
+				free(privkey_bin_data);
+			throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot decode evm private key");
+		}
+		// have key in privkey_bin_data
+		CKey key;
+
+		key.Set(privkey_bin_data, privkey_bin_data + 32, true);
+
+		/*
+
+		ef
+
+		4f4e0f
+		8ebde9dd
+		6269850b
+		87345470
+
+		416d6b69
+		50be3823
+		1fb94034
+		114cab17
+
+		a8
+
+		01 // compressed
+
+		23ba7211
+
+		// evm
+
+		4f4e0f8e
+		bde9dd62
+		69850b87
+		34547041
+
+		6d6b6950
+		be38231f
+		b9403411
+		4cab17a8
+
+
+16:33:43
+￼
+dumpprivkey myujymoDC8MmQNhXWXjx9aTLQXarN3WowK
+
+
+16:33:43
+￼
+{
+"address" : "myujymoDC8MmQNhXWXjx9aTLQXarN3WowK",
+"pubkey" : "02395fd822179f5125c62ffbaa18b5a38880ad705f5d378e0e2c10d8e564f4bf1d",
+"secret_b58" : "cQErqTyysamrtLLVZdThRQPyXmvAdQRTQgu11784wDPLHz3xj1CL",
+"evm" : {
+"address" : "4825181eee798f12d5ef15957b8074c654d73d5a",
+"privatekey" : "4f4e0f8ebde9dd6269850b87345470416d6b6950be38231fb94034114cab17a8"
+}
+}
+
+
+		*/
+
+		CPubKey pubkey     = key.GetPubKey();
+		CKeyID  vchAddress = pubkey.GetID();
+
+		// cleanup
+		delete[] privkeyhex_cstr;
+		free(privkey_bin_data);
+
+		{
+			LOCK2(cs_main, pwalletMain->cs_wallet);
+
+			pwalletMain->MarkDirty();
+			pwalletMain->SetAddressBookName(vchAddress, strLabel);
+
+			// Don't throw error in case a key is already there
+			if (!pwalletMain->HaveKey(vchAddress)) {
+				pwalletMain->mapKeyMetadata[vchAddress].nCreateTime = 1;
+
+				if (!pwalletMain->AddKeyPubKey(key, pubkey))
+					throw JSONRPCError(RPC_WALLET_ERROR, "Error adding key to wallet");
+
+				// whenever a key is imported, we need to scan the whole chain
+				pwalletMain->nTimeFirstKey = 1;  // 0 would be considered 'no value'
+
+				if (fRescan) {
+					pwalletMain->ScanForWalletTransactions(pindexGenesisBlock, true);
+					pwalletMain->ReacceptWalletTransactions();
+				}
+			}
+		}
+
+		Object result;
+		result.push_back(Pair("address", CBitcoinAddress(vchAddress).ToString()));
+		Object result_evm;
+
+		eth_account acc;
+		if (eth_account_from_privkey(&acc, key.begin()) > 0) {
+			int  len_cstr = 0;
+			char addr_cstr[41];
+			len_cstr = eth_account_address_get(addr_cstr, &acc);
+			if (len_cstr > 0) {
+				addr_cstr[len_cstr] = 0;
+				result_evm.push_back(Pair("address", "0x" + string(addr_cstr)));
+			}
+		}
+
+		result.push_back(Pair("evm", result_evm));
+		return result;
+	}
+
+	string strSecret = strPrivkey;
 
 	CBitcoinSecret vchSecret;
 	bool           fGood = vchSecret.SetString(strSecret);
@@ -132,24 +260,25 @@ Value importprivkey(const Array& params, bool fHelp) {
 		pwalletMain->SetAddressBookName(vchAddress, strLabel);
 
 		// Don't throw error in case a key is already there
-		if (pwalletMain->HaveKey(vchAddress))
-			return Value::null;
+		if (!pwalletMain->HaveKey(vchAddress)) {
+			pwalletMain->mapKeyMetadata[vchAddress].nCreateTime = 1;
 
-		pwalletMain->mapKeyMetadata[vchAddress].nCreateTime = 1;
+			if (!pwalletMain->AddKeyPubKey(key, pubkey))
+				throw JSONRPCError(RPC_WALLET_ERROR, "Error adding key to wallet");
 
-		if (!pwalletMain->AddKeyPubKey(key, pubkey))
-			throw JSONRPCError(RPC_WALLET_ERROR, "Error adding key to wallet");
+			// whenever a key is imported, we need to scan the whole chain
+			pwalletMain->nTimeFirstKey = 1;  // 0 would be considered 'no value'
 
-		// whenever a key is imported, we need to scan the whole chain
-		pwalletMain->nTimeFirstKey = 1;  // 0 would be considered 'no value'
-
-		if (fRescan) {
-			pwalletMain->ScanForWalletTransactions(pindexGenesisBlock, true);
-			pwalletMain->ReacceptWalletTransactions();
+			if (fRescan) {
+				pwalletMain->ScanForWalletTransactions(pindexGenesisBlock, true);
+				pwalletMain->ReacceptWalletTransactions();
+			}
 		}
 	}
 
-	return Value::null;
+	Object result;
+	result.push_back(Pair("address", CBitcoinAddress(vchAddress).ToString()));
+	return result;
 }
 
 Value importaddress(const Array& params, bool fHelp) {
@@ -237,7 +366,7 @@ Value importwallet(const Array& params, bool fHelp) {
 		int64_t     nTime = DecodeDumpTime(vstr[1]);
 		std::string strLabel;
 		bool        fLabel = true;
-		for (unsigned int nStr = 2; nStr < vstr.size(); nStr++) {
+		for (uint32_t nStr = 2; nStr < vstr.size(); nStr++) {
 			if (boost::algorithm::starts_with(vstr[nStr], "#"))
 				break;
 			if (vstr[nStr] == "change=1")
@@ -262,8 +391,8 @@ Value importwallet(const Array& params, bool fHelp) {
 	file.close();
 
 	CBlockIndex* pindex = pindexBest;
-	while (pindex && pindex->pprev && pindex->nTime > nTimeBegin - 7200)
-		pindex = pindex->pprev;
+	while (pindex && pindex->Prev() && pindex->nTime > nTimeBegin - 7200)
+		pindex = pindex->Prev();
 
 	if (!pwalletMain->nTimeFirstKey || nTimeBegin < pwalletMain->nTimeFirstKey)
 		pwalletMain->nTimeFirstKey = nTimeBegin;
@@ -300,7 +429,39 @@ Value dumpprivkey(const Array& params, bool fHelp) {
 	if (!pwalletMain->GetKey(keyID, vchSecret))
 		throw JSONRPCError(RPC_WALLET_ERROR,
 		                   "Private key for address " + strAddress + " is not known");
-	return CBitcoinSecret(vchSecret).ToString();
+	CPubKey pubkey = vchSecret.GetPubKey();
+	if (!pubkey.IsValid())
+		throw JSONRPCError(RPC_WALLET_ERROR,
+						   "Public key for address " + strAddress + " is not valid");
+
+	Object result;
+
+	result.push_back(Pair("address", strAddress));
+	result.push_back(Pair("pubkey", HexStr(pubkey.begin(), pubkey.end())));
+	result.push_back(Pair("secret", CBitcoinSecret(vchSecret).ToString()));
+
+	Object result_evm;
+
+	eth_account acc;
+	if (eth_account_from_privkey(&acc, vchSecret.begin()) > 0) {
+		int  len_cstr = 0;
+		char addr_cstr[41];
+		len_cstr = eth_account_address_get(addr_cstr, &acc);
+		if (len_cstr > 0) {
+			addr_cstr[len_cstr] = 0;
+			result_evm.push_back(Pair("address", "0x" + string(addr_cstr)));
+		}
+		char prvk_cstr[65];
+		len_cstr = eth_account_privkey_get(prvk_cstr, &acc);
+		if (len_cstr > 0) {
+			prvk_cstr[len_cstr] = 0;
+			result_evm.push_back(Pair("privatekey", "0x" + string(prvk_cstr)));
+		}
+	}
+
+	result.push_back(Pair("evm", result_evm));
+
+	return result;
 }
 
 Value dumpwallet(const Array& params, bool fHelp) {

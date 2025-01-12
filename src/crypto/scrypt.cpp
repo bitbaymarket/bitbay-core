@@ -28,7 +28,7 @@
  */
 
 #include "crypto/scrypt.h"
-// #include "util.h"
+//#include "util.h"
 #include <openssl/sha.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -309,15 +309,15 @@ void scrypt_detect_sse2() {
 	printf("scrypt: using scrypt-sse2 as built.\n");
 #else  // USE_SSE2_ALWAYS
 	// 32bit x86 Linux or Windows, detect cpuid features
-	unsigned int cpuid_edx = 0;
+	uint32_t cpuid_edx = 0;
 #if defined(_MSC_VER)
 	// MSVC
 	int x86cpuid[4];
 	__cpuid(x86cpuid, 1);
-	cpuid_edx = (unsigned int)buffer[3];
+	cpuid_edx = (uint32_t)buffer[3];
 #else   // _MSC_VER
 	// Linux or i686-w64-mingw32 (gcc-4.6.3)
-	unsigned int eax, ebx, ecx;
+	uint32_t eax, ebx, ecx;
 	__get_cpuid(1, &eax, &ebx, &ecx, &cpuid_edx);
 #endif  // _MSC_VER
 

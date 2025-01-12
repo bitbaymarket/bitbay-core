@@ -30,6 +30,7 @@
 
 using namespace std;
 using namespace boost;
+namespace fs = boost::filesystem;
 
 leveldb::DB* txdb;  // global pointer for LevelDB object instance
 
@@ -45,31 +46,31 @@ static void init_blockindex(leveldb::Options& options,
                             bool              fRemoveOld       = false,
                             bool              fCreateBootstrap = false) {
 	// First time init.
-	filesystem::path directory = GetDataDir() / "txleveldb";
+	fs::path directory = GetDataDir() / "txleveldb";
 
 	if (fRemoveOld) {
-		filesystem::remove_all(directory);  // remove directory
-		unsigned int     nFile     = 1;
-		filesystem::path bootstrap = GetDataDir() / "bootstrap.dat";
+		fs::remove_all(directory);  // remove directory
+		uint32_t nFile     = 1;
+		fs::path bootstrap = GetDataDir() / "bootstrap.dat";
 
 		while (true) {
-			filesystem::path strBlockFile = GetDataDir() / strprintf("blk%04u.dat", nFile);
+			fs::path strBlockFile = GetDataDir() / strprintf("blk%04u.dat", nFile);
 
 			// Break if no such file
-			if (!filesystem::exists(strBlockFile))
+			if (!fs::exists(strBlockFile))
 				break;
 
-			if (fCreateBootstrap && nFile == 1 && !filesystem::exists(bootstrap)) {
-				filesystem::rename(strBlockFile, bootstrap);
+			if (fCreateBootstrap && nFile == 1 && !fs::exists(bootstrap)) {
+				fs::rename(strBlockFile, bootstrap);
 			} else {
-				filesystem::remove(strBlockFile);
+				fs::remove(strBlockFile);
 			}
 
 			nFile++;
 		}
 	}
 
-	filesystem::create_directory(directory);
+	fs::create_directory(directory);
 	LogPrintf("Opening LevelDB in %s\n", directory.string());
 	leveldb::Status status = leveldb::DB::Open(options, directory.string(), &txdb);
 	if (!status.ok()) {
@@ -341,9 +342,9 @@ static bool SetTxIndexesV1(CTxDB& ctxdb, LoadMsg load_msg) {
 			             keypair.second.GetHex());
 		}
 
-		uint256      blockhash;
-		unsigned int nTxIndex = 0;
-		txindex.nHeight       = txindex.GetHeightInMainChain(&nTxIndex, keypair.second, &blockhash);
+		uint256  blockhash;
+		uint32_t nTxIndex = 0;
+		txindex.nHeight   = txindex.GetHeightInMainChain(&nTxIndex, keypair.second, &blockhash);
 		if (txindex.nHeight == 0) {
 			return error("SetTxIndexesV1() : GetHeightInMainChain failed, txhash %s",
 			             keypair.second.GetHex());
@@ -451,12 +452,12 @@ bool CTxDB::ReadPegPruneEnabled(bool& fEnabled) {
 #ifdef ENABLE_EXCHANGE
 	fEnabled = false;
 	return true;
-#elif ENABLE_EXPLORER
+#endif
+#ifdef ENABLE_EXPLORER
 	fEnabled = false;
 	return true;
-#else
-	return Read(string("pegPruneEnabled"), fEnabled);
 #endif
+	return Read(string("pegPruneEnabled"), fEnabled);
 }
 
 bool CTxDB::WritePegPruneEnabled(bool fEnabled) {
@@ -476,7 +477,7 @@ CBlockIndex* CTxDB::InsertBlockIndex(uint256 hash) {
 		return NULL;
 
 	// Return existing
-	map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
+	unordered_map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
 	if (mi != mapBlockIndex.end())
 		return (*mi).second;
 
@@ -523,9 +524,9 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg) {
 
 		uint256 blockHash = diskindex.GetBlockHash();
 		// Construct block index object
-		CBlockIndex* pindexNew       = InsertBlockIndex(blockHash);
-		pindexNew->pprev             = InsertBlockIndex(diskindex.hashPrev);
-		pindexNew->pnext             = InsertBlockIndex(diskindex.hashNext);
+		CBlockIndex* pindexNew = InsertBlockIndex(blockHash);
+		pindexNew->SetPrev(InsertBlockIndex(diskindex.hashPrev));
+		pindexNew->SetNext(InsertBlockIndex(diskindex.hashNext));
 		pindexNew->nFile             = diskindex.nFile;
 		pindexNew->nBlockPos         = diskindex.nBlockPos;
 		pindexNew->nHeight           = diskindex.nHeight;
@@ -581,7 +582,7 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg) {
 	for (const std::pair<int, CBlockIndex*>& item : vSortedByHeight) {
 		CBlockIndex* pindex = item.second;
 		pindex->nChainTrust =
-		    (pindex->pprev ? pindex->pprev->nChainTrust : 0) + pindex->GetBlockTrust();
+		    (pindex->Prev() ? pindex->Prev()->nChainTrust : 0) + pindex->GetBlockTrust();
 	}
 
 	// Load hashBestChain pointer to end of best chain
@@ -600,6 +601,17 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg) {
 	pindexBest      = mapBlockIndex.ref(hashBestChain);
 	nBestHeight     = pindexBest->nHeight;
 	nBestChainTrust = pindexBest->nChainTrust;
+
+	// cleanup all over nBestHeight
+	for (const std::pair<int, CBlockIndex*>& item : vSortedByHeight) {
+		CBlockIndex* pindex = item.second;
+		if (pindex->nHeight > nBestHeight) {
+			mapBlockIndex.remove(pindex->GetBlockHash());
+			if (pindex->IsProofOfStake()) {
+				setStakeSeen.erase(make_pair(pindex->prevoutStake, pindex->nStakeTime));
+			}
+		}
+	}
 
 	LogPrintf("LoadBlockIndex(): hashBestChain=%s  height=%d  trust=%s  date=%s\n",
 	          hashBestChain.ToString(), nBestHeight, CBigNum(nBestChainTrust).ToString(),
@@ -622,15 +634,15 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg) {
 
 	// Verify blocks in the best chain
 	int nCheckLevel = GetArg("-checklevel", 1);
-	int nCheckDepth = GetArg("-checkblocks", 500);
+	int nCheckDepth = GetArg("-checkblocks", 1000);
 	if (nCheckDepth == 0)
 		nCheckDepth = 1000000000;  // suffices until the year 19000
 	if (nCheckDepth > nBestHeight)
 		nCheckDepth = nBestHeight;
 	LogPrintf("Verifying last %i blocks at level %i\n", nCheckDepth, nCheckLevel);
-	CBlockIndex*                                        pindexFork = NULL;
-	map<pair<unsigned int, unsigned int>, CBlockIndex*> mapBlockPos;
-	for (CBlockIndex* pindex = pindexBest; pindex && pindex->pprev; pindex = pindex->pprev) {
+	CBlockIndex*                                pindexFork = NULL;
+	map<pair<uint32_t, uint32_t>, CBlockIndex*> mapBlockPos;
+	for (CBlockIndex* pindex = pindexBest; pindex && pindex->Prev(); pindex = pindex->Prev()) {
 		boost::this_thread::interruption_point();
 		if (pindex->nHeight < nBestHeight - nCheckDepth)
 			break;
@@ -642,12 +654,12 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg) {
 		if (nCheckLevel > 0 && !block.CheckBlock(true, true, (nCheckLevel > 6))) {
 			LogPrintf("LoadBlockIndex() : *** found bad block at %d, hash=%s\n", pindex->nHeight,
 			          pindex->GetBlockHash().ToString());
-			pindexFork = pindex->pprev;
+			pindexFork = pindex->Prev();
 		}
 		// check level 2: verify transaction index validity
 		if (nCheckLevel > 1) {
-			pair<unsigned int, unsigned int> pos = make_pair(pindex->nFile, pindex->nBlockPos);
-			mapBlockPos[pos]                     = pindex;
+			pair<uint32_t, uint32_t> pos = make_pair(pindex->nFile, pindex->nBlockPos);
+			mapBlockPos[pos]             = pindex;
 			for (const CTransaction& tx : block.vtx) {
 				uint256  hashTx = tx.GetHash();
 				CTxIndex txindex;
@@ -661,20 +673,20 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg) {
 							LogPrintf(
 							    "LoadBlockIndex() : *** cannot read mislocated transaction %s\n",
 							    hashTx.ToString());
-							pindexFork = pindex->pprev;
+							pindexFork = pindex->Prev();
 						} else if (txFound.GetHash() != hashTx)  // not a duplicate tx
 						{
 							LogPrintf("LoadBlockIndex(): *** invalid tx position for %s\n",
 							          hashTx.ToString());
-							pindexFork = pindex->pprev;
+							pindexFork = pindex->Prev();
 						}
 					}
 					// check level 4: check whether spent txouts were spent within the main chain
-					unsigned int nOutput = 0;
+					uint32_t nOutput = 0;
 					if (nCheckLevel > 3) {
 						for (const CDiskTxPos& txpos : txindex.vSpent) {
 							if (!txpos.IsNull()) {
-								pair<unsigned int, unsigned int> posFind =
+								pair<uint32_t, uint32_t> posFind =
 								    make_pair(txpos.nFile, txpos.nBlockPos);
 								if (!mapBlockPos.count(posFind)) {
 									LogPrintf(
@@ -682,7 +694,7 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg) {
 									    "hashBlock=%s, hashTx=%s\n",
 									    pindex->nHeight, pindex->GetBlockHash().ToString(),
 									    hashTx.ToString());
-									pindexFork = pindex->pprev;
+									pindexFork = pindex->Prev();
 								}
 								// check level 6: check whether spent txouts were spent by a valid
 								// transaction that consume them
@@ -693,13 +705,13 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg) {
 										    "LoadBlockIndex(): *** cannot read spending "
 										    "transaction of %s:%i from disk\n",
 										    hashTx.ToString(), nOutput);
-										pindexFork = pindex->pprev;
+										pindexFork = pindex->Prev();
 									} else if (!txSpend.CheckTransaction()) {
 										LogPrintf(
 										    "LoadBlockIndex(): *** spending transaction of %s:%i "
 										    "is invalid\n",
 										    hashTx.ToString(), nOutput);
-										pindexFork = pindex->pprev;
+										pindexFork = pindex->Prev();
 									} else {
 										bool fFound = false;
 										for (const CTxIn& txin : txSpend.vin) {
@@ -712,7 +724,7 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg) {
 											    "LoadBlockIndex(): *** spending transaction of "
 											    "%s:%i does not spend it\n",
 											    hashTx.ToString(), nOutput);
-											pindexFork = pindex->pprev;
+											pindexFork = pindex->Prev();
 										}
 									}
 								}
@@ -732,13 +744,17 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg) {
 								    "LoadBlockIndex(): *** found unspent prevout %s:%i in %s\n",
 								    txin.prevout.hash.ToString(), txin.prevout.n,
 								    hashTx.ToString());
-								pindexFork = pindex->pprev;
+								pindexFork = pindex->Prev();
 							}
 					}
 				}
 			}
 		}
 	}
+
+	// CBlockIndex* pindex = FindBlockByHeight(20000);
+	// LogPrintf("LoadBlockIndex(): *** 20000 %s\n", pindex->GetBlockHash().ToString());
+
 	{  // check hard checkpoints
 		CBlockIndex* pindexLast = NULL;
 		vector<int>  vHeights   = Checkpoints::GetCheckpointsHeights();
@@ -769,23 +785,24 @@ bool CTxDB::LoadBlockIndex(LoadMsg load_msg) {
 			return error("LoadBlockIndex() : block.ReadFromDisk failed");
 		CTxDB  txdb;
 		CPegDB pegdb;
-		block.SetBestChain(txdb, pegdb, pindexFork);
+		// block.SetBestChain(txdb, pegdb, pindexFork);
+
+		// tmp replace regrouping
+		hashBestChain   = pindexFork->GetBlockHash();
+		pindexBest      = pindexFork;
+		nBestHeight     = pindexBest->nHeight;
+		nBestChainTrust = pindexBest->nChainTrust;
+		WriteHashBestChain(pindexBest->GetBlockHash());
+		// end tmp replace regrouping
+	}
+	// mark connected non-reorganize blocks as mainchain
+	for (CBlockIndex* pindex = pindexBest; pindex; pindex = pindex->Prev()) {
+		if (pindex->nHeight < (nBestHeight - Params().MaxReorganizationDepth())) {
+			pindex->fMainChainNoReorg = true;
+		}
 	}
 
 	return true;
-}
-
-bool CTxDB::ReadUtxoDbEnabled(bool& fEnabled) {
-#ifdef ENABLE_EXPLORER
-	fEnabled = true;
-	return true;
-#else
-	return Read(string("utxoDbEnabled"), fEnabled);
-#endif
-}
-
-bool CTxDB::WriteUtxoDbEnabled(bool fEnabled) {
-	return Write(string("utxoDbEnabled"), fEnabled);
 }
 
 bool CTxDB::ReadUtxoDbIsReady(bool& bReady) {
@@ -1106,10 +1123,9 @@ bool CTxDB::CleanupPegBalances(LoadMsg load_msg) {
 
 bool CTxDB::LoadUtxoData(LoadMsg load_msg) {
 	bool fIsReady = false;
-	bool fEnabled = false;  // default
+	bool fEnabled = true;  // default
 
 	ReadUtxoDbIsReady(fIsReady);
-	ReadUtxoDbEnabled(fEnabled);
 
 	//    fIsReady = false;
 	//    fEnabled = true;
@@ -1142,6 +1158,8 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg) {
 				MapFractions        mapInputsFractions;
 				for (size_t j = 0; j < tx.vin.size(); j++) {
 					if (tx.IsCoinBase())
+						continue;
+					if (tx.IsCoinMint())
 						continue;
 					const COutPoint& prevout = tx.vin[j].prevout;
 					if (prevout.hash == uint256(0))
@@ -1179,7 +1197,7 @@ bool CTxDB::LoadUtxoData(LoadMsg load_msg) {
 			                              true /*fLoading*/))
 				return error("LoadUtxoData() : ConnectFrozenQueue failed");
 
-			pindex = pindex->pnext;
+			pindex = pindex->Next();
 		}
 
 		// when it is ready we recalc pegbalances as if prune enabled

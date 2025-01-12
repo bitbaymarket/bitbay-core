@@ -80,15 +80,15 @@ bool                         fNoListen       = false;
 bool                         fLogTimestamps  = false;
 volatile bool                fReopenDebugLog = false;
 uint320                      uint320_MAX(
-    "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+                         "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
 // Init OpenSSL library multithreading support
 static CCriticalSection** ppmutexOpenSSL;
 void                      locking_callback(int mode, int i, const char* file, int line) {
-    if (mode & CRYPTO_LOCK) {
-        ENTER_CRITICAL_SECTION(*ppmutexOpenSSL[i]);
+	                     if (mode & CRYPTO_LOCK) {
+		                     ENTER_CRITICAL_SECTION(*ppmutexOpenSSL[i]);
     } else {
-        LEAVE_CRITICAL_SECTION(*ppmutexOpenSSL[i]);
+		                     LEAVE_CRITICAL_SECTION(*ppmutexOpenSSL[i]);
     }
 }
 
@@ -300,9 +300,9 @@ string FormatMoney(int64_t n, bool fPlus) {
 		str.erase(str.size() - nTrim, nTrim);
 
 	if (n < 0)
-		str.insert((unsigned int)0, 1, '-');
+		str.insert((uint32_t)0, 1, '-');
 	else if (fPlus && n > 0)
-		str.insert((unsigned int)0, 1, '+');
+		str.insert((uint32_t)0, 1, '+');
 	return str;
 }
 
@@ -350,12 +350,12 @@ bool ParseMoney(const char* pszIn, int64_t& nRet) {
 // even possibly remotely dangerous like & or >
 static string safeChars("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890 .,;_/:?@");
 string        SanitizeString(const string& str) {
-    string strResult;
-    for (std::string::size_type i = 0; i < str.size(); i++) {
-        if (safeChars.find(str[i]) != std::string::npos)
+	       string strResult;
+	       for (std::string::size_type i = 0; i < str.size(); i++) {
+		       if (safeChars.find(str[i]) != std::string::npos)
             strResult.push_back(str[i]);
     }
-    return strResult;
+	       return strResult;
 }
 
 static const signed char phexdigit[256] = {
@@ -525,8 +525,8 @@ boost::filesystem::path GetDefaultDataDir() {
 	// Windows
 	return GetSpecialFolderPath(CSIDL_APPDATA) / "BitBay";
 #else
-	fs::path pathRet;
-	char*    pszHome = getenv("HOME");
+	fs::path    pathRet;
+	char*       pszHome = getenv("HOME");
 	if (pszHome == NULL || strlen(pszHome) == 0)
 		pathRet = fs::path("/");
 	else
@@ -685,19 +685,19 @@ void SetMockTime(int64_t nMockTimeIn) {
 uint32_t insecure_rand_Rz = 11;
 uint32_t insecure_rand_Rw = 11;
 void     seed_insecure_rand(bool fDeterministic) {
-    // The seed values have some unlikely fixed points which we avoid.
+	    // The seed values have some unlikely fixed points which we avoid.
     if (fDeterministic) {
-        insecure_rand_Rz = insecure_rand_Rw = 11;
+		    insecure_rand_Rz = insecure_rand_Rw = 11;
     } else {
-        uint32_t tmp;
-        do {
-            RAND_bytes((unsigned char*)&tmp, 4);
+		    uint32_t tmp;
+		    do {
+			    RAND_bytes((unsigned char*)&tmp, 4);
         } while (tmp == 0 || tmp == 0x9068ffffU);
-        insecure_rand_Rz = tmp;
-        do {
-            RAND_bytes((unsigned char*)&tmp, 4);
+		    insecure_rand_Rz = tmp;
+		    do {
+			    RAND_bytes((unsigned char*)&tmp, 4);
         } while (tmp == 0 || tmp == 0x464fffffU);
-        insecure_rand_Rw = tmp;
+		    insecure_rand_Rw = tmp;
     }
 }
 

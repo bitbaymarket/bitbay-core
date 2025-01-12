@@ -44,6 +44,16 @@ DynamicPegPage::DynamicPegPage(QWidget* parent) : QDialog(parent), ui(new Ui::Dy
 	QFont tfont("Roboto", 15, QFont::Bold);
 #else
 	QFont tfont("Roboto", 11, QFont::Bold);
+#ifdef Q_OS_UNIX
+	{
+		QFontMetricsF fm(tfont);
+		qreal         fmh = fm.height();
+		if (fmh > 12.) {
+			qreal pt = 11. * 12. / fmh;
+			tfont    = QFont("Roboto", pt, QFont::Bold);
+		}
+	}
+#endif
 #endif
 
 	//    QString white1 = R"(
@@ -123,7 +133,7 @@ DynamicPegPage::DynamicPegPage(QWidget* parent) : QDialog(parent), ui(new Ui::Dy
 
 	QPen floorpen;
 	floorpen.setStyle(Qt::SolidLine);
-	floorpen.setWidth(2.5);
+	floorpen.setWidthF(2.5);
 	floorpen.setColor("#6905c6");
 
 	curveFloor = new QwtPlotCurve;
@@ -133,7 +143,7 @@ DynamicPegPage::DynamicPegPage(QWidget* parent) : QDialog(parent), ui(new Ui::Dy
 
 	QPen rangepen;
 	rangepen.setStyle(Qt::DotLine);
-	rangepen.setWidth(2.5);
+	rangepen.setWidthF(2.5);
 	rangepen.setColor(QColor("#6905c6"));
 
 	curveFloorMin = new QwtPlotCurve;
@@ -154,9 +164,12 @@ DynamicPegPage::DynamicPegPage(QWidget* parent) : QDialog(parent), ui(new Ui::Dy
 
 	fplot->enableAxis(QwtPlot::yRight, true);
 	fplot->setAxisScale(QwtPlot::yRight, 0, 1200);
+	fplot->setAxisFont(QwtPlot::yRight, this->font());
+	fplot->setAxisFont(QwtPlot::yLeft, this->font());
 
 	QwtDateScaleDraw* scale = new QwtDateScaleDraw;
 	fplot->setAxisScaleDraw(QwtPlot::xBottom, scale);
+	fplot->setAxisFont(QwtPlot::xBottom, this->font());
 
 	ui->values->addTopLevelItem(new QTreeWidgetItem(QStringList({"Status", ""})));
 	ui->values->addTopLevelItem(new QTreeWidgetItem(QStringList({"Algorithm", ""})));
@@ -179,7 +192,7 @@ void DynamicPegPage::updateTimer() {
 	}
 
 	if (lastPegVoteType != PEG_VOTE_AUTO && lastPegVoteType != PEG_VOTE_NONE &&
-	    lastPegVoteTypeChanged.secsTo(QDateTime::currentDateTime()) > ((5 * 24 + 12) * 60 * 60)) {
+		lastPegVoteTypeChanged.secsTo(QDateTime::currentDateTime()) > ((5 * 24 + 12) * 60 * 60)) {
 		pwalletMain->SetPegVoteType(PEG_VOTE_AUTO);
 		int auto_idx = ui->comboVotes->findData(PEG_VOTE_AUTO);
 		ui->comboVotes->setCurrentIndex(auto_idx);
@@ -195,11 +208,11 @@ void DynamicPegPage::setWalletModel(WalletModel* model) {
 	this->walletModel = model;
 	if (model && model->getOptionsModel()) {
 		connect(model->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this,
-		        SLOT(updateDisplayUnit()));
+				SLOT(updateDisplayUnit()));
 		connect(model,
-		        SIGNAL(rewardsInfoChanged(qint64, qint64, qint64, qint64, int, int, int, int, int,
-		                                  int, int, int)),
-		        this, SLOT(setAmounts()));
+				SIGNAL(rewardsInfoChanged(qint64, qint64, qint64, qint64, int, int, int, int, int,
+										  int, int, int)),
+				this, SLOT(setAmounts()));
 	}
 
 	// update the display unit, to not use the default ("BTC")
@@ -248,13 +261,13 @@ void DynamicPegPage::setAlgorithmInfo(QString name, QString url, QString chart) 
 void DynamicPegPage::setAlgorithmVote(QString vote, double bay_floor_in_usd) {
 	if (vote == "deflate")
 		ui->comboVotes->setItemText(
-		    0, tr("Automatic (recommended), deflation to %1").arg(bay_floor_in_usd));
+			0, tr("Automatic (recommended), deflation to %1").arg(bay_floor_in_usd));
 	else if (vote == "inflate")
 		ui->comboVotes->setItemText(
-		    0, tr("Automatic (recommended), inflation to %1").arg(bay_floor_in_usd));
+			0, tr("Automatic (recommended), inflation to %1").arg(bay_floor_in_usd));
 	else if (vote == "nochange")
 		ui->comboVotes->setItemText(
-		    0, tr("Automatic (recommended), no change to %1").arg(bay_floor_in_usd));
+			0, tr("Automatic (recommended), no change to %1").arg(bay_floor_in_usd));
 	else if (vote == "disabled")
 		ui->comboVotes->setItemText(0, tr("Automatic (recommended), disabled"));
 	else

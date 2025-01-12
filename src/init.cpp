@@ -30,14 +30,15 @@
 
 using namespace std;
 using namespace boost;
+namespace fs = boost::filesystem;
 
 #ifdef ENABLE_WALLET
 CWallet* pwalletMain = NULL;
 #endif
 CClientUIInterface uiInterface;
 bool               fConfChange;
-unsigned int       nNodeLifespan;
-unsigned int       nMinerSleep;
+uint32_t           nNodeLifespan;
+uint32_t           nMinerSleep;
 bool               fUseFastIndex;
 
 //////////////////////////////////////////////////////////////////////////////
@@ -153,92 +154,92 @@ std::string HelpMessage() {
 	string strUsage = _("Options:") + "\n";
 	strUsage += "  -?                     " + _("This help message") + "\n";
 	strUsage += "  -conf=<file>           " +
-	            _("Specify configuration file (default: bitbaycoin.conf)") + "\n";
+				_("Specify configuration file (default: bitbaycoin.conf)") + "\n";
 	strUsage += "  -pid=<file>            " + _("Specify pid file (default: bitbayd.pid)") + "\n";
 	strUsage += "  -datadir=<dir>         " + _("Specify data directory") + "\n";
 	strUsage +=
-	    "  -wallet=<dir>          " + _("Specify wallet file (within data directory)") + "\n";
+		"  -wallet=<dir>          " + _("Specify wallet file (within data directory)") + "\n";
 	strUsage += "  -dbcache=<n>           " +
-	            _("Set database cache size in megabytes (default: 50)") + "\n";
+				_("Set database cache size in megabytes (default: 50)") + "\n";
 	strUsage += "  -dblogsize=<n>         " +
-	            _("Set database disk log size in megabytes (default: 100)") + "\n";
+				_("Set database disk log size in megabytes (default: 100)") + "\n";
 	strUsage += "  -timeout=<n>           " +
-	            _("Specify connection timeout in milliseconds (default: 5000)") + "\n";
+				_("Specify connection timeout in milliseconds (default: 5000)") + "\n";
 	strUsage += "  -proxy=<ip:port>       " + _("Connect through SOCKS5 proxy") + "\n";
 	strUsage += "  -tor=<ip:port>         " +
-	            _("Use proxy to reach tor hidden services (default: same as -proxy)") + "\n";
+				_("Use proxy to reach tor hidden services (default: same as -proxy)") + "\n";
 	strUsage += "  -dns                   " +
-	            _("Allow DNS lookups for -addnode, -seednode and -connect") + "\n";
+				_("Allow DNS lookups for -addnode, -seednode and -connect") + "\n";
 	strUsage += "  -port=<port>           " +
-	            _("Listen for connections on <port> (default: 19914 or testnet: 21914)") + "\n";
+				_("Listen for connections on <port> (default: 19914 or testnet: 21914)") + "\n";
 	strUsage += "  -maxconnections=<n>    " +
-	            _("Maintain at most <n> connections to peers (default: 125)") + "\n";
+				_("Maintain at most <n> connections to peers (default: 125)") + "\n";
 	strUsage += "  -addnode=<ip>          " +
-	            _("Add a node to connect to and attempt to keep the connection open") + "\n";
+				_("Add a node to connect to and attempt to keep the connection open") + "\n";
 	strUsage += "  -connect=<ip>          " + _("Connect only to the specified node(s)") + "\n";
 	strUsage += "  -seednode=<ip>         " +
-	            _("Connect to a node to retrieve peer addresses, and disconnect") + "\n";
+				_("Connect to a node to retrieve peer addresses, and disconnect") + "\n";
 	strUsage += "  -externalip=<ip>       " + _("Specify your own public address") + "\n";
 	strUsage += "  -onlynet=<net>         " +
-	            _("Only connect to nodes in network <net> (IPv4, IPv6 or Tor)") + "\n";
+				_("Only connect to nodes in network <net> (IPv4, IPv6 or Tor)") + "\n";
 	strUsage += "  -discover              " +
-	            _("Discover own IP address (default: 1 when listening and no -externalip)") + "\n";
+				_("Discover own IP address (default: 1 when listening and no -externalip)") + "\n";
 	strUsage += "  -listen                " +
-	            _("Accept connections from outside (default: 1 if no -proxy or -connect)") + "\n";
+				_("Accept connections from outside (default: 1 if no -proxy or -connect)") + "\n";
 	strUsage += "  -bind=<addr>           " +
-	            _("Bind to given address. Use [host]:port notation for IPv6") + "\n";
+				_("Bind to given address. Use [host]:port notation for IPv6") + "\n";
 	strUsage += "  -dnsseed               " +
-	            _("Query for peer addresses via DNS lookup, if low on addresses (default: 1 unless "
-	              "-connect)") +
-	            "\n";
+				_("Query for peer addresses via DNS lookup, if low on addresses (default: 1 unless "
+				  "-connect)") +
+				"\n";
 	strUsage += "  -forcednsseed          " +
-	            _("Always query for peer addresses via DNS lookup (default: 0)") + "\n";
+				_("Always query for peer addresses via DNS lookup (default: 0)") + "\n";
 	strUsage += "  -synctime              " +
-	            _("Sync time with other nodes. Disable if time on your system is precise e.g. "
-	              "syncing with NTP (default: 1)") +
-	            "\n";
+				_("Sync time with other nodes. Disable if time on your system is precise e.g. "
+				  "syncing with NTP (default: 1)") +
+				"\n";
 	strUsage += "  -banscore=<n>          " +
-	            _("Threshold for disconnecting misbehaving peers (default: 100)") + "\n";
+				_("Threshold for disconnecting misbehaving peers (default: 100)") + "\n";
 	strUsage +=
-	    "  -bantime=<n>           " +
-	    _("Number of seconds to keep misbehaving peers from reconnecting (default: 86400)") + "\n";
+		"  -bantime=<n>           " +
+		_("Number of seconds to keep misbehaving peers from reconnecting (default: 86400)") + "\n";
 	strUsage += "  -maxreceivebuffer=<n>  " +
-	            _("Maximum per-connection receive buffer, <n>*1000 bytes (default: 5000)") + "\n";
+				_("Maximum per-connection receive buffer, <n>*1000 bytes (default: 5000)") + "\n";
 	strUsage += "  -maxsendbuffer=<n>     " +
-	            _("Maximum per-connection send buffer, <n>*1000 bytes (default: 1000)") + "\n";
+				_("Maximum per-connection send buffer, <n>*1000 bytes (default: 1000)") + "\n";
 #ifdef USE_UPNP
 #if USE_UPNP
 	strUsage += "  -upnp                  " +
-	            _("Use UPnP to map the listening port (default: 1 when listening)") + "\n";
+				_("Use UPnP to map the listening port (default: 1 when listening)") + "\n";
 #else
 	strUsage +=
-	    "  -upnp                  " + _("Use UPnP to map the listening port (default: 0)") + "\n";
+		"  -upnp                  " + _("Use UPnP to map the listening port (default: 0)") + "\n";
 #endif
 #endif
 	strUsage +=
-	    "  -paytxfee=<amt>        " + _("Fee per KB to add to transactions you send") + "\n";
+		"  -paytxfee=<amt>        " + _("Fee per KB to add to transactions you send") + "\n";
 	strUsage +=
-	    "  -mininput=<amt>        " +
-	    _("When creating transactions, ignore inputs with value less than this (default: 0.01)") +
-	    "\n";
+		"  -mininput=<amt>        " +
+		_("When creating transactions, ignore inputs with value less than this (default: 0.01)") +
+		"\n";
 	if (fHaveGUI)
 		strUsage +=
-		    "  -server                " + _("Accept command line and JSON-RPC commands") + "\n";
+			"  -server                " + _("Accept command line and JSON-RPC commands") + "\n";
 #if !defined(WIN32)
 	if (fHaveGUI)
 		strUsage += "  -daemon                " +
-		            _("Run in the background as a daemon and accept commands") + "\n";
+					_("Run in the background as a daemon and accept commands") + "\n";
 #endif
 	strUsage += "  -testnet               " + _("Use the test network") + "\n";
 	strUsage += "  -debug=<category>      " +
-	            _("Output debugging information (default: 0, supplying <category> is optional)") +
-	            "\n";
+				_("Output debugging information (default: 0, supplying <category> is optional)") +
+				"\n";
 	strUsage += _("If <category> is not supplied, output all debugging information.") + "\n";
 	strUsage += _("<category> can be:");
 	strUsage +=
-	    " addrman, alert, db, lock, rand, rpc, selectcoins, mempool, net,";  // Don't translate
-	                                                                         // these and qt below
-	strUsage += " coinage, coinstake, creation, stakemodifier";
+		" addrman, alert, db, lock, rand, rpc, selectcoins, mempool, net,";  // Don't translate
+																			 // these and qt below
+	strUsage += " coinstake, creation, stakemodifier";
 	if (fHaveGUI) {
 		strUsage += ", qt.\n";
 	} else {
@@ -246,82 +247,80 @@ std::string HelpMessage() {
 	}
 	strUsage += "  -logtimestamps         " + _("Prepend debug output with timestamp") + "\n";
 	strUsage += "  -shrinkdebugfile       " +
-	            _("Shrink debug.log file on client startup (default: 1 when no -debug)") + "\n";
+				_("Shrink debug.log file on client startup (default: 1 when no -debug)") + "\n";
 	strUsage += "  -printtoconsole        " +
-	            _("Send trace/debug info to console instead of debug.log file") + "\n";
+				_("Send trace/debug info to console instead of debug.log file") + "\n";
 	strUsage +=
-	    "  -regtest               " +
-	    _("Enter regression test mode, which uses a special chain in which blocks can be "
-	      "solved instantly. This is intended for regression testing tools and app development.") +
-	    "\n";
+		"  -regtest               " +
+		_("Enter regression test mode, which uses a special chain in which blocks can be "
+		  "solved instantly. This is intended for regression testing tools and app development.") +
+		"\n";
 	strUsage += "  -rpcuser=<user>        " + _("Username for JSON-RPC connections") + "\n";
 	strUsage += "  -rpcpassword=<pw>      " + _("Password for JSON-RPC connections") + "\n";
 	strUsage += "  -rpcport=<port>        " +
-	            _("Listen for JSON-RPC connections on <port> (default: 19915 or testnet: 21915)") +
-	            "\n";
+				_("Listen for JSON-RPC connections on <port> (default: 19915 or testnet: 21915)") +
+				"\n";
 	strUsage += "  -rpcallowip=<ip>       " +
-	            _("Allow JSON-RPC connections from specified IP address") + "\n";
+				_("Allow JSON-RPC connections from specified IP address") + "\n";
 	if (!fHaveGUI) {
 		strUsage += "  -rpcconnect=<ip>       " +
-		            _("Send commands to node running on <ip> (default: 127.0.0.1)") + "\n";
+					_("Send commands to node running on <ip> (default: 127.0.0.1)") + "\n";
 		strUsage += "  -rpcwait               " + _("Wait for RPC server to start") + "\n";
 	}
 	strUsage += "  -rpcthreads=<n>        " +
-	            _("Set the number of threads to service RPC calls (default: 4)") + "\n";
+				_("Set the number of threads to service RPC calls (default: 4)") + "\n";
 	strUsage +=
-	    "  -blocknotify=<cmd>     " +
-	    _("Execute command when the best block changes (%s in cmd is replaced by block hash)") +
-	    "\n";
+		"  -blocknotify=<cmd>     " +
+		_("Execute command when the best block changes (%s in cmd is replaced by block hash)") +
+		"\n";
 	strUsage +=
-	    "  -walletnotify=<cmd>    " +
-	    _("Execute command when a wallet transaction changes (%s in cmd is replaced by TxID)") +
-	    "\n";
+		"  -walletnotify=<cmd>    " +
+		_("Execute command when a wallet transaction changes (%s in cmd is replaced by TxID)") +
+		"\n";
 	strUsage +=
-	    "  -confchange            " + _("Require a confirmations for change (default: 0)") + "\n";
-	strUsage += "  -minimizecoinage       " +
-	            _("Minimize weight consumption (experimental) (default: 0)") + "\n";
+		"  -confchange            " + _("Require a confirmations for change (default: 0)") + "\n";
 	strUsage +=
-	    "  -alertnotify=<cmd>     " +
-	    _("Execute command when a relevant alert is received (%s in cmd is replaced by message)") +
-	    "\n";
+		"  -alertnotify=<cmd>     " +
+		_("Execute command when a relevant alert is received (%s in cmd is replaced by message)") +
+		"\n";
 	strUsage += "  -upgradewallet         " + _("Upgrade wallet to latest format") + "\n";
 	strUsage += "  -keypool=<n>           " + _("Set key pool size to <n> (default: 100)") + "\n";
 	strUsage += "  -rescan                " +
-	            _("Rescan the block chain for missing wallet transactions") + "\n";
+				_("Rescan the block chain for missing wallet transactions") + "\n";
 	strUsage += "  -salvagewallet         " +
-	            _("Attempt to recover private keys from a corrupt wallet.dat") + "\n";
+				_("Attempt to recover private keys from a corrupt wallet.dat") + "\n";
 	strUsage += "  -checkblocks=<n>       " +
-	            _("How many blocks to check at startup (default: 500, 0 = all)") + "\n";
+				_("How many blocks to check at startup (default: 500, 0 = all)") + "\n";
 	strUsage += "  -checklevel=<n>        " +
-	            _("How thorough the block verification is (0-6, default: 1)") + "\n";
+				_("How thorough the block verification is (0-6, default: 1)") + "\n";
 	strUsage +=
-	    "  -loadblock=<file>      " + _("Imports blocks from external blk000?.dat file") + "\n";
+		"  -loadblock=<file>      " + _("Imports blocks from external blk000?.dat file") + "\n";
 	strUsage += "  -maxorphanblocks=<n>   " +
-	            strprintf(_("Keep at most <n> unconnectable blocks in memory (default: %u)"),
-	                      DEFAULT_MAX_ORPHAN_BLOCKS) +
-	            "\n";
+				strprintf(_("Keep at most <n> unconnectable blocks in memory (default: %u)"),
+						  DEFAULT_MAX_ORPHAN_BLOCKS) +
+				"\n";
 
 	strUsage += "\n" + _("Block creation options:") + "\n";
 	strUsage +=
-	    "  -blockminsize=<n>      " + _("Set minimum block size in bytes (default: 0)") + "\n";
+		"  -blockminsize=<n>      " + _("Set minimum block size in bytes (default: 0)") + "\n";
 	strUsage +=
-	    "  -blockmaxsize=<n>      " + _("Set maximum block size in bytes (default: 250000)") + "\n";
+		"  -blockmaxsize=<n>      " + _("Set maximum block size in bytes (default: 250000)") + "\n";
 	strUsage +=
-	    "  -blockprioritysize=<n> " +
-	    _("Set maximum size of high-priority/low-fee transactions in bytes (default: 27000)") +
-	    "\n";
+		"  -blockprioritysize=<n> " +
+		_("Set maximum size of high-priority/low-fee transactions in bytes (default: 27000)") +
+		"\n";
 
 	strUsage += "\n" + _("SSL options: (see the Bitcoin Wiki for SSL setup instructions)") + "\n";
 	strUsage += "  -rpcssl                                  " +
-	            _("Use OpenSSL (https) for JSON-RPC connections") + "\n";
+				_("Use OpenSSL (https) for JSON-RPC connections") + "\n";
 	strUsage += "  -rpcsslcertificatechainfile=<file.cert>  " +
-	            _("Server certificate file (default: server.cert)") + "\n";
+				_("Server certificate file (default: server.cert)") + "\n";
 	strUsage += "  -rpcsslprivatekeyfile=<file.pem>         " +
-	            _("Server private key (default: server.pem)") + "\n";
+				_("Server private key (default: server.pem)") + "\n";
 	strUsage += "  -rpcsslciphers=<ciphers>                 " +
-	            _("Acceptable ciphers (default: "
-	              "TLSv1.2+HIGH:TLSv1+HIGH:!SSLv2:!aNULL:!eNULL:!3DES:@STRENGTH)") +
-	            "\n";
+				_("Acceptable ciphers (default: "
+				  "TLSv1.2+HIGH:TLSv1+HIGH:!SSLv2:!aNULL:!eNULL:!3DES:@STRENGTH)") +
+				"\n";
 
 	return strUsage;
 }
@@ -333,8 +332,8 @@ std::string HelpMessage() {
 bool InitSanityCheck(void) {
 	if (!ECC_InitSanityCheck()) {
 		InitError(
-		    "OpenSSL appears to lack support for elliptic curve cryptography. For more "
-		    "information, visit https://en.bitcoin.it/wiki/OpenSSL_and_EC_Libraries");
+			"OpenSSL appears to lack support for elliptic curve cryptography. For more "
+			"information, visit https://en.bitcoin.it/wiki/OpenSSL_and_EC_Libraries");
 		return false;
 	}
 
@@ -368,7 +367,7 @@ bool AppInit2(boost::thread_group& threadGroup) {
 #endif
 	typedef BOOL(WINAPI * PSETPROCDEPPOL)(DWORD);
 	PSETPROCDEPPOL setProcDEPPol =
-	    (PSETPROCDEPPOL)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "SetProcessDEPPolicy");
+		(PSETPROCDEPPOL)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "SetProcessDEPPolicy");
 	if (setProcDEPPol != NULL)
 		setProcDEPPol(PROCESS_DEP_ENABLE);
 
@@ -377,7 +376,7 @@ bool AppInit2(boost::thread_group& threadGroup) {
 	int     ret = WSAStartup(MAKEWORD(2, 2), &wsadata);
 	if (ret != NO_ERROR) {
 		return InitError(strprintf(
-		    "Error: TCP/IP socket library failed to start (WSAStartup returned error %d)", ret));
+			"Error: TCP/IP socket library failed to start (WSAStartup returned error %d)", ret));
 	}
 #endif
 #ifndef WIN32
@@ -459,7 +458,7 @@ bool AppInit2(boost::thread_group& threadGroup) {
 	// Special-case: if -debug=0/-nodebug is set, turn off debugging messages
 	const vector<string>& categories = mapMultiArgs["-debug"];
 	if (GetBoolArg("-nodebug", false) ||
-	    find(categories.begin(), categories.end(), string("0")) != categories.end())
+		find(categories.begin(), categories.end(), string("0")) != categories.end())
 		fDebug = false;
 
 	// Check for -debugnet (deprecated)
@@ -468,8 +467,8 @@ bool AppInit2(boost::thread_group& threadGroup) {
 	// Check for -socks - as this is a privacy risk to continue, exit here
 	if (mapArgs.count("-socks"))
 		return InitError(
-		    _("Error: Unsupported argument -socks found. Setting SOCKS version isn't possible "
-		      "anymore, only SOCKS5 proxies are supported."));
+			_("Error: Unsupported argument -socks found. Setting SOCKS version isn't possible "
+			  "anymore, only SOCKS5 proxies are supported."));
 
 	if (fDaemon)
 		fServer = true;
@@ -495,11 +494,11 @@ bool AppInit2(boost::thread_group& threadGroup) {
 	if (mapArgs.count("-paytxfee")) {
 		if (!ParseMoney(mapArgs["-paytxfee"], nTransactionFee))
 			return InitError(
-			    strprintf(_("Invalid amount for -paytxfee=<amount>: '%s'"), mapArgs["-paytxfee"]));
+				strprintf(_("Invalid amount for -paytxfee=<amount>: '%s'"), mapArgs["-paytxfee"]));
 		if (nTransactionFee > 0.25 * COIN)
 			InitWarning(
-			    _("Warning: -paytxfee is set very high! This is the transaction fee you will pay "
-			      "if you send a transaction."));
+				_("Warning: -paytxfee is set very high! This is the transaction fee you will pay "
+				  "if you send a transaction."));
 	}
 #endif
 
@@ -509,7 +508,7 @@ bool AppInit2(boost::thread_group& threadGroup) {
 	if (mapArgs.count("-mininput")) {
 		if (!ParseMoney(mapArgs["-mininput"], nMinimumInputValue))
 			return InitError(
-			    strprintf(_("Invalid amount for -mininput=<amount>: '%s'"), mapArgs["-mininput"]));
+				strprintf(_("Invalid amount for -mininput=<amount>: '%s'"), mapArgs["-mininput"]));
 	}
 #endif
 
@@ -526,21 +525,21 @@ bool AppInit2(boost::thread_group& threadGroup) {
 
 	// strWalletFileName must be a plain filename without a directory
 	if (strWalletFileName != boost::filesystem::basename(strWalletFileName) +
-	                             boost::filesystem::extension(strWalletFileName))
+								 boost::filesystem::extension(strWalletFileName))
 		return InitError(strprintf(_("Wallet %s resides outside data directory %s."),
-		                           strWalletFileName, strDataDir));
+								   strWalletFileName, strDataDir));
 #endif
 	// Make sure only a single Bitcoin process is using the data directory.
 	boost::filesystem::path pathLockFile = GetDataDir() / ".lock";
 	FILE*                   file =
-	    fopen(pathLockFile.string().c_str(), "a");  // empty lock file; created if it doesn't exist.
+		fopen(pathLockFile.string().c_str(), "a");  // empty lock file; created if it doesn't exist.
 	if (file)
 		fclose(file);
 	static boost::interprocess::file_lock lock(pathLockFile.string().c_str());
 	if (!lock.try_lock())
 		return InitError(strprintf(
-		    _("Cannot obtain a lock on data directory %s. BitBay is probably already running."),
-		    strDataDir));
+			_("Cannot obtain a lock on data directory %s. BitBay is probably already running."),
+			strDataDir));
 
 	if (GetBoolArg("-shrinkdebugfile", !fDebug))
 		ShrinkDebugFile();
@@ -567,11 +566,11 @@ bool AppInit2(boost::thread_group& threadGroup) {
 			// try moving the database env out of the way
 			boost::filesystem::path pathDatabase = GetDataDir() / "database";
 			boost::filesystem::path pathDatabaseBak =
-			    GetDataDir() / strprintf("database.%d.bak", GetTime());
+				GetDataDir() / strprintf("database.%d.bak", GetTime());
 			try {
 				boost::filesystem::rename(pathDatabase, pathDatabaseBak);
 				LogPrintf("Moved old %s to %s. Retrying.\n", pathDatabase.string(),
-				          pathDatabaseBak.string());
+						  pathDatabaseBak.string());
 			} catch (boost::filesystem::filesystem_error& error) {
 				// failure is ok (well, not really, but it's not worse than what we started with)
 			}
@@ -580,7 +579,7 @@ bool AppInit2(boost::thread_group& threadGroup) {
 			if (!bitdb.Open(GetDataDir())) {
 				// if it still fails, it probably means we can't even create the database env
 				string msg =
-				    strprintf(_("Error initializing wallet database environment %s!"), strDataDir);
+					strprintf(_("Error initializing wallet database environment %s!"), strDataDir);
 				return InitError(msg);
 			}
 		}
@@ -591,15 +590,15 @@ bool AppInit2(boost::thread_group& threadGroup) {
 				return false;
 		}
 
-		if (filesystem::exists(GetDataDir() / strWalletFileName)) {
+        if (fs::exists(GetDataDir() / strWalletFileName)) {
 			CDBEnv::VerifyResult r = bitdb.Verify(strWalletFileName, CWalletDB::Recover);
 			if (r == CDBEnv::RECOVER_OK) {
 				string msg =
-				    strprintf(_("Warning: wallet.dat corrupt, data salvaged!"
-				                " Original wallet.dat saved as wallet.{timestamp}.bak in %s; if"
-				                " your balance or transactions are incorrect you should"
-				                " restore from a backup."),
-				              strDataDir);
+					strprintf(_("Warning: wallet.dat corrupt, data salvaged!"
+								" Original wallet.dat saved as wallet.{timestamp}.bak in %s; if"
+								" your balance or transactions are incorrect you should"
+								" restore from a backup."),
+							  strDataDir);
 				InitWarning(msg);
 			}
 			if (r == CDBEnv::RECOVER_FAIL)
@@ -741,8 +740,8 @@ bool AppInit2(boost::thread_group& threadGroup) {
 	if (mapArgs.count("-printblock")) {
 		string strMatch = mapArgs["-printblock"];
 		int    nFound   = 0;
-		for (map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.begin();
-		     mi != mapBlockIndex.end(); ++mi) {
+        for (unordered_map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.begin();
+			 mi != mapBlockIndex.end(); ++mi) {
 			uint256 hash = (*mi).first;
 			if (strncmp(hash.ToString().c_str(), strMatch.c_str(), strMatch.size()) == 0) {
 				CBlockIndex* pindex = (*mi).second;
@@ -775,13 +774,13 @@ bool AppInit2(boost::thread_group& threadGroup) {
 				strErrors << _("Error loading wallet.dat: Wallet corrupted") << "\n";
 			else if (nLoadWalletRet == DB_NONCRITICAL_ERROR) {
 				string msg(
-				    _("Warning: error reading wallet.dat! All keys read correctly, but transaction "
-				      "data"
-				      " or address book entries might be missing or incorrect."));
+					_("Warning: error reading wallet.dat! All keys read correctly, but transaction "
+					  "data"
+					  " or address book entries might be missing or incorrect."));
 				InitWarning(msg);
 			} else if (nLoadWalletRet == DB_TOO_NEW)
 				strErrors << _("Error loading wallet.dat: Wallet requires newer version of BitBay")
-				          << "\n";
+						  << "\n";
 			else if (nLoadWalletRet == DB_NEED_REWRITE) {
 				strErrors << _("Wallet needed to be rewritten: restart BitBay to complete") << "\n";
 				LogPrintf("%s", strErrors.str());
@@ -797,7 +796,7 @@ bool AppInit2(boost::thread_group& threadGroup) {
 				LogPrintf("Performing wallet upgrade to %i\n", FEATURE_LATEST);
 				nMaxVersion = CLIENT_VERSION;
 				pwalletMain->SetMinVersion(
-				    FEATURE_LATEST);  // permanently upgrade the wallet immediately
+					FEATURE_LATEST);  // permanently upgrade the wallet immediately
 			} else
 				LogPrintf("Allowing wallet upgrade up to %i\n", nMaxVersion);
 			if (nMaxVersion < pwalletMain->GetVersion())
@@ -836,10 +835,10 @@ bool AppInit2(boost::thread_group& threadGroup) {
 				pindexRescan = pindexGenesisBlock;
 		}
 		if (pindexBest != pindexRescan && pindexBest && pindexRescan &&
-		    pindexBest->nHeight > pindexRescan->nHeight) {
+			pindexBest->nHeight > pindexRescan->nHeight) {
 			uiInterface.InitMessage(_("Rescanning..."));
 			LogPrintf("Rescanning last %i blocks (from block %i)...\n",
-			          pindexBest->nHeight - pindexRescan->nHeight, pindexRescan->nHeight);
+					  pindexBest->nHeight - pindexRescan->nHeight, pindexRescan->nHeight);
 			nStart = GetTimeMillis();
 			pwalletMain->ScanForWalletTransactions(pindexRescan, true);
 			LogPrintf(" rescan      %15dms\n", GetTimeMillis() - nStart);
@@ -860,9 +859,9 @@ bool AppInit2(boost::thread_group& threadGroup) {
 	}
 	// at least 1MB for import (musl 80KB)
 	boost::thread::attributes import_thread_attrs;
-	import_thread_attrs.set_stack_size(1096 * 1096);
+    //import_thread_attrs.set_stack_size(1096 * 1096);
 	auto import_thread =
-	    new boost::thread(import_thread_attrs, boost::bind(&ThreadImport, vImportFiles));
+		new boost::thread(import_thread_attrs, boost::bind(&ThreadImport, vImportFiles));
 	threadGroup.add_thread(import_thread);
 
 	// ********************************************************* Step 10: load peers
@@ -878,7 +877,7 @@ bool AppInit2(boost::thread_group& threadGroup) {
 	}
 
 	LogPrintf("Loaded %i addresses from peers.dat  %dms\n", addrman.size(),
-	          GetTimeMillis() - nStart);
+			  GetTimeMillis() - nStart);
 
 	// ********************************************************* Step 11: start node
 
@@ -916,10 +915,26 @@ bool AppInit2(boost::thread_group& threadGroup) {
 	else if (pwalletMain) {
 		// at least 1MB for mining (musl 80KB)
 		boost::thread::attributes miner_thread_attrs;
-		miner_thread_attrs.set_stack_size(1096 * 1096);
+        //miner_thread_attrs.set_stack_size(1096 * 1096);
 		auto miner_thread =
-		    new boost::thread(miner_thread_attrs, boost::bind(&ThreadStakeMiner, pwalletMain));
+			new boost::thread(miner_thread_attrs, boost::bind(&ThreadStakeMiner, pwalletMain));
 		threadGroup.add_thread(miner_thread);
+
+		// automation1 thread
+		// at least 1MB for mining (musl 80KB)
+		boost::thread::attributes bauto1_thread_attrs;
+        //bauto1_thread_attrs.set_stack_size(1096 * 1096);
+		auto bauto1_thread =
+			new boost::thread(bauto1_thread_attrs, boost::bind(&ThreadBrigeAuto1, pwalletMain));
+		threadGroup.add_thread(bauto1_thread);
+
+		// automation2 thread
+		// at least 1MB for mining (musl 80KB)
+		boost::thread::attributes bauto2_thread_attrs;
+        //bauto2_thread_attrs.set_stack_size(1096 * 1096);
+		auto bauto2_thread =
+			new boost::thread(bauto2_thread_attrs, boost::bind(&ThreadBrigeAuto2, pwalletMain));
+		threadGroup.add_thread(bauto2_thread);
 	}
 #endif
 #endif
@@ -935,7 +950,7 @@ bool AppInit2(boost::thread_group& threadGroup) {
 
 		// Run a thread to flush wallet periodically
 		threadGroup.create_thread(
-		    boost::bind(&ThreadFlushWalletDB, boost::ref(pwalletMain->strWalletFile)));
+			boost::bind(&ThreadFlushWalletDB, boost::ref(pwalletMain->strWalletFile)));
 	}
 #endif
 

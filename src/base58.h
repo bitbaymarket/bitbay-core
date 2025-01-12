@@ -25,6 +25,8 @@
 #include "util.h"
 #include "utilstrencodings.h"
 
+#include <boost/algorithm/string/predicate.hpp>
+
 static const char* pszBase58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 // Encode a byte sequence as a base58-encoded string
@@ -52,8 +54,8 @@ inline std::string EncodeBase58(const unsigned char* pbegin, const unsigned char
 	while (bn > bn0) {
 		if (!BN_div(&dv, &rem, &bn, &bn58, pctx))
 			throw bignum_error("EncodeBase58 : BN_div failed");
-		bn             = dv;
-		unsigned int c = rem.getulong();
+		bn         = dv;
+		uint32_t c = rem.getulong();
 		str += pszBase58[c];
 	}
 
@@ -184,7 +186,20 @@ protected:
 	}
 
 public:
-	bool SetString(const char* psz, unsigned int nVersionBytes = 1) {
+	std::vector<unsigned char> GetData() const {
+		std::vector<unsigned char> vchRes = vchVersion;
+		vchRes.resize(vchVersion.size() + vchData.size());
+		memcpy(&vchRes[vchVersion.size()], &vchData[0], vchData.size());
+		return vchRes;
+	}
+	void SetData(const std::vector<unsigned char>& vchVersionIn,
+	             const std::vector<unsigned char>& vchDataIn) {
+		vchVersion = vchVersionIn;
+		vchData.resize(vchDataIn.size());
+		memcpy(&vchData[0], &vchDataIn[0], vchData.size());
+	}
+
+	bool SetString(const char* psz, uint32_t nVersionBytes = 1) {
 		std::vector<unsigned char> vchTemp;
 		DecodeBase58Check(psz, vchTemp);
 		if (vchTemp.size() < nVersionBytes) {
@@ -204,6 +219,13 @@ public:
 
 	std::string ToString() const {
 		std::vector<unsigned char> vch = vchVersion;
+		if (boost::starts_with(vchVersion, Params().Base58Prefix(CChainParams::ETH_ADDRESS))) {
+			uint256 bridge;
+			memcpy(bridge.begin(), &vch[3], 32);
+			uint160 address;
+			memcpy(address.begin(), &vchData[0], 20);
+			return "EXT:" + bridge.GetHex() + ":0x" + address.GetHex();
+		}
 		vch.insert(vch.end(), vchData.begin(), vchData.end());
 		return EncodeBase58Check(vch);
 	}
@@ -244,6 +266,7 @@ public:
 	bool operator()(const CKeyID& id) const;
 	bool operator()(const CScriptID& id) const;
 	bool operator()(const CNoDestination& no) const;
+	bool operator()(const CExtDestination& ext) const;
 };
 
 class CBitcoinAddress : public CBase58Data {
@@ -262,6 +285,15 @@ public:
 		return boost::apply_visitor(CBitcoinAddressVisitor(this), dest);
 	}
 
+	bool Set(const CExtDestination& dest) {
+		std::vector<unsigned char> ext = Params().Base58Prefix(CChainParams::ETH_ADDRESS);
+		ext.resize(ext.size() + 32);
+		uint256 bridge_copy = dest.bridge;
+		memcpy(&ext[3], bridge_copy.begin(), 32);
+		SetData(ext, &dest.address, 20);
+		return true;
+	}
+
 	bool IsValid() const {
 		bool fCorrectSize  = vchData.size() == 20;
 		bool fKnownVersion = vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS) ||
@@ -272,6 +304,8 @@ public:
 	CBitcoinAddress() {}
 
 	CBitcoinAddress(const CTxDestination& dest) { Set(dest); }
+
+	CBitcoinAddress(const CExtDestination& dest) { Set(dest); }
 
 	CBitcoinAddress(const std::string& strAddress) { SetString(strAddress); }
 
@@ -304,14 +338,17 @@ public:
 	}
 };
 
-bool inline CBitcoinAddressVisitor::operator()(const CKeyID & id) const {
+bool inline CBitcoinAddressVisitor::operator()(const CKeyID& id) const {
 	return addr->Set(id);
 }
-bool inline CBitcoinAddressVisitor::operator()(const CScriptID & id) const {
+bool inline CBitcoinAddressVisitor::operator()(const CScriptID& id) const {
 	return addr->Set(id);
 }
-bool inline CBitcoinAddressVisitor::operator()(const CNoDestination & id) const {
+bool inline CBitcoinAddressVisitor::operator()(const CNoDestination& id) const {
 	return false;
+}
+bool inline CBitcoinAddressVisitor::operator()(const CExtDestination& id) const {
+	return addr->Set(id);
 }
 
 /** A base58-encoded secret key */

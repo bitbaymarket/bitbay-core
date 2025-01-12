@@ -29,10 +29,10 @@ static const int PING_INTERVAL = 2 * 60;
 /** Time after which to disconnect, after waiting for a ping response (or inactivity). */
 static const int TIMEOUT_INTERVAL = 20 * 60;
 
-inline unsigned int ReceiveFloodSize() {
+inline uint32_t ReceiveFloodSize() {
 	return 1000 * GetArg("-maxreceivebuffer", 5 * 1000);
 }
-inline unsigned int SendBufferSize() {
+inline uint32_t SendBufferSize() {
 	return 1000 * GetArg("-maxsendbuffer", 1 * 1000);
 }
 
@@ -130,8 +130,8 @@ public:
 	std::string strSubVer;
 	int         nStartingHeight;
 	bool        operator==(const CNodeShortStat& b) const {
-        return addrName == b.addrName && nVersion == b.nVersion && strSubVer == b.strSubVer &&
-               nStartingHeight == b.nStartingHeight;
+		       return addrName == b.addrName && nVersion == b.nVersion && strSubVer == b.strSubVer &&
+		              nStartingHeight == b.nStartingHeight;
 	}
 };
 typedef std::vector<CNodeShortStat> CNodeShortStats;
@@ -142,10 +142,10 @@ public:
 
 	CDataStream    hdrbuf;  // partially received header
 	CMessageHeader hdr;     // complete header
-	unsigned int   nHdrPos;
+	uint32_t       nHdrPos;
 
-	CDataStream  vRecv;  // received message data
-	unsigned int nDataPos;
+	CDataStream vRecv;  // received message data
+	uint32_t    nDataPos;
 
 	int64_t nTime;  // time (in microseconds) of message receipt.
 
@@ -169,8 +169,8 @@ public:
 		vRecv.SetVersion(nVersionIn);
 	}
 
-	int readHeader(const char* pch, unsigned int nBytes);
-	int readData(const char* pch, unsigned int nBytes);
+	int readHeader(const char* pch, uint32_t nBytes);
+	int readData(const char* pch, uint32_t nBytes);
 };
 
 /** Information about a peer */
@@ -312,8 +312,8 @@ public:
 	}
 
 	// requires LOCK(cs_vRecvMsg)
-	unsigned int GetTotalRecvSize() {
-		unsigned int total = 0;
+	uint32_t GetTotalRecvSize() {
+		uint32_t total = 0;
 		for (const CNetMessage& msg : vRecvMsg) {
 			total += msg.vRecv.size() + 24;
 		}
@@ -321,7 +321,7 @@ public:
 	}
 
 	// requires LOCK(cs_vRecvMsg)
-	bool ReceiveMsgBytes(const char* pch, unsigned int nBytes);
+	bool ReceiveMsgBytes(const char* pch, uint32_t nBytes);
 
 	// requires LOCK(cs_vRecvMsg)
 	void SetRecvVersion(int nVersionIn) {
@@ -412,12 +412,12 @@ public:
 			return;
 
 		// Set the size
-		unsigned int nSize = ssSend.size() - CMessageHeader::HEADER_SIZE;
+		uint32_t nSize = ssSend.size() - CMessageHeader::HEADER_SIZE;
 		memcpy((char*)&ssSend[CMessageHeader::MESSAGE_SIZE_OFFSET], &nSize, sizeof(nSize));
 
 		// Set the checksum
-		uint256      hash      = Hash(ssSend.begin() + CMessageHeader::HEADER_SIZE, ssSend.end());
-		unsigned int nChecksum = 0;
+		uint256  hash      = Hash(ssSend.begin() + CMessageHeader::HEADER_SIZE, ssSend.end());
+		uint32_t nChecksum = 0;
 		memcpy(&nChecksum, &hash, sizeof(nChecksum));
 		assert(ssSend.size() >= CMessageHeader::CHECKSUM_OFFSET + sizeof(nChecksum));
 		memcpy((char*)&ssSend[CMessageHeader::CHECKSUM_OFFSET], &nChecksum, sizeof(nChecksum));
@@ -615,9 +615,9 @@ public:
 		}
 	}
 
-	bool IsSubscribed(unsigned int nChannel);
-	void Subscribe(unsigned int nChannel, unsigned int nHops = 0);
-	void CancelSubscribe(unsigned int nChannel);
+	bool IsSubscribed(uint32_t nChannel);
+	void Subscribe(uint32_t nChannel, uint32_t nHops = 0);
+	void CancelSubscribe(uint32_t nChannel);
 	void CloseSocketDisconnect();
 
 	// Denial-of-service detection/prevention

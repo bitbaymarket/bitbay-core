@@ -79,8 +79,8 @@ public:
 	uint64_t nFlags;
 	uint64_t nLockTime;
 	bool     operator==(const CFrozenCoinInfo& b) const {
-        return txhash == b.txhash && n == b.n && nValue == b.nValue && nFlags == b.nFlags &&
-               nLockTime == b.nFlags;
+		return txhash == b.txhash && n == b.n && nValue == b.nValue && nFlags == b.nFlags &&
+			   nLockTime == b.nFlags;
 	}
 };
 
@@ -89,13 +89,13 @@ public:
  */
 class CWallet : public CCryptoKeyStore, public CWalletInterface {
 private:
-	bool SelectCoinsForStaking(int64_t                                               nTargetValue,
-	                           unsigned int                                          nSpendTime,
-	                           std::set<std::pair<const CWalletTx*, unsigned int> >& setCoinsRet,
-	                           int64_t& nValueRet) const;
+	bool SelectCoinsForStaking(int64_t                                           nTargetValue,
+	                           uint32_t                                          nSpendTime,
+	                           std::set<std::pair<const CWalletTx*, uint32_t> >& setCoinsRet,
+	                           int64_t&                                          nValueRet) const;
 	bool SelectCoins(PegTxType                txType,
 	                 int64_t                  nTargetValue,
-	                 unsigned int             nSpendTime,
+	                 uint32_t                 nSpendTime,
 	                 std::set<CSelectedCoin>& setCoinsRet,
 	                 int64_t&                 nValueRet,
 	                 bool                     fUseFrozenUnlocked,
@@ -143,9 +143,9 @@ public:
 	std::set<int64_t>              setKeyPool;
 	std::map<CKeyID, CKeyMetadata> mapKeyMetadata;
 
-	typedef std::map<unsigned int, CMasterKey> MasterKeyMap;
-	MasterKeyMap                               mapMasterKeys;
-	unsigned int                               nMasterKeyMaxID;
+	typedef std::map<uint32_t, CMasterKey> MasterKeyMap;
+	MasterKeyMap                           mapMasterKeys;
+	uint32_t                               nMasterKeyMaxID;
 
 	CWallet() { SetNull(); }
 	CWallet(std::string strWalletFileIn) {
@@ -170,15 +170,15 @@ public:
 
 	std::map<CTxDestination, std::string> mapAddressBook;
 
-	CPubKey              vchDefaultKey;
-	int64_t              nTimeFirstKey;
-	mutable uint256      nLastHashBestChain;
-	mutable int          nLastPegCycle               = 1;
-	mutable int          nLastPegSupplyIndex         = 0;
-	mutable int          nLastPegSupplyNIndex        = 0;
-	mutable int          nLastPegSupplyNNIndex       = 0;
-	mutable int          nLastPegSupplyIndexToRecalc = 0;
-	mutable unsigned int nLastBlockTime              = 0;
+	CPubKey          vchDefaultKey;
+	int64_t          nTimeFirstKey;
+	mutable uint256  nLastHashBestChain;
+	mutable int      nLastPegCycle               = 1;
+	mutable int      nLastPegSupplyIndex         = 0;
+	mutable int      nLastPegSupplyNIndex        = 0;
+	mutable int      nLastPegSupplyNNIndex       = 0;
+	mutable int      nLastPegSupplyIndexToRecalc = 0;
+	mutable uint32_t nLastBlockTime              = 0;
 
 	// check whether we are allowed to upgrade (or already support) to the named feature
 	bool CanSupportFeature(enum WalletFeature wf) {
@@ -186,7 +186,7 @@ public:
 		return nWalletMaxVersion >= wf;
 	}
 
-	void AvailableCoinsForStaking(std::vector<COutput>& vCoins, unsigned int nSpendTime) const;
+	void AvailableCoinsForStaking(std::vector<COutput>& vCoins, uint32_t nSpendTime) const;
 	void AvailableCoins(std::vector<COutput>& vCoins,
 	                    bool                  fOnlyConfirmed,
 	                    bool                  fUseFrozenUnlocked,
@@ -195,9 +195,13 @@ public:
 	                 bool                  fOnlyConfirmed,
 	                 bool                  fClearArray,
 	                 const CCoinControl*   coinControl) const;
+	void StakedCoins(std::vector<COutput>& vCoins,
+					 bool                  fOnlyConfirmed,
+					 bool                  fClearArray,
+					 const CCoinControl*   coinControl) const;
 	bool SelectCoinsMinConf(PegTxType                txType,
 	                        int64_t                  nTargetValue,
-	                        unsigned int             nSpendTime,
+	                        uint32_t                 nSpendTime,
 	                        int                      nConfMine,
 	                        int                      nConfTheirs,
 	                        std::vector<COutput>     vCoins,
@@ -290,7 +294,6 @@ public:
 	bool    CreateTransaction(PegTxType                                        txType,
 	                          const std::vector<std::pair<CScript, int64_t> >& vecSend,
 	                          CWalletTx&                                       wtxNew,
-	                          CReserveKey&                                     reservekey,
 	                          int64_t&                                         nFeeRet,
 	                          const CCoinControl*                              coinControl,
 	                          bool                                             fTest,
@@ -298,14 +301,13 @@ public:
 	bool    CreateTransaction(CScript             scriptPubKey,
 	                          int64_t             nValue,
 	                          CWalletTx&          wtxNew,
-	                          CReserveKey&        reservekey,
 	                          int64_t&            nFeeRet,
 	                          const CCoinControl* coinControl = NULL);
-	bool    CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);
+	bool    CommitTransaction(CWalletTx& wtxNew);
 
 	uint64_t GetStakeWeight() const;
 	bool     CreateCoinStake(const CKeyStore& keystore,
-	                         unsigned int     nBits,
+	                         uint32_t         nBits,
 	                         int64_t          nSearchInterval,
 	                         int64_t          nFees,
 	                         CTransaction&    txCoinStake,
@@ -323,13 +325,12 @@ public:
 	                                   bool                  fAskFee = false);
 
 	bool    NewKeyPool();
-	bool    TopUpKeyPool(unsigned int nSize = 0);
+	bool    TopUpKeyPool(uint32_t nSize = 0);
 	int64_t AddReserveKey(const CKeyPool& keypool);
 	void    ReserveKeyFromKeyPool(int64_t& nIndex, CKeyPool& keypool);
 	void    KeepKey(int64_t nIndex);
 	void    ReturnKey(int64_t nIndex);
 	bool    GetKeyFromPool(CPubKey& key);
-	int64_t GetOldestKeyPoolTime();
 	void    GetAllReserveKeys(std::set<CKeyID>& setAddress) const;
 
 	std::set<std::set<CTxDestination> > GetAddressGroupings();
@@ -339,7 +340,7 @@ public:
 	int64_t    GetDebit(const CTxIn& txin) const;
 	isminetype IsMine(const CTxOut& txout) const { return ::IsMine(*this, txout.scriptPubKey); }
 	int64_t    GetCredit(const CTxOut& txout) const {
-        if (!MoneyRange(txout.nValue))
+		if (!MoneyRange(txout.nValue))
             throw std::runtime_error("CWallet::GetCredit() : value out of range");
         return (IsMine(txout) ? txout.nValue : 0);
 	}
@@ -409,7 +410,7 @@ public:
 		}
 	}
 
-	unsigned int GetKeyPoolSize() {
+	uint32_t GetKeyPoolSize() {
 		AssertLockHeld(cs_wallet);  // setKeyPool
 		return setKeyPool.size();
 	}
@@ -576,9 +577,9 @@ public:
 	std::vector<CMerkleTx>                            vtxPrev;
 	mapValue_t                                        mapValue;
 	std::vector<std::pair<std::string, std::string> > vOrderForm;
-	unsigned int                                      fTimeReceivedIsTxTime;
-	unsigned int                                      nTimeReceived;  // time received by this node
-	unsigned int                                      nTimeSmart;
+	uint32_t                                          fTimeReceivedIsTxTime;
+	uint32_t                                          nTimeReceived;  // time received by this node
+	uint32_t                                          nTimeSmart;
 	char                                              fFromMe;
 	std::string                                       strFromAccount;
 	std::vector<char>                                 vfSpent;  // which outputs are already spent
@@ -678,9 +679,8 @@ public:
 
 		    ReadOrderPos(pthis->nOrderPos, pthis->mapValue);
 
-		    pthis->nTimeSmart = mapValue.count("timesmart")
-		                            ? (unsigned int)atoi64(pthis->mapValue["timesmart"])
-		                            : 0;
+		    pthis->nTimeSmart =
+		        mapValue.count("timesmart") ? (uint32_t)atoi64(pthis->mapValue["timesmart"]) : 0;
 	    }
 
 	    pthis->mapValue.erase("fromaccount");
@@ -693,7 +693,7 @@ public:
 	// returns true if any update took place
 	bool UpdateSpent(const std::vector<char>& vfNewSpent) {
 		bool fReturn = false;
-		for (unsigned int i = 0; i < vfNewSpent.size(); i++) {
+		for (uint32_t i = 0; i < vfNewSpent.size(); i++) {
 			if (i == vfSpent.size())
 				break;
 
@@ -727,7 +727,7 @@ public:
 		MarkDirty();
 	}
 
-	void MarkSpent(unsigned int nOut) {
+	void MarkSpent(uint32_t nOut) {
 		if (nOut >= vout.size())
 			throw std::runtime_error("CWalletTx::MarkSpent() : nOut out of range");
 		vfSpent.resize(vout.size());
@@ -741,7 +741,7 @@ public:
 		}
 	}
 
-	void MarkUnspent(unsigned int nOut) {
+	void MarkUnspent(uint32_t nOut) {
 		if (nOut >= vout.size())
 			throw std::runtime_error("CWalletTx::MarkUnspent() : nOut out of range");
 		vfSpent.resize(vout.size());
@@ -755,7 +755,7 @@ public:
 		}
 	}
 
-	bool IsSpent(unsigned int nOut) const {
+	bool IsSpent(uint32_t nOut) const {
 		if (nOut >= vout.size())
 			throw std::runtime_error("CWalletTx::IsSpent() : nOut out of range");
 		if (nOut >= vfSpent.size())
@@ -795,7 +795,7 @@ public:
 			return nAvailableCreditCached;
 
 		int64_t nCredit = 0;
-		for (unsigned int i = 0; i < vout.size(); i++) {
+		for (uint32_t i = 0; i < vout.size(); i++) {
 			if (!IsSpent(i)) {
 				const CTxOut& txout = vout[i];
 				nCredit += pwallet->GetCredit(txout);
@@ -819,7 +819,7 @@ public:
 			return nAvailableReserveCached;
 
 		int64_t nReserve = 0;
-		for (unsigned int i = 0; i < vout.size(); i++) {
+		for (uint32_t i = 0; i < vout.size(); i++) {
 			if (!IsSpent(i)) {
 				const CTxOut& txout = vout[i];
 				if (pwallet->IsMine(txout)) {
@@ -845,7 +845,7 @@ public:
 			return nAvailableLiquidityCached;
 
 		int64_t nLiquidity = 0;
-		for (unsigned int i = 0; i < vout.size(); i++) {
+		for (uint32_t i = 0; i < vout.size(); i++) {
 			if (!IsSpent(i)) {
 				const CTxOut& txout = vout[i];
 				if (pwallet->IsMine(txout)) {
@@ -882,7 +882,7 @@ public:
 		int64_t                      nFrozen      = 0;
 		uint64_t                     nMinLockTime = 0;
 		std::vector<CFrozenCoinInfo> vFrozenCoinInfo;
-		for (unsigned int i = 0; i < vout.size(); i++) {
+		for (uint32_t i = 0; i < vout.size(); i++) {
 			if (!IsSpent(i)) {
 				const CTxOut& txout = vout[i];
 				if (pwallet->IsMine(txout)) {
@@ -934,11 +934,12 @@ public:
 			vRewardsInfoCached[i].amount = 0;
 		}
 		int nSupply = pwallet->nLastPegSupplyIndex;
-		for (unsigned int i = 0; i < vout.size(); i++) {
+		for (uint32_t i = 0; i < vout.size(); i++) {
 			if (!IsSpent(i) && vOutFractions[i].ptr) {
 				const CTxOut& txout = vout[i];
 				if (pwallet->IsMine(txout)) {
-					bool fConfirmed = GetDepthInMainChain() >= nStakeMinConfirmations;
+					bool fConfirmed = GetDepthInMainChain() >=
+									  Params().MinStakeConfirmations(GetBlockNumInMainChain());
 					bool fStake =
 					    IsCoinStake() && GetBlocksToMaturity() > 0 && GetDepthInMainChain() > 0;
 
@@ -1034,7 +1035,7 @@ public:
 		std::vector<const CMerkleTx*>       vWorkQueue;
 		vWorkQueue.reserve(vtxPrev.size() + 1);
 		vWorkQueue.push_back(this);
-		for (unsigned int i = 0; i < vWorkQueue.size(); i++) {
+		for (uint32_t i = 0; i < vWorkQueue.size(); i++) {
 			const CMerkleTx* ptx = vWorkQueue[i];
 
 			if (!IsFinalTx(*ptx))
@@ -1097,7 +1098,7 @@ public:
 	}
 
 	uint64_t FrozenUnlockTime() const;
-	bool     IsFrozen(unsigned int nLastBlockTime) const;
+	bool     IsFrozen(uint32_t nLastBlockTime) const;
 	bool     IsFrozenMark() const;
 	bool     IsColdMark() const;
 };
@@ -1105,7 +1106,7 @@ public:
 class CSelectedCoin {
 public:
 	const CWalletTx* tx;
-	unsigned int     i;
+	uint32_t         i;
 	int64_t          nAvailableValue;
 
 	friend bool operator<(const CSelectedCoin& a, const CSelectedCoin& b) {

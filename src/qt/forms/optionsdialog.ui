@@ -261,7 +261,7 @@
        <string>&amp;Blockchain</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout">
-       <item row="2" column="0" colspan="2">
+       <item row="1" column="0" colspan="2">
         <spacer name="verticalSpacer">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -281,13 +281,6 @@
          </property>
          <property name="checked">
           <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0" colspan="2">
-        <widget class="QCheckBox" name="utxoAddressInfo">
-         <property name="text">
-          <string>Balance/UTXO per-address information (apply after restart)</string>
          </property>
         </widget>
        </item>
@@ -432,7 +425,6 @@
       <widget class="QLabel" name="statusLabel">
        <property name="font">
         <font>
-         <weight>75</weight>
          <bold>true</bold>
         </font>
        </property>

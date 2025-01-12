@@ -5,6 +5,7 @@
 #include "transactiontablemodel.h"
 
 #include "base58.h"
+#include "pegdb-leveldb.h"
 #include "ui_interface.h"
 #include "wallet.h"
 #include "walletdb.h"  // for BackupWallet
@@ -263,6 +264,11 @@ void WalletModel::updateAddressBook(const QString& address,
 }
 
 bool WalletModel::validateAddress(const QString& address) {
+	if (address.startsWith("0x") && address.length() == 42) {
+		std::string saddr = address.toStdString();
+		std::string hex   = saddr.substr(2);
+		return IsHex(hex);
+	}
 	CBitcoinAddress addressParsed(address.toStdString());
 	return addressParsed.IsValid();
 }
@@ -329,16 +335,32 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(const QList<SendCoinsRecipie
 		// Sendmany
 		std::vector<std::pair<CScript, int64_t> > vecSend;
 		foreach (const SendCoinsRecipient& rcp, recipients) {
+			if (rcp.address.startsWith("0x") && rcp.address.size() == 42) {
+				string nhash;
+				{
+					CDataStream ss(SER_GETHASH, 0);
+					ss << rcp.network.toStdString();
+					nhash = Hash(ss.begin(), ss.end()).GetHex();
+				}
+				nhash = nhash + rcp.address.toStdString();
+
+				CScript scriptPubKey;
+				scriptPubKey.PushNotary("**Z**" + nhash);
+				vecSend.push_back(make_pair(scriptPubKey, rcp.amount));
+				continue;
+			}
+
 			CScript scriptPubKey;
 			scriptPubKey.SetDestination(CBitcoinAddress(rcp.address.toStdString()).Get());
 			vecSend.push_back(make_pair(scriptPubKey, rcp.amount));
 		}
 
-		CWalletTx   wtx;
-		CReserveKey keyChange(wallet);
-		int64_t     nFeeRequired = 0;
-		bool fCreated = wallet->CreateTransaction(txType, vecSend, wtx, keyChange, nFeeRequired,
-		                                          coinControl, false, sFailCause);
+		// TODO: nTime to 0
+		CWalletTx wtx;
+		wtx.nTime            = GetAdjustedTime();
+		int64_t nFeeRequired = 0;
+		bool fCreated = wallet->CreateTransaction(txType, vecSend, wtx, nFeeRequired, coinControl,
+		                                          false, sFailCause);
 
 		if (!fCreated) {
 			if ((total + nFeeRequired) > nBalance)  // FIXME: could cause collisions in the future
@@ -350,7 +372,7 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(const QList<SendCoinsRecipie
 		if (!uiInterface.ThreadSafeAskFee(nFeeRequired, tr("Sending...").toStdString())) {
 			return Aborted;
 		}
-		if (!wallet->CommitTransaction(wtx, keyChange)) {
+		if (!wallet->CommitTransaction(wtx)) {
 			return TransactionCommitFailed;
 		}
 		hex = QString::fromStdString(wtx.GetHash().GetHex());
@@ -441,15 +463,28 @@ WalletModel::SendCoinsReturn WalletModel::sendCoinsTest(CWalletTx&              
 		// Sendmany
 		std::vector<std::pair<CScript, int64_t> > vecSend;
 		foreach (const SendCoinsRecipient& rcp, recipients) {
+			if (rcp.address.startsWith("0x") && rcp.address.size() == 42) {
+				string nhash;
+				{
+					CDataStream ss(SER_GETHASH, 0);
+					ss << rcp.network.toStdString();
+					nhash = Hash(ss.begin(), ss.end()).GetHex();
+				}
+				nhash = nhash + rcp.address.toStdString();
+
+				CScript scriptPubKey;
+				scriptPubKey.PushNotary("**Z**" + nhash);
+				vecSend.push_back(make_pair(scriptPubKey, rcp.amount));
+				continue;
+			}
 			CScript scriptPubKey;
 			scriptPubKey.SetDestination(CBitcoinAddress(rcp.address.toStdString()).Get());
 			vecSend.push_back(make_pair(scriptPubKey, rcp.amount));
 		}
 
-		CReserveKey keyChange(wallet);
-		int64_t     nFeeRequired = 0;
-		bool fCreated = wallet->CreateTransaction(txType, vecSend, wtx, keyChange, nFeeRequired,
-		                                          coinControl, true /*fTest*/, sFailCause);
+		int64_t nFeeRequired = 0;
+		bool fCreated = wallet->CreateTransaction(txType, vecSend, wtx, nFeeRequired, coinControl,
+		                                          true /*fTest*/, sFailCause);
 
 		if (!fCreated) {
 			if ((total + nFeeRequired) > nBalance)  // FIXME: could cause collisions in the future
@@ -661,4 +696,39 @@ void WalletModel::setBtcRates(std::vector<double> vRates) {
 
 void WalletModel::setTrackerVote(PegVoteType vote, double dPeakRate) {
 	wallet->SetTrackerVote(vote, dPeakRate);
+}
+
+QMap<QString, QString> WalletModel::getBridges() const {
+	CPegDB                   pegdb;
+	map<string, CBridgeInfo> datas;
+	bool                     ok = pindexBest->ReadBridges(pegdb, datas);
+	if (!ok)
+		return QMap<QString, QString>();
+
+	QMap<QString, QString> bridges;
+	for (const auto& it : datas) {
+		CBridgeInfo bdatas    = it.second;
+		string      contract  = bdatas.contract;
+		QString     qname     = QString::fromStdString(bdatas.name);
+		QString     qcontract = QString::fromStdString(contract);
+		bridges[qname]        = qcontract;
+	}
+	return bridges;
+}
+
+QMap<QString, QString> WalletModel::getBridgesHashes() const {
+	CPegDB                   pegdb;
+	map<string, CBridgeInfo> datas;
+	bool                     ok = pindexBest->ReadBridges(pegdb, datas);
+	if (!ok)
+		return QMap<QString, QString>();
+
+	QMap<QString, QString> bridges;
+	for (const auto& it : datas) {
+		CBridgeInfo bdatas  = it.second;
+		QString     qbrname = QString::fromStdString(bdatas.name);
+		QString     qbrhash = QString::fromStdString(bdatas.hash);
+		bridges[qbrhash]    = qbrname;
+	}
+	return bridges;
 }

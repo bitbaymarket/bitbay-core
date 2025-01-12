@@ -4,7 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 //
 // The use in another cyptocurrency project the code is licensed under
-// Coinleft Public License for BitBay. See https://bitbay.market/Coinleft-Public-License-v1.pdf
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #ifndef BITBAY_PEGSTD_H
 #define BITBAY_PEGSTD_H
@@ -63,9 +63,10 @@ struct FrozenTxOut {
 
 bool CalculateStandardFractions(const CTransaction& tx,
                                 int                 nSupply,
-                                unsigned int        nTime,
+                                uint32_t            nBlockTime,
                                 MapPrevOut&         inputs,
                                 MapFractions&       finputs,
+                                std::set<uint32_t>  setTimeLockPass,
                                 MapFractions&       mapTestFractionsPool,
                                 CFractions&         feesFractions,
                                 std::string&        sPegFailCause);

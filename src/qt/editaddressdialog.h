@@ -4,7 +4,7 @@
 #include <QDialog>
 
 namespace Ui {
-class EditAddressDialog;
+    class EditAddressDialog;
 }
 class AddressTableModel;
 
@@ -14,33 +14,39 @@ QT_END_NAMESPACE
 
 /** Dialog for editing an address and associated information.
  */
-class EditAddressDialog : public QDialog {
-	Q_OBJECT
+class EditAddressDialog : public QDialog
+{
+    Q_OBJECT
 
 public:
-	enum Mode { NewReceivingAddress, NewSendingAddress, EditReceivingAddress, EditSendingAddress };
+    enum Mode {
+        NewReceivingAddress,
+        NewSendingAddress,
+        EditReceivingAddress,
+        EditSendingAddress
+    };
 
-	explicit EditAddressDialog(Mode mode, QWidget* parent = 0);
-	~EditAddressDialog();
+    explicit EditAddressDialog(Mode mode, QWidget *parent = 0);
+    ~EditAddressDialog();
 
-	void setModel(AddressTableModel* model);
-	void loadRow(int row);
+    void setModel(AddressTableModel *model);
+    void loadRow(int row);
 
-	QString getAddress() const;
-	void    setAddress(const QString& address);
+    QString getAddress() const;
+    void setAddress(const QString &address);
 
 public slots:
-	void accept();
+    void accept();
 
 private:
-	bool saveCurrentRow();
+    bool saveCurrentRow();
 
-	Ui::EditAddressDialog* ui;
-	QDataWidgetMapper*     mapper;
-	Mode                   mode;
-	AddressTableModel*     model;
+    Ui::EditAddressDialog *ui;
+    QDataWidgetMapper *mapper;
+    Mode mode;
+    AddressTableModel *model;
 
-	QString address;
+    QString address;
 };
 
-#endif  // EDITADDRESSDIALOG_H
+#endif // EDITADDRESSDIALOG_H

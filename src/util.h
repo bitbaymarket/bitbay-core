@@ -249,7 +249,7 @@ std::string DateTimeStrFormat(const char* pszFormat, int64_t nTime);
 
 static const std::string strTimestampFormat = "%Y-%m-%d %H:%M:%S UTC";
 inline std::string       DateTimeStrFormat(int64_t nTime) {
-    return DateTimeStrFormat(strTimestampFormat.c_str(), nTime);
+	      return DateTimeStrFormat(strTimestampFormat.c_str(), nTime);
 }
 
 template <typename T>
@@ -340,10 +340,10 @@ class CMedianFilter {
 private:
 	std::vector<T> vValues;
 	std::vector<T> vSorted;
-	unsigned int   nSize;
+	uint32_t       nSize;
 
 public:
-	CMedianFilter(unsigned int size, T initial_value) : nSize(size) {
+	CMedianFilter(uint32_t size, T initial_value) : nSize(size) {
 		vValues.reserve(size);
 		vValues.push_back(initial_value);
 		vSorted = vValues;

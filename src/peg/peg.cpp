@@ -4,7 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 //
 // The use in another cyptocurrency project the code is licensed under
-// Coinleft Public License for BitBay. See https://bitbay.market/Coinleft-Public-License-v1.pdf
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #include <algorithm>
 #include <cstdint>
@@ -36,6 +36,10 @@
 
 #include <zconf.h>
 #include <zlib.h>
+
+#include "json/json_spirit_reader_template.h"
+#include "json/json_spirit_utils.h"
+#include "json/json_spirit_writer_template.h"
 
 using namespace std;
 using namespace boost;
@@ -71,8 +75,12 @@ bool SetBlocksIndexesReadyForPeg(CTxDB& ctxdb, LoadMsg load_msg) {
 		CDiskBlockIndex diskindex;
 		ssValue >> diskindex;
 
-		uint256      blockHash = diskindex.GetBlockHash();
-		CBlockIndex* pindexNew = ctxdb.InsertBlockIndex(blockHash);
+		uint256                              blockHash = diskindex.GetBlockHash();
+        unordered_map<uint256, CBlockIndex*>::iterator mi        = mapBlockIndex.find(blockHash);
+		if (mi == mapBlockIndex.end()) {
+			return error("SetBlocksIndexesReadyForPeg() : mapBlockIndex failed");
+		}
+		CBlockIndex* pindexNew = (*mi).second;
 
 		pindexNew->SetPeg(pindexNew->nHeight >= nPegStartHeight);
 		diskindex.SetPeg(pindexNew->nHeight >= nPegStartHeight);
@@ -93,19 +101,47 @@ bool SetBlocksIndexesReadyForPeg(CTxDB& ctxdb, LoadMsg load_msg) {
 	return true;
 }
 
-bool CalculateBlockPegIndex(CBlockIndex* pindex) {
-	if (!pindex->pprev) {
+int CBlockIndex::PegCycle() const {
+	int nPegInterval = Params().PegInterval();
+	return nHeight / nPegInterval;
+}
+
+CBlockIndex* CBlockIndex::PegCycleBlock() const {
+	int          nPegInterval = Params().PegInterval();
+	int          n            = nHeight % nPegInterval;
+	CBlockIndex* cycle_pindex = const_cast<CBlockIndex*>(this);
+	while (n > 0) {
+		cycle_pindex = cycle_pindex->Prev();
+		n--;
+	}
+	return cycle_pindex;
+}
+
+CBlockIndex* CBlockIndex::PrevPegCycleBlock() const {
+	int nPegInterval = Params().PegInterval();
+	int n            = nPegInterval;
+	// get current cycle block and roll cycle
+	CBlockIndex* cycle_pindex = PegCycleBlock();
+	while (n > 0) {
+		cycle_pindex = cycle_pindex->Prev();
+		n--;
+	}
+	return cycle_pindex;
+}
+
+bool CalculateBlockPegIndex(CPegDB& pegdb, CBlockIndex* pindex) {
+	if (!pindex->Prev()) {
 		pindex->nPegSupplyIndex = 0;
 		return true;
 	}
 
-	pindex->nPegSupplyIndex = pindex->pprev->GetNextBlockPegSupplyIndex();
+	pindex->nPegSupplyIndex = pindex->Prev()->GetNextBlockPegSupplyIndex();
 	return true;
 }
 
 int CBlockIndex::GetNextBlockPegSupplyIndex() const {
 	int nNextHeight  = nHeight + 1;
-	int nPegInterval = Params().PegInterval(nNextHeight);
+	int nPegInterval = Params().PegInterval();
 
 	if (nNextHeight < nPegStartHeight) {
 		return 0;
@@ -118,12 +154,12 @@ int CBlockIndex::GetNextBlockPegSupplyIndex() const {
 	// nPegInterval-1
 	auto usevotesindex = this;
 	while (usevotesindex->nHeight > (nNextHeight - nPegInterval * 2 - 1))
-		usevotesindex = usevotesindex->pprev;
+		usevotesindex = usevotesindex->Prev();
 
 	// back to 3 intervals and -1 for votes calculations of 2x and 3x
 	auto prevvotesindex = this;
 	while (prevvotesindex->nHeight > (nNextHeight - nPegInterval * 3 - 1))
-		prevvotesindex = prevvotesindex->pprev;
+		prevvotesindex = prevvotesindex->Prev();
 
 	return ComputeNextPegSupplyIndex(nPegSupplyIndex, usevotesindex, prevvotesindex);
 }
@@ -133,7 +169,7 @@ int CBlockIndex::GetNextIntervalPegSupplyIndex() const {
 		return 0;
 	}
 
-	int nPegInterval          = Params().PegInterval(nHeight);
+	int nPegInterval          = Params().PegInterval();
 	int nCurrentInterval      = nHeight / nPegInterval;
 	int nCurrentIntervalStart = nCurrentInterval * nPegInterval;
 
@@ -141,12 +177,12 @@ int CBlockIndex::GetNextIntervalPegSupplyIndex() const {
 	// nPegInterval-1
 	auto usevotesindex = this;
 	while (usevotesindex->nHeight > (nCurrentIntervalStart - nPegInterval * 1 - 1))
-		usevotesindex = usevotesindex->pprev;
+		usevotesindex = usevotesindex->Prev();
 
 	// back to 3 intervals and -1 for votes calculations of 2x and 3x
 	auto prevvotesindex = this;
 	while (prevvotesindex->nHeight > (nCurrentIntervalStart - nPegInterval * 2 - 1))
-		prevvotesindex = prevvotesindex->pprev;
+		prevvotesindex = prevvotesindex->Prev();
 
 	return CBlockIndex::ComputeNextPegSupplyIndex(nPegSupplyIndex, usevotesindex, prevvotesindex);
 }
@@ -156,7 +192,7 @@ int CBlockIndex::GetNextNextIntervalPegSupplyIndex() const {
 		return 0;
 	}
 
-	int nPegInterval          = Params().PegInterval(nHeight);
+	int nPegInterval          = Params().PegInterval();
 	int nCurrentInterval      = nHeight / nPegInterval;
 	int nCurrentIntervalStart = nCurrentInterval * nPegInterval;
 
@@ -164,12 +200,12 @@ int CBlockIndex::GetNextNextIntervalPegSupplyIndex() const {
 	// nPegInterval-1
 	auto usevotesindex = this;
 	while (usevotesindex->nHeight > (nCurrentIntervalStart - nPegInterval * 0 - 1))
-		usevotesindex = usevotesindex->pprev;
+		usevotesindex = usevotesindex->Prev();
 
 	// back to 3 intervals and -1 for votes calculations of 2x and 3x
 	auto prevvotesindex = this;
 	while (prevvotesindex->nHeight > (nCurrentIntervalStart - nPegInterval * 1 - 1))
-		prevvotesindex = prevvotesindex->pprev;
+		prevvotesindex = prevvotesindex->Prev();
 
 	return CBlockIndex::ComputeNextPegSupplyIndex(GetNextIntervalPegSupplyIndex(), usevotesindex,
 	                                              prevvotesindex);
@@ -249,8 +285,12 @@ int CalculatePegVotes(const CFractions& fractions, int nPegSupplyIndex) {
 	return nVotes;
 }
 
-bool CalculateBlockPegVotes(const CBlock& cblock, CBlockIndex* pindex, CPegDB& pegdb) {
-	int nPegInterval = Params().PegInterval(pindex->nHeight);
+bool CalculateBlockPegVotes(const CBlock& cblock,
+                            CBlockIndex*  pindex,
+                            CTxDB&        txdb,
+                            CPegDB&       pegdb,
+                            string&       staker_addr) {
+	int nPegInterval = Params().PegInterval();
 
 	if (!cblock.IsProofOfStake() || pindex->nHeight < nPegStartHeight) {
 		pindex->nPegVotesInflate  = 0;
@@ -263,10 +303,10 @@ bool CalculateBlockPegVotes(const CBlock& cblock, CBlockIndex* pindex, CPegDB& p
 		pindex->nPegVotesInflate  = 0;
 		pindex->nPegVotesDeflate  = 0;
 		pindex->nPegVotesNochange = 0;
-	} else if (pindex->pprev) {
-		pindex->nPegVotesInflate  = pindex->pprev->nPegVotesInflate;
-		pindex->nPegVotesDeflate  = pindex->pprev->nPegVotesDeflate;
-		pindex->nPegVotesNochange = pindex->pprev->nPegVotesNochange;
+	} else if (pindex->Prev()) {
+		pindex->nPegVotesInflate  = pindex->Prev()->nPegVotesInflate;
+		pindex->nPegVotesDeflate  = pindex->Prev()->nPegVotesDeflate;
+		pindex->nPegVotesNochange = pindex->Prev()->nPegVotesNochange;
 	}
 
 	int nVotes = 1;
@@ -276,9 +316,30 @@ bool CalculateBlockPegVotes(const CBlock& cblock, CBlockIndex* pindex, CPegDB& p
 	size_t n_vin = tx.vin.size();
 	if (tx.IsCoinBase())
 		n_vin = 0;
-	for (unsigned int i = 0; i < n_vin; i++) {
-		CFractions       fractions(0, CFractions::STD);
+	for (uint32_t i = 0; i < n_vin; i++) {
+		// to know the staker
 		const COutPoint& prevout = tx.vin[i].prevout;
+		if (i == 0) {
+			CTxIndex txindex;
+			if (txdb.ReadTxIndex(prevout.hash, txindex)) {
+				CTransaction txPrev;
+				if (txPrev.ReadFromDisk(txindex.pos)) {
+					if (txPrev.vout.size() > prevout.n) {
+						int                    nRequired;
+						txnouttype             type;
+						vector<CTxDestination> vAddresses;
+						if (ExtractDestinations(txPrev.vout[prevout.n].scriptPubKey, type,
+						                        vAddresses, nRequired)) {
+							if (vAddresses.size() == 1) {
+								staker_addr = CBitcoinAddress(vAddresses.front()).ToString();
+							}
+						}
+					}
+				}
+			}
+		}
+		// peg votes
+		CFractions fractions(0, CFractions::STD);
 		if (!pegdb.ReadFractions(uint320(prevout.hash, prevout.n), fractions)) {
 			return false;
 		}
@@ -323,64 +384,12 @@ bool CalculateBlockPegVotes(const CBlock& cblock, CBlockIndex* pindex, CPegDB& p
 	return true;
 }
 
-static string toAddress(const CScript& scriptPubKey,
-                        bool*          ptrIsNotary = nullptr,
-                        string*        ptrNotary   = nullptr) {
-	int                    nRequired;
-	txnouttype             type;
-	vector<CTxDestination> addresses;
-	if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
-		std::string str_addr_all;
-		bool        fNone = true;
-		for (const CTxDestination& addr : addresses) {
-			std::string str_addr = CBitcoinAddress(addr).ToString();
-			if (!str_addr_all.empty())
-				str_addr_all += "\n";
-			str_addr_all += str_addr;
-			fNone = false;
-		}
-		if (!fNone)
-			return str_addr_all;
-	}
-
-	if (ptrNotary || ptrIsNotary) {
-		if (ptrIsNotary)
-			*ptrIsNotary = false;
-		if (ptrNotary)
-			*ptrNotary = "";
-
-		opcodetype              opcode1;
-		vector<unsigned char>   vch1;
-		CScript::const_iterator pc1 = scriptPubKey.begin();
-		if (scriptPubKey.GetOp(pc1, opcode1, vch1)) {
-			if (opcode1 == OP_RETURN && scriptPubKey.size() > 1) {
-				if (ptrIsNotary)
-					*ptrIsNotary = true;
-				if (ptrNotary) {
-					unsigned long len_bytes = scriptPubKey[1];
-					if (len_bytes > scriptPubKey.size() - 2)
-						len_bytes = scriptPubKey.size() - 2;
-					for (uint32_t i = 0; i < len_bytes; i++) {
-						ptrNotary->push_back(char(scriptPubKey[i + 2]));
-					}
-				}
-			}
-		}
-	}
-
-	string        as_bytes;
-	unsigned long len_bytes = scriptPubKey.size();
-	for (unsigned int i = 0; i < len_bytes; i++) {
-		as_bytes += char(scriptPubKey[i]);
-	}
-	return as_bytes;
-}
-
 bool CalculateStandardFractions(const CTransaction& tx,
                                 int                 nSupply,
-                                unsigned int        nTime,
+                                uint32_t            nBlockTime,
                                 MapPrevTx&          mapTxInputs,
                                 MapFractions&       mapInputsFractions,
+                                set<uint32_t>       setTimeLockPass,
                                 MapFractions&       mapTestFractionsPool,
                                 CFractions&         feesFractions,
                                 std::string&        sFailCause) {
@@ -389,7 +398,7 @@ bool CalculateStandardFractions(const CTransaction& tx,
 
 	if (tx.IsCoinBase())
 		n_vin = 0;
-	for (unsigned int i = 0; i < n_vin; i++) {
+	for (uint32_t i = 0; i < n_vin; i++) {
 		const COutPoint& prevout = tx.vin[i].prevout;
 		CTransaction&    txPrev  = mapTxInputs[prevout.hash].second;
 		if (prevout.n >= txPrev.vout.size()) {
@@ -401,19 +410,248 @@ bool CalculateStandardFractions(const CTransaction& tx,
 		mapInputs[fkey] = txPrev.vout[prevout.n];
 	}
 
-	return CalculateStandardFractions(tx, nSupply, nTime, mapInputs, mapInputsFractions,
-	                                  mapTestFractionsPool, feesFractions, sFailCause);
+	return CalculateStandardFractions(tx, nSupply, nBlockTime, mapInputs, mapInputsFractions,
+	                                  setTimeLockPass, mapTestFractionsPool, feesFractions,
+	                                  sFailCause);
 }
 
-extern bool CalculateStakingFractions_testnet200k(const CTransaction&          tx,
-                                                  const CBlockIndex*           pindexBlock,
-                                                  MapPrevTx&                   inputs,
-                                                  MapFractions&                fInputs,
-                                                  std::map<uint256, CTxIndex>& mapTestPool,
-                                                  MapFractions&                mapTestFractionsPool,
-                                                  const CFractions&            feesFractions,
-                                                  int64_t      nCalculatedStakeRewardWithoutFees,
-                                                  std::string& sFailCause);
+bool CalculateCoinMintFractions(const CTransaction&                tx,
+								int                                nSupply,
+								uint32_t                           nTime,
+								const map<string, CBridgeInfo>     bridges,
+								std::function<CMerkleInfo(string)> fnMerkleIn,
+								int                                nBridgePoolNout,
+								MapPrevOut&                        mapInputs,
+								MapFractions&                      mapInputsFractions,
+								MapFractions&                      mapTestFractionsPool,
+								CFractions&                        feesFractions,
+								std::string&                       sFailCause) {
+	size_t n_vin  = tx.vin.size();
+	size_t n_vout = tx.vout.size();
+
+	if (n_vin != 2) {
+		sFailCause = "P-MI-1: Not two inputs";
+		return false;
+	}
+	if (n_vout != 1) {
+		sFailCause = "P-MI-2: Not one output";
+		return false;
+	}
+
+	int64_t    nValueIn = 0;
+	CFractions frInpLeaf;
+	string     bridge_hash;
+	CFractions frBridgePool;
+
+	for (uint32_t i = 0; i < n_vin; i++) {
+		const COutPoint& prevout = tx.vin[i].prevout;
+		auto             fkey    = uint320(prevout.hash, prevout.n);
+		if (!mapInputs.count(fkey)) {
+			sFailCause = "P-MI-3: Refered output is not found";
+			return false;
+		}
+		const CTxOut& prevtxout = mapInputs[fkey];
+
+		int64_t nValue = prevtxout.nValue;
+		nValueIn += nValue;
+
+		if (mapInputsFractions.find(fkey) == mapInputsFractions.end()) {
+			sFailCause = "P-MI-4: No input fractions found";
+			return false;
+		}
+
+		auto frInp = mapInputsFractions[fkey].Std();
+		if (frInp.Total() != prevtxout.nValue) {
+			std::stringstream ss;
+			ss << "P-MI-5: Input fraction " << prevout.hash.GetHex() << ":" << prevout.n
+			   << " total " << frInp.Total() << " mismatches prevout value " << prevtxout.nValue;
+			sFailCause = ss.str();
+			return false;
+		}
+
+		if (i == 1) {
+			frInpLeaf = frInp;  // requested, skip
+
+			CBitcoinAddress addr_dest;
+			vector<int64_t> sections;
+			int             section_peg = 0;
+			int             nonce       = 0;
+			string          from;
+			string          leaf;
+			vector<string>  proofs;
+
+			if (!DecodeAndValidateMintSigScript(tx.vin[1].scriptSig, addr_dest, sections,
+			                                    section_peg, nonce, from, leaf, proofs)) {
+				std::stringstream ss;
+				ss << "P-MI-5: CoinMint DecodeAndValidateMintSigScript err "
+				   << tx.vin[1].scriptSig.ToString();
+				sFailCause = ss.str();
+				return false;
+			}
+
+			string merkle_root;
+			{
+				string out_root_hex;
+				if (!ComputeMintMerkleRoot(leaf, proofs, out_root_hex)) {
+					std::stringstream ss;
+					ss << "P-MI-6: CoinMint ComputeMintMerkleRoot err "
+					   << tx.vin[1].scriptSig.ToString();
+					sFailCause = ss.str();
+					return false;
+				}
+				merkle_root = out_root_hex;
+			}
+
+			const CMerkleInfo merkle = fnMerkleIn(merkle_root);
+			if (merkle.hash.empty()) {
+				std::stringstream ss;
+				ss << "P-MI-7: CoinMint merkle not found " << merkle_root;
+				sFailCause = ss.str();
+				return false;
+			}
+			if (!bridges.count(merkle.brhash)) {
+				std::stringstream ss;
+				ss << "P-MI-8: CoinMint bridge not found " << merkle.bridge << " hash "
+				   << merkle.brhash;
+				sFailCause = ss.str();
+				return false;
+			}
+			const CBridgeInfo& bridge = bridges.at(merkle.brhash);
+			bridge_hash               = bridge.hash;
+			auto bridge_fkey          = uint320(uint256(bridge_hash), nBridgePoolNout);
+
+			if (!mapInputsFractions.count(bridge_fkey)) {
+				std::stringstream ss;
+				ss << "P-MI-9: CoinMint no input bridge fractions " << bridge_hash << ":"
+				   << nBridgePoolNout;
+				sFailCause = ss.str();
+				return false;
+			}
+			frBridgePool = mapInputsFractions[bridge_fkey];
+			CCompressedFractions cfrLeafFromBridge(sections, section_peg, bridge.pegSteps,
+			                                       bridge.microSteps);
+			CFractions           frDecompressed = cfrLeafFromBridge.Decompress(frBridgePool);
+			if (frDecompressed.Total() == 0) {
+				std::stringstream ss;
+				ss << "P-MI-10: CoinMint fail to decompress fractions " << prevout.hash.ToString()
+				   << ":" << prevout.n;
+				sFailCause = ss.str();
+				return false;
+			}
+			frInpLeaf = frDecompressed;
+		}
+	}
+
+	frBridgePool -= frInpLeaf;
+
+	CFractions frOut          = frInpLeaf.RatioPart(tx.vout[0].nValue);
+	CFractions txFeeFractions = frInpLeaf;
+	txFeeFractions -= frOut;
+
+	int64_t  nValueOut     = 0;
+	bool     fFailedPegOut = false;
+	uint32_t nLatestPegOut = 0;
+
+	// Calculation of outputs
+	for (uint32_t i = 0; i < n_vout; i++) {
+		nLatestPegOut  = i;
+		int64_t nValue = tx.vout[i].nValue;
+		nValueOut += nValue;
+
+		auto fkey                  = uint320(tx.GetHash(), i);
+		mapTestFractionsPool[fkey] = frOut;
+
+		// deduct from bridge pool fractions
+	}
+
+	if (!fFailedPegOut) {
+		// lets do some extra checks for totals
+		for (uint32_t i = 0; i < n_vout; i++) {
+			auto    fkey   = uint320(tx.GetHash(), i);
+			auto    f      = mapTestFractionsPool[fkey];
+			int64_t nValue = tx.vout[i].nValue;
+			if (nValue != f.Total() || !f.IsPositive()) {
+				sFailCause    = "P-MO-1: Total mismatch on output " + std::to_string(i);
+				fFailedPegOut = true;
+				break;
+			}
+		}
+	}
+
+	// when finished all outputs, fees
+	int64_t nFee = nValueIn - nValueOut;
+	if (nFee != MINT_TX_FEE) {
+		sFailCause = "P-MO-2: MINT_TX_FEE mismatch on fee " + std::to_string(nFee) + " vs " +
+		             std::to_string(MINT_TX_FEE);
+		fFailedPegOut = true;
+	}
+	if (nFee != txFeeFractions.Total()) {
+		sFailCause = "P-MO-3: Total mismatch on fee fractions " + std::to_string(nFee) + " vs " +
+		             std::to_string(txFeeFractions.Total());
+		fFailedPegOut = true;
+	}
+	if (!txFeeFractions.IsPositive()) {
+		sFailCause    = "P-MO-4: Non-positive fee fractions";
+		fFailedPegOut = true;
+	}
+
+	if (fFailedPegOut) {
+		// remove failed fractions from pool
+		auto fkey = uint320(tx.GetHash(), nLatestPegOut);
+		if (mapTestFractionsPool.count(fkey)) {
+			auto it = mapTestFractionsPool.find(fkey);
+			mapTestFractionsPool.erase(it);
+		}
+		return false;
+	}
+
+	feesFractions += txFeeFractions;
+
+	// now all outputs are ready, place them as inputs for next tx in the list
+	for (uint32_t i = 0; i < n_vout; i++) {
+		auto fkey                = uint320(tx.GetHash(), i);
+		mapInputsFractions[fkey] = mapTestFractionsPool[fkey];
+	}
+
+	// deducted bridge pool
+	auto bridge_fkey                = uint320(uint256(bridge_hash), nBridgePoolNout);
+	mapInputsFractions[bridge_fkey] = frBridgePool;
+
+	return true;
+}
+
+bool CalculateCoinMintFractions(const CTransaction&                tx,
+								int                                nSupply,
+								uint32_t                           nTime,
+								const map<string, CBridgeInfo>     bridges,
+								std::function<CMerkleInfo(string)> fnMerkleIn,
+								int                                nBridgePoolNout,
+								MapPrevTx&                         mapTxInputs,
+								MapFractions&                      mapInputsFractions,
+								MapFractions&                      mapTestFractionsPool,
+								CFractions&                        feesFractions,
+								std::string&                       sFailCause) {
+	MapPrevOut mapInputs;
+	size_t     n_vin = tx.vin.size();
+
+	if (tx.IsCoinBase())
+		n_vin = 0;
+	for (uint32_t i = 0; i < n_vin; i++) {
+		const COutPoint& prevout = tx.vin[i].prevout;
+		CTransaction&    txPrev  = mapTxInputs[prevout.hash].second;
+		if (prevout.n >= txPrev.vout.size()) {
+			sFailCause = "P-G-P-1: Refered output out of range";
+			return false;
+		}
+
+		auto fkey       = uint320(prevout.hash, prevout.n);
+		mapInputs[fkey] = txPrev.vout[prevout.n];
+	}
+
+	return CalculateCoinMintFractions(tx, nSupply, nTime, bridges, fnMerkleIn, nBridgePoolNout,
+	                                  mapInputs, mapInputsFractions, mapTestFractionsPool,
+	                                  feesFractions, sFailCause);
+}
 
 bool CalculateStakingFractions_v2(const CTransaction&          tx,
                                   const CBlockIndex*           pindexBlock,
@@ -437,13 +675,6 @@ bool CalculateStakingFractions(const CTransaction&          tx,
 	if (!pindexBlock) {
 		// need a block info
 		return false;
-	}
-	if (TestNet()) {
-		if (pindexBlock->nHeight < 200000) {
-			return CalculateStakingFractions_testnet200k(
-			    tx, pindexBlock, inputs, fInputs, mapTestPool, mapTestFractionsPool, feesFractions,
-			    nCalculatedStakeRewardWithoutFees, sFailCause);
-		}
 	}
 
 	return CalculateStakingFractions_v2(tx, pindexBlock, inputs, fInputs, mapTestPool,
@@ -482,7 +713,7 @@ bool CalculateStakingFractions_v2(const CTransaction&          tx,
 
 	// only one input
 	{
-		unsigned int     i       = 0;
+		uint32_t         i       = 0;
 		const COutPoint& prevout = tx.vin[i].prevout;
 		CTransaction&    txPrev  = inputs[prevout.hash].second;
 		if (prevout.n >= txPrev.vout.size()) {
@@ -493,7 +724,7 @@ bool CalculateStakingFractions_v2(const CTransaction&          tx,
 		int64_t nValue = txPrev.vout[prevout.n].nValue;
 		nValueStakeIn  = nValue;
 
-		auto sAddress = toAddress(txPrev.vout[prevout.n].scriptPubKey);
+		auto sAddress = txPrev.vout[prevout.n].scriptPubKey.ToAddress();
 		sInputAddress = sAddress;
 
 		auto fkey = uint320(prevout.hash, prevout.n);
@@ -513,8 +744,8 @@ bool CalculateStakingFractions_v2(const CTransaction&          tx,
 
 	// Check funds to be returned to same address
 	int64_t nValueReturn = 0;
-	for (unsigned int i = 0; i < n_vout; i++) {
-		std::string sAddress = toAddress(tx.vout[i].scriptPubKey);
+	for (uint32_t i = 0; i < n_vout; i++) {
+		std::string sAddress = tx.vout[i].scriptPubKey.ToAddress();
 		if (sInputAddress == sAddress) {
 			nValueReturn += tx.vout[i].nValue;
 		}
@@ -529,11 +760,11 @@ bool CalculateStakingFractions_v2(const CTransaction&          tx,
 
 	int64_t nValueRewardLeft = frReward.Total();
 
-	bool         fFailedPegOut = false;
-	unsigned int nStakeOut     = 0;
+	bool     fFailedPegOut = false;
+	uint32_t nStakeOut     = 0;
 
 	// Transfer mark and set stake output
-	for (unsigned int i = 0; i < n_vout; i++) {
+	for (uint32_t i = 0; i < n_vout; i++) {
 		int64_t nValue = tx.vout[i].nValue;
 
 		auto  fkey  = uint320(tx.GetHash(), i);
@@ -541,7 +772,7 @@ bool CalculateStakingFractions_v2(const CTransaction&          tx,
 
 		string sNotary;
 		bool   fNotary  = false;
-		auto   sAddress = toAddress(tx.vout[i].scriptPubKey, &fNotary, &sNotary);
+		auto   sAddress = tx.vout[i].scriptPubKey.ToAddress(&fNotary, &sNotary);
 
 		// first output returning on same address and greater or equal stake value
 		if (nValue >= nValueStakeIn && sInputAddress == sAddress) {
@@ -603,7 +834,7 @@ bool CalculateStakingFractions_v2(const CTransaction&          tx,
 	}
 
 	// Calculation of outputs
-	for (unsigned int i = 0; i < n_vout; i++) {
+	for (uint32_t i = 0; i < n_vout; i++) {
 		int64_t nValue = tx.vout[i].nValue;
 
 		if (i == nStakeOut) {
@@ -626,7 +857,7 @@ bool CalculateStakingFractions_v2(const CTransaction&          tx,
 
 	if (!fFailedPegOut) {
 		// lets do some extra checks for totals
-		for (unsigned int i = 0; i < n_vout; i++) {
+		for (uint32_t i = 0; i < n_vout; i++) {
 			auto    fkey   = uint320(tx.GetHash(), i);
 			auto    f      = mapTestFractionsPool[fkey];
 			int64_t nValue = tx.vout[i].nValue;
@@ -641,7 +872,7 @@ bool CalculateStakingFractions_v2(const CTransaction&          tx,
 	if (fFailedPegOut) {
 		// for now remove failed fractions from pool so they
 		// are not written to db
-		for (unsigned int i = 0; i < n_vout; i++) {
+		for (uint32_t i = 0; i < n_vout; i++) {
 			auto fkey = uint320(tx.GetHash(), i);
 			if (mapTestFractionsPool.count(fkey)) {
 				auto it = mapTestFractionsPool.find(fkey);
@@ -682,14 +913,10 @@ void PrunePegForBlock(const CBlock& blockprune, CPegDB& pegdb) {
 			int                    nRequired;
 
 			if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
-				opcodetype              opcode1;
-				vector<unsigned char>   vch1;
-				CScript::const_iterator pc1 = scriptPubKey.begin();
-				if (scriptPubKey.GetOp(pc1, opcode1, vch1)) {
-					if (opcode1 == OP_RETURN && scriptPubKey.size() > 1) {
-						pegdb.Erase(fkey);
-						continue;
-					}
+				string notary;
+				if (scriptPubKey.ToNotary(notary)) {
+					pegdb.Erase(fkey);
+					continue;
 				}
 				continue;
 			}
@@ -705,10 +932,9 @@ void PrunePegForBlock(const CBlock& blockprune, CPegDB& pegdb) {
 					voted = true;
 				}
 			}
-			if (!voted)
-				continue;
-
-			pegdb.Erase(fkey);
+			if (voted) {
+				pegdb.Erase(fkey);
+			}
 		}
 	}
 }

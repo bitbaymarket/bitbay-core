@@ -119,12 +119,17 @@ static const CRPCConvertParam vRPCConvertParams[] = {
     {"getblockbynumber", 0},
     {"getblockbynumber", 1},
     {"getblockhash", 0},
+    {"bridgeautomate", 1},
+    {"bridgeautomate", 2},
+    {"bridgeautomate", 3},
     {"move", 2},
     {"move", 3},
     {"sendfrom", 2},
     {"sendfrom", 3},
     {"listtransactions", 1},
     {"listtransactions", 2},
+    {"listbridgetransactions", 1},
+    {"listbridgetransactions", 2},
     {"listaccounts", 0},
     {"walletpassphrase", 1},
     {"walletpassphrase", 2},
@@ -149,7 +154,11 @@ static const CRPCConvertParam vRPCConvertParams[] = {
     {"listfrozen", 1},
     {"listfrozen", 2},
     {"listfrozen", 3},
-    {"listdeposits", 0},
+	{"liststaked", 0},
+	{"liststaked", 1},
+	{"liststaked", 2},
+	{"liststaked", 3},
+	{"listdeposits", 0},
     {"listdeposits", 1},
     {"listdeposits", 2},
     {"balance", 1},
@@ -182,11 +191,14 @@ static const CRPCConvertParam vRPCConvertParams[] = {
     {"preparereservewithdraw", 3},
     {"validaterawtransaction", 1},
     {"validaterawtransaction", 2},
+	{"merklesin", 0},
+	{"merklesout", 0},
 };
 
 static const CRPCConvertParam vRPCMixedParams[] = {
     {"listunspent", 0},
     {"listfrozen", 0},
+	{"liststaked", 0},
 };
 
 class CRPCConvertTable {
@@ -206,15 +218,15 @@ public:
 };
 
 CRPCConvertTable::CRPCConvertTable() {
-	const unsigned int n_elem1 = (sizeof(vRPCMixedParams) / sizeof(vRPCMixedParams[0]));
+	const uint32_t n_elem1 = (sizeof(vRPCMixedParams) / sizeof(vRPCMixedParams[0]));
 
-	for (unsigned int i = 0; i < n_elem1; i++) {
+	for (uint32_t i = 0; i < n_elem1; i++) {
 		mixed.insert(std::make_pair(vRPCMixedParams[i].methodName, vRPCMixedParams[i].paramIdx));
 	}
 
-	const unsigned int n_elem2 = (sizeof(vRPCConvertParams) / sizeof(vRPCConvertParams[0]));
+	const uint32_t n_elem2 = (sizeof(vRPCConvertParams) / sizeof(vRPCConvertParams[0]));
 
-	for (unsigned int i = 0; i < n_elem2; i++) {
+	for (uint32_t i = 0; i < n_elem2; i++) {
 		members.insert(
 		    std::make_pair(vRPCConvertParams[i].methodName, vRPCConvertParams[i].paramIdx));
 	}
@@ -226,7 +238,7 @@ static CRPCConvertTable rpcCvtTable;
 Array RPCConvertValues(const std::string& strMethod, const std::vector<std::string>& strParams) {
 	Array params;
 
-	for (unsigned int idx = 0; idx < strParams.size(); idx++) {
+	for (uint32_t idx = 0; idx < strParams.size(); idx++) {
 		const std::string& strVal = strParams[idx];
 
 		// if type can be mixed

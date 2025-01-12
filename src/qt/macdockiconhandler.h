@@ -18,29 +18,30 @@ class DockIconClickEventHandler;
 
 /** Macintosh-specific dock icon handler.
  */
-class MacDockIconHandler : public QObject {
-	Q_OBJECT
+class MacDockIconHandler : public QObject
+{
+    Q_OBJECT
 
 public:
-	~MacDockIconHandler();
+    ~MacDockIconHandler();
 
-	QMenu*                     dockMenu();
-	void                       setIcon(const QIcon& icon);
-	void                       setMainWindow(QMainWindow* window);
-	static MacDockIconHandler* instance();
+    QMenu *dockMenu();
+    void setIcon(const QIcon &icon);
+    void setMainWindow(QMainWindow *window);
+    static MacDockIconHandler *instance();
 
-	void handleDockIconClickEvent();
+    void handleDockIconClickEvent();
 
 signals:
-	void dockIconClicked();
+    void dockIconClicked();
 
 private:
-	MacDockIconHandler();
+    MacDockIconHandler();
 
-	DockIconClickEventHandler* m_dockIconClickEventHandler;
-	QWidget*                   m_dummyWidget;
-	QMenu*                     m_dockMenu;
-	QMainWindow*               mainWindow;
+    DockIconClickEventHandler *m_dockIconClickEventHandler;
+    QWidget *m_dummyWidget;
+    QMenu *m_dockMenu;
+    QMainWindow *mainWindow;
 };
 
-#endif  // MACDOCKICONCLICKHANDLER_H
+#endif // MACDOCKICONCLICKHANDLER_H

@@ -13,10 +13,13 @@
 #include "txdb-leveldb.h"
 #include "wallet.h"
 
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/split.hpp>
 #include <boost/filesystem.hpp>
 
 using namespace std;
 using namespace boost;
+namespace fs = boost::filesystem;
 
 static uint64_t nAccountingEntryNumber = 0;
 extern bool     fWalletUnlockStakingOnly;
@@ -83,7 +86,7 @@ bool CWalletDB::WriteCryptedKey(const CPubKey&                    vchPubKey,
 	return true;
 }
 
-bool CWalletDB::WriteMasterKey(unsigned int nID, const CMasterKey& kMasterKey) {
+bool CWalletDB::WriteMasterKey(uint32_t nID, const CMasterKey& kMasterKey) {
 	nWalletDBUpdated++;
 	return Write(std::make_pair(std::string("mkey"), nID), kMasterKey, true);
 }
@@ -233,7 +236,7 @@ void CWalletDB::ListAccountCreditDebit(const string& strAccount, list<CAccountin
 	Dbc* pcursor = GetCursor();
 	if (!pcursor)
 		throw runtime_error("CWalletDB::ListAccountCreditDebit() : cannot create DB cursor");
-	unsigned int fFlags = DB_SET_RANGE;
+	uint32_t fFlags = DB_SET_RANGE;
 	while (true) {
 		// Read next record
 		CDataStream ssKey(SER_DISK, CLIENT_VERSION);
@@ -333,9 +336,9 @@ DBErrors CWalletDB::ReorderTransactions(CWallet* pwallet) {
 
 class CWalletScanState {
 public:
-	unsigned int    nKeys;
-	unsigned int    nCKeys;
-	unsigned int    nKeyMeta;
+	uint32_t        nKeys;
+	uint32_t        nCKeys;
+	uint32_t        nKeyMeta;
 	bool            fIsEncrypted;
 	bool            fAnyUnordered;
 	int             nFileVersion;
@@ -394,8 +397,8 @@ bool ReadKeyValue(CWallet*          pwallet,
 									uint256  hashSpent = txSpend.GetHash();
 									CTxIndex txindexSpent;
 									if (txdb.ReadTxIndex(hashSpent, txindexSpent)) {
-										unsigned int nTxNum = 0;
-										int          nHeight =
+										uint32_t nTxNum = 0;
+										int      nHeight =
 										    txindexSpent.GetHeightInMainChain(&nTxNum, hashSpent);
 										int nDepth = pindexBest->nHeight - nHeight + 1;
 										if (nDepth > Params().MaxReorganizationDepth()) {
@@ -522,7 +525,7 @@ bool ReadKeyValue(CWallet*          pwallet,
 				return false;
 			}
 		} else if (strType == "mkey") {
-			unsigned int nID;
+			uint32_t nID;
 			ssKey >> nID;
 			CMasterKey kMasterKey;
 			ssValue >> kMasterKey;
@@ -728,9 +731,9 @@ void ThreadFlushWalletDB(const string& strFile) {
 	if (!GetBoolArg("-flushwallet", true))
 		return;
 
-	unsigned int nLastSeen         = nWalletDBUpdated;
-	unsigned int nLastFlushed      = nWalletDBUpdated;
-	int64_t      nLastWalletUpdate = GetTime();
+	uint32_t nLastSeen         = nWalletDBUpdated;
+	uint32_t nLastFlushed      = nWalletDBUpdated;
+	int64_t  nLastWalletUpdate = GetTime();
 	while (true) {
 		MilliSleep(500);
 
@@ -785,21 +788,20 @@ bool BackupWallet(const CWallet& wallet, const string& strDest) {
 				bitdb.mapFileUseCount.erase(wallet.strWalletFile);
 
 				// Copy wallet.dat
-				filesystem::path pathSrc = GetDataDir() / wallet.strWalletFile;
-				filesystem::path pathDest(strDest);
-				if (filesystem::is_directory(pathDest))
+				fs::path pathSrc = GetDataDir() / wallet.strWalletFile;
+				fs::path pathDest(strDest);
+				if (fs::is_directory(pathDest))
 					pathDest /= wallet.strWalletFile;
 
 				try {
 #if BOOST_VERSION >= 104000
-					filesystem::copy_file(pathSrc, pathDest,
-					                      filesystem::copy_option::overwrite_if_exists);
+					fs::copy_file(pathSrc, pathDest, fs::copy_option::overwrite_if_exists);
 #else
 					filesystem::copy_file(pathSrc, pathDest);
 #endif
 					LogPrintf("copied wallet.dat to %s\n", pathDest.string());
 					return true;
-				} catch (const filesystem::filesystem_error& e) {
+				} catch (const fs::filesystem_error& e) {
 					LogPrintf("error copying wallet.dat to %s - %s\n", pathDest.string(), e.what());
 					return false;
 				}
@@ -889,4 +891,106 @@ bool CWalletDB::Recover(CDBEnv& dbenv, std::string filename, bool fOnlyKeys) {
 
 bool CWalletDB::Recover(CDBEnv& dbenv, std::string filename) {
 	return CWalletDB::Recover(dbenv, filename, false);
+}
+
+// proposals, votes
+
+bool CWalletDB::ReadProposals(vector<std::string>& ids) {
+	string ids_txt;
+	bool   ok = Read(string("proposals"), ids_txt);
+	if (ids_txt == "")
+		return ok;
+	boost::split(ids, ids_txt, boost::is_any_of(","));
+	return ok;
+}
+
+bool CWalletDB::WriteProposals(const vector<std::string>& ids) {
+	string ids_txt = boost::algorithm::join(ids, ",");
+	return Write(string("proposals"), ids_txt);
+}
+
+bool CWalletDB::ReadProposal(const std::string& phash, vector<std::string>& datas) {
+	string datas_txt;
+	bool   ok = Read(phash, datas_txt);
+	if (datas_txt == "")
+		return ok;
+	boost::split(datas, datas_txt, boost::is_any_of(","));
+	return ok;
+}
+
+bool CWalletDB::WriteProposal(const std::string& phash, const vector<std::string>& datas) {
+	string datas_txt = boost::algorithm::join(datas, ",");
+	return Write(phash, datas_txt);
+}
+
+bool CWalletDB::ReadCompletedMerkleOutIdx(const std::string& brhash, int idx, string& merklehash) {
+	bool ok = Read(brhash + "_out_idx_" + std::to_string(idx), merklehash);
+	return ok;
+}
+
+bool CWalletDB::WriteCompletedMerkleOutIdx(const std::string& brhash, int idx, string merklehash) {
+	return Write(brhash + "_out_idx_" + std::to_string(idx), merklehash);
+}
+
+bool CWalletDB::ReadCompletedMerkleInNonce(const std::string& brhash, int nonce, bool& completed) {
+	string data;
+	bool   ok = Read(brhash + "_in_nonce_" + std::to_string(nonce), data);
+	completed = data == "true";
+	return ok;
+}
+
+bool CWalletDB::WriteCompletedMerkleInNonce(const std::string& brhash, int nonce, bool completed) {
+	string data;
+	if (completed)
+		data = "true";
+	return Write(brhash + "_in_nonce_" + std::to_string(nonce), data);
+}
+
+bool CWalletDB::ReadCompletedMerkleInTxsNonce(const std::string& brhash,
+                                              int                nonce,
+                                              bool&              completed) {
+	string data;
+	bool   ok = Read(brhash + "_in_nonce_txs_" + std::to_string(nonce), data);
+	completed = data == "true";
+	return ok;
+}
+
+bool CWalletDB::WriteCompletedMerkleInTxsNonce(const std::string& brhash,
+                                               int                nonce,
+                                               bool               completed) {
+	string data;
+	if (completed)
+		data = "true";
+	return Write(brhash + "_in_nonce_txs_" + std::to_string(nonce), data);
+}
+
+bool CWalletDB::ReadBridgeIsAutomated(const std::string& brhash,
+                                      bool&              is_automated,
+                                      double&            max_priority_fee_per_gas_gwei,
+                                      double&            max_fee_per_gas_gwei) {
+	is_automated                  = false;
+	max_priority_fee_per_gas_gwei = 0.;
+	max_fee_per_gas_gwei          = 0.;
+	string         datas_txt;
+	bool           ok = Read(brhash + "_isautomated", datas_txt);
+	vector<string> datas;
+	boost::split(datas, datas_txt, boost::is_any_of(":"));
+	if (datas.size() != 3)
+		return false;
+	is_automated                  = datas[0] == "true";
+	max_priority_fee_per_gas_gwei = stod(datas[1]);
+	max_fee_per_gas_gwei          = stod(datas[2]);
+	return ok;
+}
+
+bool CWalletDB::WriteBridgeIsAutomated(const std::string& brhash,
+                                       bool               is_automated,
+                                       double             max_priority_fee_per_gas_gwei,
+                                       double             max_fee_per_gas_gwei) {
+	string data = "false";
+	if (is_automated)
+		data = "true";
+	data += ":" + std::to_string(max_priority_fee_per_gas_gwei) + ":" +
+	        std::to_string(max_fee_per_gas_gwei);
+	return Write(brhash + "_isautomated", data);
 }

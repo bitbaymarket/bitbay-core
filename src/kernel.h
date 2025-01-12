@@ -11,7 +11,7 @@
 static const int STAKE_TIMESTAMP_MASK = 15;
 
 // MODIFIER_INTERVAL: time to elapse before new modifier is computed
-extern unsigned int nModifierInterval;
+extern uint32_t nModifierInterval;
 
 // MODIFIER_INTERVAL_RATIO:
 // ratio of group interval length between the last group and the first group
@@ -26,12 +26,12 @@ uint256 ComputeStakeModifierV2(const CBlockIndex* pindexPrev, const uint256& ker
 // Check whether stake kernel meets hash target
 // Sets hashProofOfStake on success return
 bool CheckStakeKernelHash(CBlockIndex*        pindexPrev,
-                          unsigned int        nBits,
+                          uint32_t            nBits,
                           const CBlock&       blockFrom,
-                          unsigned int        nTxPrevOffset,
+                          uint32_t            nTxPrevOffset,
                           const CTransaction& txPrev,
                           const COutPoint&    prevout,
-                          unsigned int        nTimeTx,
+                          uint32_t            nTimeTx,
                           uint256&            hashProofOfStake,
                           uint256&            targetProofOfStake,
                           bool                fPrintProofOfStake = false);
@@ -40,12 +40,12 @@ bool CheckStakeKernelHash(CBlockIndex*        pindexPrev,
 // Sets hashProofOfStake on success return
 bool CheckProofOfStake(CBlockIndex*        pindexPrev,
                        const CTransaction& tx,
-                       unsigned int        nBits,
+                       uint32_t            nBits,
                        uint256&            hashProofOfStake,
                        uint256&            targetProofOfStake);
 
 // Check whether the coinstake timestamp meets protocol
-bool CheckCoinStakeTimestamp(int nHeight, int64_t nTimeBlock, int64_t nTimeTx);
+bool CheckCoinStakeTimestamp(int nHeight, int64_t nTimeBlock, int64_t nTimeStakeTx);
 
 // Get time weight using supplied timestamps
 int64_t GetWeight(int64_t nIntervalBeginning, int64_t nIntervalEnd);
@@ -54,7 +54,7 @@ int64_t GetWeight(int64_t nIntervalBeginning, int64_t nIntervalEnd);
 // Also checks existence of kernel input and min age
 // Convenient for searching a kernel
 bool CheckKernel(CBlockIndex*     pindexPrev,
-                 unsigned int     nBits,
+                 uint32_t         nBits,
                  int64_t          nTime,
                  const COutPoint& prevout,
                  int64_t*         pBlockTime = NULL);

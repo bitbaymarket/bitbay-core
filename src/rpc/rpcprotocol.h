@@ -137,6 +137,10 @@ private:
 
 std::string         HTTPPost(const std::string&                        strMsg,
                              const std::map<std::string, std::string>& mapRequestHeaders);
+std::string         HTTPPostToPath(const std::string&                        strHost,
+								   const std::string&                        strPath,
+								   const std::string&                        strMsg,
+								   const std::map<std::string, std::string>& mapRequestHeaders);
 std::string         HTTPReply(int nStatus, const std::string& strMsg, bool keepalive);
 bool                ReadHTTPRequestLine(std::basic_istream<char>& stream,
                                         int&                      proto,

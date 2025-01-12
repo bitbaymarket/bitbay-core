@@ -25,7 +25,7 @@
 class CMessageHeader {
 public:
 	CMessageHeader();
-	CMessageHeader(const char* pszCommand, unsigned int nMessageSizeIn);
+	CMessageHeader(const char* pszCommand, uint32_t nMessageSizeIn);
 
 	std::string GetCommand() const;
 	bool        IsValid() const;
@@ -45,10 +45,10 @@ public:
 		CHECKSUM_OFFSET     = MESSAGE_SIZE_OFFSET + MESSAGE_SIZE_SIZE,
 		HEADER_SIZE         = MESSAGE_START_SIZE + COMMAND_SIZE + MESSAGE_SIZE_SIZE + CHECKSUM_SIZE
 	};
-	char         pchMessageStart[MESSAGE_START_SIZE];
-	char         pchCommand[COMMAND_SIZE];
-	unsigned int nMessageSize;
-	unsigned int nChecksum;
+	char     pchMessageStart[MESSAGE_START_SIZE];
+	char     pchCommand[COMMAND_SIZE];
+	uint32_t nMessageSize;
+	uint32_t nChecksum;
 };
 
 /** nServices flags */
@@ -78,7 +78,7 @@ public:
 	uint64_t nServices;
 
 	// disk and network only
-	unsigned int nTime;
+	uint32_t nTime;
 
 	// memory only
 	int64_t nLastTry;

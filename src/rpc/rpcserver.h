@@ -143,6 +143,7 @@ extern json_spirit::Value addredeemscript(const json_spirit::Array& params, bool
 extern json_spirit::Value listreceivedbyaddress(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value listreceivedbyaccount(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value listtransactions(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value listbridgetransactions(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value listaddressgroupings(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value listaccounts(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value listsinceblock(const json_spirit::Array& params, bool fHelp);
@@ -168,12 +169,15 @@ extern json_spirit::Value listunspent(const json_spirit::Array& params, bool fHe
 extern json_spirit::Value listunspent1(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value listfrozen(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value listfrozen1(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value liststaked(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value balance(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value balancerecords(const json_spirit::Array& params, bool fHelp);
 
 extern json_spirit::Value getrawtransaction(const json_spirit::Array& params,
                                             bool fHelp);  // in rcprawtransaction.cpp
 extern json_spirit::Value listunspent2(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value listfrozen2(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value liststaked2(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value createrawtransaction(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value decoderawtransaction(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value decodescript(const json_spirit::Array& params, bool fHelp);
@@ -214,5 +218,24 @@ extern json_spirit::Value checkwithdrawstate(const json_spirit::Array& params, b
 extern json_spirit::Value accountmaintenance(const json_spirit::Array& params, bool fHelp);
 
 extern json_spirit::Value faucet(const json_spirit::Array& params, bool fHelp);
+
+extern json_spirit::Value tstakers1(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value tstakers2(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value consensus(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value proposals(const json_spirit::Array& params, bool fHelp);
+
+extern json_spirit::Value myproposals(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value addproposal(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value signproposal(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value voteproposal(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value removeproposal(const json_spirit::Array& params, bool fHelp);
+
+extern json_spirit::Value bridges(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value bridgereceipt(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value bridgeautomate(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value merklesin(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value merklesout(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value getbridgepool(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value timelockpasses(const json_spirit::Array& params, bool fHelp);
 
 #endif

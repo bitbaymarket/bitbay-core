@@ -4,7 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 //
 // The use in another cyptocurrency project the code is licensed under
-// Coinleft Public License for BitBay. See https://bitbay.market/Coinleft-Public-License-v1.pdf
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #ifndef BITBAY_PEGDATA_H
 #define BITBAY_PEGDATA_H
@@ -18,12 +18,14 @@ enum {
 	PEG_SIZE                 = 1200,
 	PEG_MAKETX_FREEZE_VALUE  = 5590,
 	PEG_MAKETX_VFREEZE_VALUE = 5590,
+	PEG_MAKETX_BRIDGE_VALUE  = 5590,
 	PEG_MAKETX_FEE_INP_OUT   = 5000,
 	PEG_MAKETX_VOTE_VALUE    = 5554,
 	PEG_SUBPREMIUM_RATING    = 200,
 	PEG_DB_CHECK1            = 1,  // testnet: update1 for votes calculation
 	PEG_DB_CHECK2            = 2,  // testnet: update2 for stake liquidity calculation
-	PEG_DB_CHECK_ON_FORK     = 35,
+	PEG_DB_CHECK_ON_FORK     = 36,
+	PEG_DB_CHECK_BRIDGE1     = 64,
 	PEG_PRUNE_INTERVAL       = 10000
 };
 
@@ -108,6 +110,7 @@ public:
 	CFractions Negative(int64_t* total) const;
 	CFractions LowPart(int supply, int64_t* total) const;
 	CFractions HighPart(int supply, int64_t* total) const;
+	CFractions MidPart(int supply1, int supply2) const;
 	CFractions LowPart(const CPegLevel&, int64_t* total) const;
 	CFractions HighPart(const CPegLevel&, int64_t* total) const;
 	CFractions MidPart(const CPegLevel&, const CPegLevel&) const;
@@ -175,6 +178,51 @@ public:
 private:  // compat
 	bool Unpack1(CDataStream&);
 	bool Unpack2(CDataStream&);
+};
+
+class CCompressedFractions {
+public:
+	CCompressedFractions(CFractions fractions,
+	                     int        section,
+	                     uint16_t   peg_steps,
+	                     uint8_t    micro_steps);
+	CCompressedFractions(std::vector<int64_t> sections,
+	                     int                  section,
+	                     uint16_t             peg_steps,
+	                     uint8_t              micro_steps);
+	CFractions                 Requested() const;
+	CFractions                 Decompress(CFractions frPool) const;
+	uint8_t                    nVersion = 1;
+	uint16_t                   nPegSteps;
+	uint8_t                    nMicroSteps;
+	int                        nSection;
+	std::unique_ptr<int64_t[]> fps;
+	std::unique_ptr<int64_t[]> fms;
+};
+
+class CBridgeInfo {
+public:
+	std::string           name;
+	std::string           hash;
+	std::string           symbol;
+	std::set<std::string> urls;
+	int                   chainId;
+	std::string           contract;
+	int                   pegSteps;
+	int                   microSteps;
+};
+
+class CMerkleInfo {
+public:
+	std::string hash;
+	std::string bridge;
+	std::string brhash;
+	int64_t     amount;
+	uint32_t    ntime;
+
+	CMerkleInfo();
+	CMerkleInfo(std::string data);
+	std::string Serialize() const;
 };
 
 #endif

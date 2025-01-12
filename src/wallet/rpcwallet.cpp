@@ -6,14 +6,18 @@
 #include "base58.h"
 #include "init.h"
 #include "net.h"
-#include "netbase.h"
+#include "pegdb-leveldb.h"
 #include "rpcserver.h"
-#include "timedata.h"
 #include "util.h"
 #include "wallet.h"
 #include "walletdb.h"
 
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/assign/list_of.hpp>
+
 using namespace std;
+using namespace boost::assign;
 using namespace json_spirit;
 
 int64_t                 nWalletUnlockTime;
@@ -267,7 +271,9 @@ Value sendtoaddress(const Array& params, bool fHelp) {
 	int64_t nAmount = AmountFromValue(params[1]);
 
 	// Wallet comments
+	// TODO: nTime to 0
 	CWalletTx wtx;
+	wtx.nTime = GetAdjustedTime();
 	if (params.size() > 2 && params[2].type() != null_type && !params[2].get_str().empty())
 		wtx.mapValue["comment"] = params[2].get_str();
 	if (params.size() > 3 && params[3].type() != null_type && !params[3].get_str().empty())
@@ -533,7 +539,9 @@ Value sendfrom(const Array& params, bool fHelp) {
 	if (params.size() > 3)
 		nMinDepth = params[3].get_int();
 
+	// TODO: nTime to 0
 	CWalletTx wtx;
+	wtx.nTime          = GetAdjustedTime();
 	wtx.strFromAccount = strAccount;
 	if (params.size() > 4 && params[4].type() != null_type && !params[4].get_str().empty())
 		wtx.mapValue["comment"] = params[4].get_str();
@@ -568,7 +576,9 @@ Value sendmany(const Array& params, bool fHelp) {
 	if (params.size() > 2)
 		nMinDepth = params[2].get_int();
 
+	// TODO: nTime to 0
 	CWalletTx wtx;
+	wtx.nTime          = GetAdjustedTime();
 	wtx.strFromAccount = strAccount;
 	if (params.size() > 3 && params[3].type() != null_type && !params[3].get_str().empty())
 		wtx.mapValue["comment"] = params[3].get_str();
@@ -605,18 +615,16 @@ Value sendmany(const Array& params, bool fHelp) {
 		throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Account has insufficient funds");
 
 	// Send
-	CReserveKey keyChange(pwalletMain);
-	int64_t     nFeeRequired = 0;
-	string      sFailCause;
-	bool        fCreated =
-	    pwalletMain->CreateTransaction(PEG_MAKETX_SEND_LIQUIDITY, vecSend, wtx, keyChange,
-	                                   nFeeRequired, nullptr, false, sFailCause);
+	int64_t nFeeRequired = 0;
+	string  sFailCause;
+	bool    fCreated = pwalletMain->CreateTransaction(PEG_MAKETX_SEND_LIQUIDITY, vecSend, wtx,
+	                                                  nFeeRequired, nullptr, false, sFailCause);
 	if (!fCreated) {
 		if (totalAmount + nFeeRequired > pwalletMain->GetBalance())
 			throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
 		throw JSONRPCError(RPC_WALLET_ERROR, "Transaction creation failed" + sFailCause);
 	}
-	if (!pwalletMain->CommitTransaction(wtx, keyChange))
+	if (!pwalletMain->CommitTransaction(wtx))
 		throw JSONRPCError(RPC_WALLET_ERROR, "Transaction commit failed");
 
 	return wtx.GetHash().GetHex();
@@ -648,7 +656,7 @@ Value addmultisigaddress(const Array& params, bool fHelp) {
 		              keys.size(), nRequired));
 	std::vector<CPubKey> pubkeys;
 	pubkeys.resize(keys.size());
-	for (unsigned int i = 0; i < keys.size(); i++) {
+	for (uint32_t i = 0; i < keys.size(); i++) {
 		const std::string& ks = keys[i].get_str();
 
 		// Case 1: Bitcoin address and we have full public key:
@@ -945,6 +953,54 @@ void ListTransactions(const CWalletTx& wtx,
 	}
 }
 
+void ListBridgeOuts(const CWalletTx& wtx,
+                    const string&    strAccount,
+                    int              nMinDepth,
+                    bool             fLong,
+                    Array&           ret) {
+	int64_t                              nFee;
+	string                               strSentAccount;
+	list<pair<CTxDestination, int64_t> > listReceived;
+	list<pair<CTxDestination, int64_t> > listSent;
+
+	bool    fAllAccounts = (strAccount == string("*"));
+	int64_t nDebit       = wtx.GetDebit();
+	if (nDebit > 0)  // debit>0 means we signed/sent this transaction
+	{
+		int64_t nValueOut = wtx.GetValueOut();
+		nFee              = nDebit - nValueOut;
+	}
+	for (size_t nout = 0; nout < wtx.vout.size(); nout++) {
+		const CTxOut& txout = wtx.vout[nout];
+		if (txout.scriptPubKey.empty())
+			continue;
+		string notary;
+		if (!txout.scriptPubKey.ToNotary(notary))
+			continue;
+		if (!boost::starts_with(notary, "**Z**"))
+			continue;
+		CTxDestination address;
+		if (!ExtractDestination(txout.scriptPubKey, address)) {
+			LogPrintf("CWalletTx::GetAmounts: Unknown transaction type found, txid %s\n",
+			          wtx.GetHash().ToString());
+			address = CNoDestination();
+		}
+		listSent.push_back(make_pair(address, txout.nValue));
+		if ((fAllAccounts || strAccount == strSentAccount)) {
+			Object entry;
+			entry.push_back(Pair("account", strSentAccount));
+			MaybePushAddress(entry, address);
+			entry.push_back(Pair("category", "send"));
+			entry.push_back(Pair("amount", ValueFromAmount(-txout.nValue)));
+			entry.push_back(Pair("fee", ValueFromAmount(-nFee)));
+			if (fLong)
+				WalletTxToJSON(wtx, entry);
+			entry.push_back(Pair("nout", int(nout)));
+			ret.push_back(entry);
+		}
+	}
+}
+
 void AcentryToJSON(const CAccountingEntry& acentry, const string& strAccount, Array& ret) {
 	bool fAllAccounts = (strAccount == string("*"));
 
@@ -992,6 +1048,71 @@ Value listtransactions(const Array& params, bool fHelp) {
 		CWalletTx* const pwtx = (*it).second.first;
 		if (pwtx != 0)
 			ListTransactions(*pwtx, strAccount, 0, true, ret);
+		CAccountingEntry* const pacentry = (*it).second.second;
+		if (pacentry != 0)
+			AcentryToJSON(*pacentry, strAccount, ret);
+
+		if ((int)ret.size() >= (nCount + nFrom))
+			break;
+	}
+	// ret is newest to oldest
+
+	if (nFrom > (int)ret.size())
+		nFrom = ret.size();
+	if ((nFrom + nCount) > (int)ret.size())
+		nCount = ret.size() - nFrom;
+	Array::iterator first = ret.begin();
+	std::advance(first, nFrom);
+	Array::iterator last = ret.begin();
+	std::advance(last, nFrom + nCount);
+
+	if (last != ret.end())
+		ret.erase(last, ret.end());
+	if (first != ret.begin())
+		ret.erase(ret.begin(), first);
+
+	std::reverse(ret.begin(), ret.end());  // Return oldest to newest
+
+	return ret;
+}
+
+Value listbridgetransactions(const Array& params, bool fHelp) {
+	if (fHelp || params.size() > 3)
+		throw runtime_error(
+		    "listbridgetransactions [account] [count=10] [from=0]\n"
+		    "Returns up to [count] most recent bridge transactions skipping the first [from] "
+		    "transactions "
+		    "for account [account].");
+
+	string strAccount = "*";
+	if (params.size() > 0)
+		strAccount = params[0].get_str();
+	int nCount = 10;
+	if (params.size() > 1)
+		nCount = params[1].get_int();
+	int nFrom = 0;
+	if (params.size() > 2)
+		nFrom = params[2].get_int();
+
+	if (nCount < 0)
+		throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
+	if (nFrom < 0)
+		throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
+
+	Array ret;
+
+	std::list<CAccountingEntry> acentries;
+	CWallet::TxItems            txOrdered = pwalletMain->OrderedTxItems(acentries, strAccount);
+
+	// iterate backwards until we have nCount items to return:
+	for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
+		CWalletTx* const pwtx = (*it).second.first;
+		if (pwtx != 0) {
+			if (pwtx->IsBridgeBurn())
+				ListBridgeOuts(*pwtx, strAccount, 0, true, ret);
+			if (pwtx->IsCoinMint())
+				ListTransactions(*pwtx, strAccount, 0, true, ret);
+		}
 		CAccountingEntry* const pacentry = (*it).second.second;
 		if (pacentry != 0)
 			AcentryToJSON(*pacentry, strAccount, ret);
@@ -1072,13 +1193,24 @@ Value listaccounts(const Array& params, bool fHelp) {
 	Object ret;
 	for (const pair<string, int64_t>& accountBalance : mapAccountBalances) {
 		Object              ret_balance;
+		Object              ret_pubkeys;
 		Array               ret_addresses;
 		set<CTxDestination> setAddress;
 		GetAccountAddresses(accountBalance.first, setAddress);
 		for (const CTxDestination& address : setAddress) {
-			ret_addresses.push_back(CBitcoinAddress(address).ToString());
+			CBitcoinAddress addr(address);
+			ret_addresses.push_back(addr.ToString());
+			CKeyID keyid;
+			if (addr.GetKeyID(keyid)) {
+				CPubKey pubkey;
+				if (pwalletMain->GetPubKey(keyid, pubkey)) {
+					string pubkey_txt = HexStr(pubkey.begin(), pubkey.end());
+					ret_pubkeys.push_back(Pair(addr.ToString(), pubkey_txt));
+				}
+			}
 		}
 		ret_balance.push_back(Pair("address", ret_addresses));
+		ret_balance.push_back(Pair("pubkeys", ret_pubkeys));
 		if (accounting_on) {
 			ret_balance.push_back(Pair("balance", ValueFromAmount(accountBalance.second)));
 		}
@@ -1131,7 +1263,7 @@ Value listsinceblock(const Array& params, bool fHelp) {
 		int target_height = pindexBest->nHeight + 1 - target_confirms;
 
 		CBlockIndex* block;
-		for (block = pindexBest; block && block->nHeight > target_height; block = block->pprev) {
+		for (block = pindexBest; block && block->nHeight > target_height; block = block->Prev()) {
 		}
 
 		lastblock = block ? block->GetBlockHash() : 0;
@@ -1184,7 +1316,7 @@ Value gettransaction(const Array& params, bool fHelp) {
 				entry.push_back(Pair("confirmations", 0));
 			else {
 				entry.push_back(Pair("blockhash", hashBlock.GetHex()));
-				map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
+				unordered_map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
 				if (mi != mapBlockIndex.end() && (*mi).second) {
 					CBlockIndex* pindex = (*mi).second;
 					if (pindex->IsInMainChain())
@@ -1222,11 +1354,11 @@ Value keypoolrefill(const Array& params, bool fHelp) {
 		    "Fills the keypool." +
 		    HelpRequiringPassphrase());
 
-	unsigned int nSize = max(GetArg("-keypool", 100), (int64_t)0);
+	uint32_t nSize = max(GetArg("-keypool", 100), (int64_t)0);
 	if (params.size() > 0) {
 		if (params[0].get_int() < 0)
 			throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected valid size");
-		nSize = (unsigned int)params[0].get_int();
+		nSize = (uint32_t)params[0].get_int();
 	}
 
 	EnsureWalletIsUnlocked();

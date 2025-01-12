@@ -15,7 +15,7 @@ std::unique_ptr<CBlock> CreateNewBlock(CReserveKey& reservekey,
                                        int64_t*     pFees         = 0);
 
 /** Modify the extranonce in a block */
-void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& nExtraNonce);
+void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, uint32_t& nExtraNonce);
 
 /** Do mining precalculation */
 void FormatHashBuffers(CBlock* pblock, char* pmidstate, char* pdata, char* phash1);

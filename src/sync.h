@@ -142,7 +142,9 @@ public:
 			LeaveCritical();
 	}
 
-	operator bool() { return lock.owns_lock(); }
+	operator bool() {
+		return lock.owns_lock();
+	}
 };
 
 typedef CMutexLock<CCriticalSection> CCriticalBlock;

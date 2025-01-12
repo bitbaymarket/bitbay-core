@@ -107,14 +107,18 @@ TxDetailsWidget::TxDetailsWidget(QWidget* parent) : QWidget(parent), ui(new Ui::
 	ui->txOutputs->header()->setFont(font);
 
 	ui->txValues->header()->resizeSection(0 /*property*/, 250);
-	ui->txInputs->header()->resizeSection(0 /*n*/, 50);
-	ui->txOutputs->header()->resizeSection(0 /*n*/, 50);
-	ui->txInputs->header()->resizeSection(1 /*tx*/, 140);
-	ui->txOutputs->header()->resizeSection(1 /*tx*/, 140);
-	ui->txInputs->header()->resizeSection(2 /*addr*/, 280);
-	ui->txOutputs->header()->resizeSection(2 /*addr*/, 280);
-	ui->txInputs->header()->resizeSection(3 /*value*/, 180);
-	ui->txOutputs->header()->resizeSection(3 /*value*/, 180);
+	ui->txInputs->header()->resizeSection(0 /*n*/, 70);
+	ui->txOutputs->header()->resizeSection(0 /*n*/, 70);
+	ui->txInputs->header()->resizeSection(1 /*tx*/, 180);
+	ui->txOutputs->header()->resizeSection(1 /*tx*/, 180);
+	// 42 symbols
+	int addr_w = QFontMetricsF(font).horizontalAdvance(QString("0").repeated(42));
+	ui->txInputs->header()->resizeSection(2 /*addr*/, addr_w);
+	ui->txOutputs->header()->resizeSection(2 /*addr*/, addr_w);
+	// 24 numbers
+	int val_w = QFontMetricsF(font).horizontalAdvance(QString("0").repeated(24));
+	ui->txInputs->header()->resizeSection(3 /*value*/, val_w);
+	ui->txOutputs->header()->resizeSection(3 /*value*/, val_w);
 
 	auto txInpValueDelegate = new LeftSideIconItemDelegate(ui->txInputs);
 	auto txOutValueDelegate = new LeftSideIconItemDelegate(ui->txOutputs);
@@ -158,10 +162,8 @@ void TxDetailsWidget::openTx(QTreeWidgetItem* item, int column) {
 
 		CTxDB txdb("r");
 		bool  fIsReady = false;
-		bool  fEnabled = false;
 		txdb.ReadUtxoDbIsReady(fIsReady);
-		txdb.ReadUtxoDbEnabled(fEnabled);
-		if (!fIsReady || !fEnabled)
+		if (!fIsReady)
 			return;
 
 		emit openAddressBalance(address);
@@ -202,26 +204,11 @@ static QString scriptToAddress(const CScript& scriptPubKey,
 		if (!none)
 			return QString::fromStdString(str_addr_all);
 	}
-	const CScript& script1 = scriptPubKey;
-
-	opcodetype              opcode1;
-	vector<unsigned char>   vch1;
-	CScript::const_iterator pc1 = script1.begin();
-	if (!script1.GetOp(pc1, opcode1, vch1))
-		return QString();
-
-	if (opcode1 == OP_RETURN && script1.size() > 1) {
+	string notary;
+	if (scriptPubKey.ToNotary(notary)) {
 		is_notary = true;
-		QString       left_bytes;
-		unsigned long len_bytes = script1[1];
-		if (len_bytes > script1.size() - 2)
-			len_bytes = script1.size() - 2;
-		for (unsigned int i = 0; i < len_bytes; i++) {
-			left_bytes += char(script1[i + 2]);
-		}
-		return left_bytes;
+		return QString::fromStdString(notary);
 	}
-
 	return QString();
 }
 
@@ -267,11 +254,17 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
 	CBlock block;
 	block.ReadFromDisk(pblockindex, true);
 
-	MapPrevTx              mapInputs;
-	MapFractions           mapInputsFractions;
-	map<uint256, CTxIndex> mapUnused;
-	MapFractions           mapFractionsUnused;
-	string                 sPegFailCause;
+	CTxDB                    txdb("r");
+	CPegDB                   pegdb("r");
+	MapPrevTx                mapInputs;
+	MapFractions             mapInputsFractions;
+	map<uint256, CTxIndex>   mapUnused;
+	MapFractions             mapFractionsUnused;
+	string                   sPegFailCause;
+	map<string, CBridgeInfo> bridges;
+	auto fnMerkleIn = [&](string hash) { return pblockindex->ReadMerkleIn(pegdb, hash); };
+
+	pblockindex->ReadBridges(pegdb, bridges);
 
 	bool ok = true;
 	for (CTransaction& tx : block.vtx) {
@@ -282,22 +275,24 @@ static bool calculateFeesFractions(CBlockIndex* pblockindex,
 
 		uint256 hash = tx.GetHash();
 
-		CTxDB  txdb("r");
-		CPegDB pegdb("r");
 		if (!txdb.ContainsTx(hash))
 			return false;
 
 		bool fInvalid = false;
-		tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs,
-		               mapInputsFractions, fInvalid, true /*skip pruned*/);
+		// fetch inputs only to calculate peg fractions, apply (is block) to read the
+		// previous transactions only from disk but no lookup into the mempool
+		tx.FetchInputs(txdb, pegdb, pblockindex->nHeight, false, bridges, fnMerkleIn, mapUnused,
+		               mapFractionsUnused, true /*is block*/, false /*is miner*/, block.nTime,
+		               true /*skip pruned*/, mapInputs, mapInputsFractions, fInvalid);
 
 		int64_t nTxValueIn  = tx.GetValueIn(mapInputs);
 		int64_t nTxValueOut = tx.GetValueOut();
 		nFeesValue += nTxValueIn - nTxValueOut;
 
-		bool peg_ok = CalculateStandardFractions(tx, pblockindex->nPegSupplyIndex,
-		                                         pblockindex->nTime, mapInputs, mapInputsFractions,
-		                                         mapFractionsUnused, feesFractions, sPegFailCause);
+		set<uint32_t> sTimeLockPassInputs;
+		bool          peg_ok = CalculateStandardFractions(
+            tx, pblockindex->nPegSupplyIndex, pblockindex->nTime, mapInputs, mapInputsFractions,
+            sTimeLockPassInputs, mapFractionsUnused, feesFractions, sPegFailCause);
 
 		if (!peg_ok) {
 			ok = false;
@@ -328,7 +323,7 @@ void TxDetailsWidget::openTx(uint256 blockhash, uint txidx) {
 	if (txidx >= block.vtx.size())
 		return;
 
-	int nPegInterval = Params().PegInterval(pblockindex->nHeight);
+	int nPegInterval = Params().PegInterval();
 	int nCycle       = pblockindex->nHeight / nPegInterval;
 
 	CTransaction& tx = block.vtx[txidx];
@@ -344,17 +339,25 @@ void TxDetailsWidget::openTx(CTransaction& tx,
                              int           nSupply,
                              int           nSupplyN,
                              int           nSupplyNN,
-                             unsigned int  nTime) {
+                             uint32_t      nBlockTime) {
 	ui->txValues->clear();
 	ui->txInputs->clear();
 	ui->txOutputs->clear();
 
 	LOCK(cs_main);
 
-	uint256 hash = tx.GetHash();
-
 	CTxDB  txdb("r");
 	CPegDB pegdb("r");
+
+	uint256                  hash = tx.GetHash();
+	map<string, CBridgeInfo> bridges;
+	auto                     fnMerkleIn = [&pblockindex, &pegdb](string hash) {
+        CMerkleInfo merkle;
+        if (pblockindex)
+            return pblockindex->ReadMerkleIn(pegdb, hash);
+        return merkle;
+	};
+	int nHeight = 0;
 
 	bool pruned = false;
 	if (pblockindex) {
@@ -385,6 +388,9 @@ void TxDetailsWidget::openTx(CTransaction& tx,
 				pruned = true;
 			}
 		}
+		pblockindex->ReadBridges(pegdb, bridges);
+		nHeight    = pblockindex->nHeight;
+		nBlockTime = pblockindex->nTime;
 	}
 
 	QString txtype = tr("Transaction");
@@ -392,6 +398,8 @@ void TxDetailsWidget::openTx(CTransaction& tx,
 		txtype = tr("CoinBase");
 	if (tx.IsCoinStake())
 		txtype = tr("CoinStake");
+	if (tx.IsCoinMint())
+		txtype = tr("CoinMint");
 	ui->txValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Type", txtype})));
 	ui->txValues->addTopLevelItem(
 	    new QTreeWidgetItem(QStringList({"Peg Supply Index", QString::number(nSupply)})));
@@ -412,9 +420,14 @@ void TxDetailsWidget::openTx(CTransaction& tx,
 	CFractions             feesFractions(0, CFractions::STD);
 	int64_t                nFeesValue = 0;
 	string                 sPegFailCause;
-	bool                   fInvalid = false;
-	tx.FetchInputs(txdb, pegdb, mapUnused, mapFractionsUnused, false, false, mapInputs,
-	               mapInputsFractions, fInvalid, true /*skip pruned*/);
+	bool                   fInvalid        = false;
+	int                    nBridgePoolNout = nHeight;
+
+	// fetch inputs only to show peg fractions, apply (is block) to read the
+	// previous transactions only from disk but no lookup into the mempool
+	tx.FetchInputs(txdb, pegdb, nBridgePoolNout, false, bridges, fnMerkleIn, mapUnused,
+	               mapFractionsUnused, true /*is block*/, false /*is miner*/, nBlockTime,
+	               true /*skip pruned*/, mapInputs, mapInputsFractions, fInvalid);
 	int msecsFetchInputs = timeFetchInputs.msecsTo(QTime::currentTime());
 
 	int64_t nReserveIn   = 0;
@@ -431,18 +444,12 @@ void TxDetailsWidget::openTx(CTransaction& tx,
 		if (!pruned) {
 			ui->txValues->addTopLevelItem(
 			    new QTreeWidgetItem(QStringList({"Error", "Failed to calculate fees fractions"})));
-			return;
+			// return;
 		}
 	}
 
 	QTime timePegChecks = QTime::currentTime();
 	if (tx.IsCoinStake()) {
-		uint64_t nCoinAge = 0;
-		if (!tx.GetCoinAge(txdb, pblockindex->pprev, nCoinAge)) {
-			ui->txValues->addTopLevelItem(
-			    new QTreeWidgetItem(QStringList({"Error", "Cannot get coin age"})));
-			return;
-		}
 		CFractions inpStake(0, CFractions::STD);
 		if (tx.vin.size() > 0) {
 			const COutPoint& prevout = tx.vin.front().prevout;
@@ -451,27 +458,34 @@ void TxDetailsWidget::openTx(CTransaction& tx,
 				inpStake = mapInputsFractions[fkey];
 			}
 		}
-		int64_t nStakeRewardWithoutFees =
-		    GetProofOfStakeReward(pblockindex->pprev, nCoinAge, 0 /*fees*/, inpStake);
+		int64_t nStakeRewardWithoutFees = 0;
+		if (!GetProofOfStakeReward(txdb, tx, pblockindex->Prev(), 0 /*fees*/, inpStake,
+		                           nStakeRewardWithoutFees)) {
+			ui->txValues->addTopLevelItem(
+			    new QTreeWidgetItem(QStringList({"Error", "Cannot get coin stake reward"})));
+			return;
+		}
 
 		peg_ok = CalculateStakingFractions(tx, pblockindex, mapInputs, mapInputsFractions,
 		                                   mapUnused, mapFractionsUnused, feesFractions,
 		                                   nStakeRewardWithoutFees, sPegFailCause);
+	} else if (tx.IsCoinMint()) {
+		peg_ok = true;
 	} else {
-		peg_ok = CalculateStandardFractions(tx, nSupply, nTime, mapInputs, mapInputsFractions,
-		                                    mapFractionsUnused, feesFractions, sPegFailCause);
+		set<uint32_t> sTimeLockPassInputs;
+		peg_ok = CalculateStandardFractions(tx, nSupply, nBlockTime, mapInputs, mapInputsFractions,
+		                                    sTimeLockPassInputs, mapFractionsUnused, feesFractions,
+		                                    sPegFailCause);
 	}
 	int msecsPegChecks = timePegChecks.msecsTo(QTime::currentTime());
 
 	size_t n_vin  = tx.vin.size();
 	size_t n_vout = tx.vout.size();
-	if (tx.IsCoinBase())
-		n_vin = 0;
-	if (tx.IsCoinBase())
-		n_vout = 0;
+	// if (tx.IsCoinBase()) n_vin = 0;
+	// if (tx.IsCoinBase()) n_vout = 0;
 
 	int64_t nValueIn = 0;
-	for (unsigned int i = 0; i < n_vin; i++) {
+	for (uint32_t i = 0; i < n_vin; i++) {
 		COutPoint prevout = tx.vin[i].prevout;
 		if (mapInputs.find(prevout.hash) != mapInputs.end()) {
 			CTransaction& txPrev = mapInputs[prevout.hash].second;
@@ -482,7 +496,7 @@ void TxDetailsWidget::openTx(CTransaction& tx,
 		}
 	}
 	int64_t nValueOut = 0;
-	for (unsigned int i = 0; i < n_vout; i++) {
+	for (uint32_t i = 0; i < n_vout; i++) {
 		int64_t nValue = tx.vout[i].nValue;
 		nValueOut += nValue;
 	}
@@ -490,7 +504,7 @@ void TxDetailsWidget::openTx(CTransaction& tx,
 	// gui
 
 	QSet<QString> sAddresses;
-	for (unsigned int i = 0; i < n_vin; i++) {
+	for (uint32_t i = 0; i < n_vin; i++) {
 		COutPoint   prevout = tx.vin[i].prevout;
 		QStringList row;
 		row << QString::number(i);  // idx, 0
@@ -499,8 +513,11 @@ void TxDetailsWidget::openTx(CTransaction& tx,
 		QString prev_txid_hash   = prev_thash.left(4) + "..." + prev_thash.right(4);
 		QString prev_txid_height = txId(txdb, prevout.hash);
 		QString prev_txid        = prev_txid_height.isEmpty() ? prev_txid_hash : prev_txid_height;
+		QString prev_txout       = QString("%1:%2").arg(prev_txid).arg(prevout.n);
+		if (prev_thash == QString("00").repeated(32))
+			prev_txout = "null";
 
-		row << QString("%1:%2").arg(prev_txid).arg(prevout.n);                 // tx, 1
+		row << prev_txout;                                                     // tx, 1
 		auto    prev_input = QString("%1:%2").arg(prev_thash).arg(prevout.n);  // tx, 1
 		int64_t nValue     = 0;
 
@@ -525,8 +542,17 @@ void TxDetailsWidget::openTx(CTransaction& tx,
 				row << "none";  // value, 3
 			}
 		} else {
-			row << "N/A";   // address
-			row << "none";  // value
+			if (i == 0 && tx.IsCoinBase()) {
+				row << "CoinBase";  // address
+				row << "0";         // value
+			}
+			if (i == 0 && tx.IsCoinMint()) {
+				row << "CoinMint";  // address
+				row << "0";         // value
+			} else {
+				row << "N/A";   // address
+				row << "none";  // value
+			}
 		}
 
 		auto input = new QTreeWidgetItem(row);
@@ -552,6 +578,7 @@ void TxDetailsWidget::openTx(CTransaction& tx,
 				input->setData(COL_INP_VALUE, Qt::DecorationPropertyRole, pmNotaryV);
 			}
 		}
+
 		input->setData(COL_INP_VALUE, Qt::TextAlignmentRole,
 		               int(Qt::AlignVCenter | Qt::AlignRight));
 		input->setData(COL_INP_VALUE, BlockchainModel::ValueForCopy, qlonglong(nValue));
@@ -559,12 +586,6 @@ void TxDetailsWidget::openTx(CTransaction& tx,
 	}
 
 	if (tx.IsCoinStake()) {
-		uint64_t nCoinAge = 0;
-		if (!tx.GetCoinAge(txdb, pblockindex->pprev, nCoinAge)) {
-			ui->txValues->addTopLevelItem(
-			    new QTreeWidgetItem(QStringList({"Error", "Cannot get coin age"})));
-			return;
-		}
 		CFractions inpStake(0, CFractions::STD);
 		if (tx.vin.size() > 0) {
 			const COutPoint& prevout = tx.vin.front().prevout;
@@ -649,7 +670,7 @@ void TxDetailsWidget::openTx(CTransaction& tx,
 	txdb.ReadTxIndex(hash, txindex);
 
 	if (pruned) {
-		for (unsigned int i = 0; i < n_vout; i++) {
+		for (uint32_t i = 0; i < n_vout; i++) {
 			auto       fkey = uint320(hash, i);
 			CFractions fractions(tx.vout[i].nValue, CFractions::STD);
 			if (pegdb.ReadFractions(fkey, fractions, true /*must_have*/)) {
@@ -658,7 +679,7 @@ void TxDetailsWidget::openTx(CTransaction& tx,
 		}
 	}
 
-	for (unsigned int i = 0; i < n_vout; i++) {
+	for (uint32_t i = 0; i < n_vout; i++) {
 		QStringList row;
 		row << QString::number(i);  // 0, idx
 
@@ -928,7 +949,7 @@ void TxDetailsWidget::openTxMenu(const QPoint& pos) {
 				}
 			}
 
-			map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
+			unordered_map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
 			if (mi != mapBlockIndex.end() && (*mi).second) {
 				CBlockIndex* pindex = (*mi).second;
 				nSupply             = pindex->nPegSupplyIndex;

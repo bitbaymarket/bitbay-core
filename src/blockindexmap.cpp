@@ -16,7 +16,7 @@ size_t CBlockIndexMap::count(const uint256& hashBlock) const {
 	return mapBlockIndex.count(hashBlock);
 }
 
-std::map<uint256, CBlockIndex*>::iterator CBlockIndexMap::find(const uint256& hashBlock) {
+std::unordered_map<uint256, CBlockIndex*>::iterator CBlockIndexMap::find(const uint256& hashBlock) {
 	return mapBlockIndex.find(hashBlock);
 }
 
@@ -24,24 +24,28 @@ CBlockIndex* CBlockIndexMap::ref(const uint256& hashBlock) {
 	return mapBlockIndex[hashBlock];
 }
 
-std::map<uint256, CBlockIndex*>::const_iterator CBlockIndexMap::begin() const {
+std::unordered_map<uint256, CBlockIndex*>::const_iterator CBlockIndexMap::begin() const {
 	return mapBlockIndex.begin();
 }
 
-std::map<uint256, CBlockIndex*>::const_iterator CBlockIndexMap::end() const {
+std::unordered_map<uint256, CBlockIndex*>::const_iterator CBlockIndexMap::end() const {
 	return mapBlockIndex.end();
 }
 
-std::map<uint256, CBlockIndex*>::iterator CBlockIndexMap::begin() {
+std::unordered_map<uint256, CBlockIndex*>::iterator CBlockIndexMap::begin() {
 	return mapBlockIndex.begin();
 }
 
-std::map<uint256, CBlockIndex*>::iterator CBlockIndexMap::end() {
+std::unordered_map<uint256, CBlockIndex*>::iterator CBlockIndexMap::end() {
 	return mapBlockIndex.end();
 }
 
-std::pair<std::map<uint256, CBlockIndex*>::iterator, bool> CBlockIndexMap::insert(
+std::pair<std::unordered_map<uint256, CBlockIndex*>::iterator, bool> CBlockIndexMap::insert(
     const uint256& hashBlock,
     CBlockIndex*   pindex) {
 	return mapBlockIndex.insert(std::make_pair(hashBlock, pindex));
+}
+
+bool CBlockIndexMap::remove(const uint256& hashBlock) {
+	return mapBlockIndex.erase(hashBlock) > 0;
 }

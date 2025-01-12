@@ -65,16 +65,24 @@ QString dateTimeStr(qint64 nTime) {
 
 QFont bitcoinAddressFont() {
 	QFont font("Roboto Mono");
-#if QT_VERSION >= 0x040800
 	font.setStyleHint(QFont::Monospace);
-#else
-	font.setStyleHint(QFont::TypeWriter);
+#ifdef Q_OS_UNIX
+#ifndef Q_OS_MAC
+	{
+		QFontMetricsF fm(font);
+		qreal         fmh = fm.height();
+		if (fmh > 12.) {
+			qreal pt = 11. * 12. / fmh;
+			font    = QFont("Roboto Mono", pt);
+		}
+	}
+#endif
 #endif
 	return font;
 }
 
 void setupAddressWidget(QLineEdit* widget, QWidget* parent) {
-	widget->setMaxLength(BitcoinAddressValidator::MaxAddressLength);
+	widget->setMaxLength(BitcoinAddressValidator::MaxMixAddressLength);
 	widget->setValidator(new BitcoinAddressValidator(parent));
 	widget->setFont(bitcoinAddressFont());
 }
@@ -160,10 +168,10 @@ void copyEntryData(QAbstractItemView* view, int column, int role) {
 }
 
 QString getSaveFileName(QWidget*       parent,
-                        const QString& caption,
-                        const QString& dir,
-                        const QString& filter,
-                        QString*       selectedSuffixOut) {
+						const QString& caption,
+						const QString& dir,
+						const QString& filter,
+						QString*       selectedSuffixOut) {
 	QString selectedFilter;
 	QString myDir;
 	if (dir.isEmpty())  // Default to user documents location
@@ -217,9 +225,9 @@ bool checkPoint(const QPoint& p, const QWidget* w) {
 
 bool isObscured(QWidget* w) {
 	return !(checkPoint(QPoint(0, 0), w) && checkPoint(QPoint(w->width() - 1, 0), w) &&
-	         checkPoint(QPoint(0, w->height() - 1), w) &&
-	         checkPoint(QPoint(w->width() - 1, w->height() - 1), w) &&
-	         checkPoint(QPoint(w->width() / 2, w->height() / 2), w));
+			 checkPoint(QPoint(0, w->height() - 1), w) &&
+			 checkPoint(QPoint(w->width() - 1, w->height() - 1), w) &&
+			 checkPoint(QPoint(w->width() / 2, w->height() / 2), w));
 }
 
 void openDebugLogfile() {
@@ -231,14 +239,14 @@ void openDebugLogfile() {
 }
 
 ToolTipToRichTextFilter::ToolTipToRichTextFilter(int size_threshold, QObject* parent)
-    : QObject(parent), size_threshold(size_threshold) {}
+	: QObject(parent), size_threshold(size_threshold) {}
 
 bool ToolTipToRichTextFilter::eventFilter(QObject* obj, QEvent* evt) {
 	if (evt->type() == QEvent::ToolTipChange) {
 		QWidget* widget  = static_cast<QWidget*>(obj);
 		QString  tooltip = widget->toolTip();
 		if (tooltip.size() > size_threshold && !tooltip.startsWith("<qt>") &&
-		    !Qt::mightBeRichText(tooltip)) {
+			!Qt::mightBeRichText(tooltip)) {
 			// Prefix <qt/> to make sure Qt detects this as rich text
 			// Escape the current message as HTML and replace \n by <br>
 			tooltip = "<qt>" + HtmlEscape(tooltip, true) + "<qt/>";
@@ -269,7 +277,7 @@ bool SetStartOnSystemStartup(bool fAutoStart) {
 		// Get a pointer to the IShellLink interface.
 		IShellLink* psl = NULL;
 		HRESULT hres = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLink,
-		                                reinterpret_cast<void**>(&psl));
+										reinterpret_cast<void**>(&psl));
 
 		if (SUCCEEDED(hres)) {
 			// Get the current executable path
@@ -293,7 +301,7 @@ bool SetStartOnSystemStartup(bool fAutoStart) {
 				WCHAR pwsz[MAX_PATH];
 				// Ensure that the string is ANSI.
 				MultiByteToWideChar(CP_ACP, 0, StartupShortcutPath().string().c_str(), -1, pwsz,
-				                    MAX_PATH);
+									MAX_PATH);
 				// Save the link by calling IPersistFile::Save.
 				hres = ppf->Save(pwsz, TRUE);
 				ppf->Release();
@@ -358,7 +366,7 @@ bool SetStartOnSystemStartup(bool fAutoStart) {
 		boost::filesystem::create_directories(GetAutostartDir());
 
 		boost::filesystem::ofstream optionFile(GetAutostartFilePath(),
-		                                       std::ios_base::out | std::ios_base::trunc);
+											   std::ios_base::out | std::ios_base::trunc);
 		if (!optionFile.good())
 			return false;
 		// Write a bitcoin.desktop file to the autostart directory:
@@ -388,16 +396,16 @@ bool SetStartOnSystemStartup(bool fAutoStart) {
 
 HelpMessageBox::HelpMessageBox(QWidget* parent) : QMessageBox(parent) {
 	header = tr("BitBay-Qt") + " " + tr("version") + " " +
-	         QString::fromStdString(FormatFullVersion()) + "\n\n" + tr("Usage:") + "\n" +
-	         "  bitbay-qt [" + tr("command-line options") + "]                     " + "\n";
+			 QString::fromStdString(FormatFullVersion()) + "\n\n" + tr("Usage:") + "\n" +
+			 "  bitbay-qt [" + tr("command-line options") + "]                     " + "\n";
 
 	coreOptions = QString::fromStdString(HelpMessage());
 
 	uiOptions = tr("UI options") + ":\n" + "  -lang=<lang>           " +
-	            tr("Set language, for example \"de_DE\" (default: system locale)") + "\n" +
-	            "  -min                   " + tr("Start minimized") + "\n" +
-	            "  -splash                " + tr("Show splash screen on startup (default: 1)") +
-	            "\n";
+				tr("Set language, for example \"de_DE\" (default: system locale)") + "\n" +
+				"  -min                   " + tr("Start minimized") + "\n" +
+				"  -splash                " + tr("Show splash screen on startup (default: 1)") +
+				"\n";
 
 	setWindowTitle(tr("BitBay-Qt"));
 	setTextFormat(Qt::PlainText);
@@ -423,7 +431,25 @@ void HelpMessageBox::showOrPrint() {
 }
 
 void SetBitBayThemeQSS(QApplication& app) {
+#ifdef Q_OS_UNIX
+	app.setAttribute(Qt::AA_Use96Dpi);
 	app.setAttribute(Qt::AA_UseHighDpiPixmaps);
+	app.setAttribute(Qt::AA_DisableHighDpiScaling);
+#endif
+#ifdef Q_OS_MAC
+	app.setAttribute(Qt::AA_UseHighDpiPixmaps);
+	app.setAttribute(Qt::AA_EnableHighDpiScaling);
+#if QT_VERSION >= 0x051400
+	app.setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+#endif
+#endif
+#ifdef Q_OS_WIN
+	app.setAttribute(Qt::AA_UseHighDpiPixmaps);
+	app.setAttribute(Qt::AA_EnableHighDpiScaling);
+#if QT_VERSION >= 0x051400
+	app.setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+#endif
+#endif
 
 	QFontDatabase::addApplicationFont(":/fonts/res/fonts/Roboto-Black.ttf");
 	QFontDatabase::addApplicationFont(":/fonts/res/fonts/Roboto-BlackItalic.ttf");
@@ -452,6 +478,16 @@ void SetBitBayThemeQSS(QApplication& app) {
 	QFont font("Roboto", 15);
 #else
 	QFont font("Roboto", 11);
+#ifdef Q_OS_UNIX
+	{
+		QFontMetricsF fm(font);
+		qreal         fmh = fm.height();
+		if (fmh > 12.) {
+			qreal pt = 11. * 12. / fmh;
+			font     = QFont("Roboto", pt);
+		}
+	}
+#endif
 #endif
 	QApplication::setFont(font);
 	//    qDebug() << font.toString();
@@ -463,7 +499,7 @@ void SetBitBayThemeQSS(QApplication& app) {
 	app.setStyle(QStyleFactory::create("fusion"));
 
 	app.setStyleSheet(
-	    R"(
+		R"(
         QWidget { background: rgb(221,222,237); }
         QLineEdit {
             background: rgb(255,255,255);
@@ -557,8 +593,8 @@ void SetBitBayThemeQSS(QApplication& app) {
             margin-bottom: 0px;
         }
         QLineEdit {
-            padding-left: 10px;
-            padding-right: 10px;
+			padding-left: 6px;
+			padding-right: 6px;
         }
         QHeaderView::section {
             background-color: rgb(71,58,148);
@@ -654,6 +690,16 @@ void SetBitBayFonts(QWidget* w) {
 	QFont font("Roboto", 15);
 #else
 	QFont font("Roboto", 11);
+#ifdef Q_OS_UNIX
+	{
+		QFontMetricsF fm(font);
+		qreal         fmh = fm.height();
+		if (fmh > 12.) {
+			qreal pt = 11. * 12. / fmh;
+			font     = QFont("Roboto", pt);
+		}
+	}
+#endif
 #endif
 	for (auto l : w->findChildren<QLabel*>()) {
 		l->setFont(font);

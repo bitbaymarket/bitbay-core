@@ -10,28 +10,30 @@
 
 class QModelIndex;
 
-class LeftSideIconItemDelegate : public QStyledItemDelegate {
-	Q_OBJECT
+class LeftSideIconItemDelegate : public QStyledItemDelegate
+{
+    Q_OBJECT
 
 public:
-	explicit LeftSideIconItemDelegate(QWidget* parent = nullptr);
-	~LeftSideIconItemDelegate() override;
+    explicit LeftSideIconItemDelegate(QWidget *parent = nullptr);
+    ~LeftSideIconItemDelegate() override;
 
-	void paint(QPainter*                   painter,
-	           const QStyleOptionViewItem& option,
-	           const QModelIndex&          index) const override;
+    void paint(QPainter *painter,
+               const QStyleOptionViewItem &option,
+               const QModelIndex &index) const override;
 };
 
-class FractionsItemDelegate : public QStyledItemDelegate {
-	Q_OBJECT
+class FractionsItemDelegate : public QStyledItemDelegate
+{
+    Q_OBJECT
 
 public:
-	explicit FractionsItemDelegate(QWidget* parent = nullptr);
-	~FractionsItemDelegate() override;
+    explicit FractionsItemDelegate(QWidget *parent = nullptr);
+    ~FractionsItemDelegate() override;
 
-	void paint(QPainter*                   painter,
-	           const QStyleOptionViewItem& option,
-	           const QModelIndex&          index) const override;
+    void paint(QPainter *painter,
+               const QStyleOptionViewItem &option,
+               const QModelIndex &index) const override;
 };
 
-#endif  // ITEMDELEGATES_H
+#endif // ITEMDELEGATES_H

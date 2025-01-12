@@ -71,7 +71,7 @@ double GetPoWMHashPS() {
 			pindexPrevWork     = pindex;
 		}
 
-		pindex = pindex->pnext;
+		pindex = pindex->Next();
 	}
 
 	return GetDifficulty() * 4294.967296 / nTargetSpacingWork;
@@ -96,7 +96,7 @@ double GetPoSKernelPS() {
 			pindexPrevStake = pindex;
 		}
 
-		pindex = pindex->pprev;
+		pindex = pindex->Prev();
 	}
 
 	double result = 0;
@@ -132,10 +132,10 @@ Object blockToJSON(const CBlock&       block,
 	result.push_back(Pair("difficulty", GetDifficulty(blockindex)));
 	result.push_back(Pair("blocktrust", leftTrim(blockindex->GetBlockTrust().GetHex(), '0')));
 	result.push_back(Pair("chaintrust", leftTrim(blockindex->nChainTrust.GetHex(), '0')));
-	if (blockindex->pprev)
-		result.push_back(Pair("previousblockhash", blockindex->pprev->GetBlockHash().GetHex()));
-	if (blockindex->pnext)
-		result.push_back(Pair("nextblockhash", blockindex->pnext->GetBlockHash().GetHex()));
+	if (blockindex->Prev())
+		result.push_back(Pair("previousblockhash", blockindex->Prev()->GetBlockHash().GetHex()));
+	if (blockindex->Next())
+		result.push_back(Pair("nextblockhash", blockindex->Next()->GetBlockHash().GetHex()));
 
 	result.push_back(
 	    Pair("flags",
@@ -359,7 +359,7 @@ Value getblockbynumber(const Array& params, bool fHelp) {
 	CBlock       block;
 	CBlockIndex* pblockindex = pindexBest;
 	while (pblockindex->nHeight > nHeight)
-		pblockindex = pblockindex->pprev;
+		pblockindex = pblockindex->Prev();
 
 	uint256 hash = *pblockindex->phashBlock;
 
@@ -433,7 +433,7 @@ Value gettxout(const Array& params, bool fHelp) {
 	if (hashBlock == 0 && !fMempool)  // not to include mempool
 		return Value::null;
 
-	if (n < 0 || (unsigned int)n >= tx.vout.size() || tx.vout[n].IsNull())
+	if (n < 0 || (uint32_t)n >= tx.vout.size() || tx.vout[n].IsNull())
 		return Value::null;
 
 	const CTxOut& txout = tx.vout[n];
@@ -464,7 +464,7 @@ Value gettxout(const Array& params, bool fHelp) {
 
 	bool is_in_main_chain = false;
 	if (hashBlock != 0) {
-		map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
+		unordered_map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
 		if (mi != mapBlockIndex.end() && (*mi).second) {
 			CBlockIndex* pindex = (*mi).second;
 			if (pindex->IsInMainChain()) {
@@ -500,8 +500,8 @@ Value createbootstrap(const Array& params, bool fHelp) {
 		return JSONRPCError(RPC_MISC_ERROR, "Open bootstrap failed");
 	}
 
-	uint256                              blockHash = Params().HashGenesisBlock();
-	map<uint256, CBlockIndex*>::iterator mi        = mapBlockIndex.find(blockHash);
+	uint256                                        blockHash = Params().HashGenesisBlock();
+	unordered_map<uint256, CBlockIndex*>::iterator mi        = mapBlockIndex.find(blockHash);
 	if (mi == mapBlockIndex.end()) {
 		throw JSONRPCError(RPC_MISC_ERROR, "Genesis block not found");
 	}
@@ -512,11 +512,11 @@ Value createbootstrap(const Array& params, bool fHelp) {
 			throw JSONRPCError(RPC_MISC_ERROR, "Block read failed");
 		}
 		// Write index header
-		unsigned int nSize = fileout.GetSerializeSize(block);
+		uint32_t nSize = fileout.GetSerializeSize(block);
 		fileout << FLATDATA(Params().MessageStart()) << nSize;
 		fileout << block;
 		nWritten++;
-		pindex = pindex->pnext;
+		pindex = pindex->Next();
 	}
 
 	ret.push_back(Pair("written", nWritten));
@@ -604,12 +604,7 @@ Value listunspent1(const Array& params, bool fHelp) {
 	CPegDB pegdb("r");
 
 	bool fIsReady = false;
-	bool fEnabled = false;
 	txdb.ReadUtxoDbIsReady(fIsReady);
-	txdb.ReadUtxoDbEnabled(fEnabled);
-	if (!fEnabled)
-		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY,
-		                   string("Balance/unspent database is not enabled"));
 	if (!fIsReady)
 		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY,
 		                   string("Balance/unspent database is not ready (may require restart)"));
@@ -737,12 +732,7 @@ Value listfrozen1(const Array& params, bool fHelp) {
 	CPegDB pegdb("r");
 
 	bool fIsReady = false;
-	bool fEnabled = false;
 	txdb.ReadUtxoDbIsReady(fIsReady);
-	txdb.ReadUtxoDbEnabled(fEnabled);
-	if (!fEnabled)
-		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY,
-		                   string("Balance/unspent database is not enabled"));
 	if (!fIsReady)
 		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY,
 		                   string("Balance/unspent database is not ready (may require restart)"));
@@ -790,6 +780,15 @@ Value listfrozen1(const Array& params, bool fHelp) {
 	return results;
 }
 
+Value liststaked(const Array& params, bool fHelp) {
+#ifdef ENABLE_WALLET
+	return liststaked2(params, fHelp);
+#else
+	Array results;
+	return results;
+#endif
+}
+
 Value balance(const Array& params, bool fHelp) {
 	if (fHelp || params.size() < 1 || params.size() > 2)
 		throw runtime_error(
@@ -822,12 +821,7 @@ Value balance(const Array& params, bool fHelp) {
 	CTxDB txdb("r");
 
 	bool fIsReady = false;
-	bool fEnabled = false;
 	txdb.ReadUtxoDbIsReady(fIsReady);
-	txdb.ReadUtxoDbEnabled(fEnabled);
-	if (!fEnabled)
-		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY,
-		                   string("Balance/unspent database is not enabled"));
 	if (!fIsReady)
 		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY,
 		                   string("Balance/unspent database is not ready (may require restart)"));
@@ -855,5 +849,51 @@ Value balance(const Array& params, bool fHelp) {
 	result.push_back(Pair("reserve", ValueFromAmount(nUnspentReserve)));
 	result.push_back(Pair("transactions", nLastIndex + 1));
 
+	return result;
+}
+
+Value balancerecords(const Array& params, bool fHelp) {
+	if (fHelp || params.size() < 1 || params.size() > 2)
+		throw runtime_error(
+		    "balancerecords address\n"
+		    "\t(blockchain api)\n"
+		    "\tReturns the balance records of the specified address\n");
+	RPCTypeCheck(params, list_of(str_type));
+	CBitcoinAddress address(params[0].get_str());
+	if (!address.IsValid())
+		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY,
+		                   string("Invalid BitBay address: ") + params[0].get_str());
+	string sAddress = params[0].get_str();
+	if (sAddress.length() != 34)
+		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY,
+		                   string("Invalid BitBay address: ") + params[0].get_str());
+	CTxDB txdb("r");
+	bool  fIsReady = false;
+	txdb.ReadUtxoDbIsReady(fIsReady);
+	if (!fIsReady)
+		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY,
+		                   string("Balance/unspent database is not ready (may require restart)"));
+	vector<CAddressBalance> records;
+	bool                    ok = txdb.ReadAddressBalanceRecords(sAddress, records);
+	if (!ok)
+		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Balance/unspent database error"));
+
+	Array result;
+	int   nIdx = records.size();
+	for (const auto& record : records) {
+		Object jrecord;
+		jrecord.push_back(Pair("index", nIdx - 1));
+		jrecord.push_back(Pair("height", record.nHeight));
+		jrecord.push_back(Pair("txhash", record.txhash.GetHex()));
+		jrecord.push_back(Pair("txindex", record.nIndex));
+		jrecord.push_back(Pair("credit", record.nCredit));
+		jrecord.push_back(Pair("debit", record.nDebit));
+		jrecord.push_back(Pair("balance", record.nBalance));
+		jrecord.push_back(Pair("frozen", record.nFrozen));
+		jrecord.push_back(Pair("time", record.nTime));
+		jrecord.push_back(Pair("locktime", record.nLockTime));
+		result.push_back(jrecord);
+		nIdx--;
+	}
 	return result;
 }

@@ -66,7 +66,7 @@ Value listdeposits(const Array& params, bool fHelp) {
 	Array           results;
 	vector<COutput> vecOutputs;
 	assert(pwalletMain != NULL);
-	unsigned int nLastBlockTime = pindexBest->nTime;
+	uint32_t nLastBlockTime = pindexBest->nTime;
 	pwalletMain->AvailableCoins(vecOutputs, false, true, NULL);
 	pwalletMain->FrozenCoins(vecOutputs, false, false, NULL);
 	for (const COutput& out : vecOutputs) {
@@ -217,7 +217,7 @@ Value registerdeposit(const Array& params, bool fHelp) {
 		throw JSONRPCError(RPC_MISC_ERROR, "Can not register change output from exchange tx");
 	}
 
-	int nPegInterval    = Params().PegInterval(nBestHeight);
+	int nPegInterval    = Params().PegInterval();
 	int nDepth          = txindex.GetDepthInMainChain();
 	int nHeight         = nBestHeight - nDepth + 1;
 	int nNextHeight     = (nHeight / nPegInterval + 1) * nPegInterval;
@@ -249,10 +249,10 @@ Value registerdeposit(const Array& params, bool fHelp) {
 		return result;
 	}
 
-	unsigned int nLastBlockTime = pindexBest->nTime;
-	bool         fF             = frDeposit.nFlags & CFractions::NOTARY_F;
-	bool         fV             = frDeposit.nFlags & CFractions::NOTARY_V;
-	bool         fC             = frDeposit.nFlags & CFractions::NOTARY_C;
+	uint32_t nLastBlockTime = pindexBest->nTime;
+	bool     fF             = frDeposit.nFlags & CFractions::NOTARY_F;
+	bool     fV             = frDeposit.nFlags & CFractions::NOTARY_V;
+	bool     fC             = frDeposit.nFlags & CFractions::NOTARY_C;
 	fF &= frDeposit.nLockTime >= nLastBlockTime;
 	fV &= frDeposit.nLockTime >= nLastBlockTime;
 	if (fF || fV) {

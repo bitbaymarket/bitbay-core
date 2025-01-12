@@ -18,8 +18,8 @@
 
 bool CCrypter::SetKeyFromPassphrase(const SecureString&               strKeyData,
                                     const std::vector<unsigned char>& chSalt,
-                                    const unsigned int                nRounds,
-                                    const unsigned int                nDerivationMethod) {
+                                    const uint32_t                    nRounds,
+                                    const uint32_t                    nDerivationMethod) {
 	if (nRounds < 1 || chSalt.size() != WALLET_CRYPTO_SALT_SIZE)
 		return false;
 

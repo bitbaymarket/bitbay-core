@@ -20,8 +20,9 @@
 
 using namespace std;
 using namespace boost;
+namespace fs = boost::filesystem;
 
-unsigned int nWalletDBUpdated;
+uint32_t nWalletDBUpdated;
 
 //
 // CDB
@@ -61,14 +62,14 @@ bool CDBEnv::Open(boost::filesystem::path pathEnv_) {
 	boost::this_thread::interruption_point();
 
 	pathEnv                      = pathEnv_;
-	filesystem::path pathDataDir = pathEnv;
+    fs::path pathDataDir = pathEnv;
 	strPath                      = pathDataDir.string();
-	filesystem::path pathLogDir  = pathDataDir / "database";
-	filesystem::create_directory(pathLogDir);
-	filesystem::path pathErrorFile = pathDataDir / "db.log";
+    fs::path pathLogDir  = pathDataDir / "database";
+    fs::create_directory(pathLogDir);
+    fs::path pathErrorFile = pathDataDir / "db.log";
 	LogPrintf("dbenv.open LogDir=%s ErrorFile=%s\n", pathLogDir.string(), pathErrorFile.string());
 
-	unsigned int nEnvFlags = 0;
+	uint32_t nEnvFlags = 0;
 	if (GetBoolArg("-privdb", true))
 		nEnvFlags |= DB_PRIVATE;
 
@@ -208,8 +209,8 @@ CDB::CDB(const std::string& strFilename, const char* pszMode) : pdb(NULL), activ
 	if (strFilename.empty())
 		return;
 
-	bool         fCreate = strchr(pszMode, 'c');
-	unsigned int nFlags  = DB_THREAD;
+	bool     fCreate = strchr(pszMode, 'c');
+	uint32_t nFlags  = DB_THREAD;
 	if (fCreate)
 		nFlags |= DB_CREATE;
 
@@ -271,7 +272,7 @@ void CDB::Close() {
 	pdb       = NULL;
 
 	// Flush database activity from memory pool to disk log
-	unsigned int nMinutes = 0;
+	uint32_t nMinutes = 0;
 	if (fReadOnly)
 		nMinutes = 1;
 

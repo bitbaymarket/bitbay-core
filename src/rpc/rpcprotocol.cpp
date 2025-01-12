@@ -49,6 +49,26 @@ string HTTPPost(const string& strMsg, const map<string, string>& mapRequestHeade
 	return s.str();
 }
 
+string HTTPPostToPath(const string&              strHost,
+					  const string&              strPath,
+					  const string&              strMsg,
+					  const map<string, string>& mapRequestHeaders) {
+	ostringstream s;
+	s << "POST " << strPath << " HTTP/1.0\r\n"
+	  << "User-Agent: bitbay-json-rpc/" << FormatFullVersion() << "\r\n"
+	  << "Host: " << strHost << "\r\n"
+	  << "Content-Type: application/json\r\n"
+	  << "Content-Length: " << strMsg.size() << "\r\n"
+	  << "Connection: close\r\n"
+	  << "Accept: application/json\r\n";
+	for (const pair<string, string>& item : mapRequestHeaders) {
+		s << item.first << ": " << item.second << "\r\n";
+	}
+	s << "\r\n" << strMsg;
+
+	return s.str();
+}
+
 static string rfc1123Time() {
 	return DateTimeStrFormat("%a, %d %b %Y %H:%M:%S +0000", GetTime());
 }
@@ -87,7 +107,7 @@ string HTTPReply(int nStatus, const string& strMsg, bool keepalive) {
 	else
 		cStatus = "";
 	return strprintf(
-	    "HTTP/1.1 %d %s\r\n"
+		"HTTP/1.1 %d %s\r\n"
 	    "Date: %s\r\n"
 	    "Connection: %s\r\n"
 	    "Content-Length: %u\r\n"
@@ -188,6 +208,14 @@ int ReadHTTPMessage(std::basic_istream<char>& stream,
 		vector<char> vch(nLen);
 		stream.read(&vch[0], nLen);
 		strMessageRet = string(vch.begin(), vch.end());
+	} else if (nLen == 0) {
+		while (!stream.eof()) {
+			string line;
+			std::getline(stream, line);
+			strMessageRet += line;
+			if (line.empty())
+				break;
+		}
 	}
 
 	string sConHdr = mapHeadersRet["connection"];

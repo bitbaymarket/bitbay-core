@@ -15,10 +15,12 @@
 #endif
 
 #ifdef USE_UPNP
+#if (USE_UPNP == 1)
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/miniwget.h>
 #include <miniupnpc/upnpcommands.h>
 #include <miniupnpc/upnperrors.h>
+#endif
 #endif
 
 // Dump addresses to peers.dat every 15 minutes (900s)
@@ -75,7 +77,7 @@ static CSemaphore* semOutbound = NULL;
 // Signals for message handling
 static CNodeSignals g_signals;
 CNodeSignals&       GetNodeSignals() {
-    return g_signals;
+	      return g_signals;
 }
 
 void AddOneShot(string strDest) {
@@ -492,7 +494,7 @@ void CNode::copyStats(CNodeStats& stats) {
 #undef X
 
 // requires LOCK(cs_vRecvMsg)
-bool CNode::ReceiveMsgBytes(const char* pch, unsigned int nBytes) {
+bool CNode::ReceiveMsgBytes(const char* pch, uint32_t nBytes) {
 	while (nBytes > 0) {
 		// get current incomplete message, or create a new one
 		if (vRecvMsg.empty() || vRecvMsg.back().complete())
@@ -520,10 +522,10 @@ bool CNode::ReceiveMsgBytes(const char* pch, unsigned int nBytes) {
 	return true;
 }
 
-int CNetMessage::readHeader(const char* pch, unsigned int nBytes) {
+int CNetMessage::readHeader(const char* pch, uint32_t nBytes) {
 	// copy data to temporary parsing buffer
-	unsigned int nRemaining = 24 - nHdrPos;
-	unsigned int nCopy      = std::min(nRemaining, nBytes);
+	uint32_t nRemaining = 24 - nHdrPos;
+	uint32_t nCopy      = std::min(nRemaining, nBytes);
 
 	memcpy(&hdrbuf[nHdrPos], pch, nCopy);
 	nHdrPos += nCopy;
@@ -549,9 +551,9 @@ int CNetMessage::readHeader(const char* pch, unsigned int nBytes) {
 	return nCopy;
 }
 
-int CNetMessage::readData(const char* pch, unsigned int nBytes) {
-	unsigned int nRemaining = hdr.nMessageSize - nDataPos;
-	unsigned int nCopy      = std::min(nRemaining, nBytes);
+int CNetMessage::readData(const char* pch, uint32_t nBytes) {
+	uint32_t nRemaining = hdr.nMessageSize - nDataPos;
+	uint32_t nCopy      = std::min(nRemaining, nBytes);
 
 	if (vRecv.size() < nDataPos + nCopy) {
 		// Allocate up to 256 KiB ahead, but never more than the total message size.
@@ -611,7 +613,7 @@ void SocketSendData(CNode* pnode) {
 static list<CNode*> vNodesDisconnected;
 
 void ThreadSocketHandler() {
-	unsigned int    nPrevNodeCount = 0;
+	uint32_t        nPrevNodeCount = 0;
 	CNodeShortStats vPrevStats;
 
 	while (true) {
@@ -759,7 +761,7 @@ void ThreadSocketHandler() {
 			if (have_fds) {
 				int nErr = WSAGetLastError();
 				LogPrintf("socket select error %d\n", nErr);
-				for (unsigned int i = 0; i <= hSocketMax; i++)
+				for (uint32_t i = 0; i <= hSocketMax; i++)
 					FD_SET(i, &fdsetRecv);
 			}
 			FD_ZERO(&fdsetSend);
@@ -911,7 +913,7 @@ void ThreadSocketHandler() {
 	}
 }
 
-#ifdef USE_UPNP
+#if (USE_UPNP == 1)
 void ThreadMapPort() {
 	std::string     port          = strprintf("%u", GetListenPort());
 	const char*     multicastif   = 0;
@@ -962,9 +964,9 @@ void ThreadMapPort() {
 				r = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype, port.c_str(),
 				                        port.c_str(), lanaddr, strDesc.c_str(), "TCP", 0);
 #else
-				/* miniupnpc 1.6 */
-				r = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype, port.c_str(),
-				                        port.c_str(), lanaddr, strDesc.c_str(), "TCP", 0, "0");
+                /* miniupnpc 1.6 */
+                r = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype, port.c_str(),
+				                          port.c_str(), lanaddr, strDesc.c_str(), "TCP", 0, "0");
 #endif
 
 				if (r != UPNPCOMMAND_SUCCESS)
@@ -1204,7 +1206,7 @@ void ThreadOpenAddedConnections() {
 		}
 	}
 
-	for (unsigned int i = 0; true; i++) {
+	for (uint32_t i = 0; true; i++) {
 		list<string> lAddresses(0);
 		{
 			LOCK(cs_vAddedNodes);
@@ -1515,12 +1517,12 @@ void static Discover(boost::thread_group& threadGroup) {
 				continue;
 			if (ifa->ifa_addr->sa_family == AF_INET) {
 				struct sockaddr_in* s4 = (struct sockaddr_in*)(ifa->ifa_addr);
-				CNetAddr            addr(s4->sin_addr);
+				CNetAddr addr(s4->sin_addr);
 				if (AddLocal(addr, LOCAL_IF))
 					LogPrintf("IPv4 %s: %s\n", ifa->ifa_name, addr.ToString());
 			} else if (ifa->ifa_addr->sa_family == AF_INET6) {
 				struct sockaddr_in6* s6 = (struct sockaddr_in6*)(ifa->ifa_addr);
-				CNetAddr             addr(s6->sin6_addr);
+				CNetAddr addr(s6->sin6_addr);
 				if (AddLocal(addr, LOCAL_IF))
 					LogPrintf("IPv6 %s: %s\n", ifa->ifa_name, addr.ToString());
 			}
@@ -1577,7 +1579,7 @@ void StartNode(boost::thread_group& threadGroup) {
 	{
 		// at least 1MB for messages processing (musl 80KB)
 		boost::thread::attributes nbetmsg_thread_attrs;
-		nbetmsg_thread_attrs.set_stack_size(1096 * 1096);
+        //nbetmsg_thread_attrs.set_stack_size(1096 * 1096);
 		auto netmsg_thread = new boost::thread(
 		    nbetmsg_thread_attrs,
 		    boost::bind(&TraceThread<void (*)()>, "msghand", &ThreadMessageHandler));

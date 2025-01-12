@@ -10,7 +10,7 @@
 
 static int noui_ThreadSafeMessageBox(const std::string& message,
                                      const std::string& caption,
-                                     unsigned int       style) {
+                                     uint32_t           style) {
 	std::string strCaption;
 	// Check for usage of predefined caption
 	switch (style) {

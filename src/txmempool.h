@@ -21,7 +21,7 @@
  */
 class CTxMemPool {
 private:
-	unsigned int nTransactionsUpdated;
+	uint32_t nTransactionsUpdated;
 
 public:
 	mutable CCriticalSection        cs;
@@ -32,18 +32,18 @@ public:
 
 	CTxMemPool();
 
-	bool         addUnchecked(const uint256&    hash,
-	                          CTransaction&     tx,
-	                          const MapPrevOut& mapPrevOuts,
-	                          MapFractions&     mapOutputsFractions);
-	bool         remove(const CTransaction& tx, bool fRecursive = false);
-	bool         removeConflicts(const CTransaction& tx);
-	void         reviewOnPegChange();
-	void         reviewOnPegChange(CTransaction&, std::vector<uint256>& vRemove);
-	void         clear();
-	void         queryHashes(std::vector<uint256>& vtxid);
-	unsigned int GetTransactionsUpdated() const;
-	void         AddTransactionsUpdated(unsigned int n);
+	bool     addUnchecked(const uint256&    hash,
+	                      CTransaction&     tx,
+	                      const MapPrevOut& mapPrevOuts,
+	                      MapFractions&     mapOutputsFractions);
+	bool     remove(const CTransaction& tx, bool fRecursive = false);
+	bool     removeConflicts(const CTransaction& tx);
+	void     reviewOnPegChange();
+	void     reviewOnPegChange(CTransaction&, std::vector<uint256>& vRemove);
+	void     clear();
+	void     queryHashes(std::vector<uint256>& vtxid);
+	uint32_t GetTransactionsUpdated() const;
+	void     AddTransactionsUpdated(uint32_t n);
 
 	unsigned long size() const {
 		LOCK(cs);

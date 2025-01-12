@@ -31,6 +31,7 @@ using namespace std;
 using namespace boost;
 using namespace boost::asio;
 using namespace json_spirit;
+namespace fs = boost::filesystem;
 
 static std::string strRPCUserColonPass;
 
@@ -41,7 +42,7 @@ static ssl::context*                                   rpc_ssl_context  = NULL;
 static boost::thread_group*                            rpc_worker_group = NULL;
 
 void RPCTypeCheck(const Array& params, const list<Value_type>& typesExpected, bool fAllowNull) {
-	unsigned int i = 0;
+	uint32_t i = 0;
 	for (const Value_type& t : typesExpected) {
 		if (params.size() <= i)
 			break;
@@ -226,7 +227,19 @@ static const CRPCCommand vRPCCommands[] = {
     {"createbootstrap", &createbootstrap, true, false, false},
     {"listunspent", &listunspent, false, false, false},
     {"listfrozen", &listfrozen, false, false, false},
+    {"liststaked", &liststaked, false, false, false},
     {"balance", &balance, false, false, false},
+    {"balancerecords", &balancerecords, false, false, false},
+    {"tstakers1", &tstakers1, false, false, false},
+    {"tstakers2", &tstakers2, false, false, false},
+    {"consensus", &consensus, false, false, false},
+    {"proposals", &proposals, false, false, false},
+    {"bridges", &bridges, false, false, false},
+    {"bridgereceipt", &bridgereceipt, false, false, false},
+    {"merklesin", &merklesin, false, false, false},
+    {"merklesout", &merklesout, false, false, false},
+    {"getbridgepool", &getbridgepool, false, false, false},
+    {"timelockpasses", &timelockpasses, false, false, false},
 
 #ifdef ENABLE_WALLET
     {"getmininginfo", &getmininginfo, true, false, false},
@@ -255,6 +268,7 @@ static const CRPCCommand vRPCCommands[] = {
     {"addredeemscript", &addredeemscript, false, false, true},
     {"gettransaction", &gettransaction, false, false, true},
     {"listtransactions", &listtransactions, false, false, true},
+    {"listbridgetransactions", &listbridgetransactions, false, false, true},
     {"listaddressgroupings", &listaddressgroupings, false, false, true},
     {"signmessage", &signmessage, false, false, true},
     {"getwork", &getwork, true, false, true},
@@ -277,6 +291,14 @@ static const CRPCCommand vRPCCommands[] = {
     {"resendtx", &resendtx, false, true, true},
     {"makekeypair", &makekeypair, false, true, false},
     {"checkkernel", &checkkernel, true, false, true},
+    // proposals, votes
+    {"myproposals", &myproposals, false, false, true},
+    {"addproposal", &addproposal, false, false, true},
+    {"signproposal", &signproposal, false, false, true},
+    {"voteproposal", &voteproposal, false, false, true},
+    {"removeproposal", &removeproposal, false, false, true},
+    {"bridgeautomate", &bridgeautomate, false, false, true},
+
 #ifdef ENABLE_EXCHANGE
     {"listdeposits", &listdeposits, false, false, true},
     {"registerdeposit", &registerdeposit, false, false, true},
@@ -300,7 +322,7 @@ static const CRPCCommand vRPCCommands[] = {
 };
 
 CRPCTable::CRPCTable() {
-	unsigned int vcidx;
+	uint32_t vcidx;
 	for (vcidx = 0; vcidx < (sizeof(vRPCCommands) / sizeof(vRPCCommands[0])); vcidx++) {
 		const CRPCCommand* pcmd;
 
@@ -491,19 +513,19 @@ void StartRPCThreads() {
 	if (fUseSSL) {
 		rpc_ssl_context->set_options(ssl::context::no_sslv2);
 
-		filesystem::path pathCertFile(GetArg("-rpcsslcertificatechainfile", "server.cert"));
+		fs::path pathCertFile(GetArg("-rpcsslcertificatechainfile", "server.cert"));
 		if (!pathCertFile.is_complete())
-			pathCertFile = filesystem::path(GetDataDir()) / pathCertFile;
-		if (filesystem::exists(pathCertFile))
+			pathCertFile = fs::path(GetDataDir()) / pathCertFile;
+		if (fs::exists(pathCertFile))
 			rpc_ssl_context->use_certificate_chain_file(pathCertFile.string());
 		else
 			LogPrintf("ThreadRPCServer ERROR: missing server certificate file %s\n",
 			          pathCertFile.string());
 
-		filesystem::path pathPKFile(GetArg("-rpcsslprivatekeyfile", "server.pem"));
+		fs::path pathPKFile(GetArg("-rpcsslprivatekeyfile", "server.pem"));
 		if (!pathPKFile.is_complete())
-			pathPKFile = filesystem::path(GetDataDir()) / pathPKFile;
-		if (filesystem::exists(pathPKFile))
+			pathPKFile = fs::path(GetDataDir()) / pathPKFile;
+		if (fs::exists(pathPKFile))
 			rpc_ssl_context->use_private_key_file(pathPKFile.string(), ssl::context::pem);
 		else
 			LogPrintf("ThreadRPCServer ERROR: missing server private key file %s\n",
@@ -576,7 +598,7 @@ void StartRPCThreads() {
 	for (int i = 0; i < GetArg("-rpcthreads", 4); i++) {
 		// at least 256KB for rpc (musl 80KB)
 		boost::thread::attributes rpc_thread_attrs;
-		rpc_thread_attrs.set_stack_size(256 * 1096);
+		// rpc_thread_attrs.set_stack_size(256 * 1096);
 		auto rpc_thread = new boost::thread(rpc_thread_attrs,
 		                                    boost::bind(&asio::io_service::run, rpc_io_service));
 		rpc_worker_group->add_thread(rpc_thread);
@@ -674,7 +696,7 @@ static Object JSONRPCExecOne(const Value& req) {
 
 static string JSONRPCExecBatch(const Array& vReq) {
 	Array ret;
-	for (unsigned int reqIdx = 0; reqIdx < vReq.size(); reqIdx++)
+	for (uint32_t reqIdx = 0; reqIdx < vReq.size(); reqIdx++)
 		ret.push_back(JSONRPCExecOne(vReq[reqIdx]));
 
 	return write_string(Value(ret), false) + "\n";

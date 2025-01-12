@@ -36,38 +36,39 @@ class OptionsModel;
 class QApplication;
 class QLocalServer;
 
-class PaymentServer : public QObject {
-	Q_OBJECT
+class PaymentServer : public QObject
+{
+    Q_OBJECT
 private:
-	bool          saveURIs;
-	QLocalServer* uriServer;
+    bool saveURIs;
+    QLocalServer* uriServer;
 
 public:
-	// Returns true if there were URIs on the command line
-	// which were successfully sent to an already-running
-	// process.
-	static bool ipcSendCommandLine();
+    // Returns true if there were URIs on the command line
+    // which were successfully sent to an already-running
+    // process.
+    static bool ipcSendCommandLine();
 
-	PaymentServer(QApplication* parent);
+    PaymentServer(QApplication* parent);
 
-	bool eventFilter(QObject* object, QEvent* event);
+    bool eventFilter(QObject *object, QEvent *event);
 
-	// OptionsModel is used for getting proxy settings and display unit
-	void setOptionsModel(OptionsModel* optionsModel);
+    // OptionsModel is used for getting proxy settings and display unit
+    void setOptionsModel(OptionsModel *optionsModel);
 
 signals:
-	void receivedURI(QString);
+    void receivedURI(QString);
 
 public slots:
-	// Signal this when the main window's UI is ready
-	// to display payment requests to the user
-	void uiReady();
+    // Signal this when the main window's UI is ready
+    // to display payment requests to the user
+    void uiReady();
 
 private slots:
-	void handleURIConnection();
+    void handleURIConnection();
 
 private:
-	OptionsModel* optionsModel;
+    OptionsModel *optionsModel;
 };
 
-#endif  // PAYMENTSERVER_H
+#endif // PAYMENTSERVER_H

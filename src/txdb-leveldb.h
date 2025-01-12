@@ -404,9 +404,6 @@ public:
 	bool ReadUtxoDbIsReady(bool& bReady);
 	bool WriteUtxoDbIsReady(bool bReady);
 
-	bool ReadUtxoDbEnabled(bool& fEnabled);
-	bool WriteUtxoDbEnabled(bool fEnabled);
-
 	bool ReadAddressLastBalance(string addr, CAddressBalance& balance, int64_t& nIdx);
 	bool ReadFrozenQueue(uint64_t nLockTime, std::vector<CFrozenQueued>&);
 	bool ReadFrozenQueued(uint64_t nLockTime, uint320 txoutid, CFrozenQueued&);

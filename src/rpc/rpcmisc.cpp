@@ -69,7 +69,6 @@ Value getinfo(const Array& params, bool fHelp) {
 	obj.push_back(Pair("testnet", TestNet()));
 #ifdef ENABLE_WALLET
 	if (pwalletMain) {
-		obj.push_back(Pair("keypoololdest", (int64_t)pwalletMain->GetOldestKeyPoolTime()));
 		obj.push_back(Pair("keypoolsize", (int)pwalletMain->GetKeyPoolSize()));
 	}
 	obj.push_back(Pair("paytxfee", ValueFromAmount(nTransactionFee)));
@@ -88,7 +87,7 @@ Value getpeginfo(const Array& params, bool fHelp) {
 		    "Returns an object containing peg state info.");
 
 	Object peg;
-	int    nPegInterval = Params().PegInterval(nBestHeight);
+	int    nPegInterval = Params().PegInterval();
 	int    nCycle       = nBestHeight / nPegInterval;
 	peg.push_back(Pair("steps", PEG_SIZE));
 	peg.push_back(Pair("cycle", nCycle));
@@ -142,8 +141,8 @@ Value getfractions(const Array& params, bool fHelp) {
 		// current if tx is not on disk
 		supply = pindexBest ? pindexBest->nPegSupplyIndex : 0;
 		// read from block
-		unsigned int nTxNum = 0;
-		uint256      blockhash;
+		uint32_t nTxNum = 0;
+		uint256  blockhash;
 		{
 			CTxDB    txdb("r");
 			CTxIndex txindex;
@@ -241,10 +240,10 @@ Value getfractionsbase64(const Array& params, bool fHelp) {
 		if (txdb.ReadTxIndex(txhash, txindex)) {
 			CBlock block;
 			if (block.ReadFromDisk(txindex.pos.nFile, txindex.pos.nBlockPos, false)) {
-				map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(block.GetHash());
+                unordered_map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(block.GetHash());
 				if (mi != mapBlockIndex.end()) {
 					CBlockIndex* pindex         = (*mi).second;
-					int          nPegInterval   = Params().PegInterval(pindex->nHeight);
+					int          nPegInterval   = Params().PegInterval();
 					pd.peglevel.nCycle          = pindex->nHeight / nPegInterval;
 					pd.peglevel.nCyclePrev      = pd.peglevel.nCycle - 1;
 					pd.peglevel.nBuffer         = 0;
@@ -354,6 +353,8 @@ public:
 	DescribeAddressVisitor(isminetype mineIn) : mine(mineIn) {}
 
 	Object operator()(const CNoDestination& dest) const { return Object(); }
+
+	Object operator()(const CExtDestination& dest) const { return Object(); }
 
 	Object operator()(const CKeyID& keyID) const {
 		Object  obj;
@@ -538,17 +539,23 @@ Value validaterawtransaction(const Array& params, bool fHelp) {
 	CTransaction tx(txVariants[0]);
 
 	// Fetch previous transactions (inputs):
-	MapPrevTx              mapInputs;
-	MapFractions           mapInputsFractions;
-	CTxDB                  txdb("r");
-	CPegDB                 pegdb("r");
-	map<uint256, CTxIndex> mapUnused;
-	MapFractions           mapOutputsFractions;
-	CFractions             feesFractions;
-	bool                   fInvalid;
+	MapPrevTx                mapInputs;
+	MapFractions             mapInputsFractions;
+	set<uint32_t>            sTimeLockPassInputs;
+	CTxDB                    txdb("r");
+	CPegDB                   pegdb("r");
+	map<uint256, CTxIndex>   mapUnused;
+	MapFractions             mapOutputsFractions;
+	CFractions               feesFractions;
+	bool                     fInvalid;
+	int64_t                  nVirtBlockTime = GetAdjustedTime();
+	map<string, CBridgeInfo> bridges;
+	pindexBest->ReadBridges(pegdb, bridges);
+	auto fnMerkleIn = [&](string hash) { return pindexBest->ReadMerkleIn(pegdb, hash); };
 
-	if (!tx.FetchInputs(txdb, pegdb, mapUnused, mapOutputsFractions, false, false, mapInputs,
-	                    mapInputsFractions, fInvalid)) {
+	if (!tx.FetchInputs(txdb, pegdb, pindexBest->nHeight, false, bridges, fnMerkleIn, mapUnused,
+						mapOutputsFractions, false /*is block*/, false /*is miner*/, nVirtBlockTime,
+						false /*skip pruned*/, mapInputs, mapInputsFractions, fInvalid)) {
 		Object result;
 		result.push_back(Pair("complete", false));
 		result.push_back(Pair("cause", "Can not fetch transaction inputs"));
@@ -556,7 +563,8 @@ Value validaterawtransaction(const Array& params, bool fHelp) {
 	}
 
 	string sPegFailCause;
-	bool   peg_ok = CalculateStandardFractions(tx, nSupply, tx.nTime, mapInputs, mapInputsFractions,
+	bool   peg_ok = CalculateStandardFractions(tx, nSupply, pindexBest->nTime, mapInputs,
+	                                           mapInputsFractions, sTimeLockPassInputs,
 	                                           mapOutputsFractions, feesFractions, sPegFailCause);
 	if (!peg_ok) {
 		Object result;

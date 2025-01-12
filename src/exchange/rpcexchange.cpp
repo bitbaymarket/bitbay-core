@@ -61,7 +61,7 @@ Value getpeglevel(const Array& params, bool fHelp) {
 	int nSupplyNext     = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
 	int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
 
-	int nPegInterval = Params().PegInterval(nBestHeight);
+	int nPegInterval = Params().PegInterval();
 	int nCycleNow    = nBestHeight / nPegInterval;
 	int nBuffer      = 3;
 

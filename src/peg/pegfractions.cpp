@@ -4,7 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 //
 // The use in another cyptocurrency project the code is licensed under
-// Coinleft Public License for BitBay. See https://bitbay.market/Coinleft-Public-License-v1.pdf
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #include "pegdata.h"
 
@@ -97,7 +97,7 @@ bool CFractions::Pack(CDataStream& out, unsigned long* report_len, bool compress
 		int64_t deltas[PEG_SIZE];
 		ToDeltas(deltas);
 
-		int           zlevel = 9;
+		int           zlevel = 1;
 		unsigned char zout[2 * PEG_SIZE * sizeof(int64_t)];
 		unsigned long n    = PEG_SIZE * sizeof(int64_t);
 		unsigned long zlen = PEG_SIZE * 2 * sizeof(int64_t);
@@ -476,6 +476,10 @@ CFractions CFractions::HighPart(const CPegLevel& peglevel, int64_t* total) const
 	return frHighPart;
 }
 
+CFractions CFractions::MidPart(int supply1, int supply2) const {
+	return HighPart(supply1, nullptr).LowPart(supply2, nullptr);
+}
+
 CFractions CFractions::MidPart(const CPegLevel& peglevel_low,
                                const CPegLevel& peglevel_high) const {
 	int from = peglevel_low.nSupply + peglevel_low.nShift;
@@ -759,4 +763,142 @@ double CFractions::Distortion(const CFractions& b) const {
 	}
 
 	return 0;
+}
+
+CCompressedFractions::CCompressedFractions(CFractions fr,
+                                           int        section,
+                                           uint16_t   peg_steps,
+                                           uint8_t    micro_steps)
+    : nPegSteps(peg_steps),
+      nMicroSteps(micro_steps),
+      nSection(section),
+      fps(new int64_t[nPegSteps]),
+      fms(new int64_t[nMicroSteps]) {
+	CFractions fr_std          = fr.Std();
+	int        peg_step_size   = PEG_SIZE / nPegSteps;
+	int        micro_step_size = PEG_SIZE / nPegSteps / nMicroSteps;
+	for (int i = 0; i < nPegSteps; i++) {
+		fps[i] = 0;
+		if (i == nSection) {
+			int y = 0;
+			for (int j = 0; j < nMicroSteps; j++) {
+				fms[j] = 0;
+				for (int k = 0; k < micro_step_size; k++) {
+					fms[j] += fr_std.f[i * peg_step_size + y];
+					y++;
+				}
+			}
+		} else {
+			for (int j = 0; j < peg_step_size; j++) {
+				fps[i] += fr_std.f[i * peg_step_size + j];
+			}
+		}
+	}
+}
+
+CCompressedFractions::CCompressedFractions(std::vector<int64_t> sections,
+                                           int                  section,
+                                           uint16_t             peg_steps,
+                                           uint8_t              micro_steps)
+    : nPegSteps(peg_steps),
+      nMicroSteps(micro_steps),
+      nSection(section),
+      fps(new int64_t[nPegSteps]),
+      fms(new int64_t[nMicroSteps]) {
+	for (int i = 0; i < nPegSteps; i++) {
+		fps[i] = 0;
+	}
+	for (int i = 0; i < nMicroSteps; i++) {
+		fms[i] = 0;
+	}
+	int j = 0;
+	for (int i = 0; i < nPegSteps; i++) {
+		fps[i] = sections[j];
+		j++;
+	}
+	for (int i = 0; i < nMicroSteps; i++) {
+		fms[i] = sections[j];
+		j++;
+	}
+}
+
+CFractions CCompressedFractions::Requested() const {
+	// build the approx of requested fraction
+	int64_t    peg_step_size   = PEG_SIZE / nPegSteps;
+	int64_t    micro_step_size = peg_step_size / nMicroSteps;
+	CFractions fr(0, CFractions::STD);
+	for (int i = 0; i < nPegSteps; i++) {
+		int64_t peg_step_value = fps[i];
+		int64_t value_left     = peg_step_value % peg_step_size;
+		int64_t value_split    = peg_step_value / peg_step_size;
+		for (int j = 0; j < peg_step_size; j++) {
+			fr.f[i * peg_step_size + j] = value_split;
+		}
+		for (int j = 0; j < value_left; j++) {
+			fr.f[i * peg_step_size + j] += 1;
+		}
+	}
+	// rebuild sections of micro steps
+	for (int i = 0; i < nMicroSteps; i++) {
+		int64_t micro_step_value = fms[i];
+		int64_t value_left       = micro_step_value % micro_step_size;
+		int64_t value_split      = micro_step_value / micro_step_size;
+		for (int j = 0; j < micro_step_size; j++) {
+			fr.f[nSection * peg_step_size + i * micro_step_size + j] = value_split;
+		}
+		for (int j = 0; j < value_left; j++) {
+			fr.f[nSection * peg_step_size + i * micro_step_size + j] += 1;
+		}
+	}
+	return fr;
+}
+
+CFractions CCompressedFractions::Decompress(CFractions frPool) const {
+	int64_t    peg_step_size   = PEG_SIZE / nPegSteps;
+	int64_t    micro_step_size = peg_step_size / nMicroSteps;
+	CFractions fr_null(0, CFractions::VALUE);
+	CFractions fr(0, CFractions::STD);
+	for (int i = 0; i < nPegSteps; i++) {
+		if (i == nSection) {
+			int64_t value_left = 0;
+			for (int j = 0; j < nMicroSteps; j++) {
+				CFractions fr_pool_micro_step =
+				    frPool.MidPart(i * peg_step_size + j * micro_step_size,
+				                   i * peg_step_size + (j + 1) * micro_step_size);
+				int64_t value_pool_micro_step = fr_pool_micro_step.Total();
+				if (value_pool_micro_step < fms[j]) {
+					value_left += fms[j] - value_pool_micro_step;
+					CFractions fr_micro_step = fr_pool_micro_step;
+					frPool -= fr_micro_step;
+					fr += fr_micro_step;
+				} else {
+					CFractions fr_micro_step = fr_pool_micro_step.RatioPart(fms[j]);
+					frPool -= fr_micro_step;
+					fr += fr_micro_step;
+				}
+			}
+			if (value_left > 0) {
+				CFractions fr_pool_peg_step =
+				    frPool.MidPart(i * peg_step_size, (i + 1) * peg_step_size);
+				int64_t value_pool_peg_step = fr_pool_peg_step.Total();
+				if (value_pool_peg_step < value_left) {
+					return fr_null;  // error
+				}
+				CFractions fr_peg_step = fr_pool_peg_step.RatioPart(value_left);
+				frPool -= fr_peg_step;
+				fr += fr_peg_step;
+			}
+		} else {
+			CFractions fr_pool_peg_step =
+			    frPool.MidPart(i * peg_step_size, (i + 1) * peg_step_size);
+			int64_t value_pool_peg_step = fr_pool_peg_step.Total();
+			if (value_pool_peg_step < fps[i]) {
+				return fr_null;  // error
+			}
+			CFractions fr_peg_step = fr_pool_peg_step.RatioPart(fps[i]);
+			frPool -= fr_peg_step;
+			fr += fr_peg_step;
+		}
+	}
+	return fr;
 }

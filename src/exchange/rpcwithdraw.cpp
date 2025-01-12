@@ -25,8 +25,6 @@ void printpegshift(const CFractions& frPegShift, const CPegLevel& peglevel, Obje
 
 void printpegbalance(const CPegData& pegdata, Object& result, string prefix);
 
-string scripttoaddress(const CScript& scriptPubKey, bool* ptrIsNotary, string* ptrNotary);
-
 static void consumepegshift(CFractions&       frBalance,
                             CFractions&       frExchange,
                             CFractions&       frPegShift,
@@ -273,7 +271,7 @@ static void computeTxPegForNextCycle(const CTransaction&       rawTx,
 
 	size_t n_vin = rawTx.vin.size();
 
-	for (unsigned int i = 0; i < n_vin; i++) {
+	for (uint32_t i = 0; i < n_vin; i++) {
 		const COutPoint& prevout = rawTx.vin[i].prevout;
 		auto             fkey    = uint320(prevout.hash, prevout.n);
 
@@ -353,7 +351,7 @@ static void prepareConsumedProvided(map<uint320, CCoinToUse>& mapProvidedOutputs
 	for (size_t i = 0; i < n_out; i++) {
 		string sNotary;
 		bool   fNotary    = false;
-		string sToAddress = scripttoaddress(rawTx.vout[i].scriptPubKey, &fNotary, &sNotary);
+		string sToAddress = rawTx.vout[i].scriptPubKey.ToAddress(&fNotary, &sNotary);
 		if (fNotary)
 			continue;
 		if (sToAddress == sAddress)
@@ -429,7 +427,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp) {
 	int nSupplyNext     = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
 	int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
 
-	int nPegInterval = Params().PegInterval(nBestHeight);
+	int nPegInterval = Params().PegInterval();
 	int nCycleNow    = nBestHeight / nPegInterval;
 
 	// network peglevel
@@ -641,9 +639,6 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp) {
 		rawTx.vout.push_back(CTxOut(s.second, s.first));
 	}
 
-	CReserveKey reservekey(pwalletMain);
-	reservekey.ReturnKey();
-
 	// Available values - liquidity
 	// Compute values to take from each address (liquidity is common)
 	int64_t nValueLeft = nValue;
@@ -706,12 +701,7 @@ Value prepareliquidwithdraw(const Array& params, bool fHelp) {
 		sTxid = Hash(ss.begin(), ss.end()).GetHex();
 		sNotary += sTxid;
 		CScript scriptPubKey;
-		scriptPubKey.push_back(OP_RETURN);
-		unsigned char len_bytes = sNotary.size();
-		scriptPubKey.push_back(len_bytes);
-		for (size_t j = 0; j < sNotary.size(); j++) {
-			scriptPubKey.push_back(sNotary[j]);
-		}
+		scriptPubKey.PushNotary(sNotary);
 		rawTx.vout.push_back(CTxOut(1, scriptPubKey));
 	}
 
@@ -926,7 +916,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp) {
 	int nSupplyNext     = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
 	int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
 
-	int nPegInterval = Params().PegInterval(nBestHeight);
+	int nPegInterval = Params().PegInterval();
 	int nCycleNow    = nBestHeight / nPegInterval;
 
 	// network peglevel
@@ -1147,17 +1137,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp) {
 		// Fill vout with freezing instructions
 		for (size_t i = 0; i < nCoins; i++) {
 			CScript scriptPubKey;
-			scriptPubKey.push_back(OP_RETURN);
-			unsigned char len_bytes = out_indexes.size();
-			scriptPubKey.push_back(len_bytes + 5);
-			scriptPubKey.push_back('*');
-			scriptPubKey.push_back('*');
-			scriptPubKey.push_back('F');
-			scriptPubKey.push_back('*');
-			scriptPubKey.push_back('*');
-			for (size_t j = 0; j < out_indexes.size(); j++) {
-				scriptPubKey.push_back(out_indexes[j]);
-			}
+			scriptPubKey.PushNotary("**F**" + out_indexes);
 			rawTx.vout.push_back(CTxOut(PEG_MAKETX_FREEZE_VALUE, scriptPubKey));
 		}
 		// Value for notary is first taken from reserves sorted by address
@@ -1187,9 +1167,6 @@ Value preparereservewithdraw(const Array& params, bool fHelp) {
 	for (const pair<CScript, int64_t>& s : vecSend) {
 		rawTx.vout.push_back(CTxOut(s.second, s.first));
 	}
-
-	CReserveKey reservekey(pwalletMain);
-	reservekey.ReturnKey();
 
 	// Available values - reserves per address
 	// vecSend - outputs to be frozen reserve parts
@@ -1275,12 +1252,7 @@ Value preparereservewithdraw(const Array& params, bool fHelp) {
 		sTxid = Hash(ss.begin(), ss.end()).GetHex();
 		sNotary += sTxid;
 		CScript scriptPubKey;
-		scriptPubKey.push_back(OP_RETURN);
-		unsigned char len_bytes = sNotary.size();
-		scriptPubKey.push_back(len_bytes);
-		for (size_t j = 0; j < sNotary.size(); j++) {
-			scriptPubKey.push_back(sNotary[j]);
-		}
+		scriptPubKey.PushNotary(sNotary);
 		rawTx.vout.push_back(CTxOut(1, scriptPubKey));
 	}
 
@@ -1501,7 +1473,7 @@ Value accountmaintenance(const Array& params, bool fHelp) {
 	int nSupplyNext     = pindexBest ? pindexBest->GetNextIntervalPegSupplyIndex() : 0;
 	int nSupplyNextNext = pindexBest ? pindexBest->GetNextNextIntervalPegSupplyIndex() : 0;
 
-	int nPegInterval = Params().PegInterval(nBestHeight);
+	int nPegInterval = Params().PegInterval();
 	int nCycleNow    = nBestHeight / nPegInterval;
 
 	// network peglevel
@@ -1702,9 +1674,6 @@ Value accountmaintenance(const Array& params, bool fHelp) {
 		    CTxOut(baseCoin.nValue + nLiquidToJoin / vBaseCoins.size(), baseCoin.scriptPubKey));
 	}
 
-	CReserveKey reservekey(pwalletMain);
-	reservekey.ReturnKey();
-
 	// Available values - liquidity
 	// Compute values to take from each address (liquidity is common)
 	int64_t nValueLeft = nLiquidToJoin;
@@ -1751,12 +1720,7 @@ Value accountmaintenance(const Array& params, bool fHelp) {
 		sTxid = Hash(ss.begin(), ss.end()).GetHex();
 		sNotary += sTxid;
 		CScript scriptPubKey;
-		scriptPubKey.push_back(OP_RETURN);
-		unsigned char len_bytes = sNotary.size();
-		scriptPubKey.push_back(len_bytes);
-		for (size_t j = 0; j < sNotary.size(); j++) {
-			scriptPubKey.push_back(sNotary[j]);
-		}
+		scriptPubKey.PushNotary(sNotary);
 		rawTx.vout.push_back(CTxOut(1, scriptPubKey));
 	}
 

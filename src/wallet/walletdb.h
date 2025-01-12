@@ -80,7 +80,7 @@ public:
 	bool WriteCryptedKey(const CPubKey&                    vchPubKey,
 	                     const std::vector<unsigned char>& vchCryptedSecret,
 	                     const CKeyMetadata&               keyMeta);
-	bool WriteMasterKey(unsigned int nID, const CMasterKey& kMasterKey);
+	bool WriteMasterKey(uint32_t nID, const CMasterKey& kMasterKey);
 
 	bool WriteCScript(const uint160& hash, const CScript& redeemScript);
 
@@ -116,6 +116,31 @@ public:
 
 	bool ReadConsolidateEnabled(bool& on);
 	bool WriteConsolidateEnabled(bool on);
+
+	// votes/proposals
+
+	// read/write proposals count?
+
+	bool ReadProposals(std::vector<std::string>& ids);
+	bool WriteProposals(const std::vector<std::string>& ids);
+	bool ReadProposal(const std::string& phash, std::vector<std::string>& datas);
+	bool WriteProposal(const std::string& phash, const std::vector<std::string>& datas);
+    
+    bool ReadCompletedMerkleOutIdx(const std::string& brhash, int idx, std::string& merklehash);
+    bool WriteCompletedMerkleOutIdx(const std::string& brhash, int idx, std::string merklehash);
+	bool ReadCompletedMerkleInNonce(const std::string& brhash, int nonce, bool& completed);
+	bool WriteCompletedMerkleInNonce(const std::string& brhash, int nonce, bool completed);
+	bool ReadCompletedMerkleInTxsNonce(const std::string& brhash, int nonce, bool& completed);
+	bool WriteCompletedMerkleInTxsNonce(const std::string& brhash, int nonce, bool completed);
+
+	bool ReadBridgeIsAutomated(const std::string& brhash,
+	                           bool&              is_automated,
+	                           double&            max_priority_fee_per_gas_gwei,
+	                           double&            max_fee_per_gas_gwei);
+	bool WriteBridgeIsAutomated(const std::string& brhash,
+	                            bool               is_automated,
+	                            double             max_priority_fee_per_gas_gwei,
+	                            double             max_fee_per_gas_gwei);
 
 private:
 	bool WriteAccountingEntry(const uint64_t nAccEntryNum, const CAccountingEntry& acentry);

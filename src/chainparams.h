@@ -48,6 +48,7 @@ public:
 		SECRET_KEY,
 		EXT_PUBLIC_KEY,
 		EXT_SECRET_KEY,
+		ETH_ADDRESS,
 
 		MAX_BASE58_TYPES
 	};
@@ -57,13 +58,15 @@ public:
 	const vector<unsigned char>& AlertKey() const { return vAlertPubKey; }
 	int                          GetDefaultPort() const { return nDefaultPort; }
 	const CBigNum&               ProofOfWorkLimit() const { return bnProofOfWorkLimit; }
-	int                          MaxReorganizationDepth() const { return nMaxReorganizationDepth; }
-	int                          SubsidyHalvingInterval() const { return nSubsidyHalvingInterval; }
-	virtual const CBlock&        GenesisBlock() const = 0;
-	virtual bool                 RequireRPCPassword() const { return true; }
-	const string&                DataDir() const { return strDataDir; }
-	virtual Network              NetworkID() const = 0;
-	const vector<CDNSSeedData>&  DNSSeeds() const { return vSeeds; }
+	int                          CoinbaseMaturity() const { return nCoinbaseMaturity; }
+	virtual int           MinStakeConfirmations(int block) const { return nMinStakeConfirmations; }
+	int                   MaxReorganizationDepth() const { return nMaxReorganizationDepth; }
+	int                   SubsidyHalvingInterval() const { return nSubsidyHalvingInterval; }
+	virtual const CBlock& GenesisBlock() const = 0;
+	virtual bool          RequireRPCPassword() const { return true; }
+	const string&         DataDir() const { return strDataDir; }
+	virtual Network       NetworkID() const = 0;
+	const vector<CDNSSeedData>&       DNSSeeds() const { return vSeeds; }
 	const std::vector<unsigned char>& Base58Prefix(Base58Type type) const {
 		return base58Prefixes[type];
 	}
@@ -78,11 +81,41 @@ public:
 	int PegFrozenTime() const { return nPegFrozenTime; }
 	int PegVFrozenTime() const { return nPegVFrozenTime; }
 
-	int         nPegIntervalProbeHeight = 100000;
-	virtual int PegInterval(int /*nHeight*/) const { return nPegInterval; }
-	uint256     PegActivationTxhash() const { return hashPegActivationTx; }
+	int     PegInterval() const { return nPegInterval; }
+	uint256 PegActivationTxhash() const { return hashPegActivationTx; }
 
-	std::set<string> sTrustedStakers;
+	int BridgeInterval() const { return nBridgeInterval; }
+
+	std::set<string> sTrustedStakers1Init;
+	std::set<string> sTrustedStakers2Init;
+	std::set<string> setTimeLockPassesInit;
+
+	enum ConsensusTypes {
+		CONSENSUS_TSTAKERS = 1,
+		CONSENSUS_CONSENSUS,
+		CONSENSUS_BRIDGE,
+		CONSENSUS_MERKLE,
+		CONSENSUS_TIMELOCKPASS,
+	};
+	struct ConsensusVotes {
+		int tstakers1;
+		int tstakers2;
+		int ostakers;
+	};
+	std::map<int, ConsensusVotes> mapProposalConsensusInit;
+	static bool isAccepted(const ConsensusVotes& voted, const ConsensusVotes& needed) {
+		return voted.tstakers1 >= needed.tstakers1 && voted.tstakers2 >= needed.tstakers2 &&
+		       voted.ostakers >= needed.ostakers;
+	}
+
+	enum AcceptedStatesTypes {
+		ACCEPTED_TSTAKERS1 = 1,
+		ACCEPTED_TSTAKERS2,
+		ACCEPTED_CONSENSUS,
+		ACCEPTED_BRIDGES,
+		ACCEPTED_MERKLES,
+		ACCEPTED_TIMELOCKPASSES,
+	};
 
 protected:
 	CChainParams() {}
@@ -94,6 +127,8 @@ protected:
 	int                        nDefaultPort;
 	int                        nRPCPort;
 	CBigNum                    bnProofOfWorkLimit;
+	int                        nCoinbaseMaturity;
+	int                        nMinStakeConfirmations;
 	int                        nMaxReorganizationDepth;
 	int                        nSubsidyHalvingInterval;
 	string                     strDataDir;
@@ -110,6 +145,7 @@ protected:
 
 	int     nPegInterval;
 	uint256 hashPegActivationTx;
+	int     nBridgeInterval;
 };
 
 /**
@@ -117,6 +153,7 @@ protected:
  * outside of the unit tests.
  */
 const CChainParams& Params();
+CChainParams&       ParamsRef();
 
 /**
  * Init for main, test and regtest params

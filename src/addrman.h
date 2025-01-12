@@ -189,7 +189,7 @@ protected:
 	CAddrInfo* Create(const CAddress& addr, const CNetAddr& addrSource, int* pnId = NULL);
 
 	// Swap two elements in vRandom.
-	void SwapRandom(unsigned int nRandomPos1, unsigned int nRandomPos2);
+	void SwapRandom(uint32_t nRandomPos1, uint32_t nRandomPos2);
 
 	// Move an entry from the "new" table(s) to the "tried" table
 	void MakeTried(CAddrInfo& info, int nId);
@@ -407,7 +407,7 @@ public:
 		Check();
 	}
 
-	unsigned int GetSerializeSize(int nType, int nVersion) const {
+	uint32_t GetSerializeSize(int nType, int nVersion) const {
 		return (CSizeComputer(nType, nVersion) << *this).size();
 	}
 
@@ -430,12 +430,18 @@ public:
 		nNew     = 0;
 	}
 
-	CAddrMan() { Clear(); }
+	CAddrMan() {
+		Clear();
+	}
 
-	~CAddrMan() { nKey.SetNull(); }
+	~CAddrMan() {
+		nKey.SetNull();
+	}
 
 	// Return the number of (unique) addresses in all tables.
-	int size() { return vRandom.size(); }
+	int size() {
+		return vRandom.size();
+	}
 
 	// Consistency check
 	void Check() {

@@ -12,12 +12,12 @@ using namespace std;
 
 CTxMemPool::CTxMemPool() {}
 
-unsigned int CTxMemPool::GetTransactionsUpdated() const {
+uint32_t CTxMemPool::GetTransactionsUpdated() const {
 	LOCK(cs);
 	return nTransactionsUpdated;
 }
 
-void CTxMemPool::AddTransactionsUpdated(unsigned int n) {
+void CTxMemPool::AddTransactionsUpdated(uint32_t n) {
 	LOCK(cs);
 	nTransactionsUpdated += n;
 }
@@ -33,8 +33,11 @@ bool CTxMemPool::addUnchecked(const uint256&    hash,
 	{
 		mapTx[hash]       = tx;
 		mapPrevOuts[hash] = mapInputs;
-		for (unsigned int i = 0; i < tx.vin.size(); i++)
-			mapNextTx[tx.vin[i].prevout] = CInPoint(&mapTx[hash], i);
+		for (uint32_t i = 0; i < tx.vin.size(); i++) {
+			if (!tx.vin[i].prevout.IsNull() && tx.vin[i].prevout.hash != 0) {
+				mapNextTx[tx.vin[i].prevout] = CInPoint(&mapTx[hash], i);
+			}
+		}
 		nTransactionsUpdated++;
 		// store fractions
 		for (MapFractions::iterator mi = mapFractions.begin(); mi != mapFractions.end(); ++mi) {
@@ -54,7 +57,7 @@ bool CTxMemPool::remove(const CTransaction& tx, bool fRecursive) {
 		uint256 hash = tx.GetHash();
 		if (mapTx.count(hash)) {
 			if (fRecursive) {
-				for (unsigned int i = 0; i < tx.vout.size(); i++) {
+				for (uint32_t i = 0; i < tx.vout.size(); i++) {
 					std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(hash, i));
 					if (it != mapNextTx.end())
 						remove(*it->second.ptx, true);
@@ -98,7 +101,7 @@ void CTxMemPool::reviewOnPegChange() {
 	for (map<uint256, CTransaction>::iterator mi = mapTx.begin(); mi != mapTx.end(); ++mi) {
 		CTransaction& tx   = (*mi).second;
 		uint256       hash = tx.GetHash();
-		for (unsigned int i = 0; i < tx.vout.size(); i++) {
+		for (uint32_t i = 0; i < tx.vout.size(); i++) {
 			std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(hash, i));
 			if (it != mapNextTx.end()) {
 				mapPrevTx[it->second] = COutPoint(hash, i);
@@ -110,7 +113,7 @@ void CTxMemPool::reviewOnPegChange() {
 	for (map<uint256, CTransaction>::iterator mi = mapTx.begin(); mi != mapTx.end(); ++mi) {
 		CTransaction& tx         = (*mi).second;
 		bool          fDependent = false;
-		for (unsigned int i = 0; i < tx.vin.size(); i++) {
+		for (uint32_t i = 0; i < tx.vin.size(); i++) {
 			std::map<CInPoint, COutPoint>::iterator it = mapPrevTx.find(CInPoint(&tx, i));
 			if (it != mapPrevTx.end()) {
 				fDependent = true;
@@ -139,27 +142,53 @@ void CTxMemPool::reviewOnPegChange(CTransaction& tx, vector<uint256>& vRemove) {
 	map<uint256, CTxIndex> mapUnused;
 	MapFractions           mapOutputsFractions;
 	CFractions             feesFractions;
+	int                    nBridgePoolNout = pindexBest->nHeight;
+	int64_t                nVirtBlockTime  = GetAdjustedTime();
 
 	{
 		CTxDB  txdb("r");
 		CPegDB pegdb("r");
 
+		map<string, CBridgeInfo> bridges;
+		if (!pindexBest->ReadBridges(pegdb, bridges)) {
+			vRemove.push_back(hash);
+			return;
+		}
+		auto fnMerkleIn = [&](string hash) { return pindexBest->ReadMerkleIn(pegdb, hash); };
+
 		bool fInvalid = false;
-		if (!tx.FetchInputs(txdb, pegdb, mapUnused, mapOutputsFractions, false /*block*/,
-		                    false /*miner*/, mapInputs, mapInputsFractions, fInvalid)) {
+		if (!tx.FetchInputs(txdb, pegdb, nBridgePoolNout, false /*to read*/, bridges, fnMerkleIn,
+							mapUnused, mapOutputsFractions, false /*is block*/, false /*is miner*/,
+							nVirtBlockTime, false /*skip pruned*/, mapInputs, mapInputsFractions,
+							fInvalid)) {
 			if (fInvalid) {
 				vRemove.push_back(hash);
 				return;
 			}
 		}
 
-		string sPegFailCause;
-		bool peg_ok = CalculateStandardFractions(tx, pindexBest->nPegSupplyIndex, pindexBest->nTime,
-		                                         mapInputs, mapInputsFractions, mapOutputsFractions,
-		                                         feesFractions, sPegFailCause);
-		if (!peg_ok) {
-			vRemove.push_back(hash);
-			return;
+		bool peg_ok = false;
+
+		if (tx.IsCoinMint()) {
+			string sPegFailCause;
+			peg_ok = CalculateCoinMintFractions(tx, pindexBest->nPegSupplyIndex, pindexBest->nTime,
+												bridges, fnMerkleIn, nBridgePoolNout, mapInputs,
+			                                    mapInputsFractions, mapOutputsFractions,
+			                                    feesFractions, sPegFailCause);
+			if (!peg_ok) {
+				vRemove.push_back(hash);
+				return;
+			}
+		} else {
+			string        sPegFailCause;
+			set<uint32_t> sTimeLockPassInputs;
+			peg_ok = CalculateStandardFractions(tx, pindexBest->nPegSupplyIndex, pindexBest->nTime,
+			                                    mapInputs, mapInputsFractions, sTimeLockPassInputs,
+			                                    mapOutputsFractions, feesFractions, sPegFailCause);
+			if (!peg_ok) {
+				vRemove.push_back(hash);
+				return;
+			}
 		}
 
 		if (peg_ok) {
@@ -171,7 +200,7 @@ void CTxMemPool::reviewOnPegChange(CTransaction& tx, vector<uint256>& vRemove) {
 				mapPackedFractions[(*mi).first] = fout.str();
 			}
 			// check dependent transactions
-			for (unsigned int i = 0; i < tx.vout.size(); i++) {
+			for (uint32_t i = 0; i < tx.vout.size(); i++) {
 				map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(hash, i));
 				if (it != mapNextTx.end()) {
 					reviewOnPegChange(*it->second.ptx, vRemove);
@@ -204,6 +233,9 @@ bool CTxMemPool::lookup(uint256 hash, CTransaction& result, MapFractions& mapFra
 	if (it == mapTx.end())
 		return false;
 	result = it->second;
+	if (pindexBest->nHeight < nPegStartHeight) {
+		return true;
+	}
 	for (size_t i = 0; i < result.vout.size(); i++) {
 		auto fkey = uint320(hash, i);
 		if (!mapPackedFractions.count(fkey))

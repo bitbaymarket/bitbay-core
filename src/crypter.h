@@ -9,8 +9,8 @@
 #include "keystore.h"
 #include "serialize.h"
 
-const unsigned int WALLET_CRYPTO_KEY_SIZE  = 32;
-const unsigned int WALLET_CRYPTO_SALT_SIZE = 8;
+const uint32_t WALLET_CRYPTO_KEY_SIZE  = 32;
+const uint32_t WALLET_CRYPTO_SALT_SIZE = 8;
 
 /*
 Private key encryption is done based on a CMasterKey,
@@ -34,8 +34,8 @@ public:
 	std::vector<unsigned char> vchSalt;
 	// 0 = EVP_sha512()
 	// 1 = scrypt()
-	unsigned int nDerivationMethod;
-	unsigned int nDeriveIterations;
+	uint32_t nDerivationMethod;
+	uint32_t nDeriveIterations;
 	// Use this for more parameters to key derivation,
 	// such as the various parameters to scrypt
 	std::vector<unsigned char> vchOtherDerivationParameters;
@@ -51,7 +51,7 @@ public:
 		vchOtherDerivationParameters = std::vector<unsigned char>(0);
 	}
 
-	CMasterKey(unsigned int nDerivationMethodIndex) {
+	CMasterKey(uint32_t nDerivationMethodIndex) {
 		switch (nDerivationMethodIndex) {
 			case 0:  // sha512
 			default:
@@ -75,8 +75,8 @@ private:
 public:
 	bool SetKeyFromPassphrase(const SecureString&               strKeyData,
 	                          const std::vector<unsigned char>& chSalt,
-	                          const unsigned int                nRounds,
-	                          const unsigned int                nDerivationMethod);
+	                          const uint32_t                    nRounds,
+	                          const uint32_t                    nDerivationMethod);
 	bool Encrypt(const CKeyingMaterial& vchPlaintext, std::vector<unsigned char>& vchCiphertext);
 	bool Decrypt(const std::vector<unsigned char>& vchCiphertext, CKeyingMaterial& vchPlaintext);
 	bool SetKey(const CKeyingMaterial& chNewKey, const std::vector<unsigned char>& chNewIV);
@@ -158,13 +158,13 @@ public:
 	                           const std::vector<unsigned char>& vchCryptedSecret);
 	bool         AddKeyPubKey(const CKey& key, const CPubKey& pubkey);
 	bool         HaveKey(const CKeyID& address) const {
-        {
-            LOCK(cs_KeyStore);
-            if (!IsCrypted())
+		{
+			LOCK(cs_KeyStore);
+			if (!IsCrypted())
                 return CBasicKeyStore::HaveKey(address);
             return mapCryptedKeys.count(address) > 0;
         }
-        return false;
+		return false;
 	}
 	bool GetKey(const CKeyID& address, CKey& keyOut) const;
 	bool GetPubKey(const CKeyID& address, CPubKey& vchPubKeyOut) const;

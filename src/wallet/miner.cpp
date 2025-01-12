@@ -15,24 +15,24 @@ using namespace std;
 // BitcoinMiner
 //
 
-extern unsigned int nMinerSleep;
+extern uint32_t nMinerSleep;
 
-int static FormatHashBlocks(void* pbuffer, unsigned int len) {
+int static FormatHashBlocks(void* pbuffer, uint32_t len) {
 	unsigned char* pdata  = (unsigned char*)pbuffer;
-	unsigned int   blocks = 1 + ((len + 8) / 64);
+	uint32_t       blocks = 1 + ((len + 8) / 64);
 	unsigned char* pend   = pdata + 64 * blocks;
 	memset(pdata + len, 0, 64 * blocks - len);
-	pdata[len]        = 0x80;
-	unsigned int bits = len * 8;
-	pend[-1]          = (bits >> 0) & 0xff;
-	pend[-2]          = (bits >> 8) & 0xff;
-	pend[-3]          = (bits >> 16) & 0xff;
-	pend[-4]          = (bits >> 24) & 0xff;
+	pdata[len]    = 0x80;
+	uint32_t bits = len * 8;
+	pend[-1]      = (bits >> 0) & 0xff;
+	pend[-2]      = (bits >> 8) & 0xff;
+	pend[-3]      = (bits >> 16) & 0xff;
+	pend[-4]      = (bits >> 24) & 0xff;
 	return blocks;
 }
 
-static const unsigned int pSHA256InitState[8] = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-                                                 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
+static const uint32_t pSHA256InitState[8] = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                                             0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
 
 void SHA256Transform(void* pstate, void* pinput, const void* pinit) {
 	SHA256_CTX    ctx;
@@ -122,20 +122,20 @@ unique_ptr<CBlock> CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, i
 	pblock->vtx.push_back(txNew);
 
 	// Largest block you're willing to create:
-	unsigned int nBlockMaxSize = GetArg("-blockmaxsize", MAX_BLOCK_SIZE_GEN / 2);
+	uint32_t nBlockMaxSize = GetArg("-blockmaxsize", MAX_BLOCK_SIZE_GEN / 2);
 	// Limit to betweeen 1K and MAX_BLOCK_SIZE-1K for sanity:
-	nBlockMaxSize = std::max((unsigned int)1000,
-	                         std::min((unsigned int)(MAX_BLOCK_SIZE - 1000), nBlockMaxSize));
+	nBlockMaxSize =
+	    std::max((uint32_t)1000, std::min((uint32_t)(MAX_BLOCK_SIZE - 1000), nBlockMaxSize));
 
 	// How much of the block should be dedicated to high-priority transactions,
 	// included regardless of the fees they pay
-	unsigned int nBlockPrioritySize = GetArg("-blockprioritysize", 27000);
-	nBlockPrioritySize              = std::min(nBlockMaxSize, nBlockPrioritySize);
+	uint32_t nBlockPrioritySize = GetArg("-blockprioritysize", 27000);
+	nBlockPrioritySize          = std::min(nBlockMaxSize, nBlockPrioritySize);
 
 	// Minimum block size you want to create; block will be filled with free transactions
 	// until there are no more or the block reaches this size:
-	unsigned int nBlockMinSize = GetArg("-blockminsize", 0);
-	nBlockMinSize              = std::min(nBlockMaxSize, nBlockMinSize);
+	uint32_t nBlockMinSize = GetArg("-blockminsize", 0);
+	nBlockMinSize          = std::min(nBlockMaxSize, nBlockMinSize);
 
 	// Fee-per-kilobyte amount considered the same as "free"
 	// Be careful setting this: if you set it to zero then
@@ -173,45 +173,56 @@ unique_ptr<CBlock> CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, i
 			int64_t  nTotalIn       = 0;
 			bool     fMissingInputs = false;
 			for (const CTxIn& txin : tx.vin) {
-				// Read prev transaction
-				CTransaction txPrev;
-				CTxIndex     txindex;
-				if (!txPrev.ReadFromDisk(txdb, txin.prevout, txindex)) {
-					// This should never happen; all transactions in the memory
-					// pool should connect to either transactions in the chain
-					// or other transactions in the memory pool.
-					if (!mempool.mapTx.count(txin.prevout.hash)) {
-						LogPrintf("ERROR: mempool transaction missing input\n");
-						if (fDebug)
-							assert("mempool transaction missing input" == 0);
-						fMissingInputs = true;
-						if (porphan)
-							vOrphan.pop_back();
-						break;
+				int     nConf    = 0;
+				int64_t nValueIn = 0;
+				if (tx.IsCoinMint()) {
+					nConf = pindexBest->nHeight -
+					        tx.nTime /*for CoinMint nTime is set as merkle height +1*/;
+					if (txin.prevout.hash != 0) {
+						nValueIn = tx.vout[0].nValue + MINT_TX_FEE;
 					}
 
-					// Has to wait for dependencies
-					if (!porphan) {
-						// Use list for automatic deletion
-						vOrphan.push_back(COrphan(&tx));
-						porphan = &vOrphan.back();
+				} else {
+					// Read prev transaction
+					CTransaction txPrev;
+					CTxIndex     txindex;
+					if (!txPrev.ReadFromDisk(txdb, txin.prevout, txindex)) {
+						// This should never happen; all transactions in the memory
+						// pool should connect to either transactions in the chain
+						// or other transactions in the memory pool.
+						if (!mempool.mapTx.count(txin.prevout.hash)) {
+							LogPrintf("ERROR: mempool transaction missing input\n");
+							if (fDebug)
+								assert("mempool transaction missing input" == 0);
+							fMissingInputs = true;
+							if (porphan)
+								vOrphan.pop_back();
+							break;
+						}
+
+						// Has to wait for dependencies
+						if (!porphan) {
+							// Use list for automatic deletion
+							vOrphan.push_back(COrphan(&tx));
+							porphan = &vOrphan.back();
+						}
+						mapDependers[txin.prevout.hash].push_back(porphan);
+						porphan->setDependsOn.insert(txin.prevout.hash);
+						nTotalIn += mempool.mapTx[txin.prevout.hash].vout[txin.prevout.n].nValue;
+						continue;
 					}
-					mapDependers[txin.prevout.hash].push_back(porphan);
-					porphan->setDependsOn.insert(txin.prevout.hash);
-					nTotalIn += mempool.mapTx[txin.prevout.hash].vout[txin.prevout.n].nValue;
-					continue;
+					nConf    = txindex.GetDepthInMainChain();
+					nValueIn = txPrev.vout[txin.prevout.n].nValue;
 				}
-				int64_t nValueIn = txPrev.vout[txin.prevout.n].nValue;
-				nTotalIn += nValueIn;
 
-				int nConf = txindex.GetDepthInMainChain();
+				nTotalIn += nValueIn;
 				dPriority += (double)nValueIn * nConf;
 			}
 			if (fMissingInputs)
 				continue;
 
 			// Priority is sum(valuein * age) / txsize
-			unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
+			uint32_t nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
 			dPriority /= nTxSize;
 
 			// This is a more accurate fee-per-kilobyte than is used by the client code, because the
@@ -230,10 +241,17 @@ unique_ptr<CBlock> CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, i
 		map<uint256, CTxIndex> mapTestPool;
 		MapFractions           mapTestFractionsPool;
 		CFractions             feesFractions;
-		uint64_t               nBlockSize   = 1000;
-		uint64_t               nBlockTx     = 0;
-		int                    nBlockSigOps = 100;
-		bool                   fSortedByFee = (nBlockPrioritySize <= 0);
+		uint64_t               nBlockSize      = 1000;
+		uint64_t               nBlockTx        = 0;
+		int                    nBlockSigOps    = 100;
+		bool                   fSortedByFee    = (nBlockPrioritySize <= 0);
+		int64_t                nBlockDraftTime = GetAdjustedTime();
+
+		map<string, CBridgeInfo> bridges;
+		pindexBest->ReadBridges(pegdb, bridges);
+		auto        fnMerkleIn = [&](string hash) { return pindexBest->ReadMerkleIn(pegdb, hash); };
+		set<string> timelockpasses;
+		pindexBest->ReadTimeLockPasses(pegdb, timelockpasses);
 
 		TxPriorityCompare comparer(fSortedByFee);
 		std::make_heap(vecPriority.begin(), vecPriority.end(), comparer);
@@ -248,17 +266,21 @@ unique_ptr<CBlock> CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, i
 			vecPriority.pop_back();
 
 			// Size limits
-			unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
+			uint32_t nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
 			if (nBlockSize + nTxSize >= nBlockMaxSize)
 				continue;
 
 			// Legacy limits on sigOps:
-			unsigned int nTxSigOps = GetLegacySigOpCount(tx);
+			uint32_t nTxSigOps = GetLegacySigOpCount(tx);
 			if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
 				continue;
 
+			tx.nTimeFetched = tx.nTime;
+			if (tx.nTimeFetched == 0)
+				tx.nTimeFetched = nBlockDraftTime;
+
 			// Timestamp limit
-			if (tx.nTime > GetAdjustedTime() || (fProofOfStake && tx.nTime > pblock->vtx[0].nTime))
+			if (tx.nTime > nBlockDraftTime || (fProofOfStake && tx.nTime > pblock->vtx[0].nTime))
 				continue;
 
 			// Transaction fee
@@ -284,8 +306,13 @@ unique_ptr<CBlock> CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, i
 			MapPrevTx              mapInputs;
 			MapFractions           mapInputsFractions;
 			bool                   fInvalid;
-			if (!tx.FetchInputs(txdb, pegdb, mapTestPoolTmp, mapTestFractionsPoolTmp, false, true,
-			                    mapInputs, mapInputsFractions, fInvalid))
+			int                    nBridgePoolNout        = pindexBest->nHeight;
+			bool                   fBridgePoolFromChanges = false;  // read from disk
+
+			if (!tx.FetchInputs(txdb, pegdb, nBridgePoolNout, fBridgePoolFromChanges, bridges,
+								fnMerkleIn, mapTestPoolTmp, mapTestFractionsPoolTmp,
+			                    false /*is block*/, true /*is miner*/, nBlockDraftTime,
+			                    false /*skip pruned*/, mapInputs, mapInputsFractions, fInvalid))
 				continue;
 
 			int64_t nTxFees = tx.GetValueIn(mapInputs) - tx.GetValueOut();
@@ -300,8 +327,10 @@ unique_ptr<CBlock> CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, i
 			// policy here, but we still have to ensure that the block we
 			// create only contains transactions that are valid in new blocks.
 			if (!tx.ConnectInputs(mapInputs, mapInputsFractions, mapTestPoolTmp,
-			                      mapTestFractionsPoolTmp, feesFractions, CDiskTxPos(1, 1, 1),
-			                      pindexPrev, false, true, MANDATORY_SCRIPT_VERIFY_FLAGS))
+								  mapTestFractionsPoolTmp, nBridgePoolNout, bridges, fnMerkleIn,
+			                      timelockpasses, feesFractions, CDiskTxPos(1, 1, 1), pindexPrev,
+			                      false /*is ConnectBlock*/, true /*is CreateNewBlock*/,
+			                      MANDATORY_SCRIPT_VERIFY_FLAGS))
 				continue;
 			mapTestPoolTmp[tx.GetHash()] =
 			    CTxIndex(CDiskTxPos(1, 1, 1), tx.vout.size(), 0 /*nHeight*/,
@@ -359,7 +388,7 @@ unique_ptr<CBlock> CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, i
 	return pblock;
 }
 
-void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& nExtraNonce) {
+void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, uint32_t& nExtraNonce) {
 	// Update nExtraNonce
 	static uint256 hashPrevBlock;
 	if (hashPrevBlock != pblock->hashPrevBlock) {
@@ -368,7 +397,7 @@ void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& 
 	}
 	++nExtraNonce;
 
-	unsigned int nHeight =
+	uint32_t nHeight =
 	    pindexPrev->nHeight + 1;  // Height first in coinbase required for block.version=2
 	pblock->vtx[0].vin[0].scriptSig =
 	    (CScript() << nHeight << CBigNum(nExtraNonce)) + COINBASE_FLAGS;
@@ -383,12 +412,12 @@ void FormatHashBuffers(CBlock* pblock, char* pmidstate, char* pdata, char* phash
 	//
 	struct {
 		struct unnamed2 {
-			int          nVersion;
-			uint256      hashPrevBlock;
-			uint256      hashMerkleRoot;
-			unsigned int nTime;
-			unsigned int nBits;
-			unsigned int nNonce;
+			int      nVersion;
+			uint256  hashPrevBlock;
+			uint256  hashMerkleRoot;
+			uint32_t nTime;
+			uint32_t nBits;
+			uint32_t nNonce;
 		} block;
 		unsigned char pchPadding0[64];
 		uint256       hash1;
@@ -407,8 +436,8 @@ void FormatHashBuffers(CBlock* pblock, char* pmidstate, char* pdata, char* phash
 	FormatHashBlocks(&tmp.hash1, sizeof(tmp.hash1));
 
 	// Byte swap all the input buffer
-	for (unsigned int i = 0; i < sizeof(tmp) / 4; i++)
-		((unsigned int*)&tmp)[i] = ByteReverse(((unsigned int*)&tmp)[i]);
+	for (uint32_t i = 0; i < sizeof(tmp) / 4; i++)
+		((uint32_t*)&tmp)[i] = ByteReverse(((uint32_t*)&tmp)[i]);
 
 	// Precalc the first half of the first hash, which stays constant
 	SHA256Transform(pmidstate, &tmp.block, pSHA256InitState);

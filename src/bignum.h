@@ -42,7 +42,7 @@ public:
 			BN_CTX_free(pctx);
 	}
 
-	operator BN_CTX*() { return pctx; }
+	         operator BN_CTX*() { return pctx; }
 	BN_CTX&  operator*() { return *pctx; }
 	BN_CTX** operator&() { return &pctx; }
 	bool     operator!() { return (pctx == NULL); }
@@ -106,7 +106,9 @@ public:
 	}
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
-	BIGNUM* operator&() const { return bn; }
+	BIGNUM* operator&() const {
+		return bn;
+	}
 #endif
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
@@ -151,7 +153,7 @@ public:
 		BN_init(this);
 		setulong(n);
 	}
-	CBigNum(unsigned int n) {
+	CBigNum(uint32_t n) {
 		BN_init(this);
 		setulong(n);
 	}
@@ -209,7 +211,7 @@ public:
 		CBigNum_init();
 		setulong(n);
 	}
-	CBigNum(unsigned int n) {
+	CBigNum(uint32_t n) {
 		CBigNum_init();
 		setulong(n);
 	}
@@ -291,7 +293,7 @@ public:
 #endif
 	}
 
-	unsigned int getuint() const {
+	uint32_t getuint() const {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 		return BN_get_word(this);
 #else
@@ -316,6 +318,19 @@ public:
 			            : -(int)n);
 	}
 
+	int64_t getint64() const {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+		unsigned long n = BN_get_word(this);
+		if (!BN_is_negative(this))
+#else
+		unsigned long n = BN_get_word(bn);
+		if (!BN_is_negative(bn))
+#endif
+			return (int64_t)n;
+		else
+			return -(int64_t)n;
+	}
+
 	void setint64(int64_t sn) {
 		unsigned char  pch[sizeof(sn) + 6];
 		unsigned char* p = pch + 4;
@@ -326,7 +341,7 @@ public:
 			// Since the minimum signed integer cannot be represented as positive so long as its
 			// type is signed, and it's not well-defined what happens if you make it unsigned before
 			// negating it, we instead increment the negative integer by 1, convert it, then
-			// increment the (now positive) unsigned integer by 1 to compensate
+			// increment the (now positive) uint32eger by 1 to compensate
 			n = -(sn + 1);
 			++n;
 			fNegative = true;
@@ -350,11 +365,11 @@ public:
 			}
 			*p++ = c;
 		}
-		unsigned int nSize = p - (pch + 4);
-		pch[0]             = (nSize >> 24) & 0xff;
-		pch[1]             = (nSize >> 16) & 0xff;
-		pch[2]             = (nSize >> 8) & 0xff;
-		pch[3]             = (nSize) & 0xff;
+		uint32_t nSize = p - (pch + 4);
+		pch[0]         = (nSize >> 24) & 0xff;
+		pch[1]         = (nSize >> 16) & 0xff;
+		pch[2]         = (nSize >> 8) & 0xff;
+		pch[3]         = (nSize)&0xff;
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 		BN_mpi2bn(pch, p - pch, this);
 #else
@@ -364,9 +379,9 @@ public:
 
 	uint64_t getuint64() {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-		unsigned int nSize = BN_bn2mpi(this, NULL);
+		uint32_t nSize = BN_bn2mpi(this, NULL);
 #else
-		unsigned int nSize = BN_bn2mpi(bn, NULL);
+		uint32_t nSize = BN_bn2mpi(bn, NULL);
 #endif
 		if (nSize < 4)
 			return 0;
@@ -380,7 +395,7 @@ public:
 		if (vch.size() > 4)
 			vch[4] &= 0x7f;
 		uint64_t n = 0;
-		for (unsigned int i = 0, j = vch.size() - 1; i < sizeof(n) && j >= 4; i++, j--)
+		for (uint32_t i = 0, j = vch.size() - 1; i < sizeof(n) && j >= 4; i++, j--)
 			((unsigned char*)&n)[i] = vch[j];
 		return n;
 	}
@@ -401,11 +416,11 @@ public:
 			}
 			*p++ = c;
 		}
-		unsigned int nSize = p - (pch + 4);
-		pch[0]             = (nSize >> 24) & 0xff;
-		pch[1]             = (nSize >> 16) & 0xff;
-		pch[2]             = (nSize >> 8) & 0xff;
-		pch[3]             = (nSize) & 0xff;
+		uint32_t nSize = p - (pch + 4);
+		pch[0]         = (nSize >> 24) & 0xff;
+		pch[1]         = (nSize >> 16) & 0xff;
+		pch[2]         = (nSize >> 8) & 0xff;
+		pch[3]         = (nSize)&0xff;
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 		BN_mpi2bn(pch, p - pch, this);
 #else
@@ -430,11 +445,11 @@ public:
 			}
 			*p++ = c;
 		}
-		unsigned int nSize = p - (pch + 4);
-		pch[0]             = (nSize >> 24) & 0xff;
-		pch[1]             = (nSize >> 16) & 0xff;
-		pch[2]             = (nSize >> 8) & 0xff;
-		pch[3]             = (nSize >> 0) & 0xff;
+		uint32_t nSize = p - (pch + 4);
+		pch[0]         = (nSize >> 24) & 0xff;
+		pch[1]         = (nSize >> 16) & 0xff;
+		pch[2]         = (nSize >> 8) & 0xff;
+		pch[3]         = (nSize >> 0) & 0xff;
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 		BN_mpi2bn(pch, p - pch, this);
 #else
@@ -444,9 +459,9 @@ public:
 
 	uint256 getuint256() const {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-		unsigned int nSize = BN_bn2mpi(this, NULL);
+		uint32_t nSize = BN_bn2mpi(this, NULL);
 #else
-		unsigned int nSize = BN_bn2mpi(bn, NULL);
+		uint32_t nSize = BN_bn2mpi(bn, NULL);
 #endif
 		if (nSize < 4)
 			return 0;
@@ -459,14 +474,14 @@ public:
 		if (vch.size() > 4)
 			vch[4] &= 0x7f;
 		uint256 n = 0;
-		for (unsigned int i = 0, j = vch.size() - 1; i < sizeof(n) && j >= 4; i++, j--)
+		for (uint32_t i = 0, j = vch.size() - 1; i < sizeof(n) && j >= 4; i++, j--)
 			((unsigned char*)&n)[i] = vch[j];
 		return n;
 	}
 
 	void setvch(const std::vector<unsigned char>& vch) {
 		std::vector<unsigned char> vch2(vch.size() + 4);
-		unsigned int               nSize = vch.size();
+		uint32_t                   nSize = vch.size();
 		// BIGNUM's byte stream format expects 4 bytes of
 		// big endian size data info at the front
 		vch2[0] = (nSize >> 24) & 0xff;
@@ -484,9 +499,9 @@ public:
 
 	std::vector<unsigned char> getvch() const {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-		unsigned int nSize = BN_bn2mpi(this, NULL);
+		uint32_t nSize = BN_bn2mpi(this, NULL);
 #else
-		unsigned int nSize = BN_bn2mpi(bn, NULL);
+		uint32_t nSize = BN_bn2mpi(bn, NULL);
 #endif
 		if (nSize <= 4)
 			return std::vector<unsigned char>();
@@ -501,8 +516,8 @@ public:
 		return vch;
 	}
 
-	CBigNum& SetCompact(unsigned int nCompact) {
-		unsigned int               nSize = nCompact >> 24;
+	CBigNum& SetCompact(uint32_t nCompact) {
+		uint32_t                   nSize = nCompact >> 24;
 		std::vector<unsigned char> vch(4 + nSize);
 		vch[3] = nSize;
 		if (nSize >= 1)
@@ -519,11 +534,11 @@ public:
 		return *this;
 	}
 
-	unsigned int GetCompact() const {
+	uint32_t GetCompact() const {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-		unsigned int nSize = BN_bn2mpi(this, NULL);
+		uint32_t nSize = BN_bn2mpi(this, NULL);
 #else
-		unsigned int nSize = BN_bn2mpi(bn, NULL);
+		uint32_t nSize = BN_bn2mpi(bn, NULL);
 #endif
 		std::vector<unsigned char> vch(nSize);
 		nSize -= 4;
@@ -532,7 +547,7 @@ public:
 #else
 		BN_bn2mpi(bn, &vch[0]);
 #endif
-		unsigned int nCompact = nSize << 24;
+		uint32_t nCompact = nSize << 24;
 		if (nSize >= 1)
 			nCompact |= (vch[4] << 16);
 		if (nSize >= 2)
@@ -612,7 +627,7 @@ public:
 #else
 			bn1 = dv;
 #endif
-			unsigned int c = rem.getulong();
+			uint32_t c = rem.getulong();
 			str += "0123456789abcdef"[c];
 		}
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
@@ -625,9 +640,11 @@ public:
 		return str;
 	}
 
-	std::string GetHex() const { return ToString(16); }
+	std::string GetHex() const {
+		return ToString(16);
+	}
 
-	unsigned int GetSerializeSize(int nType = 0, int nVersion = PROTOCOL_VERSION) const {
+	uint32_t GetSerializeSize(int nType = 0, int nVersion = PROTOCOL_VERSION) const {
 		return ::GetSerializeSize(getvch(), nType, nVersion);
 	}
 
@@ -648,7 +665,9 @@ public:
 	 * @param e the exponent as an int
 	 * @return
 	 */
-	CBigNum pow(const int e) const { return this->pow(CBigNum(e)); }
+	CBigNum pow(const int e) const {
+		return this->pow(CBigNum(e));
+	}
 
 	/**
 	 * exponentiation this^e
@@ -737,7 +756,7 @@ public:
 	 * @param safe true for a safe prime
 	 * @return the prime
 	 */
-	static CBigNum generatePrime(const unsigned int numBits, bool safe = false) {
+	static CBigNum generatePrime(const uint32_t numBits, bool safe = false) {
 		CBigNum ret;
 		if (!BN_generate_prime_ex(&ret, numBits, (safe == true), NULL, NULL, NULL))
 			throw bignum_error("CBigNum::generatePrime*= :BN_generate_prime_ex");
@@ -832,7 +851,7 @@ public:
 		return *this;
 	}
 
-	CBigNum& operator<<=(unsigned int shift) {
+	CBigNum& operator<<=(uint32_t shift) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 		if (!BN_lshift(this, this, shift))
 #else
@@ -842,7 +861,7 @@ public:
 		return *this;
 	}
 
-	CBigNum& operator>>=(unsigned int shift) {
+	CBigNum& operator>>=(uint32_t shift) {
 		// Note: BN_rshift segfaults on 64-bit if 2^shift is greater than the number
 		//   if built on ubuntu 9.04 or 9.10, probably depends on version of OpenSSL
 		CBigNum a = 1;
@@ -954,14 +973,14 @@ inline const CBigNum operator%(const CBigNum& a, const CBigNum& b) {
 	return r;
 }
 
-inline const CBigNum operator<<(const CBigNum& a, unsigned int shift) {
+inline const CBigNum operator<<(const CBigNum& a, uint32_t shift) {
 	CBigNum r;
 	if (!BN_lshift(&r, &a, shift))
 		throw bignum_error("CBigNum:operator<< : BN_lshift failed");
 	return r;
 }
 
-inline const CBigNum operator>>(const CBigNum& a, unsigned int shift) {
+inline const CBigNum operator>>(const CBigNum& a, uint32_t shift) {
 	CBigNum r = a;
 	r >>= shift;
 	return r;

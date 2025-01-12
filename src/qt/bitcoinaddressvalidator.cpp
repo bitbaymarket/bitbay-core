@@ -1,5 +1,10 @@
 #include "bitcoinaddressvalidator.h"
 
+#include <boost/assign/list_of.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include "utilstrencodings.h"
+
 /* Base58 characters are:
      "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
@@ -13,52 +18,91 @@
   - '0' and 'O' to 'o'
 */
 
-BitcoinAddressValidator::BitcoinAddressValidator(QObject* parent) : QValidator(parent) {}
+BitcoinAddressValidator::BitcoinAddressValidator(QObject *parent) :
+    QValidator(parent)
+{
+}
 
-QValidator::State BitcoinAddressValidator::validate(QString& input, int& pos) const {
-	// Correction
-	for (int idx = 0; idx < input.size();) {
-		bool  removeChar = false;
-		QChar ch         = input.at(idx);
-		// Corrections made are very conservative on purpose, to avoid
-		// users unexpectedly getting away with typos that would normally
-		// be detected, and thus sending to the wrong address.
-		switch (ch.unicode()) {
-			// Qt categorizes these as "Other_Format" not "Separator_Space"
-			case 0x200B:  // ZERO WIDTH SPACE
-			case 0xFEFF:  // ZERO WIDTH NO-BREAK SPACE
-				removeChar = true;
-				break;
-			default:
-				break;
-		}
-		// Remove whitespace
-		if (ch.isSpace())
-			removeChar = true;
-		// To next character
-		if (removeChar)
-			input.remove(idx, 1);
-		else
-			++idx;
-	}
+QValidator::State BitcoinAddressValidator::validate(QString &input, int &pos) const
+{
+    // ETH-style
+    {
+        std::string saddr = input.trimmed().toStdString();
+        if (boost::starts_with(saddr, "0x")) {
+            std::string hex = saddr.substr(2);
+            QValidator::State state = QValidator::Acceptable;
+            if (hex.size() % 2 ==0 && !IsHex(hex))
+            {
+                state = QValidator::Invalid;
+            }
+            if (saddr.size() > MaxMixAddressLength) {
+                state = QValidator::Invalid;
+            }
+            if (hex.empty()) {
+                state = QValidator::Intermediate;
+            }
+            return state;
+        }
+    }
 
-	// Validation
-	QValidator::State state = QValidator::Acceptable;
-	for (int idx = 0; idx < input.size(); ++idx) {
-		int ch = input.at(idx).unicode();
+    // Correction
+    for(int idx=0; idx<input.size();)
+    {
+        bool removeChar = false;
+        QChar ch = input.at(idx);
+        // Corrections made are very conservative on purpose, to avoid
+        // users unexpectedly getting away with typos that would normally
+        // be detected, and thus sending to the wrong address.
+        switch(ch.unicode())
+        {
+        // Qt categorizes these as "Other_Format" not "Separator_Space"
+        case 0x200B: // ZERO WIDTH SPACE
+        case 0xFEFF: // ZERO WIDTH NO-BREAK SPACE
+            removeChar = true;
+            break;
+        default:
+            break;
+        }
+        // Remove whitespace
+        if(ch.isSpace())
+            removeChar = true;
+        // To next character
+        if(removeChar)
+            input.remove(idx, 1);
+        else
+            ++idx;
+    }
 
-		if (((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')) &&
-		    ch != 'l' && ch != 'I' && ch != '0' && ch != 'O') {
-			// Alphanumeric and not a 'forbidden' character
-		} else {
-			state = QValidator::Invalid;
-		}
-	}
+    // Validation
+    QValidator::State state = QValidator::Acceptable;
+    if (input.size()>2) {
+        for(int idx=0; idx<input.size(); ++idx)
+        {
+            int ch = input.at(idx).unicode();
 
-	// Empty address is "intermediate" input
-	if (input.isEmpty()) {
-		state = QValidator::Intermediate;
-	}
+            if(((ch >= '0' && ch<='9') ||
+               (ch >= 'a' && ch<='z') ||
+               (ch >= 'A' && ch<='Z')) &&
+               ch != 'l' && ch != 'I' && ch != '0' && ch != 'O')
+            {
+                // Alphanumeric and not a 'forbidden' character
+            }
+            else
+            {
+                state = QValidator::Invalid;
+            }
+        }
+    }
 
-	return state;
+    if (input.size() >MaxAddressLength) {
+        state = QValidator::Invalid;
+    }
+
+    // Empty address is "intermediate" input
+    if(input.isEmpty())
+    {
+        state = QValidator::Intermediate;
+    }
+
+    return state;
 }

@@ -4,7 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 //
 // The use in another cyptocurrency project the code is licensed under
-// Coinleft Public License for BitBay. See https://bitbay.market/Coinleft-Public-License-v1.pdf
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #include <cstdint>
 #include <map>
@@ -23,64 +23,12 @@ using namespace boost;
 
 static string sBurnAddress = "bJnV8J5v74MGctMyVSVPfGu1mGQ9nMTiB3";
 
-static string toAddress(const CScript& scriptPubKey,
-                        bool*          ptrIsNotary = nullptr,
-                        string*        ptrNotary   = nullptr) {
-	int                    nRequired;
-	txnouttype             type;
-	vector<CTxDestination> addresses;
-	if (ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
-		std::string str_addr_all;
-		bool        fNone = true;
-		for (const CTxDestination& addr : addresses) {
-			std::string str_addr = CBitcoinAddress(addr).ToString();
-			if (!str_addr_all.empty())
-				str_addr_all += "\n";
-			str_addr_all += str_addr;
-			fNone = false;
-		}
-		if (!fNone)
-			return str_addr_all;
-	}
-
-	if (ptrNotary || ptrIsNotary) {
-		if (ptrIsNotary)
-			*ptrIsNotary = false;
-		if (ptrNotary)
-			*ptrNotary = "";
-
-		opcodetype              opcode1;
-		vector<unsigned char>   vch1;
-		CScript::const_iterator pc1 = scriptPubKey.begin();
-		if (scriptPubKey.GetOp(pc1, opcode1, vch1)) {
-			if (opcode1 == OP_RETURN && scriptPubKey.size() > 1) {
-				if (ptrIsNotary)
-					*ptrIsNotary = true;
-				if (ptrNotary) {
-					unsigned long len_bytes = scriptPubKey[1];
-					if (len_bytes > scriptPubKey.size() - 2)
-						len_bytes = scriptPubKey.size() - 2;
-					for (uint32_t i = 0; i < len_bytes; i++) {
-						ptrNotary->push_back(char(scriptPubKey[i + 2]));
-					}
-				}
-			}
-		}
-	}
-
-	string        as_bytes;
-	unsigned long len_bytes = scriptPubKey.size();
-	for (unsigned int i = 0; i < len_bytes; i++) {
-		as_bytes += char(scriptPubKey[i]);
-	}
-	return as_bytes;
-}
-
 bool CalculateStandardFractions(const CTransaction& tx,
                                 int                 nSupply,
-                                unsigned int        nTime,
+                                uint32_t            nBlockTime,
                                 MapPrevOut&         mapInputs,
                                 MapFractions&       mapInputsFractions,
+                                set<uint32_t>       setTimeLockPass,
                                 MapFractions&       mapTestFractionsPool,
                                 CFractions&         feesFractions,
                                 std::string&        sFailCause) {
@@ -88,7 +36,6 @@ bool CalculateStandardFractions(const CTransaction& tx,
 	size_t n_vout = tx.vout.size();
 
 	int64_t nValueIn        = 0;
-	int64_t nReservesTotal  = 0;
 	int64_t nLiquidityTotal = 0;
 
 	map<string, CFractions> poolReserves;
@@ -101,7 +48,7 @@ bool CalculateStandardFractions(const CTransaction& tx,
 
 	if (tx.IsCoinBase())
 		n_vin = 0;
-	for (unsigned int i = 0; i < n_vin; i++) {
+	for (uint32_t i = 0; i < n_vin; i++) {
 		const COutPoint& prevout = tx.vin[i].prevout;
 		auto             fkey    = uint320(prevout.hash, prevout.n);
 		if (!mapInputs.count(fkey)) {
@@ -112,7 +59,7 @@ bool CalculateStandardFractions(const CTransaction& tx,
 
 		int64_t nValue = prevtxout.nValue;
 		nValueIn += nValue;
-		auto sAddress = toAddress(prevtxout.scriptPubKey);
+		auto sAddress = prevtxout.scriptPubKey.ToAddress();
 		setInputAddresses.insert(sAddress);
 
 		if (mapInputsFractions.find(fkey) == mapInputsFractions.end()) {
@@ -130,14 +77,16 @@ bool CalculateStandardFractions(const CTransaction& tx,
 		}
 
 		if (frInp.nFlags & CFractions::NOTARY_F) {
-			if (frInp.nLockTime > tx.nTime) {
-				sFailCause = "P-I-4: Frozen input used before time expired";
-				return false;
+			if (frInp.nLockTime > nBlockTime) {
+				if (setTimeLockPass.count(i) == 0) {
+					sFailCause = "P-I-4: Frozen input used before time expired";
+					return false;
+				}
 			}
 		}
 
 		if (frInp.nFlags & CFractions::NOTARY_V) {
-			if (frInp.nLockTime > tx.nTime) {
+			if (frInp.nLockTime > nBlockTime) {
 				sFailCause = "P-I-5: Voluntary frozen input used before time expired";
 				return false;
 			}
@@ -156,24 +105,7 @@ bool CalculateStandardFractions(const CTransaction& tx,
 		// if there is a notary on same position as input
 		if (i < n_vout) {
 			string sNotary;
-			bool   fNotary = false;
-			{
-				opcodetype              opcode1;
-				vector<unsigned char>   vch1;
-				const CScript&          script1 = tx.vout[i].scriptPubKey;
-				CScript::const_iterator pc1     = script1.begin();
-				if (script1.GetOp(pc1, opcode1, vch1)) {
-					if (opcode1 == OP_RETURN && script1.size() > 1) {
-						unsigned long len_bytes = script1[1];
-						if (len_bytes > script1.size() - 2)
-							len_bytes = script1.size() - 2;
-						fNotary = true;
-						for (uint32_t i = 0; i < len_bytes; i++) {
-							sNotary.push_back(char(script1[i + 2]));
-						}
-					}
-				}
-			}
+			bool   fNotary = tx.vout[i].scriptPubKey.ToNotary(sNotary);
 
 			if (fNotary && (frInp.nFlags & CFractions::NOTARY_C)) {
 				sFailCause = "P-I-N-1: Can not notary for input cold coins";
@@ -184,10 +116,10 @@ bool CalculateStandardFractions(const CTransaction& tx,
 				// input is cold,
 				// it can return back to original address
 				// or go to any address but then get into frozen state
-				unsigned int nOutIndex   = i;  // same index as input
-				int64_t      nValueOut   = tx.vout[size_t(nOutIndex)].nValue;
-				string       sOutAddress = toAddress(tx.vout[size_t(nOutIndex)].scriptPubKey);
-				auto&        frozenTxOut = poolFrozen[nOutIndex];
+				uint32_t nOutIndex   = i;  // same index as input
+				int64_t  nValueOut   = tx.vout[size_t(nOutIndex)].nValue;
+				string   sOutAddress = tx.vout[size_t(nOutIndex)].scriptPubKey.ToAddress();
+				auto&    frozenTxOut = poolFrozen[nOutIndex];
 
 				if (frozenTxOut.nValue > 0 || frozenTxOut.fractions.Total() != 0) {
 					sFailCause = "P-I-C-1: Cold notary output has already assigned value";
@@ -204,7 +136,7 @@ bool CalculateStandardFractions(const CTransaction& tx,
 					// no mark already on frozenTxOut.fractions
 				} else {
 					if (!frozenTxOut.fractions.SetMark(CFractions::MARK_COLD_TO_FROZEN,
-					                                   CFractions::NOTARY_F, nTime)) {
+					                                   CFractions::NOTARY_F, nBlockTime)) {
 						sFailCause = "P-I-C-2: Crossing marks are detected";
 						return false;
 					}
@@ -240,7 +172,7 @@ bool CalculateStandardFractions(const CTransaction& tx,
 					return false;
 				}
 
-				for (string sOutputArg : vOutputArgs) {
+				for (const string& sOutputArg : vOutputArgs) {
 					char* pEnd         = nullptr;
 					long  nFrozenIndex = strtol(sOutputArg.c_str(), &pEnd, 0);
 					bool  fValidIndex  = !(pEnd == sOutputArg.c_str()) && nFrozenIndex >= 0 &&
@@ -267,16 +199,16 @@ bool CalculateStandardFractions(const CTransaction& tx,
 					bool fMarkSet        = false;
 					if (fNotaryF)
 						fMarkSet = frozenTxOut.fractions.SetMark(CFractions::MARK_SET,
-						                                         CFractions::NOTARY_F, nTime);
+						                                         CFractions::NOTARY_F, nBlockTime);
 					if (fNotaryV)
 						fMarkSet = frozenTxOut.fractions.SetMark(CFractions::MARK_SET,
-						                                         CFractions::NOTARY_V, nTime);
+						                                         CFractions::NOTARY_V, nBlockTime);
 					if (fNotaryL)
 						fMarkSet = frozenTxOut.fractions.SetMark(CFractions::MARK_SET,
-						                                         CFractions::NOTARY_L, nTime);
+						                                         CFractions::NOTARY_L, nBlockTime);
 					if (fNotaryC)
 						fMarkSet = frozenTxOut.fractions.SetMark(CFractions::MARK_SET,
-						                                         CFractions::NOTARY_C, nTime);
+						                                         CFractions::NOTARY_C, nBlockTime);
 					if (!fMarkSet) {
 						sFailCause = "P-I-N-6: Crossing marks are detected";
 						return false;
@@ -328,7 +260,7 @@ bool CalculateStandardFractions(const CTransaction& tx,
 							frReserve.MoveRatioPartTo(nFrozenValueOut, frozenOut);
 							frozenTxOut.fractions += frozenOut;
 							if (!frozenTxOut.fractions.SetMark(CFractions::MARK_SET,
-							                                   CFractions::NOTARY_F, nTime)) {
+							                                   CFractions::NOTARY_F, nBlockTime)) {
 								sFailCause = "P-I-N-9: Crossing marks are detected";
 								return false;
 							}
@@ -339,7 +271,7 @@ bool CalculateStandardFractions(const CTransaction& tx,
 							frLiquidity.MoveRatioPartTo(nFrozenValueOut, frozenOut);
 							frozenTxOut.fractions += frozenOut;
 							if (!frozenTxOut.fractions.SetMark(CFractions::MARK_SET,
-							                                   CFractions::NOTARY_V, nTime)) {
+							                                   CFractions::NOTARY_V, nBlockTime)) {
 								sFailCause = "P-I-N-10: Crossing marks are detected";
 								return false;
 							}
@@ -350,7 +282,7 @@ bool CalculateStandardFractions(const CTransaction& tx,
 							frLiquidity.MoveRatioPartTo(nFrozenValueOut, frozenOut);
 							frozenTxOut.fractions += frozenOut;
 							if (!frozenTxOut.fractions.SetMark(CFractions::MARK_SET,
-							                                   CFractions::NOTARY_L, nTime)) {
+							                                   CFractions::NOTARY_L, nBlockTime)) {
 								sFailCause = "P-I-N-11: Crossing marks are detected";
 								return false;
 							}
@@ -370,7 +302,7 @@ bool CalculateStandardFractions(const CTransaction& tx,
 							CFractions frozenOut = frInp.RatioPart(nFrozenValueOut);
 							frozenTxOut.fractions += frozenOut;
 							if (!frozenTxOut.fractions.SetMark(CFractions::MARK_SET,
-							                                   CFractions::NOTARY_C, nTime)) {
+							                                   CFractions::NOTARY_C, nBlockTime)) {
 								sFailCause = "P-I-N-14: Crossing marks are detected";
 								return false;
 							}
@@ -389,7 +321,7 @@ bool CalculateStandardFractions(const CTransaction& tx,
 			}
 		}
 
-		nReservesTotal += nReserveIn;
+		// nReservesTotal += nReserveIn;
 		nLiquidityTotal += nLiquidityIn;
 	}
 
@@ -402,11 +334,11 @@ bool CalculateStandardFractions(const CTransaction& tx,
 	int64_t nValueOut        = 0;
 	int64_t nCommonLiquidity = nLiquidityTotal;
 
-	bool         fFailedPegOut = false;
-	unsigned int nLatestPegOut = 0;
+	bool     fFailedPegOut = false;
+	uint32_t nLatestPegOut = 0;
 
 	// Calculation of outputs
-	for (unsigned int i = 0; i < n_vout; i++) {
+	for (uint32_t i = 0; i < n_vout; i++) {
 		nLatestPegOut  = i;
 		int64_t nValue = tx.vout[i].nValue;
 		nValueOut += nValue;
@@ -416,7 +348,8 @@ bool CalculateStandardFractions(const CTransaction& tx,
 
 		string sNotary;
 		bool   fNotary  = false;
-		auto   sAddress = toAddress(tx.vout[i].scriptPubKey, &fNotary, &sNotary);
+		auto   sAddress = tx.vout[i].scriptPubKey.ToAddress(&fNotary, &sNotary);
+		bool   fNotaryZ = boost::starts_with(sNotary, "**Z**");
 
 		// #NOTE7
 		if (fFreezeAll && poolFrozen.count(i)) {
@@ -424,14 +357,14 @@ bool CalculateStandardFractions(const CTransaction& tx,
 				frOut = poolFrozen[i].fractions;
 			} else {
 				if (poolFrozen[i].fractions.nFlags & CFractions::NOTARY_V) {
-					if (!frOut.SetMark(CFractions::MARK_SET, CFractions::NOTARY_V, nTime)) {
+					if (!frOut.SetMark(CFractions::MARK_SET, CFractions::NOTARY_V, nBlockTime)) {
 						sFailCause = "P-O-N-1: Crossing marks are detected";
 						return false;
 					}
 					frCommonLiquidity.MoveRatioPartTo(nValue, frOut);
 					nCommonLiquidity -= nValue;
 				} else if (poolFrozen[i].fractions.nFlags & CFractions::NOTARY_F) {
-					if (!frOut.SetMark(CFractions::MARK_SET, CFractions::NOTARY_F, nTime)) {
+					if (!frOut.SetMark(CFractions::MARK_SET, CFractions::NOTARY_F, nBlockTime)) {
 						sFailCause = "P-O-N-2: Crossing marks are detected";
 						return false;
 					}
@@ -535,7 +468,7 @@ bool CalculateStandardFractions(const CTransaction& tx,
 						nCommonLiquidity -= nValueLeft;
 					}
 				} else {  // move liquidity out
-					if (sAddress == sBurnAddress || fNotary) {
+					if (sAddress == sBurnAddress || (fNotary && !fNotaryZ)) {
 						vector<string> vAddresses;
 						for (auto it = poolReserves.begin(); it != poolReserves.end(); it++) {
 							vAddresses.push_back(it->first);
@@ -587,7 +520,7 @@ bool CalculateStandardFractions(const CTransaction& tx,
 
 	if (!fFailedPegOut) {
 		// lets do some extra checks for totals
-		for (unsigned int i = 0; i < n_vout; i++) {
+		for (uint32_t i = 0; i < n_vout; i++) {
 			auto    fkey   = uint320(tx.GetHash(), i);
 			auto    f      = mapTestFractionsPool[fkey];
 			int64_t nValue = tx.vout[i].nValue;
@@ -607,8 +540,13 @@ bool CalculateStandardFractions(const CTransaction& tx,
 	for (const auto& item : poolReserves) {
 		txFeeFractions += item.second;
 	}
-	if (nFee != txFeeFractions.Total() || !txFeeFractions.IsPositive()) {
-		sFailCause    = "P-G-3: Total mismatch on fee fractions";
+	if (nFee != txFeeFractions.Total()) {
+		sFailCause = "P-G-3: Total mismatch on fee fractions " + std::to_string(nFee) + " vs " +
+		             std::to_string(txFeeFractions.Total());
+		fFailedPegOut = true;
+	}
+	if (!txFeeFractions.IsPositive()) {
+		sFailCause    = "P-G-4: Non-positive fee fractions";
 		fFailedPegOut = true;
 	}
 
@@ -625,7 +563,7 @@ bool CalculateStandardFractions(const CTransaction& tx,
 	feesFractions += txFeeFractions;
 
 	// now all outputs are ready, place them as inputs for next tx in the list
-	for (unsigned int i = 0; i < n_vout; i++) {
+	for (uint32_t i = 0; i < n_vout; i++) {
 		auto fkey                = uint320(tx.GetHash(), i);
 		mapInputsFractions[fkey] = mapTestFractionsPool[fkey];
 	}

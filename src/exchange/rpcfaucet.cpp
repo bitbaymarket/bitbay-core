@@ -44,14 +44,15 @@ Value faucet(const Array& params, bool fHelp) {
 		scriptPubKey.SetDestination(address.Get());
 		vecSend.push_back(make_pair(scriptPubKey, liquid));
 
-		CWalletTx   wtx;
-		CReserveKey keyChange(pwalletMain);
-		int64_t     nFeeRequired = 0;
-		string      sFailCause;
-		bool        fCreated = pwalletMain->CreateTransaction(
-            txType, vecSend, wtx, keyChange, nFeeRequired, nullptr, false /*fTest*/, sFailCause);
+		// TODO: nTime to 0
+		CWalletTx wtx;
+		wtx.nTime            = GetAdjustedTime();
+		int64_t nFeeRequired = 0;
+		string  sFailCause;
+		bool fCreated = pwalletMain->CreateTransaction(txType, vecSend, wtx, nFeeRequired, nullptr,
+		                                               false /*fTest*/, sFailCause);
 		if (fCreated) {
-			bool fCommitted = pwalletMain->CommitTransaction(wtx, keyChange);
+			bool fCommitted = pwalletMain->CommitTransaction(wtx);
 			if (fCommitted) {
 				completed_liquid = true;
 			} else {
@@ -73,14 +74,15 @@ Value faucet(const Array& params, bool fHelp) {
 		scriptPubKey.SetDestination(address.Get());
 		vecSend.push_back(make_pair(scriptPubKey, reserve));
 
-		CWalletTx   wtx;
-		CReserveKey keyChange(pwalletMain);
-		int64_t     nFeeRequired = 0;
-		string      sFailCause;
-		bool        fCreated = pwalletMain->CreateTransaction(
-            txType, vecSend, wtx, keyChange, nFeeRequired, nullptr, false /*fTest*/, sFailCause);
+		// TODO: nTime to 0
+		CWalletTx wtx;
+		wtx.nTime            = GetAdjustedTime();
+		int64_t nFeeRequired = 0;
+		string  sFailCause;
+		bool fCreated = pwalletMain->CreateTransaction(txType, vecSend, wtx, nFeeRequired, nullptr,
+		                                               false /*fTest*/, sFailCause);
 		if (fCreated) {
-			bool fCommitted = pwalletMain->CommitTransaction(wtx, keyChange);
+			bool fCommitted = pwalletMain->CommitTransaction(wtx);
 			if (fCommitted) {
 				completed_reserve = true;
 			} else {

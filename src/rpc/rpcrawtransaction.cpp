@@ -60,11 +60,14 @@ void TxToJSON(const CTransaction& tx,
 		entry.push_back(Pair("peg", nSupply));
 	}
 	Array vin;
-	for (const CTxIn& txin : tx.vin) {
-		Object in;
-		if (tx.IsCoinBase())
+	for (uint32_t i = 0; i < tx.vin.size(); i++) {
+		const CTxIn& txin = tx.vin[i];
+		Object       in;
+		if (tx.IsCoinBase()) {
 			in.push_back(Pair("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end())));
-		else {
+		} else if (tx.IsCoinMint() && i == 0) {
+			in.push_back(Pair("coinmint", ""));
+		} else {
 			in.push_back(Pair("txid", txin.prevout.hash.GetHex()));
 			in.push_back(Pair("vout", (int64_t)txin.prevout.n));
 			Object o;
@@ -77,7 +80,7 @@ void TxToJSON(const CTransaction& tx,
 	}
 	entry.push_back(Pair("vin", vin));
 	Array vout;
-	for (unsigned int i = 0; i < tx.vout.size(); i++) {
+	for (uint32_t i = 0; i < tx.vout.size(); i++) {
 		const CTxOut& txout = tx.vout[i];
 		Object        out;
 		out.push_back(Pair("value", ValueFromAmount(txout.nValue)));
@@ -117,7 +120,7 @@ void TxToJSON(const CTransaction& tx,
 
 	if (hashBlock != 0) {
 		entry.push_back(Pair("blockhash", hashBlock.GetHex()));
-		map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
+        unordered_map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
 		if (mi != mapBlockIndex.end() && (*mi).second) {
 			CBlockIndex* pindex = (*mi).second;
 			if (pindex->IsInMainChain()) {
@@ -174,7 +177,7 @@ Value getrawtransaction(const Array& params, bool fHelp) {
 			}
 		}
 
-		map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
+        unordered_map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashBlock);
 		if (mi != mapBlockIndex.end() && (*mi).second) {
 			CBlockIndex* pindex = (*mi).second;
 			nSupply             = pindex->nPegSupplyIndex;
@@ -399,6 +402,108 @@ Value listfrozen2(const Array& params, bool fHelp) {
 	return results;
 }
 
+Value liststaked2(const Array& params, bool fHelp) {
+	if (fHelp || params.size() > 4)
+		throw runtime_error(
+			"liststaked [minconf=1] [maxconf=9999999] [\"address\",...] [pegsupplyindex]\n"
+			"\t(wallet api)\n"
+			"\tReturns array of frozen transaction outputs\n"
+			"\twith between minconf and maxconf (inclusive) confirmations.\n"
+			"\tOptionally filtered to only include txouts paid to specified addresses.\n"
+			"\tIf peg supply index is provided then liquid and reserve are calculated for "
+			"specified peg value.\n"
+			"\tResults are an array of Objects, each of which has:\n"
+			"{txid, vout, scriptPubKey, amount, liquid, reserve, confirmations}");
+
+	RPCTypeCheck(params, list_of(int_type)(int_type)(array_type));
+
+	int nMinDepth = 1;
+	if (params.size() > 0)
+		nMinDepth = params[0].get_int();
+
+	int nMaxDepth = 9999999;
+	if (params.size() > 1)
+		nMaxDepth = params[1].get_int();
+
+	set<CBitcoinAddress> setAddress;
+	if (params.size() > 2) {
+		Array inputs = params[2].get_array();
+		for (Value& input : inputs) {
+			CBitcoinAddress address(input.get_str());
+			if (!address.IsValid())
+				throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY,
+								   string("Invalid BitBay address: ") + input.get_str());
+			if (setAddress.count(address))
+				throw JSONRPCError(
+					RPC_INVALID_PARAMETER,
+					string("Invalid parameter, duplicated address: ") + input.get_str());
+			setAddress.insert(address);
+		}
+	}
+
+	int nSupply = 0;
+	if (pindexBest) {
+		nSupply = pindexBest->nPegSupplyIndex;
+	}
+	if (params.size() > 3) {
+		nSupply = params[3].get_int();
+	}
+
+	Array           results;
+	vector<COutput> vecOutputs;
+	assert(pwalletMain != NULL);
+	pwalletMain->StakedCoins(vecOutputs, false, false, NULL);
+	for (const COutput& out : vecOutputs) {
+		if (out.nDepth < nMinDepth || out.nDepth > nMaxDepth)
+			continue;
+
+		if (setAddress.size()) {
+			CTxDestination address;
+			if (!ExtractDestination(out.tx->vout[out.i].scriptPubKey, address))
+				continue;
+
+			if (!setAddress.count(address))
+				continue;
+		}
+
+		int64_t        nValue = out.tx->vout[out.i].nValue;
+		const CScript& pk     = out.tx->vout[out.i].scriptPubKey;
+		Object         entry;
+		entry.push_back(Pair("txid", out.tx->GetHash().GetHex()));
+		entry.push_back(Pair("vout", out.i));
+		CTxDestination address;
+		if (ExtractDestination(out.tx->vout[out.i].scriptPubKey, address)) {
+			entry.push_back(Pair("address", CBitcoinAddress(address).ToString()));
+			if (pwalletMain->mapAddressBook.count(address))
+				entry.push_back(Pair("account", pwalletMain->mapAddressBook[address]));
+		}
+		entry.push_back(Pair("scriptPubKey", HexStr(pk.begin(), pk.end())));
+		if (pk.IsPayToScriptHash()) {
+			CTxDestination address;
+			if (ExtractDestination(pk, address)) {
+				const CScriptID& hash = boost::get<CScriptID>(address);
+				CScript          redeemScript;
+				if (pwalletMain->GetCScript(hash, redeemScript))
+					entry.push_back(
+						Pair("redeemScript", HexStr(redeemScript.begin(), redeemScript.end())));
+			}
+		}
+		entry.push_back(Pair("amount", ValueFromAmount(nValue)));
+		if (out.tx->vOutFractions.size() > size_t(out.i)) {
+			const CFractions& fractions = out.tx->vOutFractions[out.i].Ref();
+			if (fractions.Total() == nValue) {
+				entry.push_back(Pair("reserve", ValueFromAmount(fractions.Low(nSupply))));
+				entry.push_back(Pair("liquidity", ValueFromAmount(fractions.High(nSupply))));
+			}
+		}
+		entry.push_back(Pair("confirmations", out.nDepth));
+		entry.push_back(Pair("spendable", out.fSpendable));
+		results.push_back(entry);
+	}
+
+	return results;
+}
+
 #endif
 
 Value createrawtransaction(const Array& params, bool fHelp) {
@@ -555,24 +660,29 @@ Value signrawtransaction(const Array& params, bool fHelp) {
 	// mergedTx will end up with all the signatures; it
 	// starts as a clone of the rawtx:
 	CTransaction mergedTx(txVariants[0]);
-	bool         fComplete = true;
+	bool         fComplete      = true;
+	int64_t      nVirtBlockTime = GetAdjustedTime();
 
 	// Fetch previous transactions (inputs):
 	map<COutPoint, CScript> mapPrevOut;
-	for (unsigned int i = 0; i < mergedTx.vin.size(); i++) {
-		CTransaction           tempTx;
-		MapPrevTx              mapPrevTx;
-		MapFractions           mapInputsFractions;
-		CTxDB                  txdb("r");
-		CPegDB                 pegdb("r");
-		map<uint256, CTxIndex> unused;
-		MapFractions           fractionsUnused;
-		bool                   fInvalid;
+	for (uint32_t i = 0; i < mergedTx.vin.size(); i++) {
+		CTransaction             tempTx;
+		MapPrevTx                mapPrevTx;
+		MapFractions             mapInputsFractions;
+		CTxDB                    txdb("r");
+		CPegDB                   pegdb("r");
+		map<uint256, CTxIndex>   unused;
+		MapFractions             fractionsUnused;
+		bool                     fInvalid;
+		map<string, CBridgeInfo> bridges;
+		pindexBest->ReadBridges(pegdb, bridges);
+		auto fnMerkleIn = [&](string hash) { return pindexBest->ReadMerkleIn(pegdb, hash); };
 
 		// FetchInputs aborts on failure, so we go one at a time.
 		tempTx.vin.push_back(mergedTx.vin[i]);
-		tempTx.FetchInputs(txdb, pegdb, unused, fractionsUnused, false, false, mapPrevTx,
-		                   mapInputsFractions, fInvalid);
+		tempTx.FetchInputs(txdb, pegdb, pindexBest->nHeight, false, bridges, fnMerkleIn, unused,
+		                   fractionsUnused, false /*is block*/, false /*is miner*/, nVirtBlockTime,
+		                   false /*skip pruned*/, mapPrevTx, mapInputsFractions, fInvalid);
 
 		// Copy results into mapPrevOut:
 		for (const CTxIn& txin : tempTx.vin) {
@@ -684,7 +794,7 @@ Value signrawtransaction(const Array& params, bool fHelp) {
 	bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
 
 	// Sign what we can:
-	for (unsigned int i = 0; i < mergedTx.vin.size(); i++) {
+	for (uint32_t i = 0; i < mergedTx.vin.size(); i++) {
 		CTxIn& txin = mergedTx.vin[i];
 		if (mapPrevOut.count(txin.prevout) == 0) {
 			fComplete = false;
@@ -702,7 +812,9 @@ Value signrawtransaction(const Array& params, bool fHelp) {
 			txin.scriptSig =
 			    CombineSignatures(prevPubKey, mergedTx, i, txin.scriptSig, txv.vin[i].scriptSig);
 		}
-		if (!VerifyScript(txin.scriptSig, prevPubKey, mergedTx, i, STANDARD_SCRIPT_VERIFY_FLAGS, 0))
+		set<vchtype> sSignedPubks;
+		if (!VerifyScript(txin.scriptSig, prevPubKey, mergedTx, i, STANDARD_SCRIPT_VERIFY_FLAGS, 0,
+		                  sSignedPubks))
 			fComplete = false;
 	}
 
@@ -748,9 +860,8 @@ Value sendrawtransaction(const Array& params, bool fHelp) {
 	int     nExchangeOut = -1;
 	if (tx.IsExchangeTx(nExchangeOut, wid)) {
 		if (tx.nLockTime > 0) {
-			unsigned int nMaxHeight =
-			    tx.nLockTime + Params().PegInterval(Params().nPegIntervalProbeHeight) - 5;
-			if ((unsigned int)(pindexBest->nHeight) > nMaxHeight) {
+			uint32_t nMaxHeight = tx.nLockTime + Params().PegInterval() - 5;
+			if ((uint32_t)(pindexBest->nHeight) > nMaxHeight) {
 				throw JSONRPCError(RPC_MISC_ERROR, "Transaction is expired");
 			}
 		}

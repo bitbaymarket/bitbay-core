@@ -13,14 +13,14 @@
 #include "uint256.h"
 
 // secp256k1:
-// const unsigned int PRIVATE_KEY_SIZE = 279;
-// const unsigned int PUBLIC_KEY_SIZE  = 65;
-// const unsigned int SIGNATURE_SIZE   = 72;
+// const uint32_t PRIVATE_KEY_SIZE = 279;
+// const uint32_t PUBLIC_KEY_SIZE  = 65;
+// const uint32_t SIGNATURE_SIZE   = 72;
 //
 // see www.keylength.com
 // script supports up to 75 for single byte push
 
-const unsigned int BIP32_EXTKEY_SIZE = 74;
+const uint32_t BIP32_EXTKEY_SIZE = 74;
 
 /** A reference to a CKey: the Hash160 of its serialized public key */
 class CKeyID : public uint160 {
@@ -44,7 +44,7 @@ private:
 	unsigned char vch[65];
 
 	// Compute the length of a pubkey with a given first byte.
-	unsigned int static GetLen(unsigned char chHeader) {
+	uint32_t static GetLen(unsigned char chHeader) {
 		if (chHeader == 2 || chHeader == 3)
 			return 33;
 		if (chHeader == 4 || chHeader == 6 || chHeader == 7)
@@ -79,10 +79,10 @@ public:
 	CPubKey(const std::vector<unsigned char>& vch) { Set(vch.begin(), vch.end()); }
 
 	// Simple read-only vector-like interface to the pubkey data.
-	unsigned int         size() const { return GetLen(vch[0]); }
+	uint32_t             size() const { return GetLen(vch[0]); }
 	const unsigned char* begin() const { return vch; }
 	const unsigned char* end() const { return vch + size(); }
-	const unsigned char& operator[](unsigned int pos) const { return vch[pos]; }
+	const unsigned char& operator[](uint32_t pos) const { return vch[pos]; }
 
 	// Comparator implementation.
 	friend bool operator==(const CPubKey& a, const CPubKey& b) {
@@ -94,16 +94,16 @@ public:
 	}
 
 	// Implement serialization, as if this was a byte vector.
-	unsigned int GetSerializeSize(int nType, int nVersion) const { return size() + 1; }
+	uint32_t GetSerializeSize(int nType, int nVersion) const { return size() + 1; }
 	template <typename Stream>
 	void Serialize(Stream& s, int nType, int nVersion) const {
-		unsigned int len = size();
+		uint32_t len = size();
 		::WriteCompactSize(s, len);
 		s.write((char*)vch, len);
 	}
 	template <typename Stream>
 	void Unserialize(Stream& s, int nType, int nVersion) {
-		unsigned int len = ::ReadCompactSize(s);
+		uint32_t len = ::ReadCompactSize(s);
 		if (len <= 65) {
 			s.read((char*)vch, len);
 		} else {
@@ -149,7 +149,7 @@ public:
 	// Derive BIP32 child pubkey.
 	bool Derive(CPubKey&            pubkeyChild,
 	            unsigned char       ccChild[32],
-	            unsigned int        nChild,
+	            uint32_t            nChild,
 	            const unsigned char cc[32]) const;
 };
 
@@ -208,7 +208,7 @@ public:
 	}
 
 	// Simple read-only vector-like interface.
-	unsigned int         size() const { return (fValid ? 32 : 0); }
+	uint32_t             size() const { return (fValid ? 32 : 0); }
 	const unsigned char* begin() const { return vch; }
 	const unsigned char* end() const { return vch + size(); }
 
@@ -245,7 +245,7 @@ public:
 	// Derive BIP32 child key.
 	bool Derive(CKey&               keyChild,
 	            unsigned char       ccChild[32],
-	            unsigned int        nChild,
+	            uint32_t            nChild,
 	            const unsigned char cc[32]) const;
 
 	// Load private key and check that public key matches.
@@ -261,7 +261,7 @@ public:
 struct CExtPubKey {
 	unsigned char nDepth;
 	unsigned char vchFingerprint[4];
-	unsigned int  nChild;
+	uint32_t      nChild;
 	unsigned char vchChainCode[32];
 	CPubKey       pubkey;
 
@@ -273,14 +273,14 @@ struct CExtPubKey {
 
 	void Encode(unsigned char code[BIP32_EXTKEY_SIZE]) const;
 	void Decode(const unsigned char code[BIP32_EXTKEY_SIZE]);
-	bool Derive(CExtPubKey& out, unsigned int nChild) const;
+	bool Derive(CExtPubKey& out, uint32_t nChild) const;
 
-	unsigned int GetSerializeSize(int nType, int nVersion) const {
+	uint32_t GetSerializeSize(int nType, int nVersion) const {
 		return BIP32_EXTKEY_SIZE + 1;  // add one byte for the size (compact int)
 	}
 	template <typename Stream>
 	void Serialize(Stream& s, int nType, int nVersion) const {
-		unsigned int len = BIP32_EXTKEY_SIZE;
+		uint32_t len = BIP32_EXTKEY_SIZE;
 		::WriteCompactSize(s, len);
 		unsigned char code[BIP32_EXTKEY_SIZE];
 		Encode(code);
@@ -288,7 +288,7 @@ struct CExtPubKey {
 	}
 	template <typename Stream>
 	void Unserialize(Stream& s, int nType, int nVersion) {
-		unsigned int  len = ::ReadCompactSize(s);
+		uint32_t      len = ::ReadCompactSize(s);
 		unsigned char code[BIP32_EXTKEY_SIZE];
 		if (len != BIP32_EXTKEY_SIZE)
 			throw std::runtime_error("Invalid extended key size\n");
@@ -300,7 +300,7 @@ struct CExtPubKey {
 struct CExtKey {
 	unsigned char nDepth;
 	unsigned char vchFingerprint[4];
-	unsigned int  nChild;
+	uint32_t      nChild;
 	unsigned char vchChainCode[32];
 	CKey          key;
 
@@ -312,12 +312,12 @@ struct CExtKey {
 
 	void       Encode(unsigned char code[74]) const;
 	void       Decode(const unsigned char code[74]);
-	bool       Derive(CExtKey& out, unsigned int nChild) const;
+	bool       Derive(CExtKey& out, uint32_t nChild) const;
 	CExtPubKey Neuter() const;
-	void       SetMaster(const unsigned char* seed, unsigned int nSeedLen);
+	void       SetMaster(const unsigned char* seed, uint32_t nSeedLen);
 	template <typename Stream>
 	void Serialize(Stream& s, int nType, int nVersion) const {
-		unsigned int len = BIP32_EXTKEY_SIZE;
+		uint32_t len = BIP32_EXTKEY_SIZE;
 		::WriteCompactSize(s, len);
 		unsigned char code[BIP32_EXTKEY_SIZE];
 		Encode(code);
@@ -325,7 +325,7 @@ struct CExtKey {
 	}
 	template <typename Stream>
 	void Unserialize(Stream& s, int nType, int nVersion) {
-		unsigned int  len = ::ReadCompactSize(s);
+		uint32_t      len = ::ReadCompactSize(s);
 		unsigned char code[BIP32_EXTKEY_SIZE];
 		s.read((char*)&code[0], len);
 		Decode(code);

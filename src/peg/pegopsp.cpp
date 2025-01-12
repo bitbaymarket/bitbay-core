@@ -4,7 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 //
 // The use in another cyptocurrency project the code is licensed under
-// Coinleft Public License for BitBay. See https://bitbay.market/Coinleft-Public-License-v1.pdf
+// Jelurida Public License (JPL). See https://www.jelurida.com/resources/jpl
 
 #include "pegopsp.h"
 #include "pegdata.h"
@@ -648,18 +648,20 @@ static bool sortByDestination(const CTxDestination& lhs, const CTxDestination& r
 typedef std::map<uint320, CTxOut> MapPrevOut;
 
 static bool computeTxPegForNextCycle(const CTransaction&       rawTx,
+                                     int64_t                   nBlockTime,
                                      const CPegLevel&          peglevel_net,
                                      map<uint320, CCoinToUse>& mapAllOutputs,
                                      map<int, CFractions>&     mapTxOutputFractions,
                                      CFractions&               feesFractions,
                                      std::string&              sFailCause) {
-	MapPrevOut   mapInputs;
-	MapFractions mapInputsFractions;
-	MapFractions mapOutputFractions;
+	MapPrevOut    mapInputs;
+	MapFractions  mapInputsFractions;
+	MapFractions  mapOutputFractions;
+	set<uint32_t> sTimeLockPassInputs;
 
 	size_t n_vin = rawTx.vin.size();
 
-	for (unsigned int i = 0; i < n_vin; i++) {
+	for (uint32_t i = 0; i < n_vin; i++) {
 		const COutPoint& prevout = rawTx.vin[i].prevout;
 		auto             fkey    = uint320(prevout.hash, prevout.n);
 
@@ -673,9 +675,9 @@ static bool computeTxPegForNextCycle(const CTransaction&       rawTx,
 		mapInputsFractions[fkey] = coin.fractions;
 	}
 
-	bool peg_ok = CalculateStandardFractions(rawTx, peglevel_net.nSupplyNext, rawTx.nTime,
-	                                         mapInputs, mapInputsFractions, mapOutputFractions,
-	                                         feesFractions, sFailCause);
+	bool peg_ok = CalculateStandardFractions(rawTx, peglevel_net.nSupplyNext, nBlockTime, mapInputs,
+	                                         mapInputsFractions, sTimeLockPassInputs,
+	                                         mapOutputFractions, feesFractions, sFailCause);
 	if (!peg_ok) {
 		return false;
 	}
@@ -1069,24 +1071,18 @@ bool prepareliquidwithdraw(const std::vector<std::tuple<std::string, CPegData, s
 		withdrawIdXch = Hash(ss.begin(), ss.end()).GetHex();
 		sNotary += withdrawIdXch;
 		CScript scriptPubKey;
-		scriptPubKey.push_back(OP_RETURN);
-		unsigned char len_bytes = sNotary.size();
-		scriptPubKey.push_back(len_bytes);
-		for (size_t j = 0; j < sNotary.size(); j++) {
-			scriptPubKey.push_back(sNotary[j]);
-		}
+		scriptPubKey.PushNotary(sNotary);
 		rawTx.vout.push_back(CTxOut(1, scriptPubKey));
 	}
 
 	// locktime to next interval
-	rawTx.nLockTime =
-	    (peglevel_net.nCycle + 1) * Params().PegInterval(Params().nPegIntervalProbeHeight) - 1;
+	rawTx.nLockTime = (peglevel_net.nCycle + 1) * Params().PegInterval() - 1;
 
 	// Calculate peg to know 'user' fee
 	CFractions           feesFractionsCommon(0, CFractions::STD);
 	map<int, CFractions> mapTxOutputFractionsSkip;
-	if (!computeTxPegForNextCycle(rawTx, peglevel_net, mapAllOutputs, mapTxOutputFractionsSkip,
-	                              feesFractionsCommon, sErr)) {
+	if (!computeTxPegForNextCycle(rawTx, GetAdjustedTime(), peglevel_net, mapAllOutputs,
+	                              mapTxOutputFractionsSkip, feesFractionsCommon, sErr)) {
 		return false;
 	}
 
@@ -1145,8 +1141,8 @@ bool prepareliquidwithdraw(const std::vector<std::tuple<std::string, CPegData, s
 	// Recalculate peg to update mapTxOutputFractions
 	CFractions           feesFractionsNet(0, CFractions::STD);
 	map<int, CFractions> mapTxOutputFractions;
-	if (!computeTxPegForNextCycle(rawTx, peglevel_net, mapAllOutputs, mapTxOutputFractions,
-	                              feesFractionsNet, sErr)) {
+	if (!computeTxPegForNextCycle(rawTx, GetAdjustedTime(), peglevel_net, mapAllOutputs,
+	                              mapTxOutputFractions, feesFractionsNet, sErr)) {
 		return false;
 	}
 	CFractions frFeesMaintenance = feesFractionsCommon - feesFractionsNet;
@@ -1540,17 +1536,7 @@ bool preparereservewithdraw(
 		// Fill vout with freezing instructions
 		for (size_t i = 0; i < nCoins; i++) {
 			CScript scriptPubKey;
-			scriptPubKey.push_back(OP_RETURN);
-			unsigned char len_bytes = out_indexes.size();
-			scriptPubKey.push_back(len_bytes + 5);
-			scriptPubKey.push_back('*');
-			scriptPubKey.push_back('*');
-			scriptPubKey.push_back('F');
-			scriptPubKey.push_back('*');
-			scriptPubKey.push_back('*');
-			for (size_t j = 0; j < out_indexes.size(); j++) {
-				scriptPubKey.push_back(out_indexes[j]);
-			}
+			scriptPubKey.PushNotary("**F**" + out_indexes);
 			rawTx.vout.push_back(CTxOut(PEG_MAKETX_FREEZE_VALUE, scriptPubKey));
 		}
 		// Value for notary is first taken from reserves sorted by address
@@ -1664,24 +1650,18 @@ bool preparereservewithdraw(
 		withdrawIdXch = Hash(ss.begin(), ss.end()).GetHex();
 		sNotary += withdrawIdXch;
 		CScript scriptPubKey;
-		scriptPubKey.push_back(OP_RETURN);
-		unsigned char len_bytes = sNotary.size();
-		scriptPubKey.push_back(len_bytes);
-		for (size_t j = 0; j < sNotary.size(); j++) {
-			scriptPubKey.push_back(sNotary[j]);
-		}
+		scriptPubKey.PushNotary(sNotary);
 		rawTx.vout.push_back(CTxOut(1, scriptPubKey));
 	}
 
 	// locktime to next interval
-	rawTx.nLockTime =
-	    (peglevel_net.nCycle + 1) * Params().PegInterval(Params().nPegIntervalProbeHeight) - 1;
+	rawTx.nLockTime = (peglevel_net.nCycle + 1) * Params().PegInterval() - 1;
 
 	// Calculate peg to know 'user' fee
 	CFractions           feesFractionsCommon(0, CFractions::STD);
 	map<int, CFractions> mapTxOutputFractionsSkip;
-	if (!computeTxPegForNextCycle(rawTx, peglevel_net, mapAllOutputs, mapTxOutputFractionsSkip,
-	                              feesFractionsCommon, sErr)) {
+	if (!computeTxPegForNextCycle(rawTx, GetAdjustedTime(), peglevel_net, mapAllOutputs,
+	                              mapTxOutputFractionsSkip, feesFractionsCommon, sErr)) {
 		return false;
 	}
 
@@ -1740,8 +1720,8 @@ bool preparereservewithdraw(
 	// Recalculate peg to update mapTxOutputFractions
 	CFractions           feesFractionsNet(0, CFractions::STD);
 	map<int, CFractions> mapTxOutputFractions;
-	if (!computeTxPegForNextCycle(rawTx, peglevel_net, mapAllOutputs, mapTxOutputFractions,
-	                              feesFractionsNet, sErr)) {
+	if (!computeTxPegForNextCycle(rawTx, GetAdjustedTime(), peglevel_net, mapAllOutputs,
+	                              mapTxOutputFractions, feesFractionsNet, sErr)) {
 		return false;
 	}
 	CFractions frFeesMaintenance = feesFractionsCommon - feesFractionsNet;

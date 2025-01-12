@@ -35,6 +35,10 @@
 
 #include "json/json_spirit_utils.h"
 #include "json/json_spirit_writer_template.h"
+
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/split.hpp>
+
 extern json_spirit::Object blockToJSON(const CBlock&      block,
                                        const CBlockIndex* blockindex,
                                        const MapFractions&,
@@ -45,6 +49,21 @@ extern void                TxToJSON(const CTransaction& tx,
                                     int                  nSupply,
                                     json_spirit::Object& entry);
 extern double              GetDifficulty(const CBlockIndex* blockindex = NULL);
+
+static QString displayValue(int64_t nValue) {
+	QString sValue = QString::number(nValue);
+	if (sValue.length() < 8) {
+		sValue = sValue.rightJustified(8, QChar(' '));
+	}
+	sValue.insert(sValue.length() - 8, QChar('.'));
+	if (sValue.length() > (8 + 1 + 3))
+		sValue.insert(sValue.length() - 8 - 1 - 3, QChar(','));
+	if (sValue.length() > (8 + 1 + 3 + 1 + 3))
+		sValue.insert(sValue.length() - 8 - 1 - 3 - 1 - 3, QChar(','));
+	if (sValue.length() > (8 + 1 + 3 + 1 + 3 + 1 + 3))
+		sValue.insert(sValue.length() - 8 - 1 - 3 - 1 - 3 - 1 - 3, QChar(','));
+	return sValue;
+}
 
 BlockchainPage::BlockchainPage(QWidget* parent) : QDialog(parent), ui(new Ui::BlockchainPage) {
 	ui->setupUi(this);
@@ -81,17 +100,16 @@ BlockchainPage::BlockchainPage(QWidget* parent) : QDialog(parent), ui(new Ui::Bl
 
 	connect(ui->blockchainView, SIGNAL(customContextMenuRequested(const QPoint&)), this,
 	        SLOT(openChainMenu(const QPoint&)));
-	connect(ui->blockValues, SIGNAL(customContextMenuRequested(const QPoint&)), this,
-	        SLOT(openBlockMenu(const QPoint&)));
-	connect(ui->netNodes, SIGNAL(customContextMenuRequested(const QPoint&)), this,
-	        SLOT(openNetMenu(const QPoint&)));
-
 	connect(ui->blockchainView, SIGNAL(activated(const QModelIndex&)), this,
 	        SLOT(openBlock(const QModelIndex&)));
+
+	connect(ui->blockValues, SIGNAL(customContextMenuRequested(const QPoint&)), this,
+	        SLOT(openBlockMenu(const QPoint&)));
 	connect(ui->blockValues, SIGNAL(itemDoubleClicked(QTreeWidgetItem*, int)), this,
-	        SLOT(openTx(QTreeWidgetItem*, int)));
-	connect(ui->blockValues, SIGNAL(itemDoubleClicked(QTreeWidgetItem*, int)), this,
-	        SLOT(openBlock(QTreeWidgetItem*, int)));
+	        SLOT(blockValueDoubleClicked(QTreeWidgetItem*, int)));
+
+	connect(ui->netNodes, SIGNAL(customContextMenuRequested(const QPoint&)), this,
+	        SLOT(openNetMenu(const QPoint&)));
 
 	QFont font = GUIUtil::bitcoinAddressFont();
 	qreal pt   = font.pointSizeF() * 0.8;
@@ -125,6 +143,7 @@ BlockchainPage::BlockchainPage(QWidget* parent) : QDialog(parent), ui(new Ui::Bl
 	ui->blockValues->setFont(font);
 	ui->blockchainView->setFont(font);
 	ui->balanceCurrent->setFont(font);
+	ui->balanceCurrent->setMinimumHeight(qMax(QFontMetricsF(font).height() * 6, 18 * 6.));
 	ui->balanceValues->setFont(font);
 	ui->utxoValues->setFont(font);
 	ui->netNodes->setFont(font);
@@ -148,19 +167,19 @@ BlockchainPage::BlockchainPage(QWidget* parent) : QDialog(parent), ui(new Ui::Bl
 	ui->netNodes->header()->resizeSection(1 /*protocol*/, 100);
 	ui->netNodes->header()->resizeSection(2 /*version*/, 250);
 
-	ui->balanceValues->header()->resizeSection(0 /*n*/, 70);
-	ui->balanceValues->header()->resizeSection(1 /*tx*/, 100);
-	ui->balanceValues->header()->resizeSection(2 /*credit*/, 180);
-	ui->balanceValues->header()->resizeSection(3 /*debit */, 180);
-	ui->balanceValues->header()->resizeSection(4 /*balance*/, 180);
-	ui->balanceValues->header()->resizeSection(5 /*frozen*/, 180);
+	ui->balanceValues->header()->resizeSection(0 /*n*/, 100);
+	ui->balanceValues->header()->resizeSection(1 /*tx*/, 150);
+	ui->balanceValues->header()->resizeSection(2 /*credit*/, 200);
+	ui->balanceValues->header()->resizeSection(3 /*debit */, 200);
+	ui->balanceValues->header()->resizeSection(4 /*balance*/, 200);
+	ui->balanceValues->header()->resizeSection(5 /*frozen*/, 200);
 
-	ui->utxoValues->header()->resizeSection(0 /*n*/, 70);
-	ui->utxoValues->header()->resizeSection(1 /*tx*/, 100);
-	ui->utxoValues->header()->resizeSection(2 /*liquid*/, 180);
-	ui->utxoValues->header()->resizeSection(3 /*reserve*/, 180);
-	ui->utxoValues->header()->resizeSection(4 /*amount*/, 180);
-	ui->utxoValues->header()->resizeSection(5 /*F*/, 20);
+	ui->utxoValues->header()->resizeSection(0 /*n*/, 100);
+	ui->utxoValues->header()->resizeSection(1 /*tx*/, 150);
+	ui->utxoValues->header()->resizeSection(2 /*liquid*/, 200);
+	ui->utxoValues->header()->resizeSection(3 /*reserve*/, 200);
+	ui->utxoValues->header()->resizeSection(4 /*amount*/, 200);
+	ui->utxoValues->header()->resizeSection(5 /*F*/, 50);
 
 	connect(txDetails, SIGNAL(openAddressBalance(QString)), this, SLOT(openBalanceFromTx(QString)));
 	connect(ui->balanceCurrent, SIGNAL(itemDoubleClicked(QTreeWidgetItem*, int)), this,
@@ -196,13 +215,8 @@ void BlockchainPage::showEvent(QShowEvent* se) {
 	if (first_show) {
 		first_show = false;
 		{
-			CTxDB txdb("r");
-			bool  fIsReady = false;
-			bool  fEnabled = false;
-			txdb.ReadUtxoDbIsReady(fIsReady);
-			txdb.ReadUtxoDbEnabled(fEnabled);
-			ui->buttonAddress->setEnabled(/*fIsReady && */ fEnabled);
-			ui->buttonUnspent->setEnabled(/*fIsReady && */ fEnabled);
+			ui->buttonAddress->setEnabled(true);
+			ui->buttonUnspent->setEnabled(true);
 		}
 	}
 	QDialog::showEvent(se);
@@ -345,6 +359,55 @@ void BlockchainPage::openChainMenu(const QPoint& pos) {
 	m.exec(ui->blockchainView->viewport()->mapToGlobal(pos));
 }
 
+void BlockchainPage::blockValueDoubleClicked(QTreeWidgetItem* item, int column) {
+	if (item->text(0).startsWith("tx")) {  // open from block page
+		bool tx_idx_ok = false;
+		uint tx_idx    = item->text(0).mid(2).toUInt(&tx_idx_ok);
+		if (!tx_idx_ok)
+			return;
+		showTxPage();
+		txDetails->openTx(currentBlock, tx_idx);
+		return;
+	}
+	if (item->text(0) == "Next" || item->text(0) == "Previous") {
+		uint256 bhash(item->text(1).toStdString());
+		openBlock(bhash);
+		return;
+	}
+	if (item->text(0) == "Peg Cycle") {
+		CBlockIndex* pblockindex = nullptr;
+		{
+			LOCK(cs_main);
+			if (mapBlockIndex.find(currentBlock) == mapBlockIndex.end())
+				return;
+			pblockindex = mapBlockIndex.ref(currentBlock);
+			if (!pblockindex)
+				return;
+		}
+		pblockindex = pblockindex->PegCycleBlock();
+		if (!pblockindex)
+			return;
+		openBlock(pblockindex->GetBlockHash());
+		return;
+	}
+	if (item->text(0) == "Bridge Cycle") {
+		CBlockIndex* pblockindex = nullptr;
+		{
+			LOCK(cs_main);
+			if (mapBlockIndex.find(currentBlock) == mapBlockIndex.end())
+				return;
+			pblockindex = mapBlockIndex.ref(currentBlock);
+			if (!pblockindex)
+				return;
+		}
+		pblockindex = pblockindex->BridgeCycleBlock();
+		if (!pblockindex)
+			return;
+		openBlock(pblockindex->GetBlockHash());
+		return;
+	}
+}
+
 bool BlockchainPageChainEvents::eventFilter(QObject* obj, QEvent* event) {
 	if (event->type() == QEvent::KeyRelease) {
 		QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
@@ -394,28 +457,25 @@ void BlockchainPage::openBlock(const QModelIndex& mi) {
 	openBlock(mi.data(BlockchainModel::HashRole).value<uint256>());
 }
 
-void BlockchainPage::openBlock(QTreeWidgetItem* item, int) {
-	if (item->text(0) == "Next" || item->text(0) == "Previous") {
-		uint256 bhash(item->text(1).toStdString());
-		openBlock(bhash);
-	}
-}
-
 void BlockchainPage::openBlock(uint256 hash) {
 	currentBlock  = hash;
 	QString bhash = QString::fromStdString(currentBlock.ToString());
 
 	LOCK(cs_main);
-	if (mapBlockIndex.find(currentBlock) == mapBlockIndex.end())
-		return;
-	CBlockIndex* pblockindex = mapBlockIndex.ref(currentBlock);
-	if (!pblockindex)
-		return;
+	CBlockIndex* pblockindex = nullptr;
+	{
+		if (mapBlockIndex.find(currentBlock) == mapBlockIndex.end())
+			return;
+		pblockindex = mapBlockIndex.ref(currentBlock);
+		if (!pblockindex)
+			return;
+	}
 	showBlockPage();
 	if (ui->lineFindBlock->text() != bhash &&
 	    ui->lineFindBlock->text().toInt() != pblockindex->nHeight)
 		ui->lineFindBlock->clear();
 	ui->blockValues->clear();
+	ui->blockValues->header()->resizeSection(0 /*property*/, 260);
 	auto topItem =
 	    new QTreeWidgetItem(QStringList({"Height", QString::number(pblockindex->nHeight)}));
 	QVariant vhash;
@@ -427,14 +487,17 @@ void BlockchainPage::openBlock(uint256 hash) {
 	ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Hash", bhash})));
 	QString pbhash;
 	QString nbhash;
-	if (pblockindex->pprev) {
-		pbhash = QString::fromStdString(pblockindex->pprev->GetBlockHash().ToString());
+	if (pblockindex->Prev()) {
+		pbhash = QString::fromStdString(pblockindex->Prev()->GetBlockHash().ToString());
 	}
-	if (pblockindex->pnext) {
-		nbhash = QString::fromStdString(pblockindex->pnext->GetBlockHash().ToString());
+	if (pblockindex->Next()) {
+		nbhash = QString::fromStdString(pblockindex->Next()->GetBlockHash().ToString());
 	}
 	CBlock block;
 	block.ReadFromDisk(pblockindex, true);
+
+	int nPegInterval    = Params().PegInterval();
+	int nBridgeInterval = Params().BridgeInterval();
 
 	ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Next", nbhash})));
 	ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({"Previous", pbhash})));
@@ -444,10 +507,71 @@ void BlockchainPage::openBlock(uint256 hash) {
 	    {"Block Bits", QString::fromStdString(strprintf("%08x", pblockindex->nBits))})));
 	ui->blockValues->addTopLevelItem(new QTreeWidgetItem(
 	    QStringList({"Difficulty", QString::number(GetDifficulty(pblockindex))})));
+	ui->blockValues->addTopLevelItem(
+	    new QTreeWidgetItem(QStringList({"Supply", displayValue(pblockindex->nMoneySupply)})));
 	ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList(
 	    {"Block Trust", QString::fromStdString(pblockindex->GetBlockTrust().ToString())})));
 	ui->blockValues->addTopLevelItem(new QTreeWidgetItem(
 	    QStringList({"Chain Trust", QString::fromStdString(pblockindex->nChainTrust.ToString())})));
+	ui->blockValues->addTopLevelItem(new QTreeWidgetItem(
+	    QStringList({"Peg Cycle", QString::number(pblockindex->nHeight / nPegInterval)})));
+	ui->blockValues->addTopLevelItem(new QTreeWidgetItem(
+	    QStringList({"Bridge Cycle", QString::number(pblockindex->nHeight / nBridgeInterval)})));
+
+	if (pblockindex->nHeight % nPegInterval == 0) {
+		CPegDB                   pegdb("r");
+		map<string, CBridgeInfo> bridges;
+		pblockindex->ReadBridges(pegdb, bridges);
+
+		int idx = 0;
+		for (const auto& it : bridges) {
+			string      brname = it.first;
+			CBridgeInfo bdatas = it.second;
+			QString     bridx  = "br" + QString::number(idx) + "-" +
+			                QString::fromStdString(bdatas.hash.substr(0, 8));
+			QString bname = QString::fromStdString(brname);
+			ui->blockValues->addTopLevelItem(new QTreeWidgetItem(QStringList({bridx, bname})));
+			idx++;
+		}
+
+		if (pblockindex->nHeight % nBridgeInterval == 0) {
+			// all bridges over bridge interval
+			set<string> bridge_hashes;
+			uint256     bhash_bridge_cycle = pblockindex->GetBlockHash();
+			pegdb.ReadBridgeCycleBridgeHashes(bhash_bridge_cycle, bridge_hashes);
+
+			for (const string& brhash : bridge_hashes) {
+				set<string> txouts;
+				pegdb.ReadBridgeCycleBurnsToBridge(hash, brhash, txouts);
+
+				int idx = 0;
+				for (const string& txout : txouts) {
+					QString stx = "br-" + QString::fromStdString(brhash.substr(0, 8)) + "-txout" +
+					              QString::number(idx);
+					QString thash = QString::fromStdString(txout);
+					ui->blockValues->addTopLevelItem(
+					    new QTreeWidgetItem(QStringList({stx, thash})));
+					idx++;
+				}
+			}
+
+			for (const string& brhash : bridge_hashes) {
+				string merkle_data;
+				pegdb.ReadBridgeCycleMerkle(bhash_bridge_cycle, brhash, merkle_data);
+
+				string         merkle;
+				vector<string> args;
+				boost::split(args, merkle_data, boost::is_any_of(":"));
+				if (args.size() == 2) {
+					merkle = args[0];
+				}
+				QString qbrtxt  = "br-" + QString::fromStdString(brhash.substr(0, 8)) + "-merkle";
+				QString qmerkle = QString::fromStdString(merkle_data);
+				ui->blockValues->addTopLevelItem(
+				    new QTreeWidgetItem(QStringList({qbrtxt, qmerkle})));
+			}
+		}
+	}
 
 	int idx = 0;
 	for (const CTransaction& tx : block.vtx) {
@@ -731,19 +855,6 @@ void BlockchainPage::openTxFromInput() {
 	txDetails->openTx(blockhash, nTxNum);
 }
 
-void BlockchainPage::openTx(QTreeWidgetItem* item, int column) {
-	Q_UNUSED(column);
-	if (item->text(0).startsWith("tx")) {  // open from block page
-		bool tx_idx_ok = false;
-		uint tx_idx    = item->text(0).mid(2).toUInt(&tx_idx_ok);
-		if (!tx_idx_ok)
-			return;
-
-		showTxPage();
-		txDetails->openTx(currentBlock, tx_idx);
-	}
-}
-
 bool BlockchainPageTxEvents::eventFilter(QObject* obj, QEvent* event) {
 	if (event->type() == QEvent::KeyRelease) {
 		QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
@@ -782,21 +893,6 @@ void BlockchainPage::updateConnections(const CNodeShortStats& stats) {
 	}
 }
 
-static QString displayValue(int64_t nValue) {
-	QString sValue = QString::number(nValue);
-	if (sValue.length() < 8) {
-		sValue = sValue.rightJustified(8, QChar(' '));
-	}
-	sValue.insert(sValue.length() - 8, QChar('.'));
-	if (sValue.length() > (8 + 1 + 3))
-		sValue.insert(sValue.length() - 8 - 1 - 3, QChar(','));
-	if (sValue.length() > (8 + 1 + 3 + 1 + 3))
-		sValue.insert(sValue.length() - 8 - 1 - 3 - 1 - 3, QChar(','));
-	if (sValue.length() > (8 + 1 + 3 + 1 + 3 + 1 + 3))
-		sValue.insert(sValue.length() - 8 - 1 - 3 - 1 - 3 - 1 - 3, QChar(','));
-	return sValue;
-}
-
 static QString displayValueR(int64_t nValue, int len = 0) {
 	if (len == 0) {
 		len = 8 + 1 + 3 + 1 + 3 + 1 + 3 + 5;
@@ -816,6 +912,11 @@ static QString extractAddress(const CTxOut& txout) {
 			fromAddr = QString::fromStdString(CBitcoinAddress(addresses.front()).ToString());
 		} else if (addresses.size() > 1) {
 			fromAddr = QString("multisig").rightJustified(34);
+		}
+	} else {
+		CTxDestination address;
+		if (ExtractDestination(txout.scriptPubKey, address)) {
+			fromAddr = QString::fromStdString(CBitcoinAddress(address).ToString());
 		}
 	}
 	return fromAddr;
@@ -858,6 +959,11 @@ void BlockchainPage::updateMempool() {
 
 	{
 		LOCK(mempool.cs);
+		CPegDB                   pegdb("r");
+		map<string, CBridgeInfo> bridges;
+		if (pindexBest != nullptr) {
+			pindexBest->ReadBridges(pegdb, bridges);
+		}
 		for (uint256 newTxhash : insertTxhashes) {
 			if (!mempool.mapTx.count(newTxhash))
 				continue;
@@ -890,10 +996,8 @@ void BlockchainPage::updateMempool() {
 					nAlignInpHigh = text.length();
 			}
 
+			QStringList inps_text;
 			for (size_t i = 0; i < nVin; i++) {
-				QStringList inpcols;
-				inpcols << QString::fromStdString(tx.vin[i].prevout.ToString());
-
 				const COutPoint& prevout = tx.vin[i].prevout;
 				auto             fkey    = uint320(prevout.hash, prevout.n);
 
@@ -905,9 +1009,39 @@ void BlockchainPage::updateMempool() {
 				const CTxOut& txout    = mempool.mapPrevOuts.at(newTxhash).at(fkey);
 				QString       fromAddr = extractAddress(txout);
 
+				if (fromAddr.startsWith("EXT:")) {
+					QStringList args = fromAddr.split(":");
+					if (args.size() == 3) {
+						QString brhash = args[1];
+						if (bridges.count(brhash.toStdString())) {
+							CBridgeInfo info = bridges[brhash.toStdString()];
+							fromAddr         = QString::fromStdString(info.name) + ":" + args[2];
+						}
+					}
+				}
+
+				QString inp_text =
+				    fromAddr + " " + displayValueR(txout.nValue, nAlignInpHigh) + " --> ";
+				inps_text.push_back(inp_text);
+			}
+			// align inp_texts
+			int inp_texts_len = 0;
+			for (const QString& inp_text : inps_text) {
+				if (inp_text.length() > inp_texts_len)
+					inp_texts_len = inp_text.length();
+			}
+			QStringList inps_text_aligned;
+			for (QString inp_text : inps_text) {
+				if (inp_text.length() < inp_texts_len) {
+					inp_text = QString(" ").repeated(inp_texts_len - inp_text.length()) + inp_text;
+				}
+				inps_text_aligned.push_back(inp_text);
+			}
+			for (const QString& inp_text : inps_text_aligned) {
+				QStringList inpcols;
+				inpcols << inp_text;
 				auto inpitem = new QTreeWidgetItem(txitem, inpcols);
-				inpitem->setText(
-				    0, fromAddr + " " + displayValueR(txout.nValue, nAlignInpHigh) + " --> ");
+				Q_UNUSED(inpitem);
 			}
 
 			size_t nOuts  = 0;

@@ -17,72 +17,73 @@ class QTimer;
 QT_END_NAMESPACE
 
 /** Model for Bitcoin network client. */
-class ClientModel : public QObject {
-	Q_OBJECT
+class ClientModel : public QObject
+{
+    Q_OBJECT
 
 public:
-	explicit ClientModel(OptionsModel* optionsModel, QObject* parent = 0);
-	~ClientModel();
+    explicit ClientModel(OptionsModel *optionsModel, QObject *parent = 0);
+    ~ClientModel();
 
-	OptionsModel* getOptionsModel();
+    OptionsModel *getOptionsModel();
 
-	CNodeShortStats             getConnections() const;
-	int                         getNumConnections() const;
-	int                         getNumBlocks() const;
-	int                         getNumBlocksAtStartup();
-	int                         getPegSupplyIndex() const;
-	int                         getPegNextSupplyIndex() const;
-	int                         getPegNextNextSupplyIndex() const;
-	int                         getPegStartBlockNum() const;
-	boost::tuple<int, int, int> getPegVotes() const;
+    CNodeShortStats getConnections() const;
+    int getNumConnections() const;
+    int getNumBlocks() const;
+    int getNumBlocksAtStartup();
+    int getPegSupplyIndex() const;
+    int getPegNextSupplyIndex() const;
+    int getPegNextNextSupplyIndex() const;
+    int getPegStartBlockNum() const;
+    boost::tuple<int,int,int> getPegVotes() const;
 
-	quint64 getTotalBytesRecv() const;
-	quint64 getTotalBytesSent() const;
+    quint64 getTotalBytesRecv() const;
+    quint64 getTotalBytesSent() const;
 
-	QDateTime getLastBlockDate() const;
+    QDateTime getLastBlockDate() const;
 
-	//! Return true if client connected to testnet
-	bool isTestNet() const;
-	//! Return true if core is doing initial block download
-	bool inInitialBlockDownload() const;
-	//! Return true if core is importing blocks
-	bool isImporting() const;
-	//! Return warnings to be displayed in status bar
-	QString getStatusBarWarnings() const;
+    //! Return true if client connected to testnet
+    bool isTestNet() const;
+    //! Return true if core is doing initial block download
+    bool inInitialBlockDownload() const;
+    //! Return true if core is importing blocks
+    bool isImporting() const;
+    //! Return warnings to be displayed in status bar
+    QString getStatusBarWarnings() const;
 
-	QString formatFullVersion() const;
-	QString formatBuildDate() const;
-	bool    isReleaseVersion() const;
-	QString clientName() const;
-	QString formatClientStartupTime() const;
+    QString formatFullVersion() const;
+    QString formatBuildDate() const;
+    bool isReleaseVersion() const;
+    QString clientName() const;
+    QString formatClientStartupTime() const;
 
 private:
-	OptionsModel* optionsModel;
+    OptionsModel *optionsModel;
 
-	int cachedNumBlocks;
+    int cachedNumBlocks;
 
-	int numBlocksAtStartup;
+    int numBlocksAtStartup;
 
-	QTimer* pollTimer;
+    QTimer *pollTimer;
 
-	void subscribeToCoreSignals();
-	void unsubscribeFromCoreSignals();
+    void subscribeToCoreSignals();
+    void unsubscribeFromCoreSignals();
 
 signals:
-	void connectionsChanged(const CNodeShortStats&);
-	void numConnectionsChanged(int count);
-	void numBlocksChanged(int count);
-	void alertsChanged(const QString& warnings);
-	void bytesChanged(quint64 totalBytesIn, quint64 totalBytesOut);
+    void connectionsChanged(const CNodeShortStats &);
+    void numConnectionsChanged(int count);
+    void numBlocksChanged(int count);
+    void alertsChanged(const QString &warnings);
+    void bytesChanged(quint64 totalBytesIn, quint64 totalBytesOut);
 
-	//! Asynchronous message notification
-	void message(const QString& title, const QString& message, bool modal, unsigned int style);
+    //! Asynchronous message notification
+    void message(const QString &title, const QString &message, bool modal, uint32_t style);
 
 public slots:
-	void updateTimer();
-	void updateNumConnections(int numConnections);
-	void updateConnections(const CNodeShortStats&);
-	void updateAlert(const QString& hash, int status);
+    void updateTimer();
+    void updateNumConnections(int numConnections);
+    void updateConnections(const CNodeShortStats &);
+    void updateAlert(const QString &hash, int status);
 };
 
-#endif  // CLIENTMODEL_H
+#endif // CLIENTMODEL_H

@@ -1,0 +1,20 @@
+name: build-tests
+on: [push]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: run build
+        uses: addnab/docker-run-action@v3
+        with:
+        	image: bitbayofficial/builder-linux64:alpine
+            options: -v ${{ github.workspace }}:/mnt
+            run: |
+            	ls -al && pwd && gcc -v

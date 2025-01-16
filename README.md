@@ -1,42 +1,155 @@
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/1bac5bbdf2f64cfeb67092bef3e50d6f)](https://www.codacy.com/app/yshurik/bitbay-core?utm_source=github.com&utm_medium=referral&utm_content=bitbaymarket/bitbay-core&utm_campaign=badger)
-[![Build Status](https://travis-ci.org/bitbaymarket/bitbay-core.svg?branch=master)](https://travis-ci.org/bitbaymarket/bitbay-core)
-[![Build status](https://ci.appveyor.com/api/projects/status/qdy7pilwdtxehqhw?svg=true)](https://ci.appveyor.com/project/yshurik/bitbay-core)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/4555f42045b34caf8c22261d3fe3293f)](https://app.codacy.com/gh/bitbaymarket/bitbay-core/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![Open Source Love](https://badges.frapsoft.com/os/mit/mit.svg?v=102)](https://github.com/bitbaymarket/bitbay-core/blob/master/COPYING)
 
 
-BitBay development tree
-
-BitBay is a PoS-based cryptocurrency.
-
 BitBay
-===========================
+======
 
-BitBay is the world's first fully-functional decentralized marketplace. Using innovative technology, BitBay enables you to buy and sell goods and services securely and anonymously.
+The world's first decentralised currency designed for mass adoption
+With its unique system of adaptive supply control, BitBay is creating a reliable currency that is truly independent.
+The revolutionary 'Dynamic Peg' creates both a store of value and a medium of exchange.
 
-Development process
-===========================
+License
+-------
 
-Developers work in their own trees, then submit pull requests when
-they think their feature or bug fix is ready.
+BitBay is released under the terms of the MIT license. See [COPYING](COPYING) for more
+information or see https://opensource.org/licenses/MIT.
 
-The patch will be accepted if there is broad consensus that it is a
-good thing.  Developers should expect to rework and resubmit patches
-if they don't match the project's coding conventions (see coding.txt)
-or are controversial.
+Compilation
+-----------
 
-The master branch is regularly built and tested, but is not guaranteed
-to be completely stable. Tags are regularly created to indicate new
-stable release versions of BitBay.
+**Local**
 
-Feature branches are created when there are major new features being
-worked on by several people.
+Compiling *bitbayd* on unix host:
 
-From time to time a pull request will become outdated. If this occurs, and
-the pull is no longer automatically mergeable; a comment on the pull will
-be used to issue a warning of closure. The pull will be closed 15 days
-after the warning if action is not taken by the author. Pull requests closed
-in this manner will have their corresponding issue labeled 'stagnant'.
+```
+autoreconf --install --force
+./configure
+make
+```
 
-Issues with no commits will be given a similar warning, and closed after
-15 days from their last activity. Issues closed in this manner will be
-labeled 'stale'.
+**Using docker images of builders**
+
+1. Building Linux64 static binary of BitBay Qt Wallet:
+Ref builder image repo: [builder-linux64](https://https://github.com/bitbaymarket/builder-linux64)
+```sh
+#!/bin/sh
+set -x
+set -e
+rm -rf .qmake.stash
+rm -rf build bitbay-wallet-qt
+cd src
+git clean -f -d -x .
+cd ..
+docker pull bitbayofficial/builder-linux64:alpine
+rm -rf bitbay-qt-local.pri
+echo "CONFIG += silent" >> bitbay-qt-local.pri
+echo "LIBS += -static" > bitbay-qt-local.pri
+echo "DEFINES += CURL_STATICLIB" >> bitbay-qt-local.pri
+echo "DEFINES += SECP256K1_STATIC" >> bitbay-qt-local.pri
+echo "LIBS_CURL_DEPS += -lssh2 -lnghttp2" >> bitbay-qt-local.pri
+mkdir -p build
+/bin/sh share/genbuild.sh build/build.h
+docker run --rm \
+	-v $(pwd):/mnt \
+	-u $(stat -c %u:%g .) \
+	bitbayofficial/builder-linux64:alpine \
+	/bin/sh -c "qmake-qt5 -v && \
+		cd /mnt && \
+		ls -al && \
+		qmake-qt5 \
+		CICD=travis_x64 \
+		\"USE_TESTNET=0\" \
+		\"USE_DBUS=0\" \
+		\"USE_QRCODE=0\" \
+		\"BOOST_LIB_SUFFIX=-mt\" \
+		bitbay-qt.pro && \
+		sed -i 's/\/usr\/lib\/libssl.so/-lssl/' Makefile &&
+		sed -i 's/\/usr\/lib\/libcrypto.so/-lcrypto/' Makefile &&
+		sed -i s:sys/fcntl.h:fcntl.h: src/compat.h &&
+		make -j32";
+tar -zcf mainnet-qt-wallet-lin64.tgz  bitbay-wallet-qt
+```
+
+2. Building Linux64 static binary of bitbayd (without a wallet):
+Ref builder image repo: [builder-linux64](https://https://github.com/bitbaymarket/builder-linux64)
+```sh
+#!/bin/sh
+set -e
+set -x
+rm -rf .qmake.stash
+rm -rf build bitbayd
+cd src
+git clean -f -d -x .
+cd ..
+docker pull bitbayofficial/builder-linux64:alpine
+rm -rf bitbayd-local.pri
+echo "CONFIG += silent" >> bitbayd-local.pri
+echo "LIBS += -static" > bitbayd-local.pri
+echo "DEFINES += CURL_STATICLIB" >> bitbayd-local.pri
+echo "DEFINES += SECP256K1_STATIC" >> bitbayd-local.pri
+echo "LIBS_CURL_DEPS += -lssh2 -lnghttp2" >> bitbayd-local.pri
+mkdir -p build
+/bin/sh share/genbuild.sh build/build.h
+docker run --rm \
+	-v $(pwd):/mnt \
+	-u $(stat -c %u:%g .) \
+	bitbayofficial/builder-linux64:alpine \
+	/bin/sh -c "qmake-qt5 -v && \
+		cd /mnt && \
+		ls -al && \
+		qmake-qt5 \
+		CICD=travis_x64 \
+		\"USE_DBUS=0\" \
+		\"USE_QRCODE=0\" \
+		\"USE_WALLET=0\" \
+		\"USE_TESTNET=0\" \
+		\"BOOST_LIB_SUFFIX=-mt\" \
+		bitbayd.pro && \
+		sed -i 's/\/usr\/lib\/libssl.so/-lssl/' Makefile &&
+		sed -i 's/\/usr\/lib\/libcrypto.so/-lcrypto/' Makefile &&
+		sed -i s:sys/fcntl.h:fcntl.h: src/compat.h &&
+		make -j32"
+```
+
+3. Building Windows64 static binary of BitBay Qt Wallet:
+Ref builder image repo: [builder-windows64](https://https://github.com/bitbaymarket/builder-windows64)
+```sh
+#!/bin/sh
+set -x
+set -e
+rm -rf .qmake.stash
+rm -rf build bitbay-wallet-qt.exe
+cd src
+git clean -f -d -x .
+cd ..
+docker pull bitbayofficial/builder-windows64:qt
+rm -rf bitbay-qt-local.pri
+echo "CONFIG += silent" >> bitbay-qt-local.pri
+echo "DEFINES += CURL_STATICLIB" >> bitbay-qt-local.pri
+echo "DEFINES += SECP256K1_STATIC" >> bitbay-qt-local.pri
+echo "LIBS_CURL_DEPS += -lidn2 -lunistring -liconv -lcharset -lssh2 -lssh2 -lz -lgcrypt -lgpg-error -lintl -liconv -lws2_32 -lnettle -lgnutls -lhogweed -lnettle -lidn2 -lz -lws2_32 -lcrypt32 -lgmp -lunistring -liconv -lcharset -lwldap32 -lz -lws2_32 -lpthread" >> bitbay-qt-local.pri
+mkdir -p build
+/bin/sh share/genbuild.sh build/build.h
+docker run --rm \
+	-v $(pwd):/mnt \
+	-u $(stat -c %u:%g .) \
+	bitbayofficial/builder-windows64:qt \
+	/bin/bash -c "cd /mnt && qmake -v && \
+		qmake \
+		CICD=travis_x64 \
+		QMAKE_LRELEASE=lrelease \
+		\"USE_TESTNET=0\" \
+		\"USE_QRCODE=1\" \
+		bitbay-qt.pro && \
+		mv Makefile.Release Makefile.tmp && ( \
+		cat Makefile.tmp | \
+		sed -e 's/bin.lrelease\.exe/bin\/lrelease/m' | \
+		sed -e 's/boost_thread-mt/boost_thread_win32-mt/m' > Makefile.Release \
+		) && \
+		make -j32";
+mv release/bitbay-wallet-qt.exe .           &&
+file bitbay-wallet-qt.exe                   &&
+zip mainnet-qt-wallet-win64.zip bitbay-wallet-qt.exe;
+```
+

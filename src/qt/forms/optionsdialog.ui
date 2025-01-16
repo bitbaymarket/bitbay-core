@@ -23,7 +23,7 @@
       <enum>QTabWidget::North</enum>
      </property>
      <property name="currentIndex">
-      <number>0</number>
+      <number>4</number>
      </property>
      <widget class="QWidget" name="tabMain">
       <attribute name="title">
@@ -380,6 +380,13 @@
         </layout>
        </item>
        <item>
+        <widget class="QCheckBox" name="displayNotifications">
+         <property name="text">
+          <string>Display desktop notifications</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QCheckBox" name="coinControlFeatures">
          <property name="toolTip">
           <string>Whether to show coin control features or not.</string>
@@ -501,6 +508,26 @@
    <header>qvaluecombobox.h</header>
   </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>transactionFee</tabstop>
+  <tabstop>reserveBalance</tabstop>
+  <tabstop>bitcoinAtStartup</tabstop>
+  <tabstop>mapPortUpnp</tabstop>
+  <tabstop>connectSocks</tabstop>
+  <tabstop>proxyIp</tabstop>
+  <tabstop>proxyPort</tabstop>
+  <tabstop>prunePegInfo</tabstop>
+  <tabstop>minimizeToTray</tabstop>
+  <tabstop>minimizeOnClose</tabstop>
+  <tabstop>lang</tabstop>
+  <tabstop>unit</tabstop>
+  <tabstop>displayNotifications</tabstop>
+  <tabstop>coinControlFeatures</tabstop>
+  <tabstop>okButton</tabstop>
+  <tabstop>cancelButton</tabstop>
+  <tabstop>applyButton</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

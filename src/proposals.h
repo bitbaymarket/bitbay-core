@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 #include "chainparams.h"
-#include "json_spirit_value.h"
+#include "json/json_spirit_value.h"
 
 json_spirit::Object ProposalToJson(std::vector<std::string>                        datas,
 								   std::set<std::string>                           sTrustedStakers1,

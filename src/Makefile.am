@@ -10,10 +10,20 @@ BITCOIN_INCLUDES += -I$(srcdir)
 BITCOIN_INCLUDES += -I$(srcdir)/peg
 BITCOIN_INCLUDES += -I$(srcdir)/rpc
 BITCOIN_INCLUDES += -I$(srcdir)/wallet
+BITCOIN_INCLUDES += -I$(srcdir)/libethc/include
+BITCOIN_INCLUDES += -I$(srcdir)/libethc/mini-gmp
+BITCOIN_INCLUDES += -I$(srcdir)/libethc/libkeccak
+BITCOIN_INCLUDES += -I$(srcdir)/libethc/secp256k1/include
 BITCOIN_INCLUDES += -I$(srcdir)/leveldb/helpers
 
 DEFS += -DENABLE_WALLET
 DEFS += -DENABLE_EXCHANGE
+
+DEFS += -DXKCP_has_Sponge_Keccak
+DEFS += -DXKCP_has_FIPS202
+DEFS += -DXKCP_has_KeccakP1600
+
+DEFS += -DENABLE_MODULE_RECOVERY
 
 LIBBITCOIN_SERVER=libbitcoin_server.a
 
@@ -100,6 +110,7 @@ libbitcoin_server_a_SOURCES = \
   key.cpp \
   init.cpp \
   bitcoind.cpp \
+  blockindexmap.cpp \
   keystore.cpp \
   core.cpp \
   main.cpp \
@@ -112,6 +123,8 @@ libbitcoin_server_a_SOURCES = \
   rpc/rpcnet.cpp \
   rpc/rpcblockchain.cpp \
   rpc/rpcrawtransaction.cpp \
+  rpc/rpcbridges.cpp \
+  rpc/rpcproposals.cpp \
   timedata.cpp \
   script.cpp \
   sync.cpp \
@@ -125,6 +138,7 @@ libbitcoin_server_a_SOURCES = \
   crypto/pbkdf2.cpp \
   crypto/scrypt.cpp \
   chainparams.cpp \
+  proposals.cpp \
   wallet/db.cpp \
   wallet/miner.cpp \
   wallet/rpcdump.cpp \
@@ -132,9 +146,9 @@ libbitcoin_server_a_SOURCES = \
   wallet/rpcwallet.cpp \
   wallet/wallet.cpp \
   wallet/walletdb.cpp \
+  wallet/rpcmyproposals.cpp \
   peg/peg.cpp \
   peg/pegstd.cpp \
-  peg/peg_compat.cpp \
   peg/pegdata.cpp \
   peg/pegdata_compat.cpp \
   peg/pegdb-leveldb.cpp \
@@ -142,11 +156,27 @@ libbitcoin_server_a_SOURCES = \
   peg/peglevel.cpp \
   peg/pegops.cpp \
   peg/pegopsp.cpp \
+  peg/peg_bridge.cpp \
   exchange/rpcdeposit.cpp \
   exchange/rpcexchange.cpp \
   exchange/rpcexchange_util.cpp \
   exchange/rpcfaucet.cpp \
   exchange/rpcwithdraw.cpp \
+  libethc/src/abi.c \
+  libethc/src/account.c \
+  libethc/src/address.c \
+  libethc/src/ecdsa.c \
+  libethc/src/hex.c \
+  libethc/src/internals.c \
+  libethc/src/keccak256.c \
+  libethc/src/rlp.c \
+  libethc/libkeccak/KeccakHash.c \
+  libethc/libkeccak/KeccakP-1600-compact64.c \
+  libethc/libkeccak/KeccakSponge.c \
+  libethc/secp256k1/src/precomputed_ecmult_gen.c \
+  libethc/secp256k1/src/precomputed_ecmult.c \
+  libethc/secp256k1/src/secp256k1.c \
+  libethc/mini-gmp/mini-gmp.c \
   $(BITCOIN_CORE_H)
 
 if GLIBC_BACK_COMPAT

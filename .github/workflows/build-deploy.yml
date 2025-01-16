@@ -14,7 +14,7 @@ jobs:
       - name: run build
         uses: addnab/docker-run-action@v3
         with:
-        	image: bitbayofficial/builder-linux64:alpine
+            image: bitbayofficial/builder-linux64:alpine
             options: -v ${{ github.workspace }}:/mnt
             run: |
             	ls -al && pwd && gcc -v

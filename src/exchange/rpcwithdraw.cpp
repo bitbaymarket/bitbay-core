@@ -303,9 +303,10 @@ static void computeTxPegForNextCycle(const CTransaction&       rawTx,
 		pegdb.ReadFractions(fkey, fractions);
 	}
 
+	set<uint32_t> sTimeLockPassInputs;
 	bool peg_ok = CalculateStandardFractions(rawTx, peglevel_net.nSupplyNext, pindexBest->nTime,
-	                                         mapInputs, mapInputsFractions, mapOutputFractions,
-	                                         feesFractions, sPegFailCause);
+	                                         mapInputs, mapInputsFractions, sTimeLockPassInputs,
+	                                         mapOutputFractions, feesFractions, sPegFailCause);
 	if (!peg_ok) {
 		throw JSONRPCError(
 		    RPC_MISC_ERROR,

@@ -17,4 +17,4 @@ jobs:
             image: bitbayofficial/builder-linux64:alpine
             options: -v ${{ github.workspace }}:/mnt
             run: |
-            	ls -al && pwd && gcc -v
+                ls -al && pwd && gcc -v

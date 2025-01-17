@@ -17,6 +17,7 @@ jobs:
             image: bitbayofficial/builder-linux64:alpine
             options: -v ${{ github.workspace }}:/mnt
             run: |
+                cd /mnt
                 ls -al && pwd && gcc -v
                 rm -rf bitbay-qt-local.pri
                 echo "CONFIG += silent" >> bitbay-qt-local.pri

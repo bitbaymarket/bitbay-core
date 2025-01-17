@@ -1,18 +1,13 @@
 TEMPLATE = app
 TARGET = bitbay-test
-VERSION = 3.0.0
+VERSION = 4.0.0
 
 exists(bitbay-qt-local.pri) {
     include(bitbay-qt-local.pri)
 }
 
-count(USE_WALLET, 0) {
-    USE_WALLET=1
-}
-contains(USE_WALLET, 1) {
-    message(Building with WALLET support)
-    CONFIG += wallet
-}
+message(Building with WALLET support)
+CONFIG += wallet
 
 count(USE_TESTNET, 1) {
     contains(USE_TESTNET, 1) {
@@ -212,16 +207,4 @@ DISTFILES += \
     src/makefile.unix \
     .travis.yml \
     .appveyor.yml
-
-LIBS += -lcurl
-
-windows {
-        count(CICD, 1) {
-                DEFINES += CURL_STATICLIB
-                DEFINES += SECP256K1_STATIC
-                #LIBS += -lpthread -lssh2 -lgcrypt -lgpg-error -lgnutls -lidn2 -lldap -lnettle
-                LIBS += -lidn2 -lunistring -liconv -lcharset -lssh2 -lssh2 -lz -lgcrypt -lgpg-error -lintl -liconv -lws2_32 -lnettle -lgnutls -lhogweed -lnettle -lidn2 -lz -lws2_32 -lcrypt32 -lgmp -lunistring -liconv -lcharset -lwldap32 -lz -lws2_32 -lpthread
-        }
-}
-
 

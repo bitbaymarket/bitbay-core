@@ -18,3 +18,19 @@ jobs:
             options: -v ${{ github.workspace }}:/mnt
             run: |
                 ls -al && pwd && gcc -v
+                /bin/sh -c "qmake-qt5 -v && \
+                  cd /mnt && \
+                  ls -al && \
+                  qmake-qt5 \
+                    CICD=travis_x64 \
+                    \"USE_DBUS=0\" \
+                    \"USE_QRCODE=0\" \
+                    \"USE_WALLET=0\" \
+                    \"USE_TESTNET=1\" \
+                    \"BOOST_LIB_SUFFIX=-mt\" \
+                    bitbay-test.pro && \
+                  sed -i 's/\/usr\/lib\/libssl.so/-lssl/' Makefile && \
+                  sed -i 's/\/usr\/lib\/libcrypto.so/-lcrypto/' Makefile && \
+                  sed -i s:sys/fcntl.h:fcntl.h: src/compat.h && \
+                  make -j4"
+

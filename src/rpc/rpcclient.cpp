@@ -106,6 +106,8 @@ static const CRPCConvertParam vRPCConvertParams[] = {
     {"stop", 0},
     {"getaddednodeinfo", 0},
     {"sendtoaddress", 1},
+    {"sendliquid", 1},
+    {"sendreserve", 1},
     {"settxfee", 0},
     {"getreceivedbyaddress", 1},
     {"getreceivedbyaccount", 1},
@@ -154,11 +156,11 @@ static const CRPCConvertParam vRPCConvertParams[] = {
     {"listfrozen", 1},
     {"listfrozen", 2},
     {"listfrozen", 3},
-	{"liststaked", 0},
-	{"liststaked", 1},
-	{"liststaked", 2},
-	{"liststaked", 3},
-	{"listdeposits", 0},
+    {"liststaked", 0},
+    {"liststaked", 1},
+    {"liststaked", 2},
+    {"liststaked", 3},
+    {"listdeposits", 0},
     {"listdeposits", 1},
     {"listdeposits", 2},
     {"balance", 1},
@@ -191,14 +193,14 @@ static const CRPCConvertParam vRPCConvertParams[] = {
     {"preparereservewithdraw", 3},
     {"validaterawtransaction", 1},
     {"validaterawtransaction", 2},
-	{"merklesin", 0},
-	{"merklesout", 0},
+    {"merklesin", 0},
+    {"merklesout", 0},
 };
 
 static const CRPCConvertParam vRPCMixedParams[] = {
     {"listunspent", 0},
     {"listfrozen", 0},
-	{"liststaked", 0},
+    {"liststaked", 0},
 };
 
 class CRPCConvertTable {

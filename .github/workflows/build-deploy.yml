@@ -18,6 +18,12 @@ jobs:
             options: -v ${{ github.workspace }}:/mnt
             run: |
                 ls -al && pwd && gcc -v
+                rm -rf bitbay-qt-local.pri
+                echo "CONFIG += silent" >> bitbay-qt-local.pri
+                echo "LIBS += -static" >> bitbay-qt-local.pri
+                echo "DEFINES += CURL_STATICLIB" >> bitbay-qt-local.pri
+                echo "DEFINES += SECP256K1_STATIC" >> bitbay-qt-local.pri
+                echo "LIBS_CURL_DEPS += -lssh2 -lnghttp2" >> bitbay-qt-local.pri
                 /bin/sh -c "qmake-qt5 -v && \
                   cd /mnt && \
                   ls -al && \
@@ -25,7 +31,7 @@ jobs:
                     CICD=travis_x64 \
                     \"USE_DBUS=0\" \
                     \"USE_QRCODE=0\" \
-                    \"USE_WALLET=0\" \
+                    \"USE_WALLET=1\" \
                     \"USE_TESTNET=1\" \
                     \"BOOST_LIB_SUFFIX=-mt\" \
                     bitbay-test.pro && \
@@ -33,4 +39,5 @@ jobs:
                   sed -i 's/\/usr\/lib\/libcrypto.so/-lcrypto/' Makefile && \
                   sed -i s:sys/fcntl.h:fcntl.h: src/compat.h && \
                   make -j4"
+                ./bitbay-test
 

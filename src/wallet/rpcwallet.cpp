@@ -291,6 +291,78 @@ Value sendtoaddress(const Array& params, bool fHelp) {
 	return wtx.GetHash().GetHex();
 }
 
+Value sendliquid(const Array& params, bool fHelp) {
+	if (fHelp || params.size() != 2)
+		throw runtime_error(
+		    "sendliquid <address> <amount>\n"
+		    "<amount> is a real and is rounded to the nearest 0.000001" +
+		    HelpRequiringPassphrase());
+
+	CBitcoinAddress address(params[0].get_str());
+	if (!address.IsValid())
+		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid BitBay address");
+
+	// Amount
+	int64_t nAmount = AmountFromValue(params[1]);
+
+	CWalletTx wtx;
+	PegTxType txType = PEG_MAKETX_SEND_LIQUIDITY;
+
+	vector<pair<CScript, int64_t> > vecSend;
+	CScript                         scriptPubKey;
+	scriptPubKey.SetDestination(address.Get());
+	vecSend.push_back(make_pair(scriptPubKey, nAmount));
+
+	int64_t nFeeRequired = 0;
+	string  sFailCause;
+	bool    fCreated = pwalletMain->CreateTransaction(txType, vecSend, wtx, nFeeRequired, nullptr,
+	                                                  false /*fTest*/, sFailCause);
+	if (!fCreated)
+		throw JSONRPCError(RPC_WALLET_ERROR, sFailCause);
+
+	bool fCommitted = pwalletMain->CommitTransaction(wtx);
+	if (!fCommitted)
+		throw JSONRPCError(RPC_WALLET_ERROR, "Commit transaction fail");
+
+	return wtx.GetHash().GetHex();
+}
+
+Value sendreserve(const Array& params, bool fHelp) {
+	if (fHelp || params.size() != 2)
+		throw runtime_error(
+		    "sendreserve <address> <amount>\n"
+		    "<amount> is a real and is rounded to the nearest 0.000001" +
+		    HelpRequiringPassphrase());
+
+	CBitcoinAddress address(params[0].get_str());
+	if (!address.IsValid())
+		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid BitBay address");
+
+	// Amount
+	int64_t nAmount = AmountFromValue(params[1]);
+
+	CWalletTx wtx;
+	PegTxType txType = PEG_MAKETX_SEND_RESERVE;
+
+	vector<pair<CScript, int64_t> > vecSend;
+	CScript                         scriptPubKey;
+	scriptPubKey.SetDestination(address.Get());
+	vecSend.push_back(make_pair(scriptPubKey, nAmount));
+
+	int64_t nFeeRequired = 0;
+	string  sFailCause;
+	bool    fCreated = pwalletMain->CreateTransaction(txType, vecSend, wtx, nFeeRequired, nullptr,
+	                                                  false /*fTest*/, sFailCause);
+	if (!fCreated)
+		throw JSONRPCError(RPC_WALLET_ERROR, sFailCause);
+
+	bool fCommitted = pwalletMain->CommitTransaction(wtx);
+	if (!fCommitted)
+		throw JSONRPCError(RPC_WALLET_ERROR, "Commit transaction fail");
+
+	return wtx.GetHash().GetHex();
+}
+
 Value listaddressgroupings(const Array& params, bool fHelp) {
 	if (fHelp)
 		throw runtime_error(

@@ -25,7 +25,7 @@ enum {
 	PEG_DB_CHECK1            = 1,  // testnet: update1 for votes calculation
 	PEG_DB_CHECK2            = 2,  // testnet: update2 for stake liquidity calculation
 	PEG_DB_CHECK_ON_FORK     = 36,
-	PEG_DB_CHECK_BRIDGE1     = 64,
+	PEG_DB_CHECK_BRIDGE1     = 65,
 	PEG_PRUNE_INTERVAL       = 10000
 };
 

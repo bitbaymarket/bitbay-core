@@ -1263,6 +1263,7 @@ public:
 	bool ReadMerklesIn(CPegDB& pegdb, int limit, std::vector<CMerkleInfo>& merkles) const;
 	CMerkleInfo ReadMerkleIn(CPegDB& pegdb, std::string hash) const;
 	bool        ReadTimeLockPasses(CPegDB& pegdb, std::set<string>& pubkeys) const;
+	bool        ReadBridgesPause(CPegDB& pegdb, bool& pause) const;
 };
 
 /** Used to marshal pointers into hashes for db storage. */

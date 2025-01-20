@@ -139,38 +139,45 @@ bool ConnectConsensusStates(CPegDB& pegdb, CBlockIndex* pindex) {
 	// read previous cycle
 	uint256 data_hash1;
 	if (!pegdb.ReadCycleStateHash(bhash_old_cycle, CChainParams::ACCEPTED_TSTAKERS1, data_hash1))
-		return false;
+		return error("ReadCycleStateHash() : ACCEPTED_TSTAKERS1 failed");
 	uint256 data_hash2;
 	if (!pegdb.ReadCycleStateHash(bhash_old_cycle, CChainParams::ACCEPTED_TSTAKERS2, data_hash2))
-		return false;
+		return error("ReadCycleStateHash() : ACCEPTED_TSTAKERS2 failed");
 	uint256 data_hash3;
 	if (!pegdb.ReadCycleStateHash(bhash_old_cycle, CChainParams::ACCEPTED_CONSENSUS, data_hash3))
-		return false;
+		return error("ReadCycleStateHash() : ACCEPTED_CONSENSUS failed");
 	uint256 data_hash4;
 	if (!pegdb.ReadCycleStateHash(bhash_old_cycle, CChainParams::ACCEPTED_BRIDGES, data_hash4))
-		return false;
+		return error("ReadCycleStateHash() : ACCEPTED_BRIDGES failed");
 	uint256 data_hash5;
 	if (!pegdb.ReadCycleStateHash(bhash_old_cycle, CChainParams::ACCEPTED_MERKLES, data_hash5))
-		return false;
+		return error("ReadCycleStateHash() : ACCEPTED_MERKLES failed");
 	uint256 data_hash6;
 	if (!pegdb.ReadCycleStateHash(bhash_old_cycle, CChainParams::ACCEPTED_TIMELOCKPASSES,
-								  data_hash6))
-		return false;
+	                              data_hash6))
+		return error("ReadCycleStateHash() : ACCEPTED_TIMELOCKPASSES failed");
+	uint256 data_hash7;
+	if (!pegdb.ReadCycleStateHash(bhash_old_cycle, CChainParams::ACCEPTED_BRIDGES_PAUSE,
+	                              data_hash7))
+		return error("ReadCycleStateHash() : ACCEPTED_BRIDGES_PAUSE failed");
 
 	// write for current cycle
 	if (!pegdb.WriteCycleStateHash(bhash_new_cycle, CChainParams::ACCEPTED_TSTAKERS1, data_hash1))
-		return false;
+		return error("WriteCycleStateHash() : ACCEPTED_TSTAKERS1 failed");
 	if (!pegdb.WriteCycleStateHash(bhash_new_cycle, CChainParams::ACCEPTED_TSTAKERS2, data_hash2))
-		return false;
+		return error("WriteCycleStateHash() : ACCEPTED_TSTAKERS2 failed");
 	if (!pegdb.WriteCycleStateHash(bhash_new_cycle, CChainParams::ACCEPTED_CONSENSUS, data_hash3))
-		return false;
+		return error("WriteCycleStateHash() : ACCEPTED_CONSENSUS failed");
 	if (!pegdb.WriteCycleStateHash(bhash_new_cycle, CChainParams::ACCEPTED_BRIDGES, data_hash4))
-		return false;
+		return error("WriteCycleStateHash() : ACCEPTED_BRIDGES failed");
 	if (!pegdb.WriteCycleStateHash(bhash_new_cycle, CChainParams::ACCEPTED_MERKLES, data_hash5))
-		return false;
+		return error("WriteCycleStateHash() : ACCEPTED_MERKLES failed");
 	if (!pegdb.WriteCycleStateHash(bhash_new_cycle, CChainParams::ACCEPTED_TIMELOCKPASSES,
-								   data_hash6))
-		return false;
+	                               data_hash6))
+		return error("WriteCycleStateHash() : ACCEPTED_TIMELOCKPASSES failed");
+	if (!pegdb.WriteCycleStateHash(bhash_new_cycle, CChainParams::ACCEPTED_BRIDGES_PAUSE,
+	                               data_hash7))
+		return error("WriteCycleStateHash() : ACCEPTED_BRIDGES_PAUSE failed");
 
 	// back to 3 intervals
 	auto votes_cycle_block = pindex;
@@ -189,19 +196,19 @@ bool ConnectConsensusStates(CPegDB& pegdb, CBlockIndex* pindex) {
 		// reread consensus if changes in prev proposal
 		std::map<int, CChainParams::ConsensusVotes> consensus;
 		if (!pindex->ReadConsensusMap(pegdb, consensus))
-			return false;
+			return error("ReadConsensusMap() : failed");
 		// onbehalf voters
 		std::set<string> onbehalf_voted;
 		// reread tstakers1
 		std::set<string> tstakers1_voted;
 		std::set<string> tstakers1;
 		if (!pindex->ReadTrustedStakers1(pegdb, tstakers1))
-			return false;
+			return error("ReadTrustedStakers1() : failed");
 		// reread tstakers2
 		std::set<string> tstakers2_voted;
 		std::set<string> tstakers2;
 		if (!pindex->ReadTrustedStakers2(pegdb, tstakers2))
-			return false;
+			return error("ReadTrustedStakers2() : failed");
 
 		// proposal details
 		vector<string> pdatas;
@@ -271,7 +278,7 @@ bool ConnectConsensusStates(CPegDB& pegdb, CBlockIndex* pindex) {
 			// final check to accept
 			// check pro_votes vs need_votes
 			if (CChainParams::isAccepted(pro_votes, need_votes1) &&
-				CChainParams::isAccepted(pro_votes, need_votes2)) {
+			    CChainParams::isAccepted(pro_votes, need_votes2)) {
 				string scope;
 				if (pdatas.size() > 0) {
 					scope = pdatas[0];
@@ -285,26 +292,26 @@ bool ConnectConsensusStates(CPegDB& pegdb, CBlockIndex* pindex) {
 						if (action == "add") {
 							std::set<string> tstakers1;
 							if (!pindex->ReadTrustedStakers1(pegdb, tstakers1))
-								return false;
+								return error("tstakers1 add ReadTrustedStakers1() : failed");
 							uint256 shash;
 							tstakers1.insert(address);
 							if (!pegdb.WriteCycleStateData1(tstakers1, shash))
-								return false;
+								return error("tstakers1 add WriteCycleStateData1() : failed");
 							if (!pegdb.WriteCycleStateHash(bhash_new_cycle,
-														   CChainParams::ACCEPTED_TSTAKERS1, shash))
-								return false;
+							                               CChainParams::ACCEPTED_TSTAKERS1, shash))
+								return error("tstakers1 add WriteCycleStateHash() : failed");
 						}
 						if (action == "remove") {
 							std::set<string> tstakers1;
 							if (!pindex->ReadTrustedStakers1(pegdb, tstakers1))
-								return false;
+								return error("tstakers1 remove ReadTrustedStakers1() : failed");
 							uint256 shash;
 							tstakers1.erase(address);
 							if (!pegdb.WriteCycleStateData1(tstakers1, shash))
-								return false;
+								return error("tstakers1 remove WriteCycleStateData1() : failed");
 							if (!pegdb.WriteCycleStateHash(bhash_new_cycle,
-														   CChainParams::ACCEPTED_TSTAKERS1, shash))
-								return false;
+							                               CChainParams::ACCEPTED_TSTAKERS1, shash))
+								return error("tstakers1 remove WriteCycleStateHash() : failed");
 						}
 					}
 				} else if (scope == "tstakers2") {
@@ -316,26 +323,26 @@ bool ConnectConsensusStates(CPegDB& pegdb, CBlockIndex* pindex) {
 						if (action == "add") {
 							std::set<string> tstakers2;
 							if (!pindex->ReadTrustedStakers2(pegdb, tstakers2))
-								return false;
+								return error("tstakers2 add ReadTrustedStakers2() : failed");
 							uint256 shash;
 							tstakers2.insert(address);
 							if (!pegdb.WriteCycleStateData1(tstakers2, shash))
-								return false;
+								return error("tstakers2 add WriteCycleStateData1() : failed");
 							if (!pegdb.WriteCycleStateHash(bhash_new_cycle,
-														   CChainParams::ACCEPTED_TSTAKERS2, shash))
-								return false;
+							                               CChainParams::ACCEPTED_TSTAKERS2, shash))
+								return error("tstakers2 add WriteCycleStateHash() : failed");
 						}
 						if (action == "remove") {
 							std::set<string> tstakers2;
 							if (!pindex->ReadTrustedStakers2(pegdb, tstakers2))
-								return false;
+								return error("tstakers2 remove ReadTrustedStakers2() : failed");
 							uint256 shash;
 							tstakers2.erase(address);
 							if (!pegdb.WriteCycleStateData1(tstakers2, shash))
-								return false;
+								return error("tstakers2 remove WriteCycleStateData1() : failed");
 							if (!pegdb.WriteCycleStateHash(bhash_new_cycle,
-														   CChainParams::ACCEPTED_TSTAKERS2, shash))
-								return false;
+							                               CChainParams::ACCEPTED_TSTAKERS2, shash))
+								return error("tstakers2 remove WriteCycleStateHash() : failed");
 						}
 					}
 				}
@@ -348,11 +355,9 @@ bool ConnectConsensusStates(CPegDB& pegdb, CBlockIndex* pindex) {
 						int                          t2_votes       = std::atoi(pdatas[4].c_str());
 						int                          o_votes        = std::atoi(pdatas[5].c_str());
 						CChainParams::ConsensusVotes cvotes{t1_votes, t2_votes, o_votes};
-
 						std::map<int, CChainParams::ConsensusVotes> updated_consensus;
 						if (!pindex->ReadConsensusMap(pegdb, updated_consensus))
-							return false;
-
+							return error("consensus ReadConsensusMap() : failed");
 						if (consensus_type == "tstakers") {
 							updated_consensus[CChainParams::CONSENSUS_TSTAKERS] = cvotes;
 						} else if (consensus_type == "consensus") {
@@ -364,13 +369,12 @@ bool ConnectConsensusStates(CPegDB& pegdb, CBlockIndex* pindex) {
 						} else if (consensus_type == "timelockpass") {
 							updated_consensus[CChainParams::CONSENSUS_TIMELOCKPASS] = cvotes;
 						}
-
 						uint256 shash;
 						if (!pegdb.WriteCycleStateData2(updated_consensus, shash))
-							return false;
+							return error("consensus WriteCycleStateData2() : failed");
 						if (!pegdb.WriteCycleStateHash(bhash_new_cycle,
-													   CChainParams::ACCEPTED_CONSENSUS, shash))
-							return false;
+						                               CChainParams::ACCEPTED_CONSENSUS, shash))
+							return error("consensus WriteCycleStateHash() : failed");
 					}
 				}
 
@@ -400,14 +404,14 @@ bool ConnectConsensusStates(CPegDB& pegdb, CBlockIndex* pindex) {
 
 							map<string, vector<string>> bridges;
 							if (!pindex->ReadBridgesMap(pegdb, bridges))
-								return false;
+								return error("bridge add ReadBridgesMap() : failed");
 							uint256 shash;
 							bridges[name] = bdata;
 							if (!pegdb.WriteCycleStateData3(bridges, shash))
-								return false;
+								return error("bridge add WriteCycleStateData3() : failed");
 							if (!pegdb.WriteCycleStateHash(bhash_new_cycle,
-														   CChainParams::ACCEPTED_BRIDGES, shash))
-								return false;
+							                               CChainParams::ACCEPTED_BRIDGES, shash))
+								return error("bridge add WriteCycleStateHash() : failed");
 						}
 					}
 				}
@@ -426,14 +430,14 @@ bool ConnectConsensusStates(CPegDB& pegdb, CBlockIndex* pindex) {
 
 							map<string, vector<string>> bridges;
 							if (!pindex->ReadBridgesMap(pegdb, bridges))
-								return false;
+								return error("bridge remove ReadBridgesMap() : failed");
 							uint256 shash;
 							bridges.erase(name);
 							if (!pegdb.WriteCycleStateData3(bridges, shash))
-								return false;
+								return error("bridge remove WriteCycleStateData3() : failed");
 							if (!pegdb.WriteCycleStateHash(bhash_new_cycle,
-														   CChainParams::ACCEPTED_BRIDGES, shash))
-								return false;
+							                               CChainParams::ACCEPTED_BRIDGES, shash))
+								return error("bridge remove WriteCycleStateHash() : failed");
 						}
 					}
 				}
@@ -449,30 +453,50 @@ bool ConnectConsensusStates(CPegDB& pegdb, CBlockIndex* pindex) {
 							string merkle     = pdatas[4];
 							string amount_txt = pdatas[5];
 
-							CMerkleInfo merkle_info;
-							merkle_info.hash   = merkle;
-							merkle_info.bridge = brname;
-							{
-								CDataStream ss(SER_GETHASH, 0);
-								ss << merkle_info.bridge;
-								merkle_info.brhash = Hash(ss.begin(), ss.end()).GetHex();
-							}
-							merkle_info.amount = strtoll(amount_txt.c_str(), 0, 0);
-							merkle_info.ntime  = pindex->nHeight;
-
-							CMerkleInfo merkle_check = pindex->ReadMerkleIn(pegdb, merkle);
-							if (merkle_check.hash.empty()) {
-								uint256 map_end;
-								pegdb.ReadCycleStateHash(bhash_new_cycle,
-														 CChainParams::ACCEPTED_MERKLES, map_end);
-								uint256 shash;
-								if (!pegdb.AppendCycleStateMapItem1(
-										bhash_new_cycle, "ACCEPTED_MERKLES", map_end, merkle,
-										merkle_info.Serialize(), shash))
-									return false;
-								if (!pegdb.WriteCycleStateHash(
-										bhash_new_cycle, CChainParams::ACCEPTED_MERKLES, shash))
-									return false;
+							bool pause = false;
+							if (!pindex->ReadBridgesPause(pegdb, pause))
+								return error("merkle ReadBridgesPause() : failed");
+							string merkle_pause =
+							    "899104002d6f8e009ec6dee6844cba6603d02dc351812e422c9e166e3e670506";
+							string merkle_resume =
+							    "b677f2790c4aabe172484a329694cfb54ec9cd93b38a3d2082b6d456f5e96f2d";
+							if (merkle == merkle_pause) {
+								uint256          shash;
+								std::set<string> datas;
+								datas.insert("true");
+								if (!pegdb.WriteCycleStateData1(datas, shash))
+									return error("merkle WriteCycleStateData1() : failed1");
+							} else if (merkle == merkle_resume) {
+								uint256          shash;
+								std::set<string> datas;
+								datas.insert("false");
+								if (!pegdb.WriteCycleStateData1(datas, shash))
+									return error("merkle WriteCycleStateData1() : failed2");
+							} else if (!pause) {
+								CMerkleInfo merkle_info;
+								merkle_info.hash   = merkle;
+								merkle_info.bridge = brname;
+								{
+									CDataStream ss(SER_GETHASH, 0);
+									ss << merkle_info.bridge;
+									merkle_info.brhash = Hash(ss.begin(), ss.end()).GetHex();
+								}
+								merkle_info.amount       = strtoll(amount_txt.c_str(), 0, 0);
+								merkle_info.ntime        = pindex->nHeight;
+								CMerkleInfo merkle_check = pindex->ReadMerkleIn(pegdb, merkle);
+								if (merkle_check.hash.empty()) {
+									uint256 map_end;
+									pegdb.ReadCycleStateHash(
+									    bhash_new_cycle, CChainParams::ACCEPTED_MERKLES, map_end);
+									uint256 shash;
+									if (!pegdb.AppendCycleStateMapItem1(
+									        bhash_new_cycle, "ACCEPTED_MERKLES", map_end, merkle,
+									        merkle_info.Serialize(), shash))
+										return error("merkle AppendCycleStateMapItem1() : failed");
+									if (!pegdb.WriteCycleStateHash(
+									        bhash_new_cycle, CChainParams::ACCEPTED_MERKLES, shash))
+										return error("merkle WriteCycleStateHash() : failed");
+								}
 							}
 						}
 					}
@@ -488,28 +512,28 @@ bool ConnectConsensusStates(CPegDB& pegdb, CBlockIndex* pindex) {
 							string      pubkey_txt = pdatas[3];
 							set<string> pubkeys;
 							if (!pindex->ReadTimeLockPasses(pegdb, pubkeys))
-								return false;
+								return error("timelockpass add ReadTimeLockPasses() : failed");
 							uint256 shash;
 							pubkeys.insert(pubkey_txt);
 							if (!pegdb.WriteCycleStateData1(pubkeys, shash))
-								return false;
+								return error("timelockpass add WriteCycleStateData1() : failed");
 							if (!pegdb.WriteCycleStateHash(
-									bhash_new_cycle, CChainParams::ACCEPTED_TIMELOCKPASSES, shash))
-								return false;
+							        bhash_new_cycle, CChainParams::ACCEPTED_TIMELOCKPASSES, shash))
+								return error("timelockpass add WriteCycleStateHash() : failed");
 						}
 						// apply changes to cycle state
 						if (action == "remove") {
 							string      pubkey_txt = pdatas[3];
 							set<string> pubkeys;
 							if (!pindex->ReadTimeLockPasses(pegdb, pubkeys))
-								return false;
+								return error("timelockpass remove ReadTimeLockPasses() : failed");
 							uint256 shash;
 							pubkeys.erase(pubkey_txt);
 							if (!pegdb.WriteCycleStateData1(pubkeys, shash))
-								return false;
+								return error("timelockpass remove WriteCycleStateData1() : failed");
 							if (!pegdb.WriteCycleStateHash(
-									bhash_new_cycle, CChainParams::ACCEPTED_TIMELOCKPASSES, shash))
-								return false;
+							        bhash_new_cycle, CChainParams::ACCEPTED_TIMELOCKPASSES, shash))
+								return error("timelockpass remove WriteCycleStateHash() : failed");
 						}
 					}
 				}
@@ -521,10 +545,10 @@ bool ConnectConsensusStates(CPegDB& pegdb, CBlockIndex* pindex) {
 }
 
 bool CalculateBlockBridgeVotes(const CBlock& cblock,
-							   CBlockIndex*  pindex,
-							   CTxDB&        txdb,
-							   CPegDB&       pegdb,
-							   string        staker_addr) {
+                               CBlockIndex*  pindex,
+                               CTxDB&        txdb,
+                               CPegDB&       pegdb,
+                               string        staker_addr) {
 	uint256 bhash = pindex->GetBlockHash();
 
 	if (!staker_addr.empty()) {
@@ -632,7 +656,7 @@ bool CalculateBlockBridgeVotes(const CBlock& cblock,
 						if (boost::starts_with(dst_addr, "0x") && IsHex(dst_addr.substr(2))) {
 							bool   to_add = true;
 							string txoutid =
-								tx.GetHash().ToString() + ":" + std::to_string(j) + ":" + dst_addr;
+							    tx.GetHash().ToString() + ":" + std::to_string(j) + ":" + dst_addr;
 							set<string> txoutids;
 							set<string> txoutids_new;
 							pegdb.ReadBlockBurnsToBridge(bhash, br_hash, txoutids);
@@ -672,8 +696,8 @@ bool CalculateBlockBridgeVotes(const CBlock& cblock,
  * end of block transactions connects and validation.
  */
 bool FetchBridgePoolsFractions(CPegDB&       pegdb,
-							   CBlockIndex*  pindex,
-							   MapFractions& mapQueuedFractionsChanges) {
+                               CBlockIndex*  pindex,
+                               MapFractions& mapQueuedFractionsChanges) {
 	if (pindex->nHeight < nPegStartHeight - 1) {
 		return true;
 	}
@@ -707,8 +731,8 @@ bool FetchBridgePoolsFractions(CPegDB&       pegdb,
 }
 
 bool ConnectBridgeCycleBurns(CPegDB&       pegdb,
-							 CBlockIndex*  pindex,
-							 MapFractions& mapQueuedFractionsChanges) {
+                             CBlockIndex*  pindex,
+                             MapFractions& mapQueuedFractionsChanges) {
 	if (pindex->nHeight < nPegStartHeight - 1) {
 		return true;
 	}
@@ -850,7 +874,7 @@ bool ConnectBridgeCycleBurns(CPegDB&       pegdb,
 				}
 				string leaf_hex        = string(leaf_hex_cstr);
 				string txout_addr_leaf = txout_to_addr + ":" + leaf_hex + ":" +
-										 std::to_string(fc1.nPegSteps + fc1.nMicroSteps);
+				                         std::to_string(fc1.nPegSteps + fc1.nMicroSteps);
 				for (int i = 0; i < fc1.nPegSteps; i++) {
 					uint64_t psv = fc1.fps[i];
 					txout_addr_leaf += ":" + std::to_string(psv);
@@ -908,7 +932,7 @@ bool ConnectBridgeCycleBurns(CPegDB&       pegdb,
 		int    section     = bridges_sections[br_hash];
 		// write ready merkle tree
 		if (!pegdb.WriteBridgeCycleMerkle(bhash_bridge_cycle, br_hash,
-										  merkle_str + ":" + std::to_string(section)))
+		                                  merkle_str + ":" + std::to_string(section)))
 			return false;
 		// get receipts ready
 		for (string txout_addr_leaf : bridge_cycle_burn_txouts_per_bridge) {
@@ -933,7 +957,7 @@ bool ConnectBridgeCycleBurns(CPegDB&       pegdb,
 		}
 		// write for it for bridge cycle
 		if (!pegdb.WriteBridgeCycleBurnsToBridge(bhash_bridge_cycle, br_hash,
-												 bridge_cycle_burn_txouts_per_bridge_with_receipt))
+		                                         bridge_cycle_burn_txouts_per_bridge_with_receipt))
 			return false;
 	}
 
@@ -957,11 +981,11 @@ bool ConnectBridgeCycleBurns(CPegDB&       pegdb,
 }
 
 bool ComputeMintMerkleLeaf(const string&   dest_addr_str,
-						   vector<int64_t> sections,
-						   int             section_peg,
-						   int             nonce,
-						   const string&   from,
-						   string&         out_leaf_hex) {
+                           vector<int64_t> sections,
+                           int             section_peg,
+                           int             nonce,
+                           const string&   from,
+                           string&         out_leaf_hex) {
 	char* dest_addr_cstr = new char[dest_addr_str.length() + 1];
 	strcpy(dest_addr_cstr, dest_addr_str.c_str());
 	size_t dest_addr_len  = dest_addr_str.length();
@@ -1012,8 +1036,8 @@ bool ComputeMintMerkleLeaf(const string&   dest_addr_str,
 }
 
 bool ComputeMintMerkleRoot(const string&  inp_leaf_hex,
-						   vector<string> proofs,
-						   string&        out_root_hex) {
+                           vector<string> proofs,
+                           string&        out_root_hex) {
 	if (proofs.size() == 0) {
 		out_root_hex = inp_leaf_hex;
 		return true;
@@ -1118,13 +1142,13 @@ static int64_t getNumberFromScript(opcodetype opcode, const vector<unsigned char
 }
 
 bool DecodeAndValidateMintSigScript(const CScript&   scriptSig,
-									CBitcoinAddress& addr_dest,
-									vector<int64_t>& sections,
-									int&             section_peg,
-									int&             nonce,
-									string&          from,
-									string&          leaf,
-									vector<string>&  proofs) {
+                                    CBitcoinAddress& addr_dest,
+                                    vector<int64_t>& sections,
+                                    int&             section_peg,
+                                    int&             nonce,
+                                    string&          from,
+                                    string&          leaf,
+                                    vector<string>&  proofs) {
 	int sections_size = 0;
 	int proofs_size   = 0;
 
@@ -1135,14 +1159,14 @@ bool DecodeAndValidateMintSigScript(const CScript&   scriptSig,
 	while (pc < scriptSig.end()) {
 		if (!scriptSig.GetOp(pc, opcode, vch)) {
 			return error("DecodeAndValidateMintSigScript() : CoinMint sigScript decode err1: %s",
-						 scriptSig.ToString());
+			             scriptSig.ToString());
 		}
 		if (0 <= opcode && opcode <= OP_16) {
 			if (idx == 0) {
 				vector<unsigned char> vch_pref1 =
-					Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS);
+				    Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS);
 				vector<unsigned char> vch_pref2 =
-					Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS);
+				    Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS);
 				if (boost::starts_with(vch, vch_pref1)) {
 					vector<unsigned char> vch_data(vch.begin() + vch_pref1.size(), vch.end());
 					addr_dest.SetData(vch_pref1, vch_data);
@@ -1175,9 +1199,9 @@ bool DecodeAndValidateMintSigScript(const CScript&   scriptSig,
 			}
 		} else {
 			return error(
-				"DecodeAndValidateMintSigScript() : CoinMint sigScript decode %d err2: %s, op "
-				"%d",
-				idx, scriptSig.ToString(), opcode);
+			    "DecodeAndValidateMintSigScript() : CoinMint sigScript decode %d err2: %s, op "
+			    "%d",
+			    idx, scriptSig.ToString(), opcode);
 		}
 		idx++;
 	}
@@ -1216,9 +1240,9 @@ bool DecodeAndValidateMintSigScript(const CScript&   scriptSig,
 				scriptSigHex = HexStr(ss.begin(), ss.end());
 			}
 			return error(
-				"DecodeAndValidateMintSigScript() : CoinMint sigScript mismatch recoded: %s vs "
-				"%s, serialized %s vs %s",
-				scriptSig.ToString(), proofSig.ToString(), scriptSigHex, proofSigHex);
+			    "DecodeAndValidateMintSigScript() : CoinMint sigScript mismatch recoded: %s vs "
+			    "%s, serialized %s vs %s",
+			    scriptSig.ToString(), proofSig.ToString(), scriptSigHex, proofSigHex);
 		}
 	}
 

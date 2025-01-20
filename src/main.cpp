@@ -5011,3 +5011,20 @@ bool CBlockIndex::ReadTimeLockPasses(CPegDB& pegdb, std::set<string>& pubkeys) c
 		return false;
 	return true;
 }
+
+bool CBlockIndex::ReadBridgesPause(CPegDB& pegdb, bool& pause) const {
+	pause = false;
+	if (nHeight <= nPegStartHeight)
+		return true;
+	uint256 bhash = PegCycleBlock()->GetBlockHash();
+	uint256 shash;
+	if (!pegdb.ReadCycleStateHash(bhash, CChainParams::ACCEPTED_BRIDGES_PAUSE, shash))
+		return false;
+	std::set<string> datas;
+	pegdb.ReadCycleStateData1(shash, datas);
+	if (datas.size() == 1) {
+		if (datas.count("true"))
+			pause = true;
+	}
+	return true;
+}

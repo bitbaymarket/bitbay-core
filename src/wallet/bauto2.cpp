@@ -547,6 +547,54 @@ void ThreadBrigeAuto2(CWallet* pwallet) {
 						}
 						// proposal is added and active now, all ok, continue to next attempt
 						continue;
+					} else {
+						// merkle is mined, we can remove the proposal
+						string         proposal_id;
+						vector<string> ids;
+						CWalletDB(pwallet->strWalletFile).ReadProposals(ids);
+						for (const string& id : ids) {
+							if (id == "")
+								continue;
+							vector<string> datas;
+							CWalletDB(pwallet->strWalletFile).ReadProposal(id, datas);
+							if (datas.size() > 1)
+								continue;
+							string scope = datas[0];
+							std::cout << "YYY" << datas[0] << " " << datas.size() << std::endl;
+							if (scope == "merkle") {
+								if (datas.size() == 6) {
+									std::cout << "YYY" << datas[0] << " " << datas.size() << " "
+									          << datas[1] << " " << datas[2] << " " << datas[3]
+									          << " vs " << bridge_info.name << " " << datas[4]
+									          << " vs " << merkle_str << std::endl;
+									string action = datas[2];
+									if (action == "add") {
+										string proposal_brname = datas[3];
+										if (proposal_brname != bridge_info.name)
+											continue;
+										string proposal_merkle = datas[4];
+										if (proposal_merkle == merkle_str) {
+											proposal_id = id;
+											break;  // proposal is found
+										}
+									}
+								}
+							}
+						}
+						if (!proposal_id.empty()) {
+							vector<string> ids;
+							vector<string> ids_new;
+							CWalletDB(pwallet->strWalletFile).ReadProposals(ids);
+							for (const string& id : ids) {
+								if (id == "")
+									continue;
+								if (id == proposal_id) {
+									continue;
+								}
+								ids_new.push_back(id);
+							}
+							CWalletDB(pwallet->strWalletFile).WriteProposals(ids_new);
+						}
 					}
 
 					// proposal is present and mined

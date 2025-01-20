@@ -367,6 +367,8 @@ bool CPegDB::MerklesInit() {
 	uint256 shash;
 	if (!WriteCycleStateHash(bhash, CChainParams::ACCEPTED_MERKLES, shash))
 		return error("MerklesInit() : WriteCycleStateHash failed");
+	if (!WriteCycleStateHash(bhash, CChainParams::ACCEPTED_BRIDGES_PAUSE, shash))
+		return error("MerklesInit() : WriteCycleStateHash failed2");
 	if (!TxnCommit())
 		return error("MerklesInit() : TxnCommit failed");
 

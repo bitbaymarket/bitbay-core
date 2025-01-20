@@ -466,12 +466,20 @@ bool ConnectConsensusStates(CPegDB& pegdb, CBlockIndex* pindex) {
 								datas.insert("true");
 								if (!pegdb.WriteCycleStateData1(datas, shash))
 									return error("merkle WriteCycleStateData1() : failed1");
+								if (!pegdb.WriteCycleStateHash(bhash_new_cycle,
+								                               CChainParams::ACCEPTED_BRIDGES_PAUSE,
+								                               shash))
+									return error("merkle WriteCycleStateHash() : failed2");
 							} else if (merkle == merkle_resume) {
 								uint256          shash;
 								std::set<string> datas;
 								datas.insert("false");
 								if (!pegdb.WriteCycleStateData1(datas, shash))
 									return error("merkle WriteCycleStateData1() : failed2");
+								if (!pegdb.WriteCycleStateHash(bhash_new_cycle,
+								                               CChainParams::ACCEPTED_BRIDGES_PAUSE,
+								                               shash))
+									return error("merkle WriteCycleStateHash() : failed2");
 							} else if (!pause) {
 								CMerkleInfo merkle_info;
 								merkle_info.hash   = merkle;

@@ -83,6 +83,17 @@ OptionsDialog::OptionsDialog(QWidget* parent)
 
 	ui->unit->setModel(new BitcoinUnits(this));
 
+	{
+		ui->fontScale->clear();
+		ui->fontScale->addItem(tr("50%"), 50);
+		ui->fontScale->addItem(tr("75%"), 75);
+		ui->fontScale->addItem(tr("100%"), 100);
+		ui->fontScale->addItem(tr("125%"), 125);
+		ui->fontScale->addItem(tr("150%"), 150);
+		ui->fontScale->addItem(tr("175%"), 175);
+		ui->fontScale->addItem(tr("200%"), 200);
+	}
+
 	/* Widget-to-option mapper */
 	mapper = new MonitoredDataMapper(this);
 	mapper->setSubmitPolicy(QDataWidgetMapper::ManualSubmit);
@@ -123,6 +134,7 @@ void OptionsDialog::setModel(OptionsModel* model) {
 
 	if (model) {
 		connect(model, SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
+		connect(model, SIGNAL(fontScaleChanged(int)), this, SLOT(updateFontScale()));
 
 		mapper->setModel(model);
 		setMapper();
@@ -131,6 +143,8 @@ void OptionsDialog::setModel(OptionsModel* model) {
 
 	/* update the display unit, to not use the default ("BTC") */
 	updateDisplayUnit();
+
+	updateFontScale();
 
 	/* warn only when language selection changes by user action (placed here so init via mapper
 	 * doesn't trigger this) */
@@ -162,6 +176,7 @@ void OptionsDialog::setMapper() {
 	/* Display */
 	mapper->addMapping(ui->lang, OptionsModel::Language);
 	mapper->addMapping(ui->unit, OptionsModel::DisplayUnit);
+	mapper->addMapping(ui->fontScale, OptionsModel::FontScale);
 	mapper->addMapping(ui->coinControlFeatures, OptionsModel::CoinControlFeatures);
 	mapper->addMapping(ui->displayNotifications, OptionsModel::Notifications);
 }
@@ -236,6 +251,12 @@ void OptionsDialog::updateDisplayUnit() {
 	if (model) {
 		/* Update transactionFee with the current unit */
 		ui->transactionFee->setDisplayUnit(model->getDisplayUnit());
+	}
+}
+
+void OptionsDialog::updateFontScale() {
+	if (model) {
+		ui->fontScale->setCurrentText(QString::number(model->getFontScale()) + "%");
 	}
 }
 

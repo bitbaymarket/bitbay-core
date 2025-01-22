@@ -40,8 +40,12 @@ void OptionsModel::Init() {
 	fNotifications       = settings.value("fNotifications", true).toBool();
 	nTransactionFee      = settings.value("nTransactionFee").toLongLong();
 	nNoStakeBalance      = settings.value("nNoStakeBalance").toLongLong();
+	nFontScale           = settings.value("nFontScale", 100).toInt();
 	language             = settings.value("language", "").toString();
 
+	if (nFontScale < 50 || nFontScale > 200) {
+		nFontScale = 100;
+	}
 	// These are shared with core Bitcoin; we want
 	// command-line options to override the GUI settings:
 	if (settings.contains("fUseUPnP"))
@@ -96,6 +100,8 @@ QVariant OptionsModel::data(const QModelIndex& index, int role) const {
 				return QVariant(fCoinControlFeatures);
 			case Notifications:
 				return QVariant(fNotifications);
+			case FontScale:
+				return QVariant(nFontScale);
 			default:
 				return QVariant();
 		}
@@ -172,7 +178,16 @@ bool OptionsModel::setData(const QModelIndex& index, const QVariant& value, int 
 			case Notifications: {
 				fNotifications = value.toBool();
 				settings.setValue("fNotifications", fNotifications);
-				emit notfictionsChanged(fNotifications);
+				emit notificationsChanged(fNotifications);
+			} break;
+			case FontScale: {
+				QString v = value.toString();
+				if (v.endsWith("%")) {
+					v = v.left(v.length() - 1);
+				}
+				nFontScale = v.toInt();
+				settings.setValue("nFontScale", nFontScale);
+				emit fontScaleChanged(nFontScale);
 			} break;
 			default:
 				break;
@@ -209,4 +224,8 @@ bool OptionsModel::getMinimizeOnClose() {
 
 int OptionsModel::getDisplayUnit() {
 	return nDisplayUnit;
+}
+
+int OptionsModel::getFontScale() {
+	return nFontScale;
 }

@@ -327,22 +327,8 @@ BitcoinGUI::BitcoinGUI(QWidget* parent)
         }
     )";
 	leftPanel->setStyleSheet(tabStyle);
-
-#ifdef Q_OS_MAC
-	QFont font("Roboto Condensed", 15, QFont::Bold);
-#else
-	QFont font("Roboto Condensed", 11, QFont::Bold);
-#ifdef Q_OS_UNIX
-	{
-		QFontMetricsF fm(font);
-		qreal         fmh = fm.height();
-		if (fmh > 12.) {
-			qreal pt = 11. * 12. / fmh;
-			font     = QFont("Roboto Condensed", pt, QFont::Bold);
-		}
-	}
-#endif
-#endif
+    
+    QFont font = GUIUtil::tabFont();
 
 	tabDashboard = new QToolButton();
 	tabDashboard->setFixedSize(160, 50);
@@ -1623,6 +1609,10 @@ void BitcoinGUI::netDataReplyFinished(QNetworkReply* reply) {
 	}
 	QByteArray data     = reply->readAll();
 	auto       json_doc = QJsonDocument::fromJson(data);
+
+	if (!pindexBest) {
+		return;
+	}
 
 	if (reply->url().path().endsWith("rates1k.json")) {
 		auto records = json_doc.array();

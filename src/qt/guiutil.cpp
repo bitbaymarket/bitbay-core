@@ -25,6 +25,7 @@
 #include <QLineEdit>
 #include <QListView>
 #include <QMouseEvent>
+#include <QSettings>
 #include <QStyleFactory>
 #include <QTableView>
 #include <QTextDocument>  // For Qt::escape
@@ -55,6 +56,8 @@
 
 namespace GUIUtil {
 
+int nFontScale = 100;
+
 QString dateTimeStr(const QDateTime& date) {
 	return date.date().toString(Qt::SystemLocaleShortDate) + QString(" ") + date.toString("hh:mm");
 }
@@ -73,11 +76,88 @@ QFont bitcoinAddressFont() {
 		qreal         fmh = fm.height();
 		if (fmh > 12.) {
 			qreal pt = 11. * 12. / fmh;
-			font    = QFont("Roboto Mono", pt);
+			font     = QFont("Roboto Mono", pt);
 		}
 	}
 #endif
 #endif
+	if (nFontScale != 100) {  // nFontScale
+		qreal pti = font.pointSizeF();
+		qreal pt  = pti * qreal(nFontScale) / 100.;
+		font.setPointSizeF(pt);
+	}
+	return font;
+}
+
+QFont appFont() {
+#ifdef Q_OS_MAC
+	QFont font("Roboto", 15);
+#else
+	QFont font("Roboto", 11);
+#ifdef Q_OS_UNIX
+	{
+		QFontMetricsF fm(font);
+		qreal         fmh = fm.height();
+		if (fmh > 12.) {
+			qreal pt = 11. * 12. / fmh;
+			font     = QFont("Roboto", pt);
+		}
+	}
+#endif
+#endif
+	if (nFontScale != 100) {  // nFontScale
+		qreal pti = font.pointSizeF();
+		qreal pt  = pti * qreal(nFontScale) / 100.;
+		font.setPointSizeF(pt);
+	}
+	return font;
+}
+
+QFont tabFont() {
+#ifdef Q_OS_MAC
+	QFont font("Roboto Condensed", 15, QFont::Bold);
+#else
+	QFont font("Roboto Condensed", 11, QFont::Bold);
+#ifdef Q_OS_UNIX
+	{
+		QFontMetricsF fm(font);
+		qreal         fmh = fm.height();
+		if (fmh > 12.) {
+			qreal pt = 11. * 12. / fmh;
+			font     = QFont("Roboto Condensed", pt, QFont::Bold);
+		}
+	}
+#endif
+#endif
+	if (nFontScale != 100) {  // nFontScale
+		qreal pti = font.pointSizeF();
+		qreal pt  = pti * qreal(nFontScale) / 100.;
+		font.setPointSizeF(pt);
+	}
+	return font;
+}
+
+QFont header1Font() {
+#ifdef Q_OS_MAC
+	QFont font("Roboto Black", 20, QFont::Bold);
+#else
+	QFont font("Roboto Black", 15, QFont::Bold);
+#ifdef Q_OS_UNIX
+	{
+		QFontMetricsF fm(font);
+		qreal         fmh = fm.height();
+		if (fmh > 14.) {
+			qreal pt = 15. * 12. / fmh;
+			font     = QFont("Roboto Black", pt, QFont::Bold);
+		}
+	}
+#endif
+#endif
+	if (nFontScale != 100) {  // nFontScale
+		qreal pti = font.pointSizeF();
+		qreal pt  = pti * qreal(nFontScale) / 100.;
+		font.setPointSizeF(pt);
+	}
 	return font;
 }
 
@@ -168,10 +248,10 @@ void copyEntryData(QAbstractItemView* view, int column, int role) {
 }
 
 QString getSaveFileName(QWidget*       parent,
-						const QString& caption,
-						const QString& dir,
-						const QString& filter,
-						QString*       selectedSuffixOut) {
+                        const QString& caption,
+                        const QString& dir,
+                        const QString& filter,
+                        QString*       selectedSuffixOut) {
 	QString selectedFilter;
 	QString myDir;
 	if (dir.isEmpty())  // Default to user documents location
@@ -225,9 +305,9 @@ bool checkPoint(const QPoint& p, const QWidget* w) {
 
 bool isObscured(QWidget* w) {
 	return !(checkPoint(QPoint(0, 0), w) && checkPoint(QPoint(w->width() - 1, 0), w) &&
-			 checkPoint(QPoint(0, w->height() - 1), w) &&
-			 checkPoint(QPoint(w->width() - 1, w->height() - 1), w) &&
-			 checkPoint(QPoint(w->width() / 2, w->height() / 2), w));
+	         checkPoint(QPoint(0, w->height() - 1), w) &&
+	         checkPoint(QPoint(w->width() - 1, w->height() - 1), w) &&
+	         checkPoint(QPoint(w->width() / 2, w->height() / 2), w));
 }
 
 void openDebugLogfile() {
@@ -239,14 +319,14 @@ void openDebugLogfile() {
 }
 
 ToolTipToRichTextFilter::ToolTipToRichTextFilter(int size_threshold, QObject* parent)
-	: QObject(parent), size_threshold(size_threshold) {}
+    : QObject(parent), size_threshold(size_threshold) {}
 
 bool ToolTipToRichTextFilter::eventFilter(QObject* obj, QEvent* evt) {
 	if (evt->type() == QEvent::ToolTipChange) {
 		QWidget* widget  = static_cast<QWidget*>(obj);
 		QString  tooltip = widget->toolTip();
 		if (tooltip.size() > size_threshold && !tooltip.startsWith("<qt>") &&
-			!Qt::mightBeRichText(tooltip)) {
+		    !Qt::mightBeRichText(tooltip)) {
 			// Prefix <qt/> to make sure Qt detects this as rich text
 			// Escape the current message as HTML and replace \n by <br>
 			tooltip = "<qt>" + HtmlEscape(tooltip, true) + "<qt/>";
@@ -277,7 +357,7 @@ bool SetStartOnSystemStartup(bool fAutoStart) {
 		// Get a pointer to the IShellLink interface.
 		IShellLink* psl = NULL;
 		HRESULT hres = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLink,
-										reinterpret_cast<void**>(&psl));
+		                                reinterpret_cast<void**>(&psl));
 
 		if (SUCCEEDED(hres)) {
 			// Get the current executable path
@@ -301,7 +381,7 @@ bool SetStartOnSystemStartup(bool fAutoStart) {
 				WCHAR pwsz[MAX_PATH];
 				// Ensure that the string is ANSI.
 				MultiByteToWideChar(CP_ACP, 0, StartupShortcutPath().string().c_str(), -1, pwsz,
-									MAX_PATH);
+				                    MAX_PATH);
 				// Save the link by calling IPersistFile::Save.
 				hres = ppf->Save(pwsz, TRUE);
 				ppf->Release();
@@ -366,7 +446,7 @@ bool SetStartOnSystemStartup(bool fAutoStart) {
 		boost::filesystem::create_directories(GetAutostartDir());
 
 		boost::filesystem::ofstream optionFile(GetAutostartFilePath(),
-											   std::ios_base::out | std::ios_base::trunc);
+		                                       std::ios_base::out | std::ios_base::trunc);
 		if (!optionFile.good())
 			return false;
 		// Write a bitcoin.desktop file to the autostart directory:
@@ -396,16 +476,16 @@ bool SetStartOnSystemStartup(bool fAutoStart) {
 
 HelpMessageBox::HelpMessageBox(QWidget* parent) : QMessageBox(parent) {
 	header = tr("BitBay-Qt") + " " + tr("version") + " " +
-			 QString::fromStdString(FormatFullVersion()) + "\n\n" + tr("Usage:") + "\n" +
-			 "  bitbay-qt [" + tr("command-line options") + "]                     " + "\n";
+	         QString::fromStdString(FormatFullVersion()) + "\n\n" + tr("Usage:") + "\n" +
+	         "  bitbay-qt [" + tr("command-line options") + "]                     " + "\n";
 
 	coreOptions = QString::fromStdString(HelpMessage());
 
 	uiOptions = tr("UI options") + ":\n" + "  -lang=<lang>           " +
-				tr("Set language, for example \"de_DE\" (default: system locale)") + "\n" +
-				"  -min                   " + tr("Start minimized") + "\n" +
-				"  -splash                " + tr("Show splash screen on startup (default: 1)") +
-				"\n";
+	            tr("Set language, for example \"de_DE\" (default: system locale)") + "\n" +
+	            "  -min                   " + tr("Start minimized") + "\n" +
+	            "  -splash                " + tr("Show splash screen on startup (default: 1)") +
+	            "\n";
 
 	setWindowTitle(tr("BitBay-Qt"));
 	setTextFormat(Qt::PlainText);
@@ -474,21 +554,14 @@ void SetBitBayThemeQSS(QApplication& app) {
 	QFontDatabase::addApplicationFont(":/fonts/res/fonts/RobotoMono-Italic.ttf");
 	QFontDatabase::addApplicationFont(":/fonts/res/fonts/RobotoMono-Regular.ttf");
 
-#ifdef Q_OS_MAC
-	QFont font("Roboto", 15);
-#else
-	QFont font("Roboto", 11);
-#ifdef Q_OS_UNIX
-	{
-		QFontMetricsF fm(font);
-		qreal         fmh = fm.height();
-		if (fmh > 12.) {
-			qreal pt = 11. * 12. / fmh;
-			font     = QFont("Roboto", pt);
-		}
+	// load fontscale
+	QSettings settings;
+	nFontScale = settings.value("nFontScale", 100).toInt();
+	if (nFontScale < 50 || nFontScale > 200) {
+		nFontScale = 100;
 	}
-#endif
-#endif
+
+	QFont font = appFont();
 	QApplication::setFont(font);
 	//    qDebug() << font.toString();
 	//    QFontDatabase database;
@@ -499,7 +572,7 @@ void SetBitBayThemeQSS(QApplication& app) {
 	app.setStyle(QStyleFactory::create("fusion"));
 
 	app.setStyleSheet(
-		R"(
+	    R"(
         QWidget { background: rgb(221,222,237); }
         QLineEdit {
             background: rgb(255,255,255);
@@ -686,21 +759,7 @@ void SetBitBayThemeQSS(QApplication& app) {
 }
 
 void SetBitBayFonts(QWidget* w) {
-#ifdef Q_OS_MAC
-	QFont font("Roboto", 15);
-#else
-	QFont font("Roboto", 11);
-#ifdef Q_OS_UNIX
-	{
-		QFontMetricsF fm(font);
-		qreal         fmh = fm.height();
-		if (fmh > 12.) {
-			qreal pt = 11. * 12. / fmh;
-			font     = QFont("Roboto", pt);
-		}
-	}
-#endif
-#endif
+	QFont font = appFont();
 	for (auto l : w->findChildren<QLabel*>()) {
 		l->setFont(font);
 	}

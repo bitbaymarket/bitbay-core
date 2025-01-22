@@ -29,7 +29,8 @@ public:
 		Language,             // QString
 		CoinControlFeatures,  // bool
 		Notifications,        // bool
-		OptionIDRowCount,
+		FontScale,            // int
+		OptionIDRowCount,     // int
 	};
 
 	void Init();
@@ -46,6 +47,7 @@ public:
 	int     getDisplayUnit();
 	bool    getCoinControlFeatures();
 	bool    getNotificationsOn();
+	int     getFontScale();
 	QString getLanguage() { return language; }
 
 private:
@@ -54,6 +56,7 @@ private:
 	bool    fMinimizeOnClose;
 	bool    fCoinControlFeatures;
 	bool    fNotifications;
+	int     nFontScale;
 	QString language;
 
 signals:
@@ -61,7 +64,8 @@ signals:
 	void transactionFeeChanged(qint64);
 	void nostakeBalanceChanged(qint64);
 	void coinControlFeaturesChanged(bool);
-	void notfictionsChanged(bool);
+	void notificationsChanged(bool);
+	void fontScaleChanged(int);
 };
 
 #endif  // OPTIONSMODEL_H

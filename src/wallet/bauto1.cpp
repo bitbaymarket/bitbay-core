@@ -23,7 +23,6 @@ using namespace std;
 using namespace boost;
 using namespace json_spirit;
 
-using std::cout;
 using std::endl;
 using std::string;
 
@@ -64,7 +63,7 @@ static string sendrawtx_rpcapi(string api_uri, string txhex) {
 		string strReply   = call_rpcapi_curl(api_uri, strRequest);
 		if (strReply == "")
 			return "";
-		std::cout << "API sendrawtx_rpcapi response:" << strReply << std::endl;
+		LogPrintf("%s thread sendrawtx_rpcapi response: %s\n", "bitbay-bauto1", strReply);
 		string             data;
 		json_spirit::Value jval;
 		json_spirit::read_string(strReply, jval);
@@ -105,8 +104,8 @@ static string call_rpcapi(string api_uri, string contract, string callsel, strin
 		}
 		return data;
 	} catch (std::exception& e) {
-		LogPrintf("%s thread call_rpcapi %s %s callsel:%s data:%s strReply:%s err: %s\n", "bitbay-bauto1",
-		          api_uri, contract, callsel, data, strReply, e.what());
+		LogPrintf("%s thread call_rpcapi %s %s callsel:%s data:%s strReply:%s err: %s\n",
+		          "bitbay-bauto1", api_uri, contract, callsel, data, strReply, e.what());
 		return "";
 	}
 }
@@ -460,8 +459,6 @@ static bool sync_merkles(string                     rpcapi,
 				section = args[1];
 				sMerklesOut.insert(merkle);
 				mMerkleOutSections[merkle] = std::atoi(section.c_str());
-				// std::cout << "bitbay-bauto1: bridge:" << rpcapi << " merkleout:" << merkle
-				//           << std::endl;
 			}
 		}
 		bridge_index = bridge_index->PrevBridgeCycleBlock();

@@ -21,7 +21,6 @@ using namespace std;
 using namespace boost;
 using namespace json_spirit;
 
-using std::cout;
 using std::endl;
 using std::string;
 
@@ -128,7 +127,6 @@ vector<string> call_listHashes(string api_uri, string contract, int nonce) {
 	eth_abi_from_hex(&abi, res_cstr, res_len);
 	uint64_t res_arr_len = 0;
 	eth_abi_array(&abi, &res_arr_len);
-	// std::cout << "res_arr_len:" << res_arr_len << std::endl;
 	for (uint64_t i = 0; i < res_arr_len; i++) {
 		vchtype res_arg_bytes;
 		res_arg_bytes.resize(32);
@@ -139,7 +137,6 @@ vector<string> call_listHashes(string api_uri, string contract, int nonce) {
 			continue;
 		}
 		uint256 d(hash_hex_cstr);
-		// std::cout << "res_arg_len:" << i << " -> ok:" << d.GetHex() << std::endl;
 		hashes.push_back(d.GetHex());
 	}
 	eth_abi_array_end(&abi);
@@ -282,7 +279,6 @@ bool get_merkle_amount(string         api_uri,
 	for (int i = 0; i < int(hashes.size()); i++) {
 		// get the "from" EVM address:
 		string address_evm = call_addresses(api_uri, contract, nonce, i);
-		// std::cout << "from address:" << address_evm << std::endl;
 		if (address_evm.empty())
 			return false;
 		// get the fractions:
@@ -310,12 +306,9 @@ void ThreadBrigeAuto2(CWallet* pwallet) {
 		// if (!first)
 		// first = false;
 		MilliSleep(600000);
-		// std::cout << "bitbay-bauto2" << std::endl;
-
 		if (GetAdjustedTime() - pindexBest->nTime > 60 * 60) {
 			continue;  // wait a sync
 		}
-
 		CPegDB      pegdb;
 		set<string> sTrustedStakers1, sTrustedStakers2;
 		pindexBest->ReadTrustedStakers1(pegdb, sTrustedStakers1);
@@ -332,14 +325,12 @@ void ThreadBrigeAuto2(CWallet* pwallet) {
 				if (fMine) {
 					string addr_txt = address.ToString();
 					if (sTrustedStakers1.count(addr_txt)) {
-						// std::cout << "bitbay-bauto2: has trusted staker1" << std::endl;
 						is_trusted_staker1 = true;
 						is_trusted_staker2 = false;
 						is_other_staker    = false;
 						break;
 					}
 					if (sTrustedStakers2.count(addr_txt)) {
-						// std::cout << "bitbay-bauto2: has trusted staker2" << std::endl;
 						is_trusted_staker1 = false;
 						is_trusted_staker2 = true;
 						is_other_staker    = false;
@@ -437,13 +428,8 @@ void ThreadBrigeAuto2(CWallet* pwallet) {
 							if (datas.size() > 1)
 								continue;
 							string scope = datas[0];
-							std::cout << "XXX" << datas[0] << " " << datas.size() << std::endl;
 							if (scope == "merkle") {
 								if (datas.size() == 6) {
-									std::cout << "XXX" << datas[0] << " " << datas.size() << " "
-									          << datas[1] << " " << datas[2] << " " << datas[3]
-									          << " vs " << bridge_info.name << " " << datas[4]
-									          << " vs " << merkle_str << std::endl;
 									string action = datas[2];
 									if (action == "add") {
 										string proposal_brname = datas[3];
@@ -560,13 +546,8 @@ void ThreadBrigeAuto2(CWallet* pwallet) {
 							if (datas.size() > 1)
 								continue;
 							string scope = datas[0];
-							std::cout << "YYY" << datas[0] << " " << datas.size() << std::endl;
 							if (scope == "merkle") {
 								if (datas.size() == 6) {
-									std::cout << "YYY" << datas[0] << " " << datas.size() << " "
-									          << datas[1] << " " << datas[2] << " " << datas[3]
-									          << " vs " << bridge_info.name << " " << datas[4]
-									          << " vs " << merkle_str << std::endl;
 									string action = datas[2];
 									if (action == "add") {
 										string proposal_brname = datas[3];
@@ -647,32 +628,21 @@ void ThreadBrigeAuto2(CWallet* pwallet) {
 					for (int i = 0; i < int(hashes.size()); i++) {
 						// get the "from" EVM address:
 						string address_evm = call_addresses(rpcapi, contract, nonce, i);
-						// std::cout << "from address:" << address_evm << std::endl;
 						if (address_evm.empty())
 							continue;
-
 						// get the "to" BAY address:
 						string address_bay = call_recipient(rpcapi, contract, nonce, address_evm);
-						// std::cout << "to bay address:" << address_bay << std::endl;
 						if (address_bay.empty())
 							continue;
-
 						vector<int64_t> sections =
 						    call_showReserve(rpcapi, contract, address_evm, nonce,
 						                     bridge_info.pegSteps, bridge_info.microSteps);
 						if (sections.empty())
 							continue;
-
-						// std::cout << "fractions:";
-						// for (size_t j = 0; j < sections.size(); j++)
-						//	std::cout << sections[j] << ",";
-						// std::cout << std::endl;
-
 						// get section (peg) highkey[nonce][address_evm]
 						int64_t section_peg = call_highkey(rpcapi, contract, nonce, address_evm);
 						if (section_peg < 0)
 							continue;
-
 						// recompute merkle leaf
 						string out_leaf_hex;
 						if (!ComputeMintMerkleLeaf(address_bay, sections, section_peg, nonce,
@@ -683,9 +653,6 @@ void ThreadBrigeAuto2(CWallet* pwallet) {
 							    "bitbay-bauto2", bridge_name, nonce, address_evm);
 							continue;
 						}
-
-						// std::cout << "hash:" << hashes[i] << " computed:" << out_leaf_hex
-						//           << std::endl;
 						if (hashes[i] != out_leaf_hex) {
 							LogPrintf(
 							    "%s thread: bridge %s, nonce: %s, todo txs, ComputeMintMerkleLeaf "
@@ -771,27 +738,18 @@ void ThreadBrigeAuto2(CWallet* pwallet) {
 								CTxDB    txdb("r");
 								CTxIndex txindex;
 								if (!txdb.ReadTxIndex(hashTx, txindex)) {
-									// std::cout << "NOT FOUND in TXDB" << std::endl;
 									txs_mined = false;
 								} else {
 									int depth = txindex.GetDepthInMainChain();
 									if (depth < nRecommendedConfirmations) {
-										// std::cout << "NOT CONFIRMATIONS " << depth << std::endl;
 										txs_mined = false;
 									}
 								}
 							}
-
 							CMerkleTx mtx(tx);
 							mtx.AcceptToMemoryPool(false);
-							// bool      ok =
-							// if (!ok) {
-							// 	std::cout << "NOT ACCEPTED" << std::endl;
-							// } else
-							// 	std::cout << "ACCEPTED" << std::endl;
 						}
 					}
-
 					// if all then mark nonce as completed in walletdb
 					if (txs_mined) {
 						CWalletDB(pwallet->strWalletFile)
@@ -800,8 +758,6 @@ void ThreadBrigeAuto2(CWallet* pwallet) {
 						    "%s thread: bridge %s, nonce: %s, computed merkle: %s, completed\n",
 						    "bitbay-bauto2", bridge_name, nonce, merkle_str);
 					}
-
-					// std::cout << "--" << std::endl;
 				}
 			}
 		}

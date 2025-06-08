@@ -373,7 +373,7 @@ bool get_merkle_amount(string         api_uri,
 		    call_showReserve(api_uri, admin_contract, address_evm, nonce, pegSteps, microSteps);
 		if (fractions.empty())
 			return false;
-		for (size_t j = 0; j < size_t(pegSteps); j++)
+		for (size_t j = 0; j < size_t(pegSteps + microSteps); j++)
 			amount += fractions[j];
 	}
 	return true;

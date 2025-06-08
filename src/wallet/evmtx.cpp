@@ -25,12 +25,12 @@ static string int2hex(int64_t v) {
 }
 
 static vchtype make_evmtx_hash(int    chainid,
-							   int    nonce,
-							   float  max_priority_fee_per_gas_gwei,
-							   float  max_fee_per_gas_gwei,
-							   int    gaslimit,
-							   string addr_to,
-							   string input_data_hex) {
+                               int    nonce,
+                               float  max_priority_fee_per_gas_gwei,
+                               float  max_fee_per_gas_gwei,
+                               int    gaslimit,
+                               string addr_to,
+                               string input_data_hex) {
 	struct eth_rlp rlp0;
 	size_t         rlp0len;
 	uint8_t        keccak[32], *rlp0bytes;
@@ -80,14 +80,14 @@ static vchtype make_evmtx_hash(int    chainid,
 }
 
 string MakeTxEvm(int         chainid,
-				 int         nonce,
-				 float       max_priority_fee_per_gas_gwei,
-				 float       max_fee_per_gas_gwei,
-				 int         gaslimit,
-				 string      addr_to,
-				 string      input_data_hex,
-				 const CKey& vchSecret,
-				 string&     txhash_hex) {
+                 int         nonce,
+                 float       max_priority_fee_per_gas_gwei,
+                 float       max_fee_per_gas_gwei,
+                 int         gaslimit,
+                 string      addr_to,
+                 string      input_data_hex,
+                 const CKey& vchSecret,
+                 string&     txhash_hex) {
 	// args as hex
 	string chainid_hex                   = int2hex(chainid);
 	char*  chainid_hexp                  = (char*)(chainid_hex.c_str());
@@ -105,8 +105,8 @@ string MakeTxEvm(int         chainid,
 	char*  input_data_hexp               = (char*)(input_data_hex.c_str());
 	// sign the transaction
 	vchtype txhash = make_evmtx_hash(chainid, nonce, max_priority_fee_per_gas_gwei,
-									 max_fee_per_gas_gwei, gaslimit, addr_to, input_data_hex);
-	char *txhash_cstr;
+	                                 max_fee_per_gas_gwei, gaslimit, addr_to, input_data_hex);
+	char*   txhash_cstr;
 	eth_hex_from_bytes(&txhash_cstr, txhash.data(), 32);
 	txhash_hex = string(txhash_cstr);
 	struct eth_ecdsa_signature sign;
@@ -135,11 +135,11 @@ string MakeTxEvm(int         chainid,
 	eth_rlp_bytes(&rlp1, &s, &siglen);
 	eth_rlp_array_end(&rlp1);
 	{
-		size_t         rlp1len;
-		uint8_t        keccak[32], *rlp1bytes;
+		size_t  rlp1len;
+		uint8_t keccak[32], *rlp1bytes;
 		eth_rlp_to_bytes(&rlp1bytes, &rlp1len, &rlp1);
 		// put EIP-1559 prefix
-		uint8_t  tx_type_prefix            = 0x02;
+		uint8_t  tx_type_prefix          = 0x02;
 		size_t   signed_tx_with_type_len = sizeof(tx_type_prefix) + rlp1len;
 		uint8_t* signed_tx_with_type     = (uint8_t*)malloc(signed_tx_with_type_len);
 		memcpy(signed_tx_with_type, &tx_type_prefix, sizeof(tx_type_prefix));
@@ -149,7 +149,7 @@ string MakeTxEvm(int         chainid,
 		free(rlp1bytes);
 		free(signed_tx_with_type);
 		vchtype txhash(keccak, keccak + 32);
-		char *txhash_cstr;
+		char*   txhash_cstr;
 		eth_hex_from_bytes(&txhash_cstr, txhash.data(), 32);
 		txhash_hex = string(txhash_cstr);
 	}
@@ -160,8 +160,9 @@ string MakeTxEvm(int         chainid,
 	char*  tx_type_prefix_strp = (char*)(tx_type_prefix_str.c_str());
 	int    tx_size             = strlen(txn);
 	int    tx_prefix_size      = strlen(tx_type_prefix_strp);
-	char   signed_tx[tx_size + tx_prefix_size];
+	char*  signed_tx           = new char[tx_size + tx_prefix_size + 1];
 	sprintf(signed_tx, "%s%s", tx_type_prefix_strp, txn);
 	string signed_tx_str(signed_tx, tx_size + tx_prefix_size);
+	delete[] signed_tx;
 	return signed_tx_str;
 }
